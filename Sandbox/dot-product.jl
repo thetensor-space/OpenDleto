@@ -1,3 +1,4 @@
+module TensorSpace
 
 function dot(x,y)
     a=size(x)[1]
@@ -8,3 +9,8 @@ function dot(x,y)
     return b
 end
 
+end # End of module
+
+## HERE ARE SOME TESTS
+
+dot([1,2],[6.5,9])
