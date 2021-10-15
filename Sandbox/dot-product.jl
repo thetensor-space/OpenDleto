@@ -7,7 +7,7 @@ function dot(x,y)
         b += x[i]*y[i]
     end 
     return b
-end
+end# End of dot
 
 end # End of module
 
