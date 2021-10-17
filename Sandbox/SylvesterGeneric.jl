@@ -20,26 +20,27 @@ using LinearAlgebra
 # Make the Left Hand Side (LHS) into a relation matrix
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
-rels = ZeroMatrix(K, a*b*c, a*s+t*b)
-cst = ZeroMatrix(K, a*b*c, 1)
+T=Float64 #Enter the Type for the ring
+rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
+cst = zeros(T, a*b*c, 1)  #zero (of Type T) row vector of length abc
 for i = 1:a
     for j = 1:b
         for k = 1:c
             # Flattend entry of eq (i,j,k)
-            eqIndex = i+a*(j*+b*k)            
+            eqIndex = i+a*(j+b*k)            
 
             # Σ_m X_im A_{mjk}
             for m = 1:s
                 vecX = i+a*m
                 vecA = m+s*(j+b*k)
-                rel[eqIndex, vecX] = A[vecA]
+                rels[eqIndex, vecX] = A[vecA]
             end
 
             # Σ_n B_{ink} Y_{nj}
             for n = 1:t
                 vecY = n+t*j
                 vecB = i+a*(n+t*k)
-                rel[eqIndex, vecY] = B[vecB]
+                rels[eqIndex, vecY] = B[vecB]
             end
 
             # Make constants
@@ -49,16 +50,17 @@ for i = 1:a
 end
 
 # Solve rel*u=cst
-u = Solve(rel, cst)
+u = Solve(rels, cst)
+#u=\(rels, cst) #Another possible solver
 
 # Convert solution to pair of matrices (X,Y)
-X = ZeroMatrix(K, a, s)
+X = zeros(T, a, s)
 for i = 1:a 
     for m = 1:s 
         X[i,m] = u[i+a*m]
     end
 end
-Y = ZeroMatrix(K, t, b)
+Y = zeros(T, t, b)
 for n = 1:t 
     for j = 1:t
         Y[n,j] = u[a*s+(n+t*j)]
