@@ -20,6 +20,7 @@ using LinearAlgebra
 # Make the Left Hand Side (LHS) into a relation matrix
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
+function Sylvester(A,B,C)
 T=Float64 #Enter the Type for the ring
 rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
 cst = zeros(T, a*b*c, 1)  #zero (of Type T) row vector of length abc
@@ -70,6 +71,8 @@ end
 # Sanity check
 # Test that X*A+B*Y=C 
 
+return X,Y #Return as a tuple
+end #end of Sylvester function
 
 ##########################
 # TODO A.1
