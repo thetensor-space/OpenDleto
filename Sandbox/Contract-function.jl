@@ -1,5 +1,7 @@
 module TensorSpace
+
 using LinearAlgebra
+
 function contract(A,B)
 sA=size(A)# A is (I,J,K)
 I=sA[1]
@@ -23,5 +25,7 @@ for l= 1:L
         end#K
     end#J         
 end#L
+return C
+end#End of contract
 
 end #End of module
