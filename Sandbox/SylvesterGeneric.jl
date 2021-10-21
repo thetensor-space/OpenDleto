@@ -21,13 +21,14 @@ using LinearAlgebra
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
 function Sylvester(A,B,C)
-T=Int64 #Enter the Type for the ring/field
+T=Float64 #Enter the Type for the ring/field
 sA=size(A)# A is (I,J,K)
 s=sA[1]
 b=sA[2]
 c=sA[3]
 
 sB=size(B)
+a=sB[1]
 t=sB[2]
 
 rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
