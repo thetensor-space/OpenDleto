@@ -1,4 +1,4 @@
-module TensorSpace
+#module TensorSpace
 A=rand_tensor((3,4,5),'Z')
 
 B=rand_tensor((3,4,5),'Z')
@@ -15,4 +15,4 @@ Y=Sylvester(A,B,C)[2]
 
 
 
-end# End of module
+#end# End of module

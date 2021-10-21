@@ -1,4 +1,4 @@
-module TensorSpace
+#module TensorSpace
 
 using Random #calling random numbers
 
@@ -23,4 +23,4 @@ function rand_tensor(v,F='Z',I=-10:10) #Gives a real or complex length(v)-valenc
     end
 end# End of rand-mat
 
-end# End of module
+#end# End of module
