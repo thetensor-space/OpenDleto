@@ -1,4 +1,4 @@
-module TensorSpace
+#module TensorSpace
 
 using LinearAlgebra
 
@@ -28,4 +28,4 @@ end#L
 return C
 end#End of contract
 
-end #End of module
+#end #End of module
