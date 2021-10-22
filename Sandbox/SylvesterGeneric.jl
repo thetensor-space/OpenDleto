@@ -20,7 +20,7 @@ using LinearAlgebra
 # Make the Left Hand Side (LHS) into a relation matrix
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
-function Sylvester(A,B,C)
+function sylvester(A,B,C)
 T=Float64 #Enter the Type for the ring/field
 sA=size(A)# A is (I,J,K)
 s=sA[1]
