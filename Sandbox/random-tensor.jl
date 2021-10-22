@@ -2,7 +2,7 @@
 
 using Random #calling random numbers
 
-function rand_tensor(v,F='Z',I=-10:10) #Gives a real or complex length(v)-valence tensor, expressed as an array
+function randtensor(v,F='Z',I=-10:10) #Gives a real or complex length(v)-valence tensor, expressed as an array
     #v is a Tuple of positive integers i.e. (1,2,3)
     # F is either the string 'R', 'C', or 'Z'
     #If the ring is the integers, I determines the integers that will populate the random tensor. writing Int will draw randomly from all integers.
