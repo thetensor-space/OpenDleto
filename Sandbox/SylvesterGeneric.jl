@@ -43,18 +43,18 @@ for i = 1:a
             for m = 1:s
                 vecX = i+a*m
                 vecA = m+s*(j+b*k)
-                rels[eqIndex, vecX] = A[vecA]
+                rels[eqIndex, vecX] = flatten(A)[vecA]
             end
 
             # Σ_n B_{ink} Y_{nj}
             for n = 1:t
                 vecY = n+t*j
                 vecB = i+a*(n+t*k)
-                rels[eqIndex, vecY] = B[vecB]
+                rels[eqIndex, vecY] = flatten(B)[vecB]
             end
 
             # Make constants
-            cst = C[i+a*(j+b*k)]
+            cst = flatten(C)[i+a*(j+b*k)]
         end
     end
 end
