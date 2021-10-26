@@ -42,18 +42,18 @@ for i = 1:a
             for m = 1:s
                 vecX = i+a*(m-1)
                 vecA = m+s*((j-1)+b*(k-1))
-                rels[eqIndex, vecX] = flatten(A)[vecA]
+                rels[eqIndex, vecX] = A[vecA] #Julia can flatten arrays naturally
             end
 
             # Σ_n B_{ink} Y_{nj}
             for n = 1:t
                 vecY = n+t*(j-1)
                 vecB = i+a*((n-1)+t*(k-1))
-                rels[eqIndex, vecY] = flatten(B)[vecB]
+                rels[eqIndex, a*s+vecY] = B[vecB]
             end
 
             # Make constants
-            cst = flatten(C)[i+a*((j-1)+b*(k-1))]
+            cst = C[i+a*((j-1)+b*(k-1))]
         end
     end
 end
