@@ -2,7 +2,7 @@
 #
 #    A demonstration of a Sylvester solver.
 # 
-#    Copyright 2021 Amaury Miniño and James B. Wilson.
+#    Copyright 2021 Amaury V. Miniño and James B. Wilson.
 #    Distributed under MIT License.
 #
 
@@ -20,8 +20,7 @@ using LinearAlgebra
 # Make the Left Hand Side (LHS) into a relation matrix
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
-function sylvester(A,B,C)
-T=Float64 #Enter the Type for the ring/field
+function sylvester(A,B,C,T=Float64)
 sA=size(A)# A is (I,J,K)
 s=sA[1]
 b=sA[2]
@@ -37,24 +36,24 @@ for i = 1:a
     for j = 1:b
         for k = 1:c
             # Flattend entry of eq (i,j,k)
-            eqIndex = i+a*(j+b*k)            
+            eqIndex = i+a*((j-1)+b*(k-1))            
 
             # Σ_m X_im A_{mjk}
             for m = 1:s
-                vecX = i+a*m
-                vecA = m+s*(j+b*k)
+                vecX = i+a*(m-1)
+                vecA = m+s*((j-1)+b*(k-1))
                 rels[eqIndex, vecX] = flatten(A)[vecA]
             end
 
             # Σ_n B_{ink} Y_{nj}
             for n = 1:t
-                vecY = n+t*j
-                vecB = i+a*(n+t*k)
+                vecY = n+t*(j-1)
+                vecB = i+a*((n-1)+t*(k-1))
                 rels[eqIndex, vecY] = flatten(B)[vecB]
             end
 
             # Make constants
-            cst = flatten(C)[i+a*(j+b*k)]
+            cst = flatten(C)[i+a*((j-1)+b*(k-1))]
         end
     end
 end
@@ -67,13 +66,13 @@ u = Solve(rels, cst)
 X = zeros(T, a, s)
 for i = 1:a 
     for m = 1:s 
-        X[i,m] = u[i+a*m]
+        X[i,m] = u[i+a*(m-1)]
     end
 end
 Y = zeros(T, t, b)
 for n = 1:t 
     for j = 1:t
-        Y[n,j] = u[a*s+(n+t*j)]
+        Y[n,j] = u[a*s+((n-1)+t*(j-1))]
     end
 end
 

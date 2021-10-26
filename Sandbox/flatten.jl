@@ -1,4 +1,4 @@
-function flatten(A,T) #data of A is of type T, A is an IxJxK tensor 
+function flatten(A,T=Float64) #data of A is of type T, A is an IxJxK tensor 
 s=size(A)
 pA=prod(s) #gives product of the dimensions of A
 flatA=zeros(T,pA)
