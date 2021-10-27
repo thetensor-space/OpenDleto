@@ -7,11 +7,11 @@ function randtensor(v,F='Z') #Gives a real or complex length(v)-valence tensor, 
     # F is either the string 'R', 'C', or 'Z'
     #if typeof(v)=Tuple # I want a check to make sure I get a Tuple of positive integers
     if F==='C' #Complex
-        T=rand(ComplexF8,v)
+        T=rand(ComplexF16,v)
         return T
     
     elseif F==='R' #Real
-        T=rand(Float8,v)
+        T=rand(Float16,v)
         return T
     
     elseif F==='Z' #Integers
