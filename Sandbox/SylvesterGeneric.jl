@@ -31,7 +31,7 @@ a=sB[1]
 t=sB[2]
 
 rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
-cst = zeros(T, a*b*c, 1)  #zero (of Type T) row vector of length abc
+cst = zeros(T, 1,a*b*c)  #zero (of Type T) row vector of length abc
 for i = 1:a
     for j = 1:b
         for k = 1:c
@@ -59,8 +59,8 @@ for i = 1:a
 end
 
 # Solve rel*u=cst
-u = Solve(rels, cst)
-#u=rels\ cst #Another possible solver
+#u = Solve(rels, cst)
+u=rels\ cst #Another possible solver
 
 # Convert solution to pair of matrices (X,Y)
 X = zeros(T, a, s)
