@@ -60,7 +60,7 @@ end
 
 # Solve rel*u=cst
 u = Solve(rels, cst)
-#u=\(rels, cst) #Another possible solver
+#u=rels\ cst #Another possible solver
 
 # Convert solution to pair of matrices (X,Y)
 X = zeros(T, a, s)
