@@ -57,7 +57,7 @@ for i = 1:a
         end
     end
 end
-return cst#, rels
+return rels #cst#, rels
 # Solve rel*u=cst
 #u = Solve(rels, cst)
 #u=rels\ cst #Another possible solver
