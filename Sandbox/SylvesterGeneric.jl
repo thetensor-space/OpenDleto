@@ -57,12 +57,12 @@ for i = 1:a
         end
     end
 end
-return rels #cst#, rels
+#return rels #cst#, rels
 # Solve rel*u=cst
 #u = Solve(rels, cst)
-#u=rels\ cst #Another possible solver
+u=rels\ cst #Another possible solver
 
-#return u
+return u
 # Convert solution to pair of matrices (X,Y)
 #X = zeros(T, a, s)
 #for i = 1:a 
