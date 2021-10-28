@@ -57,29 +57,30 @@ for i = 1:a
         end
     end
 end
-return cst
+return cst#, rels
 # Solve rel*u=cst
 #u = Solve(rels, cst)
-u=rels\ cst #Another possible solver
+#u=rels\ cst #Another possible solver
 
+#return u
 # Convert solution to pair of matrices (X,Y)
-X = zeros(T, a, s)
-for i = 1:a 
-    for m = 1:s 
-        X[i,m] = u[i+a*(m-1)]
-    end
-end
-Y = zeros(T, t, b)
-for n = 1:t 
-    for j = 1:t
-        Y[n,j] = u[a*s+((n-1)+t*(j-1))]
-    end
-end
+#X = zeros(T, a, s)
+#for i = 1:a 
+#    for m = 1:s 
+#        X[i,m] = u[i+a*(m-1)]
+#    end
+#end
+#Y = zeros(T, t, b)
+#for n = 1:t 
+#    for j = 1:t
+#        Y[n,j] = u[a*s+((n-1)+t*(j-1))]
+#    end
+#end
 
 # Sanity check
 # Test that X*A+B*Y=C 
 
-return X,Y #Return as a tuple
+#return X,Y #Return as a tuple
 end #end of Sylvester function
 
 ##########################
