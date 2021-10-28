@@ -21,7 +21,7 @@ tensorcontract!(1,B,IB,'N',Y1,IY1,'N',0,C2,IC2)
 ######################
 C=C1+C2
 
-X=ylvester(A,B,C)[1]
+X=sylvester(A,B,C)[1]
 
 Y=sylvester(A,B,C)[2]
 
