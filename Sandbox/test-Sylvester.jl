@@ -23,7 +23,7 @@ IC2=('a','b','c')
 tensorcontract!(1,B,IB,'N',Y1,IY1,'N',0,C2,IC2)
 ######################
 C=C1+C2
-
+return sylvester(A,B,C,Int8)
 X=sylvester(A,B,C,Int8)[1]
 
 Y=sylvester(A,B,C,Int8)[2]
