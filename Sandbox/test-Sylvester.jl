@@ -1,6 +1,6 @@
 #module TensorSpace
-using TensorOperations
-
+using TensorOperations #To use tensorcontrac
+using GaloisFields #To use finite fields
 #XA
 A=randtensor((3,4,5),'Z')
 IA=('s','b','c')
