@@ -30,8 +30,8 @@ sB=size(B)
 a=sB[1]
 t=sB[2]
 
-rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
-cst = zeros(T, a*b*c,1)  #zero (of Type T) row vector of length abc
+rels = zeros(T, a*b*c, a*s+t*b).//1 #zero (of Type Rational{T}) matrix of abc rows and sa+tb columns
+cst = zeros(T, a*b*c,1).//1  #zero (of Type Ratioonal{T}) row vector of length abc
 for i = 1:a
     for j = 1:b
         for k = 1:c
@@ -62,10 +62,10 @@ end
 #u = Solve(rels, cst)
 u=rels\ cst #Another possible solver
 #typeof(u) need to retain information on type of u
-Tu=Float64
+T
 #return u
 # Convert solution to pair of matrices (X,Y)
-X = zeros(Tu, a, s)
+X = zeros(T, a, s).//1
 for i = 1:a 
     for m = 1:s 
         X[i,m] = u[i+a*(m-1)]
@@ -73,7 +73,7 @@ for i = 1:a
 end
 
 #return X
-Y = zeros(Tu, t, b)
+Y = zeros(T, t, b).//1
 for n = 1:t 
     for j = 1:b
         Y[n,j] = u[a*s+(n+t*(j-1))]
