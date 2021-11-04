@@ -20,7 +20,7 @@ using LinearAlgebra
 # Make the Left Hand Side (LHS) into a relation matrix
 # of abc rows (labled by (i,j,k)) and sa+tb columns 
 # labled by (i,m) disjoint union (n,j)
-function sylvestergalois(A,B,C,T=Float64)
+function sylvestergalois(A,B,C,p,d)
 sA=size(A)
 s=sA[1]
 b=sA[2]
@@ -29,9 +29,8 @@ c=sA[3]
 sB=size(B)
 a=sB[1]
 t=sB[2]
-
-rels = zeros(T, a*b*c, a*s+t*b) #zero (of Type T) matrix of abc rows and sa+tb columns
-cst = zeros(T, a*b*c,1)  #zero (of Type T) row vector of length abc
+rels= galoisrandtensor((a*b*c, a*s+t*b),p,d) # random matrix of abc rows and sa+tb columns
+cst = galoisrandtensor((a*b*c,1),p,d)  #zero (of Type T) row vector of length abc
 for i = 1:a
     for j = 1:b
         for k = 1:c
@@ -57,15 +56,11 @@ for i = 1:a
         end
     end
 end
-#return rels #cst#, rels
+
 # Solve rel*u=cst
-#u = Solve(rels, cst)
 u=rels\ cst #Another possible solver
-#typeof(u) need to retain information on type of u
-Tu=Float64
-#return u
 # Convert solution to pair of matrices (X,Y)
-X = zeros(Tu, a, s)
+X =galoisrandtensor((a,s),p,d)
 for i = 1:a 
     for m = 1:s 
         X[i,m] = u[i+a*(m-1)]
@@ -73,7 +68,7 @@ for i = 1:a
 end
 
 #return X
-Y = zeros(Tu, t, b)
+Y = galoisrandtensor((t,b),p,d)
 for n = 1:t 
     for j = 1:b
         Y[n,j] = u[a*s+(n+t*(j-1))]
