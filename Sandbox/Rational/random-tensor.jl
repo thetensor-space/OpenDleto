@@ -17,6 +17,10 @@ function randtensor(v,F='Z') #Gives a real or complex length(v)-valence tensor, 
     elseif F==='Z' #Integers
         T=rand(Int8,v)
         return T
+
+    elseif F==='Q'
+        T=rand(Int8,v).//1
+        return T
     else
         print("Please specify your field as 'R' (for real), 'C' (for complex), or 'Z' (for integers).")
     end
