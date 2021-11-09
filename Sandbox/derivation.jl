@@ -11,7 +11,7 @@ function der(L)
                 index=i+I*((j-1)+J*(k-1))
                 M[index,i*I:(i+1)*I]= L[1:I,j,k] #X
                 M[index,I^2+j*J:(j+1)*I]=L[i,1:J,k]#Y
-                M[index,I^2+J^2+k*K:(k+1)*K]=L[i,j,1:K]#Z^T, permuting columns for faster runtime
+                M[index,I^2+J^2+k*K:(k+1)*K]=L[i,j,1:K].*(-1)#Z^T, permuting columns for faster runtime
             end
         end
     end
