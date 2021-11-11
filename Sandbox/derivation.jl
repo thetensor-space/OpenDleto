@@ -1,5 +1,8 @@
 using LinearAlgebra
-
+#solving d(u*v)=d(u)*v+u*d(v)
+#ΓZ=XΓ+ΓY^T
+#Where
+#[ΓZ]_{ijk}=ΣΓ_{ijl}Z_{lk} = ΣZ_{il}Γ_{ljk} + ΣΓ_{ilk}Y_{jl} 
 function der(L)
     I=size(L)[1]#X
     J=size(L)[2]#Y
