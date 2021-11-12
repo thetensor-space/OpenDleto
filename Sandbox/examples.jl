@@ -2,6 +2,7 @@
 #############################################
 ## Examples.
 #############################################
+using SparseArrays
 
 ## Flat Genus 2 Indecomposable
 function FlatGenus2(F,d)
@@ -13,3 +14,7 @@ function FlatGenus2(F,d)
     return t
 end 
 
+# Return a tensor with sparse randome values
+function sprandten(F, dims, density)
+    return reshape( sprand(F,prod(dims), density), dims)
+end
