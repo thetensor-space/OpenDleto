@@ -17,9 +17,9 @@ function adj(t)
     F = eltype(t)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     M = zeros(F, (0,a^2+b^2) )
-    for k = axes(t,3)
+    for k = axes(t,1)
         for j = axes(t,2) 
-            for i = axes(t,1)
+            for i = axes(t,3)
                 M = vcat(M,adjRow(t, i,j,k))
             end
         end
@@ -43,19 +43,3 @@ end
 #     end
 #     return M
 # end
-
-#############################################
-## Examples.
-#############################################
-
-## Flat Genus 2 Indecomposable
-function FlatGenus2(F,d)
-    t = zeros(F, (2*d+1,2*d+1,2))
-    for i = 1:d
-        t[i,d+i,1] = 1;   t[d+i,i,1] = -1
-        t[i,d+i+1,2] = 1; t[d+i+1,i,2] = -1
-    end
-    return t
-end 
-
-
