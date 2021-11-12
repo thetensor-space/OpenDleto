@@ -22,9 +22,9 @@ function der(t)
     F = eltype(t)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     M = zeros(F, (0,a^2+b^2+c^2) )
-    for k = axes(t,3)
+    for i = axes(t,1)
         for j = axes(t,2) 
-            for i = axes(t,1)
+            for k = axes(t,3)
                 M = vcat(M,derRow(t, i,j,k))
             end
         end
