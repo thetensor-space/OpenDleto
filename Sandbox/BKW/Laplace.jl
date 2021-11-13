@@ -50,7 +50,7 @@ function MartiniT(xsize, ysize, zsize, width)
   zavg = (zscale(zsize) + zscale(1)) /2 
   z = [zsize,zavg,znorm]
   # builds the tensor
-  t = zeros(Float32, (xsize,ysize,zsize))
+  t = zeros(Complex{Float32}, (xsize,ysize,zsize))
   for i = 1:xsize
     for j = 1:ysize 
       for k = 1:zsize
