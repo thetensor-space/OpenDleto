@@ -117,6 +117,12 @@ end
 function stratify(t)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     u,s,v = svd(der(t))
+    print( "\tFinal singular values ... " )
+    print( string(round( s[(a^2+b^2+c^2)-3], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-2], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-1], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)], digits=4)) * "\n" )
+
     if round( s[(a^2+b^2+c^2)-2], digits=4) < 0.5 
         x, y, z = inflate(u[:,(a^2+b^2+c^2)-2], a,b,c)
         xvecs = eigvecs(x)
@@ -131,6 +137,23 @@ function stratify(t)
     end
 end 
 
+function randomperm(ten)
+    pi1 = randperm(size(ten)[1])
+    pi2 = randperm(size(ten)[2])
+    pi3 = randperm(size(ten)[3])
+
+    ten2 = zeros(eltype(ten),size(ten))
+    for i = 1:size(ten)[1]
+        for j = 1:size(ten)[2]
+            for k = 1:size(ten)[3]
+                for m = 1:size(ten)[3]
+                    ten2[i,j,k] = ten[pi1[i],pi2[j],pi3[k]]
+                end
+            end
+        end
+    end
+    return ten2
+end
 
 function randomize(t,rounds)
     ## 1 randomizedx
@@ -160,7 +183,7 @@ function randomize(t,rounds)
     end
     t = actOut(t,mat)
 
-    return t
+    return randomperm(t)
 end 
 
 
