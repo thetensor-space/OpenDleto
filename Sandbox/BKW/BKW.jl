@@ -2,6 +2,10 @@ using LinearAlgebra
 using SparseArrays
 using Dates
 
+
+include( "Tensor3D.jl")
+include("Laplace.jl")
+
 #
 # Given a 3-tensor r, 
 # Return the matrix whose left nullspace is the flattened Derivation algebra of t
@@ -106,8 +110,8 @@ function matnorm( m)
     return map((x)->norm(x),m)
 end
 
-function matround( m)
-    return map((x)->round(norm(x),digits=4),m)
+function matround( m, dig)
+    return map((x)->round(norm(x),digits=dig),m)
 end
 
 function stratify(t)
@@ -131,6 +135,7 @@ end
 function randomize(t,rounds)
     ## 1 randomizedx
     d = size(t)[1]
+#    mat = rand(Complex{Float16}, (d,d))
     mat = Matrix{Complex{Float16}}(I,d,d)
     for i = 1:rounds
         mat *= randTrans(size(t)[1])
@@ -139,6 +144,7 @@ function randomize(t,rounds)
 
     ## 1 randomizedx
     d = size(t)[2]
+#    mat = rand(Complex{Float16}, (d,d))
     mat = Matrix{Complex{Float16}}(I,d,d)
     for i = 1:rounds
         mat *= randTrans(size(t)[2])
@@ -147,6 +153,7 @@ function randomize(t,rounds)
 
     ## 3 randomized
     d = size(t)[3]
+#    mat = rand(Complex{Float16}, (d,d))
     mat = Matrix{Complex{Float16}}(I,d,d)
     for i = 1:rounds 
         mat *= randTrans(size(t)[3])
@@ -164,14 +171,23 @@ end
 
 
 function test(d,param1, param2)
-    t = MartiniT(d,d,d,param)
-    save3D( "images/plot-"*string(d)*"-org.ply", matround(t))
-    pass, nt, mats = stratify(t)
-    save3D( "images/plot-"*string(d)*"-org-recons.ply", matround(nt))
+    print("Creating original\n")
+    t = MartiniT(d,d,d,param1)
+    print("Saving original\n")
+    save3D( "images/plot-"*string(d)*"-org.ply", matround(t,2))
 
+    print("Startifying original.\n")
+    pass, nt, mats = stratify(t)
+    print("Saving original stratification.\n" )
+    save3D( "images/plot-"*string(d)*"-org-recons.ply", matround(nt,2))
+
+    print( "Randomizing original.\n")
     rt = randomize(t, param2)
-    save3D( "images/plot-"*string(d)*"-rand.ply", matround(rt))
+    print( "Saving randomized version.\n")
+    save3D( "images/plot-"*string(d)*"-rand.ply", matround(rt,2))
+    print( "Stratifying randomized version.\n")
     pass, nrt, mats = stratify(rt)
-    save3D( "images/plot-"*string(d)*"-rand-recons.ply", matround(nrt))
+    print( "Saving stratification of randomized.\n")
+    save3D( "images/plot-"*string(d)*"-rand-recons.ply", matround(nrt,2))
     return pass
 end 
