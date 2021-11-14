@@ -221,17 +221,17 @@ function test(d,param1, param2)
     save( date * "/data/original.jld", "data", t)
     
     print("Startifying original.\n")
-    pass, nt, mats = stratify(t)
+    @time pass, nt, mats = stratify(t)
     print("Saving original stratification.\n" )
     save( date * "/data/original-strat.jld", "data", nt)
 
     print( "Randomizing original.\n")
-    rt = randomize(t, param2)
+    @time rt = randomize(t, param2)
     print( "Saving randomized version.\n")
     save( date * "/data/randomized.jld", "data", rt)
 
     print( "Stratifying randomized version.\n")
-    pass, nrt, mats = stratify(rt)
+    @time pass, nrt, mats = stratify(rt)
     print( "Saving stratification of randomized.\n")
     save( date * "/data/randomized-start.jld", "data", nrt)
 
