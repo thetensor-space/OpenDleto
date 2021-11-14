@@ -208,7 +208,7 @@ function sprandten(F, dims, density)
     return reshape( sprand(F,prod(dims), density), dims)
 end
 
-function test(d,param1, param2)
+function test(d,param1, param2, control=false)
     date = now()
     date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
     mkdir(date)
@@ -220,10 +220,12 @@ function test(d,param1, param2)
     print("Saving original\n")
     save( date * "/data/original.jld", "data", t)
     
-    print("Startifying original.\n")
-    @time pass, nt, mats = stratify(t)
-    print("Saving original stratification.\n" )
-    save( date * "/data/original-strat.jld", "data", nt)
+    if control 
+        print("Startifying original.\n")
+        @time pass, nt, mats = stratify(t)
+        print("Saving original stratification.\n" )
+        save( date * "/data/original-strat.jld", "data", nt)
+    end 
 
     print( "Randomizing original.\n")
     @time rt = randomize(t, param2)
@@ -237,7 +239,9 @@ function test(d,param1, param2)
 
     print( "Rending in 3D...")
     save3D( date * "/images/plot-"*string(d)*"-org.ply", matround(t,3))
-    save3D( date * "/images/plot-"*string(d)*"-org-recons.ply", matround(nt,3))
+    if control
+        save3D( date * "/images/plot-"*string(d)*"-org-recons.ply", matround(nt,3))
+    end 
     save3D( date * "/images/plot-"*string(d)*"-rand.ply", matround(rt,3))
     save3D( date * "/images/plot-"*string(d)*"-rand-recons.ply", matround(nrt,3))
 
