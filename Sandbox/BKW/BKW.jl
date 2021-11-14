@@ -1,6 +1,15 @@
 using LinearAlgebra
 using SparseArrays
 using Dates
+using Random
+#using Basic.FileSystem
+
+### Used to save data
+## Reload using 
+## load("mydata.jld")["data"]
+using Pkg
+Pkg.add("JLD")
+using JLD
 
 
 include( "Tensor3D.jl")
@@ -118,22 +127,29 @@ function stratify(t)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     u,s,v = svd(der(t))
     print( "\tFinal singular values ... " )
-    print( string(round( s[(a^2+b^2+c^2)-3], digits=4) )* ",\t" )
-    print( string(round( s[(a^2+b^2+c^2)-2], digits=4) )* ",\t" )
-    print( string(round( s[(a^2+b^2+c^2)-1], digits=4) )* ",\t" )
-    print( string(round( s[(a^2+b^2+c^2)], digits=4)) * "\n" )
+    print( string(round( s[(a^2+b^2+c^2)-3], digits=5) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-2], digits=5) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-1], digits=5) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)], digits=5)) * "\n" )
 
     if round( s[(a^2+b^2+c^2)-2], digits=4) < 0.5 
         x, y, z = inflate(u[:,(a^2+b^2+c^2)-2], a,b,c)
-        xvecs = eigvecs(x)
-        yvecs = eigvecs(y)
-        zvecs = eigvecs(z)
-        t2 = actLeft(t,transpose(xvecs))
-        t2 = actRight(t,yvecs)
+        xvals,xvecs = eigen(x)
+        yvals,yvecs = eigen(y)
+        zvals,zvecs = eigen(z)
+		# print("\tEigenvalues")
+		# print(xvals)
+		# print("\n")
+		# print(yvals)
+		# print("\n")
+		# print(zvals)
+		# print("\n\n")
+        t2 = actLeft(t,xvecs)
+        t2 = actRight(t2,yvecs)
         t2 = actOut(t2,zvecs)
-        return true, t2, [x,y,z]
+        return true, t2, [x,y,z], [xvals, yvals, zvals]
     else
-        return false, [], []
+        return false, [], [], []
     end
 end 
 
@@ -192,25 +208,38 @@ function sprandten(F, dims, density)
     return reshape( sprand(F,prod(dims), density), dims)
 end
 
-
 function test(d,param1, param2)
-    print("Creating original\n")
-    t = MartiniT(d,d,d,param1)
-    print("Saving original\n")
-    save3D( "images/plot-"*string(d)*"-org.ply", matround(t,2))
+    date = now()
+    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
+    mkdir(date)
+    mkdir( date * "/data")
+    mkdir( date * "/images")
 
+    print("Creating original\n")
+    t = MartiniT(d,d,d,param1)    
+    print("Saving original\n")
+    save( date * "/data/original.jld", "data", t)
+    
     print("Startifying original.\n")
     pass, nt, mats = stratify(t)
     print("Saving original stratification.\n" )
-    save3D( "images/plot-"*string(d)*"-org-recons.ply", matround(nt,2))
+    save( date * "/data/original-strat.jld", "data", nt)
 
     print( "Randomizing original.\n")
     rt = randomize(t, param2)
     print( "Saving randomized version.\n")
-    save3D( "images/plot-"*string(d)*"-rand.ply", matround(rt,2))
+    save( date * "/data/randomized.jld", "data", rt)
+
     print( "Stratifying randomized version.\n")
     pass, nrt, mats = stratify(rt)
     print( "Saving stratification of randomized.\n")
-    save3D( "images/plot-"*string(d)*"-rand-recons.ply", matround(nrt,2))
+    save( date * "/data/randomized-start.jld", "data", nrt)
+
+    print( "Rending in 3D...")
+    save3D( date * "/images/plot-"*string(d)*"-org.ply", matround(t,3))
+    save3D( date * "/images/plot-"*string(d)*"-org-recons.ply", matround(nt,3))
+    save3D( date * "/images/plot-"*string(d)*"-rand.ply", matround(rt,3))
+    save3D( date * "/images/plot-"*string(d)*"-rand-recons.ply", matround(nrt,3))
+
     return pass
 end 

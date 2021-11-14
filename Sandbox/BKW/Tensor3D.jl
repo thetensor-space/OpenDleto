@@ -27,7 +27,7 @@ function printBoxCorner(  x,y,z, val, norm )
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
     # 0 0 1
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*(z+widths[3])-shift[3]) * " " * col * "\n"
-    # 0 1 1e
+    # 0 1 1
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*(y+widths[2])-shift[2]) * " " * rstring(zwidth*(z+widths[3])-shift[3]) * " " * col * "\n"
     # 0 1 0
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*(y+widths[2])-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
@@ -45,17 +45,17 @@ end
 printBoxFace = function( num )
     s = ""
     # 4 verts: 0 1 2 3                 
-    s *= string(4+8*num) * " " * string(0+8*num) * " " * string(1+8*num) * " " * string(2+8*num) * " " * string(3+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(0+8*num) * " " * string(1+8*num) * " " * string(2+8*num) * " " * string(3+8*num) * "\n"
     # 4 verts: 7 6 5 4
-    s *= string(4+8*num) * " " * string(7+8*num) * " " * string(6+8*num) * " " * string(5+8*num) * " " * string(4+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(7+8*num) * " " * string(6+8*num) * " " * string(5+8*num) * " " * string(4+8*num) * "\n"
     # 4 verts: 0 4 5 1
-    s *= string(4+8*num) * " " * string(0+8*num) * " " * string(4+8*num) * " " * string(5+8*num) * " " * string(1+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(0+8*num) * " " * string(4+8*num) * " " * string(5+8*num) * " " * string(1+8*num) * "\n"
     # 4 verts: 1 5 6 2
-    s *= string(4+8*num) * " " * string(1+8*num) * " " * string(5+8*num) * " " * string(6+8*num) * " " * string(2+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(1+8*num) * " " * string(5+8*num) * " " * string(6+8*num) * " " * string(2+8*num) * "\n"
     # 4 verts: 2 6 7 3
-    s *= string(4+8*num) * " " * string(2+8*num) * " " * string(6+8*num) * " " * string(7+8*num) * " " * string(3+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(2+8*num) * " " * string(6+8*num) * " " * string(7+8*num) * " " * string(3+8*num) * "\n"
     # 4 verts: 3 7 4 0
-    s *= string(4+8*num) * " " * string(3+8*num) * " " * string(7+8*num) * " " * string(4+8*num) * " " * string(0+8*num) * "\n"
+    s *= "4 " * string(4+8*num) * " " * string(3+8*num) * " " * string(7+8*num) * " " * string(4+8*num) * " " * string(0+8*num) * "\n"
 
     return s
 end
