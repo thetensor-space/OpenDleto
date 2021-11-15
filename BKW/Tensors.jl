@@ -38,7 +38,7 @@ end
 
 #
 # Given a 3-tensor r, 
-# Return the matrix whose left nullspace is the flattened Derivation algebra of t
+# Return the matrix whose left nullspace is the flattened adjoint algebra of t
 #
 function adj(t)
     F = eltype(t)
@@ -62,6 +62,44 @@ function adj(t)
     return reshape( M, (step,a*b*c) )
 end 
 
+#
+# Given a 3-tensor r, 
+# Return the matrix whose left nullspace is the flattened centroid algebra of t
+#
+function cent(t)
+    F = eltype(t)
+    a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
+    step = a^2+b^2+c^2;
+    M = zeros(F, 2*a*b*c*step )
+    # Make ΣZ_{il}Γ_{ljk} = ΣΓ_{ilk}Y_{jl}
+    for i = axes(t,1)
+        for j = axes(t,2) 
+            for k = axes(t,3)
+                row = i-1+a*((j-1)+b*(k-1))
+                # ΣZ_{il}Γ_{ljk}
+                copyto!(M, step*row+a*(i-1)+1, t[1:a,j,k], 1)
+                # ΣΓ_{ilk}Y_{jl}
+                copyto!(M, step*row+a^2+b*(j-1)+1, -t[i,1:b,k], 1)
+                # # -ΣΓ_{ijl}Z_{lk}
+                # copyto!(M, step*row+ a^2+b^2+c*(k-1)+1, -t[i,j,1:c], 1)
+                # #M = vcat(M,derRow(t, i,j,k))
+            end
+        end
+    end
+    # Make ΣZ_{il}Γ_{ljk} = ΣΓ_{ijl}Z_{lk}
+    for i = axes(t,1)
+        for j = axes(t,2) 
+            for k = axes(t,3)
+                row = a*b*c+i-1+a*((j-1)+b*(k-1))
+                # ΣZ_{il}Γ_{ljk}
+                copyto!(M, step*row+a*(i-1)+1, t[1:a,j,k], 1)
+                # # -ΣΓ_{ijl}Z_{lk}
+                copyto!(M, step*row+ a^2+b^2+c*(k-1)+1, -t[i,j,1:c], 1)                
+            end
+        end
+    end
+    return reshape( M, (step,2*a*b*c) )
+end 
 
 #
 # Given a flattened triple (a^2,b^2,c^2) matrices,
@@ -162,15 +200,15 @@ function stratify(t, gap=2)
     signal = (a^2+b^2+c^2)-2
     if round( s[signal], digits=4) < gap 
         x, y, z = inflate(u[:,signal], a,b,c)
-        xvals,xvecs = eigen(x)
-        yvals,yvecs = eigen(y)
-        zvals,zvecs = eigen(z)
+        xvecs = eigvecs(x)
+        yvecs = eigvecs(y)
+        zvecs = eigvecs(z)
         t2 = actLeft(t,xvecs)
         t2 = actRight(t2,yvecs)
         t2 = actOut(t2,zvecs)
-        return true, t2, [x,y,z], [xvals, yvals, zvals]
+        return true, t2, [x,y,z]
     else
-        return false, [], [], []
+        return false, [], []
     end
 end 
 
@@ -191,12 +229,41 @@ function block12(t, gap=2)
     signal = (a^2+b^2)-1
     if round( s[signal], digits=4) < gap 
         x, y = inflate12(u[:,signal], a,b)
-        xvals,xvecs = eigen(x)
-        yvals,yvecs = eigen(y)
+        xvecs = eigvecs(x)
+        yvecs = eigvecs(y)
         t2 = actLeft(t,xvecs)
         t2 = actRight(t2,yvecs)
-        return true, t2, [x,y], [xvals, yvals]
+        return true, t2, [x,y]
     else
-        return false, [], [], []
+        return false, [], []
+    end
+end 
+
+#
+# Blaock 12: given a tensor t and an optional spectral gap
+# Detect if a there is a block decomposition on the 12-face
+# and change the basis to match.
+#
+function block123(t, gap=2)
+    a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
+    u,s,v = svd(cent(t))
+    print( "\tFinal singular values ... " )
+    print( string(round( s[(a^2+b^2+c^2)-3], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-2], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)-1], digits=4) )* ",\t" )
+    print( string(round( s[(a^2+b^2+c^2)], digits=4)) * "\n" )
+
+    signal = (a^2+b^2+c^2)-1
+    if round( s[signal], digits=4) < gap 
+        x, y, z = inflate(u[:,signal], a,b, c)
+        xvecs = eigvecs(x)
+        yvecs = eigvecs(y)
+        zvecs = eigvecs(z)
+        t2 = actLeft(t,xvecs)
+        t2 = actRight(t2,yvecs)
+        t2 = actOut(t2,zvecs)
+        return true, t2, [x,y,z]
+    else
+        return false, [], []
     end
 end 

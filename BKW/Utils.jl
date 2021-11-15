@@ -152,3 +152,20 @@ function makeSplit12( dims1, dims2, e )
     return t
 end
 
+
+#
+# Make a 3-tensor that has blocks on its 12-face.
+#
+function makeSplit123( dims1, dims2, dims3 )
+    t = zeros(Complex{Float16}, dims1[length(dims1)], dims2[length(dims2)], dims3[length(dims3)])
+    for d = 1:(min(length(dims1),length(dims2),length(dims3))-1)
+        for i = (dims1[d]+1):dims1[d+1]
+            for j = (dims2[d]+1):dims2[d+1]
+                for k = (dims3[d]+1):dims3[d+1]
+                    t[i,j,k] = complex(rand(-3:3)) # rand(Float16))
+                end
+            end
+        end
+    end
+    return t
+end
