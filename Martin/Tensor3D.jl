@@ -27,7 +27,7 @@ function printBoxCorner(  x,y,z, val, norm )
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
     # 0 0 1
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*(z+widths[3])-shift[3]) * " " * col * "\n"
-    # 0 1 1e
+    # 0 1 1
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*(y+widths[2])-shift[2]) * " " * rstring(zwidth*(z+widths[3])-shift[3]) * " " * col * "\n"
     # 0 1 0
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*(y+widths[2])-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
@@ -63,6 +63,7 @@ end
 
 function print3D(t)
 #    norm = round(max( abs(maximum(t)), abs(minimum(t))), digits=4)  ## could be more intellegent but I wont be
+# this is safer
 	norm =0
     for i = axes(t,1)
         for j = axes(t,2)

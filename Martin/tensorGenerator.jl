@@ -91,9 +91,9 @@ end
 # width measure the thickness of the curve
 function generateCurveTensor(x, y, z, width)      
 	# normalize the x, y, z
-	nx = getnormalization(x)  
-	ny = getnormalization(y)  
-	nz = getnormalization(z)
+	nx = getNormalizationInfo(x)  
+	ny = getNormalizationInfo(y)  
+	nz = getNormalizationInfo(z)
 	nn = [nx,ny,nz]
 	
 	# builds the tensor
