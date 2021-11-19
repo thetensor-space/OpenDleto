@@ -173,9 +173,8 @@ function runCurvyTests()
 end
 
 
-
-function runCubicTests()
-
+# produce some cubic curves tensors
+function runCubicCurveTests()
 	n=15
 
 	index = -n:n
@@ -200,6 +199,16 @@ function runCubicTests()
 	fifthCurveTensorNoise = generateCurveTensor(index,index3,index5,2.5)
 	curvificationTest(fifthCurveTensorNoise,90,"fifthCurveTensorNoise",100)
 
+ end
+
+# produce some cubic surfaces tensors
+function runCubicSurfaceTests()
+	n=15
+
+	index = -n:n
+	index3 = cube.(index)
+	index5 = fifth.(index)
+
 
 	cubicSurfaceTensor = generateSurfaceTensor(index,index,index3,3)
 	stratificationTest(cubicSurfaceTensor,90,"cubicSurfaceTensor",100)
@@ -218,7 +227,6 @@ function runCubicTests()
 
 	fifthSurfaceTensorNoise = generateSurfaceTensor(index,index3,index5,10)
 	stratificationTest(fifthSurfaceTensorNoise,90,"fifthSurfaceTensorNoise",100)
-
 end
 
 function runTests()

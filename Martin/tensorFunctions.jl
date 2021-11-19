@@ -146,7 +146,7 @@ function buildAdjoint23Matrix(t)
 end 
 
 
-#
+
 # Given a flattened triple (a^2,b^2,c^2) matrices,
 # Return them as a triple of matrices
 #

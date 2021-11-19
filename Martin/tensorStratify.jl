@@ -132,6 +132,7 @@ function stratificationTest(t,rounds,filename,ratio)
 end
 
 
+#changes names
 function curvificationTest(t,rounds,filename,ratio)
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))

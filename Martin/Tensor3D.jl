@@ -114,7 +114,7 @@ function print3D(t,ratio)
     return ply, raw
 end 
 
-
+#add a raw output
 function save3D(t, nameply,nameraw,ratio)
 	ply, raw = print3D(t,ratio)
     fileply = open(nameply, "w")
