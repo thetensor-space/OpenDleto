@@ -93,7 +93,7 @@ end
 ###############################################################
 # test for stratification
 
-function stratificationTest(t,rounds)
+function stratificationTest(t,rounds,filename,ratio)
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
     mkdir(date)
@@ -121,16 +121,18 @@ function stratificationTest(t,rounds)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 
     print( "Generating images\n")
-    save3D( date * "/images/plot-org.ply", t )
-    save3D( date * "/images/plot-org-recons.ply", st)
-    save3D( date * "/images/plot-rand.ply", rt)
-    save3D( date * "/images/plot-rand-recons.ply", srt)
+    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio)
+    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio)
+    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio)
+    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10)
+    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100)
+    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio)
 
 	return true
 end
 
 
-function curvificationTest(t,rounds)
+function curvificationTest(t,rounds,filename,ratio)
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
     mkdir(date)
@@ -158,10 +160,12 @@ function curvificationTest(t,rounds)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 
     print( "Generating images\n")
-    save3D( date * "/images/plot-org.ply", t )
-    save3D( date * "/images/plot-org-recons.ply", st)
-    save3D( date * "/images/plot-rand.ply", rt)
-    save3D( date * "/images/plot-rand-recons.ply", srt)
+    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat",ratio  )
+    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio)
+    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio)
+    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand.dat10",ratio/10)
+    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand.dat100",ratio/100)
+    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio)
 
 	return true
 end
