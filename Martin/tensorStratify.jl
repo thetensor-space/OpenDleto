@@ -21,6 +21,7 @@ include("Tensor3D.jl")
 
 
 const VERBOSE = false
+const CONTROL = false
 
 # take a matrix of eigenvectors and break it into "real eigenvectors" 
 # some mess about normalization....
@@ -116,18 +117,20 @@ function stratificationTest(t,rounds,filename,ratio)
     print("Saving original\n")
     save( date * "/data/original.jld", "data", t)
 
-    print("Startifying original.\n")
-    @time st, matrices, derivation, singularValues, singularVectors  = stratify(t,10)
-    print("Saving original stratification.\n" )
-    save( date * "/data/original-strat.jld", "data", st)
-    save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
+    if CONTROL
+        print("Startifying original.\n")
+        @time st, matrices, derivation, singularValues, singularVectors  = stratify(t,10)
+        print("Saving original stratification.\n" )
+        save( date * "/data/original-strat.jld", "data", st)
+        save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
+    end
 
     print( "Randomizing original.\n")
     rt,rm = tensorRandomize(t, rounds)
     print( "Saving randomized version.\n")
     save( date * "/data/randomized.jld", "data", rt)
 
-    print( "Stratifying randomized version.\n")
+    print( "Stratifying randomized version, this may take a while....\n")
     @time srt, matrices, derivation, singularValues, singularVectors= stratify(rt,10)
     print( "Saving stratification of randomized.\n")
     save( date * "/data/randomized-start.jld", "data", srt)
