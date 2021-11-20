@@ -5,9 +5,9 @@
 ########################################################################
 
 
-function mycolor( val, norm )
+function mycolor( val, norm ,factor)
     d = 0.5
-    n = abs(val)/norm 
+    n = sqrt(abs(val)/norm) * factor
     #n = round(d*n, digits=4)
     #n = 0.5
     return "255 0 0", [d*n,d*n,d*n], [n,n,n]
@@ -18,11 +18,11 @@ function rstring(x)
     return string(round(x, digits=4))
 end
 
-function printBoxCorner(  x,y,z, val, norm )
+function printBoxCorner(  x,y,z, val, norm,factor )
     xwidth = 1; ywidth = 1; zwidth = 1;
 
     s = ""
-    col, shift, widths = mycolor(val, norm)
+    col, shift, widths = mycolor(val, norm,factor)
     # 0 0 0
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
     # 0 0 1
@@ -61,14 +61,14 @@ printBoxFace = function( num )
 end
 
 
-function print3D(t,ratio)
+function print3D(t,ratio,factor)
 #    norm = round(max( abs(maximum(t)), abs(minimum(t))), digits=4)  ## could be more intellegent but I wont be
 # this is safer
 	norm =0
     for i = axes(t,1)
         for j = axes(t,2)
             for k = axes(t,3)
-                val = round(abs(t[i,j,k]),digits=3)
+                val = abs(t[i,j,k])
                 if (val > norm) 
 					norm = val
                 end
@@ -84,9 +84,9 @@ function print3D(t,ratio)
     for i = axes(t,1)
         for j = axes(t,2)
             for k = axes(t,3)
-                val = round(abs(t[i,j,k]),digits=3)
+                val = abs(t[i,j,k])
                 if (val > norm/ ratio) 
-                    verts *= printBoxCorner(i,j,k, val, norm)
+                    verts *= printBoxCorner(i,j,k, val, norm,factor)
                     faces *= printBoxFace(count)
 					raw *= string(i) * " " * string(j) * " " * string(k) * " 0 " * string(trunc(Int,ratio *val/norm )) * "\n"
                     count += 1
@@ -115,8 +115,9 @@ function print3D(t,ratio)
 end 
 
 #add a raw output
-function save3D(t, nameply,nameraw,ratio)
-	ply, raw = print3D(t,ratio)
+# factors makes cubes in the output larger
+function save3D(t, nameply,nameraw,ratio,factor)
+	ply, raw = print3D(t,ratio,factor)
     fileply = open(nameply, "w")
     write(fileply, ply)
     close(fileply)

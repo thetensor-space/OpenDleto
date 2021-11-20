@@ -17,7 +17,7 @@ using Random
 
 # random number generator with values -1 to 1
 function randomNumber()
-  return rand(-1000:1000) * 0.0001;
+  return rand(-1000:1000) * 0.001;
 end 
 
 
