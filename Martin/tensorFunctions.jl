@@ -12,9 +12,9 @@ using SparseArrays
 using Dates
 using Random
 
-using Pkg
-Pkg.add("JLD")
-using JLD
+#using Pkg
+#Pkg.add("JLD")
+#using JLD
 
 #
 # Given a 3-tensor t, 
