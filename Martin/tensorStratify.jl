@@ -68,12 +68,17 @@ function transofromTensorByDerivation(t,M,offset,toprint)
 	print("\n\t Eignevalues Zmatrix\n\t\t")
 	print(zvals)
 	print("\n")
+	
+	realxvecs= realEigenVectors(xvecs)
+	realyvecs= realEigenVectors(yvecs)
+	realzvecs= realEigenVectors(zvecs)
 
-	t2 = actFirst(t,realEigenVectors(xvecs))
-	t2 = actSecond(t2,realEigenVectors(yvecs))
-	t2 = actThird(t2,realEigenVectors(zvecs))
+	t2 = actFirst(t,realxvecs)
+	t2 = actSecond(t2,realyvecs)
+	t2 = actThird(t2,realzvecs)
 
-	return t2, [xvecs, yvecs, zvecs], [x,y,z], s, u
+#	return t2, [xvecs, yvecs, zvecs], [x,y,z], s, u
+	return t2, [realxvecs, realyvecs, realzvecs], [x,y,z], s, u
 end 
 
 
@@ -96,6 +101,9 @@ end
 function stratificationTest(t,rounds,filename,ratio)
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
+
+    print("Working on " * filename * "    dir: " * date *"\n")
+
     mkdir(date)
     mkdir( date * "/data")
     mkdir( date * "/images")
@@ -110,7 +118,7 @@ function stratificationTest(t,rounds,filename,ratio)
     save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
 
     print( "Randomizing original.\n")
-    @time rt = tensorRandomize(t, rounds)
+    rt,rm = tensorRandomize(t, rounds)
     print( "Saving randomized version.\n")
     save( date * "/data/randomized.jld", "data", rt)
 
@@ -119,14 +127,27 @@ function stratificationTest(t,rounds,filename,ratio)
     print( "Saving stratification of randomized.\n")
     save( date * "/data/randomized-start.jld", "data", srt)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
+	
+    print( "Product of the X matrices\n")
+	display( round.(rm[1]*matrices[1], digits=3) )
+    print( "\n")
+
+    print( "Product of the Y matrices\n")
+	display( round.(rm[2]*matrices[2], digits=3) )
+    print( "\n")
+
+    print( "Product of the Z matrices\n")
+	display( round.(rm[3]*matrices[3], digits=3) )
+    print( "\n")
+
 
     print( "Generating images\n")
-    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio)
-    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio)
-    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio)
-    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10)
-    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100)
-    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio)
+    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio,1)
+    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
+    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
+    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)
+    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio,2)
 
 	return true
 end
@@ -136,6 +157,9 @@ end
 function curvificationTest(t,rounds,filename,ratio)
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
+
+    print("Working on " * filename * "    dir: " * date *"\n")
+
     mkdir(date)
     mkdir( date * "/data")
     mkdir( date * "/images")
@@ -150,7 +174,7 @@ function curvificationTest(t,rounds,filename,ratio)
     save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
 
     print( "Randomizing original.\n")
-    @time rt = tensorRandomize(t, rounds)
+    rt, rm = tensorRandomize(t, rounds)
     print( "Saving randomized version.\n")
     save( date * "/data/randomized.jld", "data", rt)
 
@@ -160,13 +184,26 @@ function curvificationTest(t,rounds,filename,ratio)
     save( date * "/data/randomized-start.jld", "data", srt)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 
+    print( "Product of the X matrices\n")
+	display( round.(rm[1]*matrices[1], digits=3) )
+    print( "\n")
+
+    print( "Product of the Y matrices\n")
+	display( round.(rm[2]*matrices[2], digits=3) )
+    print( "\n")
+
+    print( "Product of the Z matrices\n")
+	display( round.(rm[3]*matrices[3], digits=3) )
+    print( "\n")
+
+
     print( "Generating images\n")
-    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat",ratio  )
-    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio)
-    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio)
-    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand.dat10",ratio/10)
-    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand.dat100",ratio/100)
-    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio)
+    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat",ratio,1  )
+    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
+    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
+    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)
+    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio,2)
 
 	return true
 end
