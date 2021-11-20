@@ -132,7 +132,7 @@ function stratificationTest(t,rounds,filename,ratio)
     save( date * "/data/randomized-start.jld", "data", srt)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 	
-    if verbose
+    if VERBOSE
         print( "Product of the X matrices\n")
         display( round.(rm[1]*matrices[1], digits=3) )
         print( "\n")
