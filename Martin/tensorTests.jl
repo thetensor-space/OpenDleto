@@ -5,7 +5,42 @@ include("tensorGenerator.jl")
 
 square(x) = x^2
 cube(x)=x^3
+fifth(x)=x^5
 
+function runDiagonalTest()
+	m = zeros(30,7)
+	for n=5:20
+
+		index= 1:n
+		m[n,1] = n
+
+		dTensor = generateCurveTensor(index,index,index,0.1)
+		t= @timed curvificationTest(dTensor,50,"DiagonalTensor-" * string(n),1000)
+		m[n,2] =t[2]
+
+		dTensorN = generateCurveTensor(index,index,index,1)
+		t= @timed curvificationTest(dTensorN,50,"DiagonalTensorNoise-" * string(n),1000)
+		m[n,3] =t[2]
+		
+		dTensorLN = generateCurveTensor(index,index,index,2)
+		t= @timed curvificationTest(dTensorLN,50,"DiagonalTensorLargeNoise-" * string(n),1000)
+		m[n,4] =t[2]
+
+		sTensor = generateSurfaceTensor(index,index,index,0.1)
+		t= @timed stratificationTest(sTensor,50,"SurfaceTensor-" * string(n),1000)
+		m[n,5] =t[2]
+
+		sTensorN = generateSurfaceTensor(index,index,index,1)
+		t= @timed stratificationTest(sTensorN,50,"SurfaceTensorNoise-" * string(n),1000)
+		m[n,6] =t[2]
+
+		sTensorLN = generateSurfaceTensor(index,index,index,2)
+		t= @timed stratificationTest(sTensorLN,50,"SurfaceTensorLargeNoise-" * string(n),1000)
+		m[n,7] =t[2]
+
+	end
+	return m
+end
 
 function runBlockTests()
 	#Blocky Tests
@@ -15,40 +50,40 @@ function runBlockTests()
 	blockvectorZ = [1,1,1, 2,2,2,2, 3,3,3,3,3,3, 4,4,4,4,4,4, 5,5,5,5]
 
 
-#	blockvectorX = [1,1,1,1,1,1,1, 2,2,2,2, 3,3,3]
-#	blockvectorY = [1,1,1,1, 2,2,2,2,2,2, 3,3,3,3]
-#	blockvectorZ = [1,1,1, 2,2,2,2, 3,3,3,3]
+#	blockvectorX = [1,1,1,1,1,1,1,2,2,2,2,3,3,3]
+#	blockvectorY = [1,1,1,1,2,2,2,2,2,2,3,3,3,3]
+#	blockvectorZ = [1,1,1,2,2,2,2,3,3,3,3]
 	
 	#simple block diagonal tensor
     print( "\n\nBlock Digonal Small Noise...\n" )
 	blockDiagonalTensor = generateCurveTensor(blockvectorX,blockvectorY,blockvectorZ,0.5)
-	curvificationTest(blockDiagonalTensor,50)
+	curvificationTest(blockDiagonalTensor,100,"blockDiagonalTensor",1000)
 
 	#block diagonal tensor plus noise
     print( "\n\nBlock Digonal Meduim Noise...\n" )
 	blockDiagonalTensorNoise = generateCurveTensor(blockvectorX,blockvectorY,blockvectorZ,3)
-	curvificationTest(blockDiagonalTensorNoise,50)
+	curvificationTest(blockDiagonalTensorNoise,100,"blockDiagonalTensorNoise",1000)
 
 	#block diagonal tensor plus noise
     print( "\n\nBlock Digonal Large Noise...\n" )
 	blockDiagonalTensorLargeNoise = generateCurveTensor(blockvectorX,blockvectorY,blockvectorZ,5)
-	curvificationTest(blockDiagonalTensorLargeNoise,50)
+	curvificationTest(blockDiagonalTensorLargeNoise,100,"blockDiagonalTensorLargeNoise",1000)
 
 
 	#block planner tensor
     print( "\n\nBlock Plannar Small Noise...\n" )
 	blockPlannarTensor = generateSurfaceTensor(blockvectorX,blockvectorY,blockvectorZ,1)
-	stratificationTest(blockPlannarTensor,50)
+	stratificationTest(blockPlannarTensor,100,"blockPlannarTensor",1000)
 
 	#block planner tensor noise
 	print( "\n\nBlock Pannar Medium Noise...\n" )
 	blockPlannarTensorNoise = generateSurfaceTensor(blockvectorX,blockvectorY,blockvectorZ,20)
-	stratificationTest(blockPlannarTensorNoise,50)
+	stratificationTest(blockPlannarTensorNoise,100,"blockPlannarTensorNoise",1000)
 
 	#block planner tensor noise
 	print( "\n\nBlock Pannar Large Noise...\n" )
 	blockPlannarTensorLargeNoise = generateSurfaceTensor(blockvectorX,blockvectorY,blockvectorZ,30)
-	stratificationTest(blockPlannarTensorLargeNoise,50)
+	stratificationTest(blockPlannarTensorLargeNoise,100,"blockPlannarTensorLargeNoise",1000)
 end
 
 
@@ -62,33 +97,33 @@ function runSmoothTests()
 	# diagonal line tensor small noise
     print( "\n\nLine Small Noise...\n" )
 	lineTensor = generateCurveTensor(indexX,indexY,indexZ,1)
-	curvificationTest(lineTensor,70)
+	curvificationTest(lineTensor,150,"lineTensor",1000)
 
 	# diagonal line tensor big noise
     print( "\n\nLine Medium Noise...\n" )
 	lineTensorNoise = generateCurveTensor(indexX,indexY,indexZ, 2)
-	curvificationTest(lineTensorNoise,70)
+	curvificationTest(lineTensorNoise,150,"lineTensorNoise",1000)
 
 	# diagonal line tensor big noise
     print( "\n\nLine Large Noise...\n" )
 	lineTensorLargeNoise = generateCurveTensor(indexX,indexY,indexZ, 3)
-	curvificationTest(lineTensorLargeNoise,70)
+	curvificationTest(lineTensorLargeNoise,150,"lineTensorLargeNoise",1000)
 
 
 	# plane tensor small noise
     print( "\n\nPlane Small Noise...\n" )
 	planeTensor = generateSurfaceTensor(indexX,indexY,indexZ,3)
-	stratificationTest(planeTensor,70)
+	stratificationTest(planeTensor,150,"planeTensor",1000)
 
 	# plane tensor big noise
     print( "\n\nPlane Medium Noise...\n" )
 	planeTensorNoise = generateSurfaceTensor(indexX,indexY,indexZ,10)
-	stratificationTest(planeTensorNoise,70)
+	stratificationTest(planeTensorNoise,150,"planeTensorNoise",1000)
 
 	# plane tensor big noise
     print( "\n\nPlane Large Noise...\n" )
 	planeTensorLargeNoise = generateSurfaceTensor(indexX,indexY,indexZ,25)
-	stratificationTest(planeTensorLargeNoise,70)
+	stratificationTest(planeTensorLargeNoise,150,"planeTensorLargeNoise",1000)
 end
 
 
@@ -96,9 +131,9 @@ end
 
 function runCurvyTests()
 	#smooth tests
-	indexX = 10:50
-	indexY = 20:50
-	indexZ = 15:30
+	indexX = 1:40
+	indexY = 6:30
+	indexZ = 11:30
 	indexX2= square.(indexX)
 	indexX3= cube.(indexX)
 	indexY2= square.(indexY)
@@ -109,32 +144,89 @@ function runCurvyTests()
 	# diagonal curve tensor small noise
     print( "\n\nCurve Small Noise...\n" )
 	curveTensor = generateCurveTensor(indexX,indexY2,indexZ3,2)
-	curvificationTest(curveTensor,90)
+	curvificationTest(curveTensor,90,"curveTensor",100)
 
 	# diagonal curbe tensor big noise
     print( "\n\nCurve Medium Noise...\n" )
 	curveTensorNoise = generateCurveTensor(indexX,indexY2,indexZ3, 3)
-	curvificationTest(curveTensorNoise,90)
+	curvificationTest(curveTensorNoise,90,"curveTensorNoise",100)
 
 	# diagonal curbe tensor big noise
     print( "\n\nCurve Large Noise...\n" )
 	curveTensorLargeNoise = generateCurveTensor(indexX,indexY2,indexZ3, 4)
-	curvificationTest(curveTensorLargeNoise,90)
+	curvificationTest(curveTensorLargeNoise,90,"curveTensorLargeNoise",100)
 
 	# surface tensor small noise
     print( "\n\nSurface Small Noise...\n" )
 	surfaceTensor = generateSurfaceTensor(indexX,indexY2,indexZ3,3)
-	stratificationTest(surfaceTensor,90)
+	stratificationTest(surfaceTensor,90,"surfaceTensor",100)
 
 	# surface tensor big noise
     print( "\n\nSurface Medium Noise...\n" )
 	surfaceTensorNoise = generateSurfaceTensor(indexX,indexY2,indexZ3,10)
-	stratificationTest(surfaceTensorNoise,90)
+	stratificationTest(surfaceTensorNoise,90,"surfaceTensorNoise",100)
 
 	# surface tensor big noise
     print( "\n\nSurface Large Noise...\n" )
 	surfaceTensorLargeNoise = generateSurfaceTensor(indexX,indexY2,indexZ3,20)
-	stratificationTest(surfaceTensorLargeNoise,90)
+	stratificationTest(surfaceTensorLargeNoise,90,"surfaceTensorLargeNoise",100)
+end
+
+
+# produce some cubic curves tensors
+function runCubicCurveTests()
+	n=15
+
+	index = -n:n
+	index3 = cube.(index)
+	index5 = fifth.(index)
+
+	cubicCurveTensor = generateCurveTensor(index,index,index3,1.5)
+	curvificationTest(cubicCurveTensor,90,"cubicCurveTensor",100)
+
+	cubicCurveTensorNoise = generateCurveTensor(index,index,index3,2.5)
+	curvificationTest(cubicCurveTensorNoise,90,"cubicCurveTensorNoise",100)
+
+	cubicCurveDTensor = generateCurveTensor(index,index3,index3,1.5)
+	curvificationTest(cubicCurveDTensor,90,"cubicDCurveTensor",100)
+
+	cubicCurveDTensorNoise = generateCurveTensor(index,index3,index3,2.5)
+	curvificationTest(cubicCurveDTensorNoise,90,"cubicDCurveTensorNoise",100)
+
+	fifthCurveTensor = generateCurveTensor(index,index3,index5,1.5)
+	curvificationTest(fifthCurveTensor,90,"fifthCurveTensor",100)
+
+	fifthCurveTensorNoise = generateCurveTensor(index,index3,index5,2.5)
+	curvificationTest(fifthCurveTensorNoise,90,"fifthCurveTensorNoise",100)
+
+ end
+
+# produce some cubic surfaces tensors
+function runCubicSurfaceTests()
+	n=15
+
+	index = -n:n
+	index3 = cube.(index)
+	index5 = fifth.(index)
+
+
+	cubicSurfaceTensor = generateSurfaceTensor(index,index,index3,3)
+	stratificationTest(cubicSurfaceTensor,90,"cubicSurfaceTensor",100)
+
+	cubicSurfaceTensorNoise = generateSurfaceTensor(index,index,index3,10)
+	stratificationTest(cubicSurfaceTensorNoise,90,"cubicSurfaceTensorNoise",100)
+
+	cubicSurfaceDTensor = generateSurfaceTensor(index,index3,index3,3)
+	stratificationTest(cubicSurfaceDTensor,90,"cubicSurfaceDTensor",100)
+
+	cubicSurfaceDTensorNoise = generateSurfaceTensor(index,index3,index3,10)
+	stratificationTest(cubicSurfaceDTensorNoise,90,"cubicSurfaceDTensorNoise",100)
+
+	fifthSurfaceTensor = generateSurfaceTensor(index,index3,index5,3)
+	stratificationTest(fifthSurfaceTensor,90,"fifthSurfaceTensor",100)
+
+	fifthSurfaceTensorNoise = generateSurfaceTensor(index,index3,index5,10)
+	stratificationTest(fifthSurfaceTensorNoise,90,"fifthSurfaceTensorNoise",100)
 end
 
 function runTests()
