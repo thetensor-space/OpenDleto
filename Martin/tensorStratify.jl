@@ -132,18 +132,19 @@ function stratificationTest(t,rounds,filename,ratio)
     save( date * "/data/randomized-start.jld", "data", srt)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 	
-    print( "Product of the X matrices\n")
-	display( round.(rm[1]*matrices[1], digits=3) )
-    print( "\n")
+    if verbose
+        print( "Product of the X matrices\n")
+        display( round.(rm[1]*matrices[1], digits=3) )
+        print( "\n")
 
-    print( "Product of the Y matrices\n")
-	display( round.(rm[2]*matrices[2], digits=3) )
-    print( "\n")
+        print( "Product of the Y matrices\n")
+        display( round.(rm[2]*matrices[2], digits=3) )
+        print( "\n")
 
-    print( "Product of the Z matrices\n")
-	display( round.(rm[3]*matrices[3], digits=3) )
-    print( "\n")
-
+        print( "Product of the Z matrices\n")
+        display( round.(rm[3]*matrices[3], digits=3) )
+        print( "\n")
+    end
 
     print( "Generating images\n")
     save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio,1)
