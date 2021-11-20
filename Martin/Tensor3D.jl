@@ -61,7 +61,7 @@ printBoxFace = function( num )
 end
 
 
-function print3D(t)
+function print3D(t,ratio)
 #    norm = round(max( abs(maximum(t)), abs(minimum(t))), digits=4)  ## could be more intellegent but I wont be
 # this is safer
 	norm =0
@@ -79,42 +79,48 @@ function print3D(t)
 
     verts = ""
     faces = ""
+	raw = "x y z meta size\n"
     count = 0
     for i = axes(t,1)
         for j = axes(t,2)
             for k = axes(t,3)
                 val = round(abs(t[i,j,k]),digits=3)
-                if (val > 0.0101* norm) 
-                    count += 1
+                if (val > norm/ ratio) 
                     verts *= printBoxCorner(i,j,k, val, norm)
-                    faces *= printBoxFace(count-1)
+                    faces *= printBoxFace(count)
+					raw *= string(i) * " " * string(j) * " " * string(k) * " 0 " * string(trunc(Int,ratio *val/norm )) * "\n"
+                    count += 1
                 end
             end 
         end 
     end 
 
-    s = "ply\n"
-    s *= "comment made by Magma  { Tensor rendered by Julia System }\n"
-    s *= "format ascii 1.0\n"
-    s *= "element vertex " * string(8*count) * "\n"
-    s *= "property float x\n"
-    s *= "property float y\n"
-    s *= "property float z\n"
-    s *= "property uchar red                   { start of vertex color }\n"
-    s *= "property uchar green\n"
-    s *= "property uchar blue\n"
-    s *= "element face " * string(6*count) * "\n"
-    s *= "property list uint8 int32 vertex_index\n"
-    s *= "end_header\n"
+    ply = "ply\n"
+    ply *= "comment made by Magma  { Tensor rendered by Julia System }\n"
+    ply *= "format ascii 1.0\n"
+    ply *= "element vertex " * string(8*count) * "\n"
+    ply *= "property float x\n"
+    ply *= "property float y\n"
+    ply *= "property float z\n"
+    ply *= "property uchar red                   { start of vertex color }\n"
+    ply *= "property uchar green\n"
+    ply *= "property uchar blue\n"
+    ply *= "element face " * string(6*count) * "\n"
+    ply *= "property list uint8 int32 vertex_index\n"
+    ply *= "end_header\n"
 
-    s *= verts
-    s *= faces
-    return s
+    ply *= verts
+    ply *= faces
+    return ply, raw
 end 
 
-
-function save3D(name, t) 
-    file = open(name, "w")
-    write(file, print3D(t))
-    close(file)
+#add a raw output
+function save3D(t, nameply,nameraw,ratio)
+	ply, raw = print3D(t,ratio)
+    fileply = open(nameply, "w")
+    write(fileply, ply)
+    close(fileply)
+    fileraw = open(nameraw, "w")
+    write(fileraw, raw)
+    close(fileraw)
 end
