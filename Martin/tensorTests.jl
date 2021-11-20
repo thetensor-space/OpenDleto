@@ -224,7 +224,7 @@ function runTwistedCubicTests(n=15)
 
 #	cubicSurfaceTensor = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),1)
 	cubicSurfaceTensor = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),3)
-	stratificationTest(cubicSurfaceTensor,90,"twistedCubicSurfaceTensor",100)
+#	stratificationTest(cubicSurfaceTensor,90,"twistedCubicSurfaceTensor",100)
 
 #	cubicSurfaceTensorNoise = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),3)
 	cubicSurfaceTensorNoise = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),5)
