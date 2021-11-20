@@ -53,7 +53,7 @@ end
 function transofromTensorByDerivation(t,M,offset,toprint)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     print( "\tComputing SVD.  This may take a while...")
-    @times u,s,v = svd(M)
+    @time u,s,v = svd(M)
     print( "\tFinal singular values for the system ...\n\t\t" )
 	for j= 0:toprint
 		print( string(round( s[(a^2+b^2+c^2)-j], digits=4) )* ",\t" )	
