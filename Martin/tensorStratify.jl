@@ -17,7 +17,7 @@ Pkg.add("JLD")
 using JLD
 
 include("tensorRandomize.jl")
-include("tensor3D.jl")
+include("Tensor3D.jl")
 
 
 # take a matrix of eigenvectors and break it into "real eigenvectors" 
