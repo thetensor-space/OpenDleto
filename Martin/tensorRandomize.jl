@@ -13,9 +13,9 @@ using SparseArrays
 using Dates
 using Random
 
-using Pkg
-Pkg.add("JLD")
-using JLD
+#using Pkg
+#Pkg.add("JLD")
+#using JLD
 
 include("tensorFunctions.jl")
 
@@ -29,7 +29,8 @@ function randTrans(d)
 		# do no generate scalar matrices
 		return m
 	else
-        m[i,j] = rand(Float32)
+#        m[i,j] = rand(-1000:1000) * 0.001
+        m[i,j] = randn(Float32)
     end 
     return m
 end 
@@ -68,6 +69,6 @@ function tensorRandomize(t,rounds )
     randt = actFirst( t, m1 )
     randt = actSecond( randt, m2 )
     randt = actThird( randt, m3 )
-	return randt
+	return randt, [m1, m2, m3]
 end
 
