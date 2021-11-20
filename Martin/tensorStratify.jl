@@ -105,6 +105,7 @@ end
 # test for stratification
 
 function stratificationTest(t,rounds,filename,ratio)
+    print("Testing with tensor of size " * string(size(t)) * "\n\n")
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
 
@@ -152,7 +153,9 @@ function stratificationTest(t,rounds,filename,ratio)
 
     print( "Generating images\n")
     save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio,1)
-    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    if CONTROL
+        save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    end
     save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
     save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
     save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)
