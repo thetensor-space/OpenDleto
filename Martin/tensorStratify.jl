@@ -19,6 +19,7 @@ using JLD
 include("tensorRandomize.jl")
 include("tensor3D.jl")
 
+const VERBOSE = false
 
 # take a matrix of eigenvectors and break it into "real eigenvectors" 
 # some mess about normalization....
@@ -51,7 +52,8 @@ end
 
 function transofromTensorByDerivation(t,M,offset,toprint)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
-    u,s,v = svd(M)
+    print( "\tComputing SVD.  This may take a while...")
+    @times u,s,v = svd(M)
     print( "\tFinal singular values for the system ...\n\t\t" )
 	for j= 0:toprint
 		print( string(round( s[(a^2+b^2+c^2)-j], digits=4) )* ",\t" )	
@@ -61,14 +63,16 @@ function transofromTensorByDerivation(t,M,offset,toprint)
 	xvals,xvecs = eigen(x)
 	yvals,yvecs = eigen(y)
 	zvals,zvecs = eigen(z)
-	print("\tEignevalues Xmatrix\n\t\t")
-	print(xvals)
-	print("\n\t Eignevalues Ymatrix\n\t\t")
-	print(yvals)
-	print("\n\t Eignevalues Zmatrix\n\t\t")
-	print(zvals)
-	print("\n")
-	
+    if VERBOSE
+        print("\tEignevalues Xmatrix\n\t\t")
+        print(xvals)
+        print("\n\t Eignevalues Ymatrix\n\t\t")
+        print(yvals)
+        print("\n\t Eignevalues Zmatrix\n\t\t")
+        print(zvals)
+        print("\n")
+    end
+
 	realxvecs= realEigenVectors(xvecs)
 	realyvecs= realEigenVectors(yvecs)
 	realzvecs= realEigenVectors(zvecs)
