@@ -1,0 +1,13 @@
+ply
+comment made by Magma  { Tensor rendered by Julia System }
+format ascii 1.0
+element vertex 0
+property float x
+property float y
+property float z
+property uchar red                   { start of vertex color }
+property uchar green
+property uchar blue
+element face 0
+property list uint8 int32 vertex_index
+end_header
