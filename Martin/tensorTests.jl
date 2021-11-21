@@ -205,30 +205,30 @@ function runCubicCurveTests()
 
 
 # produce some cubic curves tensors
-function runTwistedCubicTests()
-	n=15
+function runTwistedCubicTests(n,noise,ratio)
+#	n=15
 
 # for larger exponent use more noise....
 #	power(x) = x* (abs(x)^ 1)
-	power(x) = x* (abs(x)^ 1.5)
+	power(x) = x* (abs(x)^0.4)
 	indexL = (-2*n):0
-#	indexM = -n:n
-	indexM = 0:(2*n)
+	indexM = -n:n
+#	indexM = 0:(2*n)
 	indexR = 0:(2*n)
 
-	cubicCurveTensor = generateCurveTensor(power.(indexL),power.(indexM),power.(indexR),1.5)
-#	curvificationTest(cubicCurveTensor,90,"twistedCubicCurveTensor",1000)
+	cubicCurveTensor = generateCurveTensor(power.(indexL),power.(indexM),power.(indexR),noise)
+	curvificationTest(cubicCurveTensor,90,"twistedCubicCurveTensor",ratio)
 
-	cubicCurveTensorNoise = generateCurveTensor(power.(indexL),power.(indexM),power.(indexR),2.5)
+#	cubicCurveTensorNoise = generateCurveTensor(power.(indexL),power.(indexM),power.(indexR),2.5)
 #	curvificationTest(cubicCurveTensorNoise,90,"twistedCubicCurveTensorNoise",1000)
 
 #	cubicSurfaceTensor = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),1)
-	cubicSurfaceTensor = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),3)
-	stratificationTest(cubicSurfaceTensor,90,"twistedCubicSurfaceTensor",100)
+#	cubicSurfaceTensor = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),3)
+#	stratificationTest(cubicSurfaceTensor,90,"twistedCubicSurfaceTensor",100)
 
 #	cubicSurfaceTensorNoise = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),3)
-	cubicSurfaceTensorNoise = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),5)
-	stratificationTest(cubicSurfaceTensorNoise,90,"twistedCubicSurfaceTensorNoise",100)
+#	cubicSurfaceTensorNoise = generateSurfaceTensor(power.(indexL),power.(indexM),power.(indexR),5)
+#	stratificationTest(cubicSurfaceTensorNoise,90,"twistedCubicSurfaceTensorNoise",100)
 
  end
 
