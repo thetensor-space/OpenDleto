@@ -174,8 +174,8 @@ end
 
 
 # produce some cubic curves tensors
-function runCubicCurveTests()
-	n=15
+function runCubicCurveTests(n=15)
+#	n=15
 
 	index = -n:n
 	power(x) = x* (abs(x)^ 0.5)
@@ -235,8 +235,8 @@ function runTwistedCubicTests(n,noise,ratio)
 
 
 # produce some cubic surfaces tensors
-function runCubicSurfaceTests()
-	n=20
+function runCubicSurfaceTests(n=20)
+#	n=20
 
 	index = -n:n
 	index3 = cube.(index)
@@ -275,8 +275,8 @@ function runCubicSurfaceTests()
 end
 
 # produce some cubic surfaces tensors
-function runSinSurfaceTests()
-	n=15
+function runSinSurfaceTests(n=15)
+#	n=15
 
 	wave1(x) = 10*x - 15*sin(x/3)
 	wave2(x) = 20*x - 19*sin(x/3)
@@ -312,8 +312,8 @@ function runSinSurfaceTests()
 end
 
 
-function runTests()
-	runBlockTests()
-	runSmoothTests()
-	runCurvyTests()
+function runTests(n=20)
+	runBlockTests(n)
+	runSmoothTests(n)
+	runCurvyTests(n)
 end

@@ -17,8 +17,11 @@ Pkg.add("JLD")
 using JLD
 
 include("tensorRandomize.jl")
-include("tensor3D.jl")
+include("Tensor3D.jl")
 
+
+const VERBOSE = false
+const CONTROL = false
 
 # take a matrix of eigenvectors and break it into "real eigenvectors" 
 # some mess about normalization....
@@ -51,7 +54,8 @@ end
 
 function transofromTensorByDerivation(t,M,offset,toprint)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
-    u,s,v = svd(M)
+    print( "\tComputing SVD.  This may take a while...")
+    @time u,s,v = svd(M)
     print( "\tFinal singular values for the system ...\n\t\t" )
 	for j= 0:toprint
 		print( string(round( s[(a^2+b^2+c^2)-j], digits=4) )* ",\t" )	
@@ -61,14 +65,16 @@ function transofromTensorByDerivation(t,M,offset,toprint)
 	xvals,xvecs = eigen(x)
 	yvals,yvecs = eigen(y)
 	zvals,zvecs = eigen(z)
-	print("\tEignevalues Xmatrix\n\t\t")
-	print(xvals)
-	print("\n\t Eignevalues Ymatrix\n\t\t")
-	print(yvals)
-	print("\n\t Eignevalues Zmatrix\n\t\t")
-	print(zvals)
-	print("\n")
-	
+    if VERBOSE
+        print("\tEignevalues Xmatrix\n\t\t")
+        print(xvals)
+        print("\n\t Eignevalues Ymatrix\n\t\t")
+        print(yvals)
+        print("\n\t Eignevalues Zmatrix\n\t\t")
+        print(zvals)
+        print("\n")
+    end
+
 	realxvecs= realEigenVectors(xvecs)
 	realyvecs= realEigenVectors(yvecs)
 	realzvecs= realEigenVectors(zvecs)
@@ -99,6 +105,7 @@ end
 # test for stratification
 
 function stratificationTest(t,rounds,filename,ratio)
+    print("Testing with tensor of size " * string(size(t)) * "\n\n")
     date = replace(string(now()), ':' => '.')
 #    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
 
@@ -111,39 +118,44 @@ function stratificationTest(t,rounds,filename,ratio)
     print("Saving original\n")
     save( date * "/data/original.jld", "data", t)
 
-    print("Startifying original.\n")
-    @time st, matrices, derivation, singularValues, singularVectors  = stratify(t,10)
-    print("Saving original stratification.\n" )
-    save( date * "/data/original-strat.jld", "data", st)
-    save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
+    if CONTROL
+        print("Startifying original.\n")
+        @time st, matrices, derivation, singularValues, singularVectors  = stratify(t,10)
+        print("Saving original stratification.\n" )
+        save( date * "/data/original-strat.jld", "data", st)
+        save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
+    end
 
     print( "Randomizing original.\n")
     rt,rm = tensorRandomize(t, rounds)
     print( "Saving randomized version.\n")
     save( date * "/data/randomized.jld", "data", rt)
 
-    print( "Stratifying randomized version.\n")
+    print( "Stratifying randomized version, this may take a while....\n")
     @time srt, matrices, derivation, singularValues, singularVectors= stratify(rt,10)
     print( "Saving stratification of randomized.\n")
     save( date * "/data/randomized-start.jld", "data", srt)
     save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
 	
-    print( "Product of the X matrices\n")
-	display( round.(rm[1]*matrices[1], digits=3) )
-    print( "\n")
+    if VERBOSE
+        print( "Product of the X matrices\n")
+        display( round.(rm[1]*matrices[1], digits=3) )
+        print( "\n")
 
-    print( "Product of the Y matrices\n")
-	display( round.(rm[2]*matrices[2], digits=3) )
-    print( "\n")
+        print( "Product of the Y matrices\n")
+        display( round.(rm[2]*matrices[2], digits=3) )
+        print( "\n")
 
-    print( "Product of the Z matrices\n")
-	display( round.(rm[3]*matrices[3], digits=3) )
-    print( "\n")
-
+        print( "Product of the Z matrices\n")
+        display( round.(rm[3]*matrices[3], digits=3) )
+        print( "\n")
+    end
 
     print( "Generating images\n")
     save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio,1)
-    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    if CONTROL
+        save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
+    end
     save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
     save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
     save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)

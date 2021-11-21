@@ -176,3 +176,52 @@ function test123Split(d, control=false)
     save3D( path * "/images/plot-"*string(d)*"-rand-recons.ply", matround(nrt,3))
     return pass
 end
+
+
+function testMySplit(dims1,dims2,dims3, control=false)
+    date = now()
+    path = "../data/" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
+    mkdir(path)
+    mkdir( path * "/data")
+    mkdir( path * "/images")
+
+    
+    print("Creating original\n")
+    print("\tDimensions\t")
+    print( dims1)
+    print( " x ")
+    print(dims2)
+    print( " x ")
+    print(dims3)
+    print("\n")
+    t = makeSplit123(dims1,dims2,dims3)
+    print("Saving original\n")
+    save( path * "/data/original.jld", "data", t)
+
+    if control 
+        print("Blocking original.\n")
+        @time pass, nt, mats = block123(t)
+        print("Saving original blocking.\n" )
+        save( path * "/data/original-block-12.jld", "data", nt)
+    end 
+
+
+    print( "Randomizing original.\n")
+    @time rt = sprandomize(t,50)
+    print( "Saving randomized version.\n")
+    save( path * "/data/randomized.jld", "data", rt)
+
+    print( "Blocking 12-face ...\n")
+    @time pass, nrt, mats = block123(rt)
+    print( "Saving blocking ...\n")
+    save( path * "/data/randomized-start.jld", "data", nrt)
+
+    print( "Rending in 3D...")
+    save3D( path * "/images/plot-org.ply", matround(t,3))
+    if control
+        save3D( path * "/images/plot-org-recons.ply", matround(nt,3))
+    end 
+    save3D( path * "/images/plot-rand.ply", matround(rt,3))
+    save3D( path * "/images/plot-rand-recons.ply", matround(nrt,3))
+    return pass
+end
