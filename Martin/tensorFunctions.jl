@@ -12,7 +12,7 @@ using SparseArrays
 
 #Given a 3-tensor find the largest entry
 function tensorMaxEntry(t)
-	norm =0
+	norm = 0
     for i = axes(t,1)
         for j = axes(t,2)
             for k = axes(t,3)
@@ -140,7 +140,7 @@ end
 # Given a 3-tensor t, 
 # Return the matrix whose left nullspace is the flattened 1-3 adjoint algebra of t
 # MK: This needs to be checked!
-function buildAdjoint23Matrix(t)
+function buildAdjoint13Matrix(t)
     F = eltype(t)
     a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
     step = a^2+c^2;
@@ -181,6 +181,35 @@ function inflateToPairOfMatrices(u,a,b)
     return x,y
 end
 
+#
+# hack return a fake 3rd matrix
+#
+function inflateToTripleOfMatrices12(u,a,b,c)
+    x = reshape(u[1:(a^2)],(a,a));
+    y = reshape(u[(a^2+1):(a^2+b^2)],(b,b));
+    z = Diagonal(1:c)
+    return x,y,z
+end
+
+#
+# hack return a fake 3rd matrix
+#
+function inflateToTripleOfMatrices13(u,a,b,c)
+    x = reshape(u[1:(a^2)],(a,a));
+    y = Diagonal(1:b)
+    z = reshape(u[(a^2+1):(a^2+c^2)],(c,c));
+    return x,y,z
+end
+
+#
+# hack return a fake 3rd matrix
+#
+function inflateToTripleOfMatrices23(u,a,b,c)
+    x = Diagonal(1:a)
+    y = reshape(u[1:(b^2)],(b,b));
+    z = reshape(u[(b^2+1):(b^2+c^2)],(c,c));
+    return x,y,z
+end
 
 
 # Action of matrices on the tensor

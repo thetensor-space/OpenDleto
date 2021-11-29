@@ -41,7 +41,7 @@ end
 # offset which singular value to use as to build eigenvalues/eigenvectors
 # toprint debugging info how many singular values to print
 
-function transofromTensorByDerivation(t,M,offset;verbose=false,toprint=10)
+function transofromTensorByDerivation(t,M,offset,inflatefunc;verbose=false,toprint=10,sizecorrection=0)
     a = size(t)[1] 
 	b = size(t)[2] 
 	c = size(t)[3]
@@ -53,10 +53,10 @@ function transofromTensorByDerivation(t,M,offset;verbose=false,toprint=10)
 	
     print( "\tFinal singular values for the system ...\n\t\t" )
 	for j= 0:toprint
-		print( string(round( s[(a^2+b^2+c^2)-j], digits=4) )* ",\t" )	
+		print( string(round( s[(a^2+b^2+c^2)-sizecorrection-j], digits=4) )* ",\t" )	
 	end 
 	print("\n")
-	x, y, z = inflateToTripleOfMatrices(u[:,(a^2+b^2+c^2)-offset], a,b,c)
+	x, y, z = inflatefunc(u[:,(a^2+b^2+c^2)-sizecorrection-offset], a,b,c)
 	eigentime = @timed([eigen(x),eigen(y),eigen(z)])	
 	xvals,xvecs = eigentime.value[1] 
 	yvals,yvecs = eigentime.value[2]
@@ -87,7 +87,7 @@ end
 function stratify(t;verbose=false,toprint=10)
 	dermatrixtime = @timed(buildDerivationMatrix(t))
 	M = dermatrixtime.value
-	t2, D = transofromTensorByDerivation(t, M, 2;toprint,verbose)
+	t2, D = transofromTensorByDerivation(t, M, 2, inflateToTripleOfMatrices;toprint,verbose)
 	D["timings"]["derviation"] = dermatrixtime.time
 	return t2, D 
 end 
@@ -97,8 +97,34 @@ end
 function curvify(t;verbose=false,toprint=10)
 	dermatrixtime = @timed(buildCentroidMatrix(t)) 
 	M = dermatrixtime.value
-	t2, D = transofromTensorByDerivation(t, M, 1; toprint,verbose)
+	t2, D = transofromTensorByDerivation(t, M, 1, inflateToTripleOfMatrices; toprint,verbose)
 	D["timings"]["centroid"] = dermatrixtime.time
+	return t2, D 
+end 
+
+
+
+function stratify12face(t;verbose=false,toprint=10)
+	dermatrixtime = @timed(buildAdjoint12Matrix(t))
+	M = dermatrixtime.value
+	t2, D = transofromTensorByDerivation(t, M, 1, inflateToTripleOfMatrices12;toprint,verbose,sizecorrection=size(t)[3]*size(t)[3])
+	D["timings"]["adjoint12"] = dermatrixtime.time
+	return t2, D 
+end 
+
+function stratify13face(t;verbose=false,toprint=10)
+	dermatrixtime = @timed(buildAdjoint13Matrix(t))
+	M = dermatrixtime.value
+	t2, D = transofromTensorByDerivation(t, M, 1, inflateToTripleOfMatrices13;toprint,verbose,sizecorrection=size(t)[2]*size(t)[2])
+	D["timings"]["adjoint13"] = dermatrixtime.time
+	return t2, D 
+end 
+
+function stratify23face(t;verbose=false,toprint=10)
+	dermatrixtime = @timed(buildAdjoint23Matrix(t))
+	M = dermatrixtime.value
+	t2, D = transofromTensorByDerivation(t, M, 1, inflateToTripleOfMatrices23;toprint,verbose,sizecorrection=size(t)[1]*size(t)[1])
+	D["timings"]["adjoint23"] = dermatrixtime.time
 	return t2, D 
 end 
 

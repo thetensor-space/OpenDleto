@@ -48,6 +48,14 @@ function curveEquation(i, nn)
 end 
 
 
+# computes the equation of the curve on a face
+# tests if a point is on the curve 
+# nn is a a tuoke of normalization info for each coordinate
+function faceCurveEquation(i, nn)
+	return abs(normalizeElement(i[1],nn[1])- normalizeElement(i[2],nn[2]))
+end 
+
+
 # generate entries which are random numbers with norm ~ exp( - s^2)
 function entry(s;type="uniform")
 	if abs(s) < 5
@@ -62,11 +70,19 @@ end
 # x,y,z are vectors whose size determine the size of tensor
 # the support is restrcted to the "surface" x[i] + y[j] + z[k] =0, however we normalize first to ensure that the surface cuts through the middle of the cube
 # width measure the thickness of the surface
-function generateSurfaceTensor(x, y, z, width;type="uniform")      
+function generateSurfaceTensor(x, y, z, width;type="uniform", normalize=true)      
 	# normalize the x, y, z
 	nx = getNormalizationInfo(x)  
 	ny = getNormalizationInfo(y)  
 	nz = getNormalizationInfo(z)
+	if (!normalize)
+		nx[4]=0
+		nx[5]=2
+		ny[4]=0
+		ny[5]=2
+		nz[4]=0
+		nz[5]=2
+	end
 	nn = [nx,ny,nz]
 	
 	# builds the tensor
@@ -86,11 +102,19 @@ end
 # x,y,z are vectors whose size determine the size of tensor
 # the support is restrcted to the "curve" x[i] = y[j] = z[k], however we normalize first to ensure that the surface cuts through the middle of the cube
 # width measure the thickness of the curve
-function generateCurveTensor(x, y, z, width; type="uniform")      
+function generateCurveTensor(x, y, z, width; type="uniform", rescale=true)      
 	# normalize the x, y, z
 	nx = getNormalizationInfo(x)  
 	ny = getNormalizationInfo(y)  
 	nz = getNormalizationInfo(z)
+	if (!rescale)
+		nx[4]=0
+		nx[5]=2
+		ny[4]=0
+		ny[5]=2
+		nz[4]=0
+		nz[5]=2
+	end
 	nn = [nx,ny,nz]
 	
 	# builds the tensor
@@ -99,6 +123,39 @@ function generateCurveTensor(x, y, z, width; type="uniform")
 		for j = 1:size(y,1) 
 			for k = 1:size(z,1)
 				s = curveEquation([x[i],y[j],z[k]],nn)*( nx[1] + ny[1] + nz[1]) / (10* width)
+				t[i,j,k] = entry(s; type)
+			end 
+		end 
+	end 
+	return t
+end
+
+
+# construct a tensor supported on a face curve
+# x,y,z are vectors whose size determine the size of tensor
+# the support is restrcted to the "curve" x[i] = y[j] = z[k], however we normalize first to ensure that the surface cuts through the middle of the cube
+# width measure the thickness of the curve
+function generateSurface12Tensor(x, y, z, width; type="uniform", rescale=true)      
+	# normalize the x, y, z
+	nx = getNormalizationInfo(x)  
+	ny = getNormalizationInfo(y)  
+	nz = getNormalizationInfo(z)
+	if (!rescale)
+		nx[4]=0
+		nx[5]=2
+		ny[4]=0
+		ny[5]=2
+		nz[4]=0
+		nz[5]=2
+	end
+	nn = [nx,ny]
+	
+	# builds the tensor
+	t = zeros(Float32, (size(x,1),size(y,1),size(z,1)))
+	for i = 1:size(x,1)
+		for j = 1:size(y,1) 
+			for k = 1:size(z,1)
+				s = faceCurveEquation([x[i],y[j]],nn)*( nx[1] + ny[1] + nz[1]) / (10* width)
 				t[i,j,k] = entry(s; type)
 			end 
 		end 
