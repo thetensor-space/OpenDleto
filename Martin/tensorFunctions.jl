@@ -9,12 +9,24 @@
 
 using LinearAlgebra
 using SparseArrays
-using Dates
-using Random
 
-#using Pkg
-#Pkg.add("JLD")
-#using JLD
+#Given a 3-tensor find the largest entry
+function tensorMaxEntry(t)
+	norm =0
+    for i = axes(t,1)
+        for j = axes(t,2)
+            for k = axes(t,3)
+                val = abs(t[i,j,k])
+                if (val > norm) 
+					norm = val
+                end
+            end 
+        end 
+    end 
+	return norm
+end
+
+
 
 # some change
 
@@ -172,6 +184,7 @@ end
 
 
 # Action of matrices on the tensor
+# Act on the first Axis
 function actFirst(ten,mat)
 	# the result is a tensor with complex coefficients to avoid problems when multiplying with matix with complex coeffficients
 #    ten2 = zeros(Complex{Float32},size(ten))
@@ -189,6 +202,7 @@ function actFirst(ten,mat)
 end
 
 
+# Act on the second Axis
 function actSecond(ten,mat)
 	# the result is a tensor with complex coefficients to avoid problems when multiplying with matix with complex coeffficients
 #    ten2 = zeros(Complex{Float32},size(ten))
@@ -206,6 +220,7 @@ function actSecond(ten,mat)
 end
 
 
+# Act on the third Axis
 function actThird(ten,mat)
 	# the result is a tensor with complex coefficients to avoid problems when multiplying with matix with complex coeffficients
 #    ten2 = zeros(Complex{Float32},size(ten))
@@ -223,6 +238,13 @@ function actThird(ten,mat)
 end
 
 
+# Act on all Axises
+function actAll(t,m)
+    t1 = actFirst( t, m[1] )
+    t2 = actSecond( t1, m[2] )
+    t3 = actThird( t2, m[3] )
+	return t3
+end
 
 
-
+nothing

@@ -23,7 +23,7 @@ docs/site/
 # environment.
 Manifest.toml
 
-*.ply
+!*.ply
 *.jld
 *.dat
 *.dat10
