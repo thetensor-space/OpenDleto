@@ -161,6 +161,9 @@ function curvificationTest(t,filename;ratio=1000,rounds=30,verbose=false,control
 	return transformTest(t,filename;ratio,rounds,verbose,control,noise,relsize,toprint,type,stratifyname="curvify",stratifyfunc=curvify)
 end
 
+function stratification12FaceTest(t,filename;ratio=1000,rounds=30,verbose=false,control=false,noise=10,relsize=0.001,toprint=10,type="normal")
+	return transformTest(t,filename;ratio,rounds,verbose,control,noise,relsize,toprint,type,stratifyname="adjoint12",stratifyfunc=stratify12face)
+end
 
 nothing
 
