@@ -9,16 +9,7 @@
 
 
 
-using LinearAlgebra
-using SparseArrays
-using Dates
-using Random
-
-
-# random number generator with values -1 to 1
-function randomNumber()
-  return rand(-1000:1000) * 0.001;
-end 
+include("tensorRandomize.jl")
 
 
 # get info for an array use to noralization
@@ -28,11 +19,16 @@ function getNormalizationInfo(x)
 	xmax = max(x...)
 	xavg = (xmin + xmax)/2
 	xrange = (xmax-xmin)
+	# protect in case the values are constants
+	if (xrange < 0.0001)
+		xrange=0.0001
+	end
     return [xsize, xmin, xmax, xavg, xrange]
 end
 
 # normalize element 
 # the second argument is the normalization info from the previous function
+# the result should be in the interval [-1,1]
 function normalizeElement(i,n)
 	return 2*(i - n[4])/n[5]
 end
@@ -53,9 +49,9 @@ end
 
 
 # generate entries which are random numbers with norm ~ exp( - s^2)
-function entry(s)
+function entry(s;type="uniform")
 	if abs(s) < 5
-		return randomNumber()*  exp( 5 -s*s )
+		return randomNumber(;spread=exp( 5 -s*s ),type)
 	else
 		return 0
 	end
@@ -66,7 +62,7 @@ end
 # x,y,z are vectors whose size determine the size of tensor
 # the support is restrcted to the "surface" x[i] + y[j] + z[k] =0, however we normalize first to ensure that the surface cuts through the middle of the cube
 # width measure the thickness of the surface
-function generateSurfaceTensor(x, y, z, width)      
+function generateSurfaceTensor(x, y, z, width;type="uniform")      
 	# normalize the x, y, z
 	nx = getNormalizationInfo(x)  
 	ny = getNormalizationInfo(y)  
@@ -79,7 +75,7 @@ function generateSurfaceTensor(x, y, z, width)
 		for j = 1:size(y,1) 
 			for k = 1:size(z,1)
 				s = surfaceEquation([x[i],y[j],z[k]] , nn)*( nx[1] + ny[1] + nz[1]) / width
-				t[i,j,k] = entry(s)
+				t[i,j,k] = entry(s;type)
 			end 
 		end 
 	end 
@@ -90,7 +86,7 @@ end
 # x,y,z are vectors whose size determine the size of tensor
 # the support is restrcted to the "curve" x[i] = y[j] = z[k], however we normalize first to ensure that the surface cuts through the middle of the cube
 # width measure the thickness of the curve
-function generateCurveTensor(x, y, z, width)      
+function generateCurveTensor(x, y, z, width; type="uniform")      
 	# normalize the x, y, z
 	nx = getNormalizationInfo(x)  
 	ny = getNormalizationInfo(y)  
@@ -103,10 +99,11 @@ function generateCurveTensor(x, y, z, width)
 		for j = 1:size(y,1) 
 			for k = 1:size(z,1)
 				s = curveEquation([x[i],y[j],z[k]],nn)*( nx[1] + ny[1] + nz[1]) / (10* width)
-				t[i,j,k] = entry(s)
+				t[i,j,k] = entry(s; type)
 			end 
 		end 
 	end 
 	return t
 end
 
+nothing

@@ -112,7 +112,7 @@ function runSmoothTests()
 
 	# plane tensor small noise
     print( "\n\nPlane Small Noise...\n" )
-#	planeTensor = generateSurfaceTensor(indexX,indexY,indexZ,3)
+	planeTensor = generateSurfaceTensor(indexX,indexY,indexZ,3)
 #	stratificationTest(planeTensor,150,"planeTensor",1000)
 
 	# plane tensor big noise

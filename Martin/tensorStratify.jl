@@ -7,29 +7,18 @@
 #    Distributed under MIT License.
 ########################################################################
 
-using LinearAlgebra
-using SparseArrays
-using Dates
-using Random
-
-using Pkg
-Pkg.add("JLD")
-using JLD
 
 include("tensorRandomize.jl")
 include("Tensor3D.jl")
 
 
-const VERBOSE = false
-const CONTROL = false
 
 # take a matrix of eigenvectors and break it into "real eigenvectors" 
 # some mess about normalization....
 
 function realEigenVectors(m)
-	n = real.(m)
-	nn =real.(m)
-
+	n  = real.(m)
+	nn = real.(m)
 	u = real.(m[:,1])
 	nn[:,1] = (1/norm(u))*u 
 	
@@ -52,20 +41,28 @@ end
 # offset which singular value to use as to build eigenvalues/eigenvectors
 # toprint debugging info how many singular values to print
 
-function transofromTensorByDerivation(t,M,offset,toprint)
-    a = size(t)[1]; b = size(t)[2]; c = size(t)[3]
+function transofromTensorByDerivation(t,M,offset;verbose=false,toprint=10)
+    a = size(t)[1] 
+	b = size(t)[2] 
+	c = size(t)[3]
+	timings=Dict{String,Any}()
     print( "\tComputing SVD.  This may take a while...")
-    @time u,s,v = svd(M)
+    svdtime = @timed (svd(M))
+	u,s,v = svdtime.value
+	timings["svd"] = svdtime.time
+	
     print( "\tFinal singular values for the system ...\n\t\t" )
 	for j= 0:toprint
 		print( string(round( s[(a^2+b^2+c^2)-j], digits=4) )* ",\t" )	
 	end 
 	print("\n")
 	x, y, z = inflateToTripleOfMatrices(u[:,(a^2+b^2+c^2)-offset], a,b,c)
-	xvals,xvecs = eigen(x)
-	yvals,yvecs = eigen(y)
-	zvals,zvecs = eigen(z)
-    if VERBOSE
+	eigentime = @timed([eigen(x),eigen(y),eigen(z)])	
+	xvals,xvecs = eigentime.value[1] 
+	yvals,yvecs = eigentime.value[2]
+	zvals,zvecs = eigentime.value[3]	
+	timings["eigenvalues"] = eigentime.time
+    if verbose
         print("\tEignevalues Xmatrix\n\t\t")
         print(xvals)
         print("\n\t Eignevalues Ymatrix\n\t\t")
@@ -75,151 +72,36 @@ function transofromTensorByDerivation(t,M,offset,toprint)
         print("\n")
     end
 
-	realxvecs= realEigenVectors(xvecs)
-	realyvecs= realEigenVectors(yvecs)
-	realzvecs= realEigenVectors(zvecs)
-
-	t2 = actFirst(t,realxvecs)
-	t2 = actSecond(t2,realyvecs)
-	t2 = actThird(t2,realzvecs)
-
-#	return t2, [xvecs, yvecs, zvecs], [x,y,z], s, u
-	return t2, [realxvecs, realyvecs, realzvecs], [x,y,z], s, u
-end 
-
-
-function stratify(t,toprint)
-	t2, mats, der, s, u = transofromTensorByDerivation(t, buildDerivationMatrix(t) , 2,toprint)
-	return t2, mats, der, s, u 
-end 
-
-
-
-function curvify(t,toprint)
-	t2, mats, der, s, u = transofromTensorByDerivation(t, buildCentroidMatrix(t) , 1,toprint)
-	return t2, mats, der, s, u 
-end 
-
-
-###############################################################
-# test for stratification
-
-function stratificationTest(t,rounds,filename,ratio)
-    print("Testing with tensor of size " * string(size(t)) * "\n\n")
-    date = replace(string(now()), ':' => '.')
-#    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
-
-    print("Working on " * filename * "    dir: " * date *"\n")
-
-    mkdir(date)
-    mkdir( date * "/data")
-    mkdir( date * "/images")
-
-    print("Saving original\n")
-    save( date * "/data/original.jld", "data", t)
-
-    if CONTROL
-        print("Startifying original.\n")
-        @time st, matrices, derivation, singularValues, singularVectors  = stratify(t,10)
-        print("Saving original stratification.\n" )
-        save( date * "/data/original-strat.jld", "data", st)
-        save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
-    end
-
-    print( "Randomizing original.\n")
-    rt,rm = tensorRandomize(t, rounds)
-    print( "Saving randomized version.\n")
-    save( date * "/data/randomized.jld", "data", rt)
-
-    print( "Stratifying randomized version, this may take a while....\n")
-    @time srt, matrices, derivation, singularValues, singularVectors= stratify(rt,10)
-    print( "Saving stratification of randomized.\n")
-    save( date * "/data/randomized-start.jld", "data", srt)
-    save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
+	realeigentime = @timed([realEigenVectors(xvecs),realEigenVectors(yvecs),realEigenVectors(zvecs)])
+	realxvecs = realeigentime.value[1]
+	realyvecs = realeigentime.value[2]
+	realzvecs = realeigentime.value[3]
+	timings["realeigenvalues"] = realeigentime.time
 	
-    if VERBOSE
-        print( "Product of the X matrices\n")
-        display( round.(rm[1]*matrices[1], digits=3) )
-        print( "\n")
-
-        print( "Product of the Y matrices\n")
-        display( round.(rm[2]*matrices[2], digits=3) )
-        print( "\n")
-
-        print( "Product of the Z matrices\n")
-        display( round.(rm[3]*matrices[3], digits=3) )
-        print( "\n")
-    end
-
-    print( "Generating images\n")
-    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat"  ,ratio,1)
-    if CONTROL
-        save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
-    end
-    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
-    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
-    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)
-    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio,2)
-
-	return true
-end
+	actiontime = @timed (t2 = actAll(t, [realxvecs, realyvecs, realzvecs]); nothing)
+	timings["action"] =actiontime.time
+	return t2, Dict( "matrices" => [realxvecs, realyvecs, realzvecs], "derivation" => [x,y,z], "singularValues" => s, "singularVectors" => u, "timings" => timings) 
+end 
 
 
-#changes names
-function curvificationTest(t,rounds,filename,ratio)
-    date = replace(string(now()), ':' => '.')
-#    date = "" * string(year(date)) * "-" * string(month(date)) * "-" * string(day(date)) * "-time-" * string(hour(date)) * "-" * string(minute(date)) * "-" * string(second(date))
-
-    print("Working on " * filename * "    dir: " * date *"\n")
-
-    mkdir(date)
-    mkdir( date * "/data")
-    mkdir( date * "/images")
-
-    print("Saving original\n")
-    save( date * "/data/original.jld", "data", t)
-
-    print("Curvifying original.\n")
-    @time st, matrices, derivation, singularValues, singularVectors  = curvify(t,50)
-    print("Saving original curvification.\n" )
-    save( date * "/data/original-strat.jld", "data", st)
-    save( date * "/data/original-strat-singularvalues.jld", "data", singularValues)
-
-    print( "Randomizing original.\n")
-    rt, rm = tensorRandomize(t, rounds)
-    print( "Saving randomized version.\n")
-    save( date * "/data/randomized.jld", "data", rt)
-
-    print( "Curvifying randomized version.\n")
-    @time srt, matrices, derivation, singularValues, singularVectors = curvify(rt,50)
-    print( "Saving curvification of randomized.\n")
-    save( date * "/data/randomized-start.jld", "data", srt)
-    save( date * "/data/randomized-strat-singularvalues.jld", "data", singularValues)
-
-    print( "Product of the X matrices\n")
-	display( round.(rm[1]*matrices[1], digits=3) )
-    print( "\n")
-
-    print( "Product of the Y matrices\n")
-	display( round.(rm[2]*matrices[2], digits=3) )
-    print( "\n")
-
-    print( "Product of the Z matrices\n")
-	display( round.(rm[3]*matrices[3], digits=3) )
-    print( "\n")
-
-
-    print( "Generating images\n")
-    save3D(t,   date * "/images/" * filename * "-org.ply", date * "/images/" * filename * "-org.dat",ratio,1  )
-    save3D(st,  date * "/images/" * filename * "-org-recons.ply", date * "/images/" * filename * "-org-recons.dat",ratio,2)
-    save3D(rt,  date * "/images/" * filename * "-rand.ply", date * "/images/" * filename * "-rand.dat",ratio,1)
-    save3D(rt,  date * "/images/" * filename * "-rand10.ply", date * "/images/" * filename * "-rand10.dat",ratio/10,1)
-    save3D(rt,  date * "/images/" * filename * "-rand100.ply", date * "/images/" * filename * "-rand100.dat",ratio/100,1)
-    save3D(srt, date * "/images/" * filename * "-rand-recons.ply", date * "/images/" * filename * "-rand-recons.dat",ratio,2)
-
-	return true
-end
+function stratify(t;verbose=false,toprint=10)
+	dermatrixtime = @timed(buildDerivationMatrix(t))
+	M = dermatrixtime.value
+	t2, D = transofromTensorByDerivation(t, M, 2;toprint,verbose)
+	D["timings"]["derviation"] = dermatrixtime.time
+	return t2, D 
+end 
 
 
 
+function curvify(t;verbose=false,toprint=10)
+	dermatrixtime = @timed(buildCentroidMatrix(t)) 
+	M = dermatrixtime.value
+	t2, D = transofromTensorByDerivation(t, M, 1; toprint,verbose)
+	D["timings"]["centroid"] = dermatrixtime.time
+	return t2, D 
+end 
+
+
+nothing
 

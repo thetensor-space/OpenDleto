@@ -5,7 +5,8 @@
 ########################################################################
 
 
-function mycolor( val, norm ,factor)
+
+function boxSizeColor( val, norm;factor=1)
     d = 0.5
     n = sqrt(abs(val)/norm) * factor
     #n = round(d*n, digits=4)
@@ -18,11 +19,11 @@ function rstring(x)
     return string(round(x, digits=4))
 end
 
-function printBoxCorner(  x,y,z, val, norm,factor )
+function boxCornersPLY(  x,y,z, val, norm;factor=1 )
     xwidth = 1; ywidth = 1; zwidth = 1;
 
     s = ""
-    col, shift, widths = mycolor(val, norm,factor)
+    col, shift, widths = boxSizeColor(val, norm;factor)
     # 0 0 0
     s *= rstring(xwidth*x-shift[1]) * " " * rstring(ywidth*y-shift[2]) * " " * rstring(zwidth*z-shift[3]) * " " * col * "\n"
     # 0 0 1
@@ -42,7 +43,7 @@ function printBoxCorner(  x,y,z, val, norm,factor )
     return s
 end
 
-printBoxFace = function( num )
+function boxFacesPLY( num )
     s = ""
     # 4 verts: 0 1 2 3                 
     s *= string(4) * " " * string(0+8*num) * " " * string(1+8*num) * " " * string(2+8*num) * " " * string(3+8*num) * "\n"
@@ -60,92 +61,103 @@ printBoxFace = function( num )
     return s
 end
 
-
-function print3D(t,ratio,factor)
-#    norm = round(max( abs(maximum(t)), abs(minimum(t))), digits=4)  ## could be more intellegent but I wont be
-# this is safer
-	norm =0
-    for i = axes(t,1)
-        for j = axes(t,2)
-            for k = axes(t,3)
-                val = abs(t[i,j,k])
-                if (val > norm) 
-					norm = val
-                end
-            end 
-        end 
-    end 
+function boxRAW(x,y,z, val, norm,ratio)
+	s= string(x) * " " * string(y) * " " * string(z) * " 0 " * string(trunc(Int,ratio *val/norm )) * "\n"
+	return s
+end 
 
 
+function headerPLY(numvert,numface;title="Visualization of 3-tensor")
+    ply = "ply\n"
+    ply *= "comment "* title *"\n"
+    ply *= "format ascii 1.0\n"
+	ply *= "comment vertex description\n"
+    ply *= "element vertex " * string(numvert) * "\n"
+    ply *= "property float x\n"
+    ply *= "property float y\n"
+    ply *= "property float z\n"
+    ply *= "property uchar red\n"
+    ply *= "property uchar green\n"
+    ply *= "property uchar blue\n"
+	ply *= "comment face description\n"
+    ply *= "element face " * string(numface) * "\n"
+    ply *= "property list uint8 int32 vertex_index\n"
+	ply *= "comment edge description\n"
+    ply *= "end_header\n"
+	return ply
+end
+
+function headerRAW(numvert,numface)
+	raw = "x y z meta size\n"
+	return raw
+end
+
+function tensor3DRAWPLY(t,ratio;factor=1)
+	norm = tensorMaxEntry(t)
     verts = ""
     faces = ""
-	raw = "x y z meta size\n"
+#    verts = "comment Vertices\n"
+#    faces = "comment Faces\n"
+	raw = ""
     count = 0
     for i = axes(t,1)
 		vertst = ""
+#		vertst = "comment Starting Slice: " * string(i) *", -, - \n" 
 		facest = ""
-		rawt =""
+		rawt = ""
         for j = axes(t,2)
 			vertstt = ""
+#			vertstt = "comment Starting Slice:" * string(i) * ", " * string(j) *", - \n"
 			facestt = ""
 			rawtt = "" 
             for k = axes(t,3)
                 val = abs(t[i,j,k])
                 if (val > norm/ ratio) 
-                    vertstt *= printBoxCorner(i,j,k, val, norm,factor)
-                    facestt *= printBoxFace(count)
-					rawtt *= string(i) * " " * string(j) * " " * string(k) * " 0 " * string(trunc(Int,ratio *val/norm )) * "\n"
+                    vertstt *= boxCornersPLY(i,j,k, val, norm;factor)
+                    facestt *= boxFacesPLY(count)
+					rawtt *= boxRAW(i,j,k,val, norm,ratio)
                     count += 1
                 end
             end
-			vertst *= vertst
+			vertst *= vertstt
 			facest *= facestt
 			rawt *= rawtt
         end 
-		verts *= verts
+		verts *= vertst
 		faces *= facest
 		raw *= rawt
     end 
 
-    ply = "ply\n"
-    ply *= "comment made by Magma  { Tensor rendered by Julia System }\n"
-    ply *= "format ascii 1.0\n"
-    ply *= "element vertex " * string(8*count) * "\n"
-    ply *= "property float x\n"
-    ply *= "property float y\n"
-    ply *= "property float z\n"
-    ply *= "property uchar red                   { start of vertex color }\n"
-    ply *= "property uchar green\n"
-    ply *= "property uchar blue\n"
-    ply *= "element face " * string(6*count) * "\n"
-    ply *= "property list uint8 int32 vertex_index\n"
-    ply *= "end_header\n"
-
+    ply = headerPLY(8*count,6*count;title="Visualization of 3-tensor")
     ply *= verts
     ply *= faces
-    return ply, raw
+    return ply, headerRAW(8*count,6*count) * raw
 end 
 
-#add a raw output
-# factors makes cubes in the output larger
-function save3D(t, nameply,nameraw,ratio,factor)
-	ply, raw = print3D(t,ratio,factor)
+# Save a 3-tensor as PLY and RAW files
+# factor makes cubes in the output larger
+# ratio the ration for largest/smallest cube to print
+function save3D(t, nameply,nameraw,ratio;factor=1)
+	ply, raw = tensor3DRAWPLY(t,ratio;factor)
     fileply = open(nameply, "w")
     write(fileply, ply)
     close(fileply)
     fileraw = open(nameraw, "w")
     write(fileraw, raw)
     close(fileraw)
+    return nothing
 end
 
 
 
-#Function the surface in the graph
-#s(x,y) = abs(((1-y)^2.5 - x^2.5 + 0.5))^0.4* sign((1-y)^2.5 - x^2.5 + 0.5)
+# produce a ply for a graph of function
+# the function is from [0,1]x[0,1] to [0,1]
+# xsize, ysize, zsize are scalling parameters
+# name is the file name to save
+# example of a function:
+# s(x,y) = abs(((1-y)^2.5 - x^2.5 + 0.5))^0.4* sign((1-y)^2.5 - x^2.5 + 0.5)
 
-# produce a ply for a function
-#
-function graph3D(fun,xsize,ysize,zsize,step,name)
+function save3Dgraph(fun,xsize,ysize,zsize,step,name)
 	m = zeros(Int64,(step+1,step+1))
 	spoints = ""
 	sfaces = ""
@@ -197,19 +209,7 @@ function graph3D(fun,xsize,ysize,zsize,step,name)
 		sfaces *= s
 	end
 	#combine
-    ply = "ply\n"
-    ply *= "comment made by Magma  { Tensor rendered by Julia System }\n"
-    ply *= "format ascii 1.0\n"
-    ply *= "element vertex " * string(pcount) * "\n"
-    ply *= "property float x\n"
-    ply *= "property float y\n"
-    ply *= "property float z\n"
-    ply *= "property uchar red                   { start of vertex color }\n"
-    ply *= "property uchar green\n"
-    ply *= "property uchar blue\n"
-    ply *= "element face " * string(fcount) * "\n"
-    ply *= "property list uint8 int32 vertex_index\n"
-    ply *= "end_header\n"
+	ply = headerPLY(pcount,fcount;title="Graph of a function")
 
     ply *= spoints
     ply *= sfaces
@@ -217,6 +217,7 @@ function graph3D(fun,xsize,ysize,zsize,step,name)
     file = open(name, "w")
     write(file, ply)
     close(file)
-#    return ply
+    return nothing
 end
 
+nothing
