@@ -31,7 +31,7 @@ eigenZ = power.(indexX)
 # width measure the thickness of the surface
 # type is how to generate random numbers options are "uniform" and "normal"
 
-T = generateSurfaceTensor(eigenX, eigenY, eigenZ, 3 ;type="uniform")      
+const T = generateSurfaceTensor(eigenX, eigenY, eigenZ, 3 ;type="uniform")      
 
 
 
@@ -50,6 +50,6 @@ T = generateSurfaceTensor(eigenX, eigenY, eigenZ, 3 ;type="uniform")
 # ration - the size of the smallest boxes to print
 
 
-stratificationTest(T,"surface_tensor_81_81_81"; ratio=1000,rounds=80,control=true,noise=20,relsize=0.000001,toprint=10,type="normal")
+stratificationTest(T,"surface_tensor_81_81_81"; ratio=1000,rounds=80,control=false,noise=20,relsize=0.000001,toprint=10,type="normal")
 
 # not run!!!!
