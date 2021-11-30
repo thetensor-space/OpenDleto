@@ -11,8 +11,8 @@
 
 using Dates
 
-include("tensorRandomize.jl")
-include("tensorStratify.jl")
+include("TensorRandomize.jl")
+include("TensorStratify.jl")
 
 
 using Pkg
