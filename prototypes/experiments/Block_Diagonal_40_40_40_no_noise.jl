@@ -8,8 +8,8 @@
 ########################################################################
 
 
-include("..\\tensorGenerator.jl")
-include("..\\tensorStratifyTests.jl")
+include("../TensorGenerator.jl")
+include("../TensorStratifyTests.jl")
 
 
 #seed random number generator

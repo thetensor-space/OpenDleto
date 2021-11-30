@@ -8,8 +8,8 @@
 ########################################################################
 
 
-include("..\\tensorGenerator.jl")
-include("..\\tensorStratifyTests.jl")
+include("../src/TensorGenerator.jl")
+include("../src/TensorStratifyTests.jl")
 
 power(x) = x* (abs(x)^ 1.5)
 n=30
