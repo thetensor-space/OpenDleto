@@ -1,0 +1,19 @@
+original	3Dprint	0.7729801
+original	save	0.0119085
+adjoint12	adjoint12	0.8863715
+adjoint12	3Dprint	0.6377686
+adjoint12	svd	83.4761194
+adjoint12	eigenvalues	0.0015551
+adjoint12	action	0.0450159
+adjoint12	save	0.0513997
+adjoint12	realeigenvalues	0.000257
+randomized	3Dprint	1.7752928
+randomized	save	0.0276848
+control	adjoint12	0.1898749
+control	3Dprint	2.1776756
+control	svd	116.2872481
+control	eigenvalues	0.0031618
+control	action	0.2761949
+control	save	0.0345698
+control	realeigenvalues	0.6236856
+

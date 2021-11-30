@@ -1,0 +1,19 @@
+original	3Dprint	0.5401766
+original	save	0.0117186
+stratify	3Dprint	1.1320742
+stratify	svd	82.9577703
+stratify	eigenvalues	0.0019482
+stratify	action	0.0246087
+stratify	derviation	0.5243107
+stratify	save	0.0355447
+stratify	realeigenvalues	9.73e-5
+randomized	3Dprint	1.2066178
+randomized	save	0.026991
+control	3Dprint	1.2452363
+control	svd	89.925283
+control	eigenvalues	0.0017418
+control	action	0.2118745
+control	derviation	0.1246642
+control	save	0.0556855
+control	realeigenvalues	0.3688049
+
