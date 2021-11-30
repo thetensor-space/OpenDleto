@@ -43,7 +43,7 @@ const T = generateCurveTensor(eigenX, eigenY, eigenZ, 0.5 ;type="uniform")
 # noise  - number of added places with noise after scrableiing
 # relsize - the size of noise to add relative to the maximal entry in the tensor
 # type   - type of random number generator "uniform"/"normal"
-# ration - the size of the smallest boxes to print
+# ratio - the size of the smallest boxes to print
 
 
 curvificationTest(T,"block_diagonal_tensor_35_35_35"; ratio=1000,rounds=100,control=true,noise=0,relsize=0.00001,toprint=10,type="normal")
