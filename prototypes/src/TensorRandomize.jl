@@ -11,7 +11,7 @@
 using Random
 
 
-include("tensorFunctions.jl")
+include("TensorFunctions.jl")
 
 
 # random number generator with values -1 to 1

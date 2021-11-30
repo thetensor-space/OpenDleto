@@ -8,7 +8,7 @@
 ########################################################################
 
 
-include("tensorRandomize.jl")
+include("TensorRandomize.jl")
 include("Tensor3D.jl")
 
 
