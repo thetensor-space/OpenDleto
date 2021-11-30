@@ -1,0 +1,19 @@
+curvify	3Dprint	0.0141858
+curvify	svd	167.8529497
+curvify	eigenvalues	0.0010203
+curvify	action	0.0206217
+curvify	save	0.0336725
+curvify	centroid	1.0663012
+curvify	realeigenvalues	6.68e-5
+original	3Dprint	0.0220647
+original	save	0.0185437
+randomized	3Dprint	0.0800665
+randomized	save	0.0256587
+control	3Dprint	0.5703758
+control	svd	226.6289213
+control	eigenvalues	0.0012944
+control	action	0.151192
+control	save	0.0448038
+control	centroid	0.4188499
+control	realeigenvalues	0.4572902
+

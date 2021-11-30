@@ -28,3 +28,5 @@ Manifest.toml
 *.dat
 *.dat10
 *.dat100
+*.pvd
+*.vtu
