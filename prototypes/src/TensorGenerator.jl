@@ -9,7 +9,7 @@
 
 
 
-include("tensorRandomize.jl")
+include("TensorRandomize.jl")
 
 
 # get info for an array use to noralization
