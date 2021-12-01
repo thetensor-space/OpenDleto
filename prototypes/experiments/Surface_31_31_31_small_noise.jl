@@ -31,7 +31,7 @@ eigenZ = power.(indexX)
 # width measure the thickness of the surface
 # type is how to generate random numbers options are "uniform" and "normal"
 
-T = generateSurfaceTensor(eigenX, eigenY, eigenZ, 3 ;type="uniform")      
+const T = generateSurfaceTensor(eigenX, eigenY, eigenZ, 3 ;type="uniform")      
 
 
 
