@@ -1,0 +1,22 @@
+
+AttachSpec("TensorSpace/TensorSpace.spec");
+AttachSpec("Densor/Densor.spec");
+
+// Cylinder
+
+d := 25; e := d-9;
+t := [ ZeroMatrix(GF(541), d,d) : k in [1..e] ];
+for k in [1..e] do
+                                        t[k][k,k+4]:=Random([-10..10]); t[k][k,k+5]:=Random([-10..10]); 
+        t[k][k+1,k+2]:=Random([-10..10]); t[k][k+1,k+3]:=Random([-10..10]);        t[k][k+1,k+6]:=Random([-10..10]); t[k][k+1,k+7]:=Random([-10..10]); 
+    t[k][k+2,k+1]:=Random([-10..10]);                                                                              t[k][k+2,k+8]:=Random([-10..10]); 
+    t[k][k+3,k+1]:=Random([-10..10]);                                                                              t[k][k+3,k+8]:=Random([-10..10]); 
+t[k][k+4,k]:=Random([-10..10]);                                                                                  t[k][k+4,k+9] := Random([-10..10]); 
+t[k][k+5,k]:=Random([-10..10]);                                                                                  t[k][k+5,k+9] := Random([-10..10]); 
+    t[k][k+6,k+1]:=Random([-10..10]);                                                                             t[k][k+6,k+8]:=Random([-10..10]); 
+    t[k][k+7,k+1]:=Random([-10..10]);                                                                             t[k][k+7,k+8]:=Random([-10..10]); 
+        t[k][k+8,k+2]:=Random([-10..10]); t[k][k+8,k+3]:=Random([-10..10]);        t[k][k+8,k+6]:=Random([-10..10]); t[k][k+8,k+7]:=Random([-10..10]); 
+                                       t[k][k+9,k+4]:=Random([-10..10]); t[k][k+9,k+5]:=Random([-10..10]); 
+end for;
+
+t := Tensor(t,2,1);
