@@ -33,12 +33,32 @@ We invite you explore the repository and join our team.  We welcome and encourag
 
 |                                                                              | Name                | Username                         | Affiliation                |
 -------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
-<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank | [`@galois60`](https://github.com/galois60)                | Bucknell University |
-<img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
+<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov, Ph.D.     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
 <img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>      | Joshua Maglione, Ph.D. | [`@joshmaglione`](https://github.com/joshmaglione)                | Bucknell University |
 <img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
-<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson, Ph.D.     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
 
+
+## Acknowledgments
+
+We also acknowledge the partial support by the following granting organizations over the years.
+
+**Portions of the project sponsored by:**
+ * The National Science Foundation (USA) to Peter A. Brooksbank (DMS-1620454), to Martin Kassabov (DMS-1620454) to James B. Wilson (DMS-1620454).
+ * The Simons Foundation to Peter A. Brooksbank (281435) to Martin Kassabov, and to James B. Wilson (636189).
+ * The National Security Agency Math Sciences Program to Peter A. Brooksbank (Grant Number H98230-11-1-0146) to James B. Wilson (Grant Number H98230-19-1-00).
+
+We also acknowledge the institutes that hosted research on these TheTensor.Space over the years.
+
+ * The Colorado State University
+ * Kent State University
+ * The University of Auckland
+ * Bucknell University
+ * University Bielefeld
+ * Hausdorff Institute For Mathematics
+ * Isaac Newton Institute (EPSRC Grant Number EP/R014604/1)
+ 
 
 ---
 
