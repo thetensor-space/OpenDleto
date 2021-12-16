@@ -1,21 +1,23 @@
-# TSJulia
+# TSJulia: TheTensor.Space Julia
 Tensor Space Functionality for Julia Programming Platform.
 
+[TheTensor.Space](https://TheTensor.Space/) is an open-source research project dedicated to studying the data types and algorithms for extracting information form high valence tables of numbers, what the sciences call a **tensor**.  The data comes in looking like this:<br/>
 
-| Stratification | Diagonal Blocks | Step Blocks |
-|---------------------|------------------|----------------|
-|<img src="docs/images/colossus-X-recon.png" alt="Curve" style="width:75%"> | <img src="docs/images/Blocks.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
-
-
-
-
-
-
-
-[TheTensor.Space](https://TheTensor.Space/) is an open-source research project dedicated to studying the data types and algorithms for extracting information form high valence tables of numbers, what the sciences call a **tensor**.  The data comes in looking like this:
 <img src="docs/images/colossus-X-random.png" alt="Curve" style="width:50%">
 
-Then using the algebra of operators on tensors we recover structures such as those displayed above.  These are not throwing out information but simply modifying the frame of references to reveal internally held structure within the data.
+Using the algebra of operators on tensors we recover oncover new frames of reference were the data reveals internal properties such as the following.
+
+| [Strata](#strata) | [Channels](#channels) |
+|---------------------|----------------|
+|<img src="docs/images/colossus-X-recon.png" alt="Curve" style="width:65%"> | <img src="docs/images/Curve.png" alt="Curve" style="width:75%"> 
+|
+
+
+| Diagonal Blocks | Step Blocks |
+|------------------|----------------|
+| <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
+
+
 
 Our algorithms are provided in a number of platforms. 
   * The bleeding edge algorithms are developed and tested for [Magma Computer Algebra System](http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system and you can follow [TheTensor.Space](https://TheTensor.Space/) for details on extensions and experimental additions.
@@ -23,6 +25,20 @@ Our algorithms are provided in a number of platforms.
   * [Julia](https://julialang.org/) language port is being developed as [TSJulia](https://github.com/thetensor-space/TSJulia).
 
 The algorithms presented in this tutorial are for instructional purposes.  For detailed treatments and improved performance follow the attached references.
+
+
+## Our Team
+
+We invite you explore the repository and join our team.  We welcome and encourage any contributions to the repository. If you need help getting started, please feel free to @-mention any of the contributors below or you can read the repository's [Projects](https://github.com/thetensor-space/TensorSpace/projects) tab.
+
+|                                                                              | Name                | Username                         | Affiliation                |
+-------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
+<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank | [`@galois60`](https://github.com/galois60)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
+<img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>      | Joshua Maglione, Ph.D. | [`@joshmaglione`](https://github.com/joshmaglione)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
+<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+
 
 ---
 
@@ -34,7 +50,7 @@ The algorithms presented in this tutorial are for instructional purposes.  For d
 
 ---
 
-### Experiment 1: Stratification.
+### Strata
 
 A tensor supported on a surface.
 ![](docs/images/colossus-X-orig.png)
@@ -46,24 +62,14 @@ The result of reconstruction
 ![](docs/images/colossus-X-recon.png)
 ---
 
-### Experiment 2: Simples Blocks
+### Channels
 
 ---
 
-
-## Our Team
-
-We invite you explore the repository and join our team.  We welcome and encourage any contributions to the repository. If you need help getting started, please feel free to @-mention any of the contributors below or you can read the repository's [Projects](https://github.com/thetensor-space/TensorSpace/projects) tab.
-
-|                                                                              | Name                | Username                         | Affiliation                |
--------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
-<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank | [`@galois60`](https://github.com/galois60)                | Bucknell University |
-<img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
-<img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
-<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+### Blocks
 
 
-## Installation and Usage
+### Steps
 
-For details on installation and usage visit the package website at [https://TheTensor.Space/TSJulia](https://TheTensor.Space/TSJulia).
+---
 
