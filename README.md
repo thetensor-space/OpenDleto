@@ -9,8 +9,8 @@ We invite you explore the repository and join our team.  We welcome and encourag
 |                                                                              | Name                | Username                         | Affiliation                |
 -------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
 <img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Peter A. Brooksbank | [`@galois60`](https://github.com/galois60)                | Bucknell University |
-<img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>  | Martin Kassabov     | [`@mkassabov`](https://github.com/mkassabov)        | Cornell University  |
-<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
+<img src="https://avatars.githubusercontent.com/mkassabov" height="50px"/>  | Martin Kassabov     | [`@mkassabov`](https://github.com/mkassabov)        | Cornell University  |
+<img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
 <img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | James B. Wilson     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
 
 
