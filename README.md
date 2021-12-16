@@ -1,11 +1,20 @@
 # TSJulia
 Tensor Space Functionality for Julia Programming Platform.
 
-`Copyleft 2021` 
-Peter A. Brooksbank, Bucknell University<br/>
-Martin Kassabov, Cornell University<br/>
-Amaury V. Miniño, Colorado State University<br/>
-James B. Wilson, Colorado State University<br/>
+
+## Our Team
+
+We invite you explore the repository and join our team.  We welcome and encourage any contributions to the repository. If you need help getting started, please feel free to @-mention any of the contributors below or you can read the repository's [Projects](https://github.com/thetensor-space/TensorSpace/projects) tab.
+
+|                                                                              | Name                | Username                         | Affiliation                |
+-------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
+<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Peter A. Brooksbank | [`@galois60`](https://github.com/galois60)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>  | Martin Kassabov     | [`@mkassabov`](https://github.com/mkassabov)        | Cornell University  |
+<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
+<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | James B. Wilson     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+
+
+## Installation and Usage
 
 For details on installation and usage visit the package website at [https://TheTensor.Space/TSJulia](https://TheTensor.Space/TSJulia).
 
