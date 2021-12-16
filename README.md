@@ -1,8 +1,6 @@
 # TSJulia
 Tensor Space Functionality for Julia Programming Platform.
 
-## Welcome to TheTensor.Space Julia Port
-
 
 | Stratification | Diagonal Blocks | Step Blocks |
 |---------------------|------------------|----------------|
@@ -14,9 +12,17 @@ Tensor Space Functionality for Julia Programming Platform.
 
 
 
-TheTensor.Space is an open-source research project dedicated to studying the data types and algorithms for extracting information form high valence tables of numbers, what the sciences call a **tensor**.  Our algorithms are provided in a number of platforms including the Magma Computer Algebra System, Sage Math (in Python), and Julia.
+[TheTensor.Space](https://TheTensor.Space/) is an open-source research project dedicated to studying the data types and algorithms for extracting information form high valence tables of numbers, what the sciences call a **tensor**.  The data comes in looking like this:
+<img src="docs/images/colossus-X-random.png" alt="Curve" style="width:50%">
 
-The algorithms presented in this tutorial are for instructional pruposes.  For detailed treatments and improved performance follow the attached references.
+Then using the algebra of operators on tensors we recover structures such as those displayed above.  These are not throwing out information but simply modifying the frame of references to reveal internally held structure within the data.
+
+Our algorithms are provided in a number of platforms. 
+  * The bleeding edge algorithms are developed and tested for [Magma Computer Algebra System](http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system and you can follow [TheTensor.Space](https://TheTensor.Space/) for details on extensions and experimental additions.
+  * Python access is available to core algorithms through [SageTensorSpace](https://github.com/thetensor-space/SageTensorSpace) for the [Sage Math](https://www.sagemath.org/) (in Python).
+  * [Julia](https://julialang.org/) language port is being developed as [TSJulia](https://github.com/thetensor-space/TSJulia).
+
+The algorithms presented in this tutorial are for instructional purposes.  For detailed treatments and improved performance follow the attached references.
 
 ---
 
