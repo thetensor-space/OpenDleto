@@ -26,6 +26,20 @@ Our algorithms are provided in a number of platforms.
 
 The algorithms presented in this tutorial are for instructional purposes.  For detailed treatments and improved performance follow the attached references.
 
+---
+
+## Contents
+
+- [Contents](#contents)
+- [Our Team](#our-team)
+- [Acknowledgements](#acknowledgements)
+- [Install](#install)
+- [Samples](#samples)
+    - [Strata](#strata)
+    - [Channels](#channels)
+    - [Blocks](#blocks)
+    - [Steps](#steps)
+- [Performance](#performance)
 
 ## Our Team
 
@@ -62,13 +76,15 @@ We also acknowledge the institutes that hosted research on these TheTensor.Space
 
 ---
 
-### Installing TSJulia.
+## Install
 
  - Make sure to have a recent installation of the Julia Language, v. > 1.7.0 seems to compatabile with the features required for TSJulia.  If you do not have an installation of Julia follow the installation instructions for the Julia system available [here](https://julialang.org/).
  - Clone or Download the TSJulia release from github [here](https://github.com/thetensor-space/TSJulia).  Make sure `julia` can be run from whatever folder contains your `TSJulia` download, typically by ensuring that `julia` is in the path of your operating system shell.
  - From the command line start julia and load the `TSJulia` package by using `include("$path$/TSJulia/TSJulia.jl")`
 
 ---
+
+## Samples
 
 ### Strata
 
@@ -84,7 +100,6 @@ The result of reconstruction
 
 ### Channels
 
----
 
 ### Blocks
 
@@ -93,3 +108,9 @@ The result of reconstruction
 
 ---
 
+## Performance
+
+In general performance characteristics vary based on a number of factors including the type of coefficients, the class of tensors, and the platform on which the algorithms are developed. 
+
+ * For the best performance with exact fields (finite fields and number fields) use the Magma implementation.  
+ * For the best approximate fields (floating point real and complex numbers) use TSJulia.  
