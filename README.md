@@ -17,12 +17,14 @@ Dleto, which means chisel, is a package of tools to carve information out of ten
 
 ## What can we find?
 Using the algebra of operators on tensors, Dleto methods determine change of coordinates relative to which tensor data is supported on a smaller valence.  
+
 For a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
 </center>
 
-this means a to cluster the data near a block array of 2-tensors.  
+this means a to cluster the data near a block array of 2-tensors. 
+
 Here are some examples of what this can look like:
 
 | [Strata](#strata) | [Channels](#channels) |
@@ -113,7 +115,7 @@ A tensor supported on a surface:
 A random change of basis to the above tensor:
 ![](docs/images/colossus-X-random.png)
 
-The result of reconstruction: 
+The reconstruction obtained by our algorithm: 
 ![](docs/images/colossus-X-recon.png)
 ---
 
