@@ -1,5 +1,5 @@
 # OpenDleto
-Dleto, which means chisel, is a package of tools to carve information out of tensor data. This is an early release simplified implementation of a larger project of research methods developed in multiple languages.  Visit  [TheTensor.Space](https://TheTensor.Space/) for the main project.
+Dleto, which means chisel, is a package of tools to carve information out of tensor data. This is a simplified, early release implementation of a larger project of research methods developed in multiple languages.  Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
 
 
 ## Contents
@@ -16,12 +16,14 @@ Dleto, which means chisel, is a package of tools to carve information out of ten
 - [Performance](#performance)
 
 ## What can we find?
-Using the algebra of operators on tensors the Dleto methods recover change of coordinates into which tensor data is supported on a smaller valence.  For 3-tensors 
+Using the algebra of operators on tensors, Dleto methods determine change of coordinates relative to which tensor data is supported on a smaller valence.  
+For a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
 </center>
 
-this means a to cluster the data near a block array of 2-tensors.  Here is what this looks like in some examples.
+this means a to cluster the data near a block array of 2-tensors.  
+Here are some examples of what this can look like:
 
 | [Strata](#strata) | [Channels](#channels) |
 |---------------------|----------------|
@@ -37,24 +39,25 @@ this means a to cluster the data near a block array of 2-tensors.  Here is what 
 
 ## Install
 
-We have packaged just the essentials into a single file `Delto.jl` which has rudimentary but stand-alone implementations of some of the chiseling methods.  You may download that file alone, but you may also benefit from using the examples in `examples/..`.  Start with `examples/Demo.jl`.
+We have packaged the essentials into a single file `Delto.jl` having rudimentary but stand-alone implementations of some of the chiseling methods.  You may download that file alone, but you may also benefit from using the examples in `examples/..`.  Start with `examples/Demo.jl`.
 
- - Make sure to have a recent installation of the Julia Language, v. > 1.7.0 seems to compatabile with the features required for `OpenDleto`.  If you do not have an installation of Julia follow the installation instructions for the Julia system available [here](https://julialang.org/).
+ - A recent installation of the Julia Language is needed (ver. 1.7.0 or later seems to be compatible with the features required for `OpenDleto`).  If you do not have an installation of Julia, follow the installation instructions for the Julia system available [here](https://julialang.org/).
  - Clone or Download the `OpenDleto` release from github [here](https://github.com/thetensor-space/OpenDleto).  Make sure `julia` can be run from whatever folder contains your `OpenDleto` download, typically by ensuring that `julia` is in the path of your operating system shell.
- - From the command line start julia and load the `OpenDleto` package by using `include("$path$/OpenDleto/OpenDleto.jl")`
+ - From the command line start julia and load the `OpenDleto` package by using `include("$path$/OpenDleto/Dleto.jl")`
 ---
-The functions mostly require standard Julia packages like `Random` and `LinearAlgebra`. The only other requirement is the package `Arpack` which will be installed by the above include command. It is recommended that this package is manually installed by and lines 5-6 in the file are commented out
+The functions mostly require standard Julia packages like `Random` and `LinearAlgebra`. The only other requirement is the package `Arpack` which will be installed automatically by the include command above. It is recommended that this package is manually installed; the following are commented out of `Dleto.jl` (lines 5 & 6):
 
 ```julia
 julia> import Pkg
 julia> Pkg.add("Arpack")
 ```
 
-The code can be used without `Arpack` but it will run significantly slower. One needs to comment out the function `ArpackEigen` (lines 274-282) and change the defult function in from `ArpackEigen` to `LinearAlgebraEigen` in the function `toSurfaceTensor`, `toFaceCurveTensor` and `ToCurveTensor` (lines 358, 396  and 436)
+The code can be used without `Arpack` but it will run significantly 
+more slowly. To do so, one must comment out the function `ArpackEigen` (lines 274-282) and change the default function from `ArpackEigen` to `LinearAlgebraEigen` in the function `toSurfaceTensor`, `toFaceCurveTensor` and `ToCurveTensor` (lines 358, 396  and 436)
 
 
 Our algorithms are provided in a number of platforms.   
-  * The bleeding edge algorithms are developed and tested for [Magma Computer Algebra System](http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system and you can follow [TheTensor.Space](https://TheTensor.Space/) for details on extensions and experimental additions.
+  * The bleeding edge algorithms are developed for, and tested in the [Magma] Computer Algebra System (http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system. Further information about extensions and experimental additions can be found at [TheTensor.Space](https://TheTensor.Space/).
   * Python access is available to core algorithms through [SageTensorSpace](https://github.com/thetensor-space/SageTensorSpace) for the [Sage Math](https://www.sagemath.org/) (in Python).
   * [Julia](https://julialang.org/) language port is being developed as [OpenDelto](https://github.com/thetensor-space/OpenDleto).
 
@@ -77,14 +80,15 @@ We invite you explore the repository and join our team.  We welcome and encourag
 
 ## Acknowledgments
 
-We also acknowledge the partial support by the following granting organizations over the years.
+The project has received partial support from the following granting organizations:
 
 **Portions of the project sponsored by:**
  * The National Science Foundation (USA) to Peter A. Brooksbank (DMS-1620454), to Martin Kassabov (DMS-1620454) to James B. Wilson (DMS-1620454).
  * The Simons Foundation to Peter A. Brooksbank (281435) to Martin Kassabov, and to James B. Wilson (636189).
  * The National Security Agency Math Sciences Program to Peter A. Brooksbank (Grant Number H98230-11-1-0146) to James B. Wilson (Grant Number H98230-19-1-00).
 
-We also acknowledge the institutes that hosted research on these TheTensor.Space over the years.
+We also acknowledge the institutes that hosted 
+research on related projects over the years:
 
  * The Colorado State University
  * Kent State University
@@ -103,13 +107,13 @@ We also acknowledge the institutes that hosted research on these TheTensor.Space
 
 ### Strata
 
-A tensor supported on a surface.
+A tensor supported on a surface:
 ![](docs/images/colossus-X-orig.png)
 
-A random change of basis to the above tensor.
+A random change of basis to the above tensor:
 ![](docs/images/colossus-X-random.png)
 
-The result of reconstruction 
+The result of reconstruction: 
 ![](docs/images/colossus-X-recon.png)
 ---
 
@@ -118,24 +122,26 @@ The result of reconstruction
 
 ### Functions for Generating Stratified Tensors
 
-The functions `randomSurfaceTensor`, `randomFaceCurveTensor` and `randomCurveTensor` produce tensors which are supported near a surface/face-curve/curve.  The inputs of the these functions consist of 3 arrays which define the resctiction; and an parameter cutoff which govern how thick the supports is
+The functions `randomSurfaceTensor`, `randomFaceCurveTensor` and `randomCurveTensor` produce tensors supported near a surface/face-curve/curve.  The input to the these functions consists of 3 arrays that define the 
+restriction; and a parameter cutoff that governs how thick the support is
 
 The helper functions `testSurfaceTensor`, `testFaceCurveTensor` and `testCurveTensor` measure if a tensor is supported near a surface/facecurve/curve with the given equation.
-The outout is between 0 and 1 where 0 means that the tensor is exactly supported on restriction. These functions are nor perfectly normalized - for many restrictions random tensors have values around 0.5. 
+The output is between 0 and 1, where 0 means that the tensor is exactly supported on restriction. These functions are not perfectly normalized: for many restrictions random tensors have values around 0.5. 
 
 ### Functions for Stratifing Tensors
 
-The functions `toSurfaceTensor`, `toFaceCurveTensor` and `toCurveTensor` attempt to stratify a given tensor by making otrthogonal transformation of the 3 coordinates spaces and produce a tensor with a restricted support. The input is a simple 3 dimensional array. There is a second optional argument which is a function which performs an SVD of a large system of linear equations.
+The functions `toSurfaceTensor`, `toFaceCurveTensor` and `toCurveTensor` attempt to stratify a given tensor by making orthogonal transformations of the 3 coordinates spaces, producing a tensor with a restricted support. The input is a 3-dimensional array. There is a second (optional) argument, which is a function performing an SVD of a large system of linear equations.
 
-The output is a named tuples with 7 components `.tensor` is the transformed tensor, `.Xchange`, `.Ychange` and `.Zchange` are the 3 orthogonal matrices used to do the transformation; and `.Xes`, `.Yes` and `.Zes` are vectors which restrict the support. 
+The output is a named tuple with 7 components: `.tensor` is the transformed tensor; `.Xchange`, `.Ychange` and `.Zchange` are the 3 orthogonal matrices used to do the transformation; and `.Xes`, `.Yes` and `.Zes` are vectors that restrict the support. 
 
-It is recommnded to apply these functions only to non-degenerate tensors (ie tensors which can not be shrunk using HoSVD) - if the tensor is degenerate these functions are likely to discover the degenerations and not find any additional structure.
+We recommend that these functions are applied only to non-degenerate tensors (i.e. tensors that cannot be shrunk using HoSVD). If the input tensor is degenerate, these functions are likely to discover the degeneracy and not find any additional structure.
 
-The functions have not been tested on abstract arrays -- if the input is a sparse tensor represented as some `AbstractArray`, it might be necessary to conver it to a normal `Array`.   
+The functions have not been tested on abstract arrays. If the input is a sparse tensor represented as some `AbstractArray`, it might be necessary to 
+first convert it to a normal `Array`.   
 
 ## Examples
 
-The included files provides examples how these functions can be used. Here is a basic example showing that this code can be used to recover diagonal block decomposition of tensors.
+The files included provide examples of how these functions can be used. Here is a basic example showing that this code can be used to recover diagonal block decomposition of tensors.
 
 First load the file
 
@@ -143,7 +149,7 @@ First load the file
 julia> include("stratification.jl") 
 ```
 
-Define 3 arrays which describe the block structure
+Define 3 arrays which describe the block structure:
 
 ```julia
 julia> Xes = [1,1,2,2,2,3,3,3]
@@ -181,7 +187,7 @@ julia> Zes = [1,1,1,2,2,2,3,3]
  3
  3
 ```
-Generate a 8x8x8 tnesor consisting of blocks of size 2x3x3 3x2x3 and 3x3x2
+Generate a 8x8x8 tensor consisting of blocks of size 2x3x3 3x2x3 and 3x3x2:
 ```julia
 julia> tensorDiagonalBlock = randomCurveTensor( Xes, Yes, Zes, 0.1)
 ```
@@ -268,7 +274,7 @@ julia> tensorDiagonalBlock = randomCurveTensor( Xes, Yes, Zes, 0.1)
  0.0  0.0  0.0  0.0  0.0  -1.31282   -1.16861  0.00662803
 ```
 
-Randomize the tensor by generating there 8x8 ortogonal matrices and performing the change of basis 
+Randomize the tensor by generating there 8x8 orthogonal matrices and performing the change of basis: 
 ```julia
 julia> rTensorDiagonalBlock = randomizeTensor(tensorDiagonalBlock)
 ```
@@ -276,7 +282,7 @@ julia> rTensorDiagonalBlock = randomizeTensor(tensorDiagonalBlock)
 (tensor = [-0.7024746276104429 0.2963471007139938 … 0.1253521132232702 -0.23687256022017183; -0.45865089367528006 0.016337187635288155 … -0.22612587931949799 0.06041606592870537; … ; -0.2563707902130204 -0.24131170735091761 … -0.16487227524045395 0.008929327353449163; 0.03108960314383061 -0.007970200573260824 … 0.06600293704539476 -0.7767924232426673;;; 0.17215267649320465 0.5279826208177606 … -0.30737386702533814 0.06261041792500442; 0.025670359458514633 0.4363149673506537 … 0.6348412014860125 -0.16416012911710126; … ; 0.07071570841449397 0.000405164340436413 … 0.12002904521231536 0.1460881197735838; 0.8339145938983152 -0.8600486025999846 … -0.04488674234304724 -0.1659782122918398;;; 0.3077280505781425 -0.16669703274753525 … 0.24312774440072013 -0.13971623080004564; -0.0028081143958506097 0.7073393976346791 … 0.47207333789018396 -0.4623091303747916; … ; -0.1577127916675091 -0.03846313180963299 … -0.0733907706806753 0.32042203586418383; 0.5808429007280725 0.026924918165430457 … -0.4192224118414693 -0.3041357120853166;;; 0.27376822924953426 0.14670564491930838 … 0.16314011895435693 0.14549450615965745; -0.22609705908083771 0.18674534297040812 … 0.3505409252246221 0.754302045081575; … ; 0.3147576224123127 -0.21065952426400014 … -0.11449745239753754 -0.016886070065897235; 0.104196222273735 0.8904678672071237 … 0.3776315743197468 -0.2690904374015832;;; -0.2222043354717667 0.016611735719920903 … -0.12027468260084041 -0.32877368121925893; 0.22628597857093963 0.30569763810461786 … 0.09064176560334732 -0.38840299035583453; … ; -0.31669968800672976 -0.15143232286399796 … -0.15342087554252004 0.3790755632358135; 0.15536125477604426 0.1846989003199384 … 0.14269325649118003 -0.5399927811607663;;; -0.8450534611467111 -0.3444415369606425 … 0.0034731112877044636 -0.38777284007413; 0.052313798990970224 0.052135969241617904 … -0.5075489375730434 -0.014108904610416691; … ; -0.4083102782429647 -0.10130782689805153 … -0.20873158194616379 -0.4735001474552224; -0.15152593852746163 -0.09557737182663935 … -0.618814174948011 0.17332882686295284;;; -0.036320019205084465 -0.13377859028407804 … -0.04363011189969535 -0.2078098147895931; -0.5325619093768249 0.412043838916253 … 0.2827449957835387 0.30306238279288483; … ; 0.01719075969753439 0.08447212632098523 … -0.07089280073125985 -0.03290524905544018; 0.1596917359556732 -0.14035696691206537 … 0.0015949950726324243 -0.435208644446437;;; 0.0014902689258033555 0.06474145222948877 … -0.274174083096012 0.12567985751366126; 0.6011212069014038 -0.35012447518192336 … -0.09123144883709783 0.4388412135290433; … ; 0.0010940474822821904 0.17497787872327328 … -0.01612379164743524 -0.15352081296032266; 0.1533341090670312 -0.059494131630283845 … 0.29375990461560275 0.4061122899637345], Xchange = [0.4744167209451655 -0.1296375671813731 … -0.012087726879920574 -0.5886988008656266; 0.06612714846898976 0.021704090163151 … -0.19636524043757542 0.3067559502282672; … ; -0.6283746195807594 -0.26810125433120097 … -0.5858150602428649 -0.299802172385621; 0.5394919937599101 -0.3836748188990333 … -0.44085939330645313 -0.08906163078837666], Ychange = [0.08701473096783985 0.6940240478195556 … -0.25972423096579006 0.2712638074316892; 0.34529335636032543 -0.08639930381652763 … -0.43013624477157253 -0.0358525901371598; … ; 0.3997686156141235 0.10861763183087642 … -0.25454657840375794 0.13790871547913763; 0.5018035337509246 0.10679006071176456 … 0.17455422379379232 0.28553005126967135], Zchange = [0.49479909752742235 -0.024868077103067543 … -0.31626889487766274 0.32789131052857295; 0.3938416253385604 0.612693825853946 … 0.06046705920253505 0.294662706624177; … ; -0.0909145238816364 -0.012437687502620587 … -0.07060232475092618 -0.48496235569884527; 0.5124789641010667 -0.33249134518184065 … 0.071533630976055 -0.5326894477876711]
 ```
 
-Show the randomized tensor
+Show the randomized tensor:
 
 ```julia
 julia> rTensorDiagonalBlock.tensor
@@ -365,7 +371,7 @@ julia> rTensorDiagonalBlock.tensor
 
 ```
 
-Run the algorthm on the resulting tensor
+Run the algorithm on the resulting tensor:
 ```julia
 jualia> resRandomDiagonalBlock=toCurveTensor(rTensorDiagonalBlock.tensor)
 ```
@@ -373,7 +379,7 @@ jualia> resRandomDiagonalBlock=toCurveTensor(rTensorDiagonalBlock.tensor)
 (tensor = [2.522167441185261 1.1205903752896191 … 4.663513226650628e-16 7.944375935783431e-16; 1.4706704329365592 0.005728378852994986 … 7.527732293872729e-16 6.596708505411562e-16; … ; 1.4457065595388649e-15 7.988439986282894e-16 … 8.519457477147969e-16 1.0956121334688278e-15; -7.503027232723816e-16 1.0995788660076533e-15 … 2.123396700476875e-16 -8.75114787461572e-16;;; 0.8846373128626783 -1.3100718398801987 … 7.724206699978667e-16 -8.369596809421778e-16; 0.04000825619020491 1.0998022676212074 … -6.880571515817601e-16 -9.199924325467899e-17; … ; 4.788099823024108e-16 -8.29150270367448e-16 … 1.3887055829946707e-16 -4.1165826027083053e-16; 5.689860403802004e-16 -2.6745682755962364e-15 … 1.0958035016443158e-16 -6.982681721920173e-16;;; -2.108355599173611e-15 4.580203197690917e-17 … -3.5040673131298044e-17 7.172464184101075e-18; -7.199364977463047e-16 -7.906906063181214e-16 … 1.5293236169512242e-17 -6.985708151737266e-17; … ; 5.193338698775587e-17 -5.575771830359343e-18 … -1.9351776528218928e-15 -1.790077349324323e-15; 7.11714654367747e-17 -3.2742788568521557e-17 … -2.1922179439439517e-16 1.0115074623858426e-15;;; -2.334783904209992e-15 -1.4443087233156743e-15 … 7.135064112274865e-18 2.6324892646381753e-17; -1.4983923409695667e-15 3.6087681890593516e-16 … 3.839308393829004e-17 4.348394409941564e-17; … ; -3.6373447097258985e-19 9.9204594633917e-18 … -1.418613113533548e-15 -1.4567273517816767e-15; 6.836224487020565e-18 -7.831477234102301e-17 … -5.226804812284285e-16 2.3090987739615883e-15;;; -4.877734661962187e-15 -1.903701952733988e-15 … 4.140046776652075e-18 -3.237622590251839e-17; -2.582225472245621e-15 -6.740261977186425e-17 … 3.967741697578755e-17 4.8910625512160073e-17; … ; -1.1883176586491551e-17 4.9380003305519774e-17 … -7.142897090334068e-16 1.374818477270037e-15; 9.863962881996122e-18 -2.946167637516214e-17 … -2.676534162613924e-16 1.9709309822032316e-16;;; -1.4753031931194904e-15 7.9740065836597125e-16 … 3.6417886250331893e-16 -3.3276033800280633e-16; -4.800993321153344e-16 -9.289479217926204e-16 … 2.890460837605447e-16 -2.7334763581668492e-15; … ; -9.10323143942879e-16 4.549051397765812e-16 … 0.6617432077842805 -0.4422350214249645; -1.597027607757424e-16 1.4664763474759782e-15 … 0.49234232819009843 -1.8043053392039574;;; -1.97132378543493e-16 2.3230026636912776e-16 … -1.06502593262581e-15 -1.7914043465672285e-16; 1.6929045586602933e-16 -1.5964272022012813e-16 … 7.55205964554474e-16 1.0414498198611812e-15; … ; 1.0506214296080965e-15 7.448303566507221e-16 … -1.7556782300013851 -0.3647117126455474; 8.656487117304513e-16 -4.921755959251218e-16 … -0.2787317830800355 0.45695140127367023;;; 1.1469071264434575e-15 3.818826538989276e-16 … -2.0486001311755876e-16 -9.495114689100094e-16; 5.690796070050924e-16 9.635657282887038e-17 … 1.9945890906140387e-16 1.990226423401654e-15; … ; 4.0304901547913027e-17 1.6197436152923054e-15 … -0.2666756833710847 -1.7373040425865105; 1.0009783710781039e-16 -4.86057790105166e-16 … 0.0024221870233757502 0.5070589280924723], Xchange = [-0.30391648613709155 0.49492217286520146 … -0.30741452783384354 -0.3673422558782188; -0.38459635349410204 0.22296100230806623 … 0.05026916838399825 0.1214494835909029; … ; 0.3063146820225401 0.7390939309540691 … 0.17294980433521212 -0.09377518847564459; -0.3778245990601943 0.2192718962913001 … 0.051698257426139885 0.6618102305949757], Ychange = [-0.09463120032903263 -0.4988957617347311 … 0.09308815850170468 -0.29630698692843754; 0.003536757550233565 -0.1321651779224803 … -0.18363147802189336 0.5568959994911196; … ; 0.010200790188643089 -0.5676875269027027 … 0.5235385860313793 0.029298967612758575; -0.0588626673825768 -0.3455651359353808 … 0.11256543269428784 0.14717137506051753], Zchange = [-0.36040773857175484 0.375508190691389 … 0.19230178000746806 -0.09541674541714074; 0.2759266036784542 -0.18592928783200177 … -0.31142307444176637 0.32188756471820107; … ; -0.016172453576257184 0.09919778407896743 … -0.3783949026145276 -0.563325964410051; 0.7161672244405628 0.07778843658545467 … 0.05498177119767794 -0.45966162524243376], Xes = [-0.3061464133293273, -0.30614641332932696, -0.3061464133293266, -0.1855828993807031, -0.18558289938070266, -0.18558289938070252, -0.07973683604986744, -0.07973683604986723], Yes = [-0.3061464133293272, -0.30614641332932707, -0.30614641332932657, -0.18558289938070288, -0.18558289938070271, -0.07973683604986775, -0.07973683604986755, -0.0797368360498672], Zes = [-0.30614641332932774, -0.3061464133293272, -0.18558289938070288, -0.18558289938070266, -0.1855828993807025, -0.07973683604986735, -0.07973683604986725, -0.07973683604986709])
 ```
 
-Extract the tensor from the output
+Extract the tensor from the output:
 ```
 julia> resRandomDiagonalBlock.tensor
 ```
@@ -460,7 +466,7 @@ julia> resRandomDiagonalBlock.tensor
   1.00098e-16  -4.86058e-16  -2.04602e-16  -7.61651e-17  -1.3487e-16   -0.200466      0.00242219    0.507059
 ```
 
-Remove small entries
+Remove small entries:
 ```julia
 julia> resRandomDiagonalBlock.tensor .|> x -> (abs(x) < 1e-10 ? 0 : x )
 ```
@@ -547,7 +553,7 @@ julia> resRandomDiagonalBlock.tensor .|> x -> (abs(x) < 1e-10 ? 0 : x )
  0  0  0  0  0  -0.200466   0.00242219   0.507059
 ```
 
-Show the matrices used to transform the tensor 
+Show the matrices used to transform the tensor: 
 ```julia
 julia> resRandomDiagonalBlock.Xchange
 julia> resRandomDiagonalBlock.Ychange
@@ -585,13 +591,13 @@ julia> resRandomDiagonalBlock.Zchange
   0.716167    0.0777884  -0.0830973   0.0759328   0.377698    0.333788   0.0549818  -0.459662
 ```
 
-Check that these matrices are almost inverse of the matrices used to randomize the tensor
+Check that these matrices are almost the inverses of the matrices used to randomize the tensor:
 ```julia
 julia> rTensorDiagonalBlock.Xchange * resRandomDiagonalBlock.Xchange .|> x -> (abs(x) < 1e-10 ? 0 : x )
 julia> rTensorDiagonalBlock.Ychange * resRandomDiagonalBlock.Ychange .|> x -> (abs(x) < 1e-10 ? 0 : x )
 julia> rTensorDiagonalBlock.Zchange * resRandomDiagonalBlock.Zchange .|> x -> (abs(x) < 1e-10 ? 0 : x )
 ```
-Of course the product is not the identity, however it is a product of a block orthogonal matrix plus a block permutation
+The product is not the identity, but it is a product of a block orthogonal matrix plus a block permutation:
 ```
 8×8 Matrix{Real}:
  0          0           0           0           0           0         -0.529764  -0.848145
