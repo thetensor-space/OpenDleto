@@ -15,7 +15,7 @@ import Arpack
 
 #-------------------------------
 # Action of matrices on the tensor
-# rise exception if the sizes are not compatible
+# raise exception if the sizes are not compatible
 """
 actionOnTensor(t ::AbstractArray, mat ::AbstractArray, dir ::Integer)
 
@@ -23,7 +23,7 @@ Act on a tensor by a matrix via a given axis
 """
 function actionOnTensor(t ::AbstractArray, mat ::AbstractArray, dir ::Integer) ::Array
     if (dir < 1) || (dir >  ndims(t))
-        throw(DimensionMismatch("direction does not exists"))
+        throw(DimensionMismatch("direction does not exist"))
     end
     if ndims(mat) != 2
         throw(DimensionMismatch("only matrices can act!"))
