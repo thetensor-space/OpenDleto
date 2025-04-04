@@ -1,5 +1,22 @@
+
 # OpenDleto
 Dleto, which means chisel, is a package of tools to carve information out of tensor data. This is an early release simplified implementation of a larger project of research methods developed in multiple languages.  Visit  [TheTensor.Space](https://TheTensor.Space/) for the main project.
+
+<!-- <div class="slideshow-container"> -->
+<table >
+<th>
+<img class="slides" src="docs/images/colossus-X-orig.png" width="100%" alt="Image 2">
+</th>
+<th>
+<img class="slides" src="docs/images/random-small.png" width="65%" alt="Image 2">
+</th>
+<th>
+<img class="slides" src="docs/images/colossus-X-recon.png" width="100%" alt="Image 2">
+</th>
+
+</table>
+      <!-- <img class="slides" src="image3.jpg" alt="Image 3"> -->
+<!-- </div> -->
 
 
 ## Contents
@@ -25,13 +42,16 @@ this means a to cluster the data near a block array of 2-tensors.  Here is what 
 
 | [Strata](#strata) | [Channels](#channels) |
 |---------------------|----------------|
-|<img src="docs/images/colossus-X-recon.png" alt="Curve" style="width:65%"> | <img src="docs/images/Curve.png" alt="Curve" style="width:75%"> 
+|<img src="docs/images/colossus-X-recon.png" alt="Curve" style="width:65%"> | <img src="docs/images/intro-snake.png" alt="Curve" style="width:75%"> 
 |
 
 
-| Diagonal Blocks | Step Blocks |
+| Hidden Source | Recovery after Randomization |
 |------------------|----------------|
-| <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
+| <img src="docs/images/sphere-small.png" alt="Sphere" style="width:75%">  |  <img src="docs/images/octant-small.png" alt="Octant" style="width:75%"> |
+| <img src="docs/images/spiral-orig.png" alt="Spiral" style="width:75%">  |  <img src="docs/images/tensor-spiral-squish.png" alt="Squashed Spiral" style="width:75%"> |
+| <img src="docs/images/tensor-blocks-diag-orig-print.png" alt="Diagonal to hide" style="width:75%">  |  <img src="docs/images/tensor-blocks-diag-recov-print.png" alt="Diagonal recovered" style="width:75%"> |
+| <img src="docs/images/tensor-face-orig-print.png" alt="Steps to hide" style="width:75%">  |  <img src="docs/images/tensor-face-recov-print.png" alt="Steps recovered" style="width:75%"> |
 
 
 
