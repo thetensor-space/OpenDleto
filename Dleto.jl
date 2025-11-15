@@ -4,6 +4,7 @@
 #
 import LinearAlgebra
 import Random
+# using LinearAlgebra
 
 # install Arpack if it is not installed -- comment the next two if it ialready installed
 #import Pkg
@@ -368,18 +369,22 @@ function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
 
     # set up system of lin equation
-    M = buildLinearSystem(t, SurfaceMatrix)
+    println("\r\n\tBuilding linear system...")
+    @time M = buildLinearSystem(t, SurfaceMatrix)
 
     # do SVD and pick the smallest vectors 
-    lastsvds= svdfunc(M)
-    
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
     # exctract the correct vector
     maineigenvector = lastsvds[:,3]
 
     # expand to matrices
-    XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
-    YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
-    ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+    @time XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
+    @time ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
 
     return changeTensor(t, XMatrix, YMatrix, ZMatrix)
 end;
