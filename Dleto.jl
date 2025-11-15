@@ -479,7 +479,7 @@ end
 using PlotlyJS
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
 
-    # function for remving small entries
+    # function for removing small entries
     dropSmall = x -> abs(x)< threshold ? 0 : x
     tensor = tensor .|> dropSmall
     
