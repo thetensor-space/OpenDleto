@@ -461,3 +461,51 @@ function toCurveTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
 
     return changeTensor(t, XMatrix, YMatrix, ZMatrix)
 end;
+
+function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Float64=1e-3)
+    open(filename, "w") do file
+        dims = size(tensor)
+        println(file, "# i j k value")
+        for i in 1:dims[1], j in 1:dims[2], k in 1:dims[3]
+            val = tensor[i, j, k]
+            if abs(val) > threshold
+                println(file, "$i $j $k $val")
+            end
+        end
+    end
+end
+
+
+using PlotlyJS
+function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
+
+    # function for remving small entries
+    dropSmall = x -> abs(x)< threshold ? 0 : x
+    tensor = tensor .|> dropSmall
+    
+    # Get indices of non-zero values in the tensor
+    indices = findall(x -> x != 0, tensor)
+    dims = size(tensor)
+
+    # Extract x, y, z coordinates
+    x_coords = [idx[1] for idx in indices]
+    y_coords = [idx[2] for idx in indices]
+    z_coords = [idx[3] for idx in indices]
+
+    # Create 3D scatter plot with bounding box based on tensor dimensions
+    plot(scatter3d(
+        x=x_coords, 
+        y=y_coords, 
+        z=z_coords,
+        mode="markers",
+        marker=attr(size=2, opacity=0.6)
+    ), Layout(
+        scene=attr(
+            xaxis=attr(range=[1, dims[1]+1], title="X"),
+            yaxis=attr(range=[1, dims[2]+1], title="Y"),
+            zaxis=attr(range=[1, dims[3]+1], title="Z"),
+            aspectmode="cube"
+        ),
+        title="3D Tensor Visualization"
+    ))
+end
