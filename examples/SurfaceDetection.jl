@@ -7,14 +7,14 @@ dropSmall = x -> abs(x)< 1e-10 ? 0 : x
 # Generate Face Block Tensor
 
 #[(-4:4)...] is a shorthand for [-4,-3,-2,-1,0,1,2,3,4] -- the arguments needs to be a vector and -4:4 does not work
-Xes = [(0:0.2:4)...] .|> x-> (x*x- 9.0)
-Yes = [(0:0.25:4)...] .|> x-> (x*x- 9.0)
-Zes = [(0:0.125:4)...] .|> x-> (x*x- 9.0)
+Xes = [(0:0.2:10)...] .|> x-> (x*x- 9.0)
+Yes = [(0:0.25:10)...] .|> x-> (x*x- 9.0)
+Zes = [(0:0.125:10)...] .|> x-> (x*x- 9.0)
 
 tensorSphere = randomSurfaceTensor( Xes, Yes, Zes, 1.5)
 # measure
 testSurfaceTensor(tensorSphere, Xes, Yes, Zes)
-
+saveTensorToFile(tensorSphere, "sphere-51-41-81-orig.txt")
 
 # run alg on the orig
 # @time is a Julia macro which prints info about how long the computation took
@@ -35,6 +35,8 @@ testSurfaceTensor(resOrigSphere.tensor, resOrigSphere.Xes, resOrigSphere.Yes, re
 
 #randomize
 rTensorSphere = randomizeTensor(tensorSphere)
+saveTensorToFile(rTensorSphere.tensor, "sphere-51-41-81-rand.txt")
+
 # run alg on the randomized tensor
 @time resRandomSphere=toSurfaceTensor(rTensorSphere.tensor)
 # show result
@@ -47,6 +49,7 @@ resRandomSphere.Zchange
 rTensorSphere.Xchange * resRandomSphere.Xchange .|> dropSmall
 rTensorSphere.Ychange * resRandomSphere.Ychange .|> dropSmall
 rTensorSphere.Zchange * resRandomSphere.Zchange .|> dropSmall
+saveTensorToFile(resRandomSphere.tensor, "sphere-51-41-81-recov.txt")
 
 #measure
 testSurfaceTensor(resRandomSphere.tensor, resRandomSphere.Xes, resRandomSphere.Yes, resRandomSphere.Zes)
@@ -57,6 +60,8 @@ testSurfaceTensor(resRandomSphere.tensor, resRandomSphere.Xes, resRandomSphere.Y
 # thicker Sphere
 
 tensorSphereThick = randomSurfaceTensor( Xes, Yes, Zes, 4)
+saveTensorToFile(tensorSphereThick, "thicker-sphere-51-41-81-orig.txt")
+
 # measure
 testSurfaceTensor(tensorSphereThick, Xes, Yes, Zes)
 
@@ -80,6 +85,8 @@ testSurfaceTensor(resOrigSphereThick.tensor, resOrigSphereThick.Xes, resOrigSphe
 
 #randomize
 rTensorSphereThick = randomizeTensor(tensorSphereThick)
+saveTensorToFile(rTensorSphereThick.tensor, "thicker-sphere-51-41-81-rand.txt")
+
 # run alg on the randomized tensor
 @time resRandomSphereThick=toSurfaceTensor(rTensorSphereThick.tensor)
 # show result
@@ -93,6 +100,8 @@ resRandomSphereThick.Zchange
 rTensorSphereThick.Xchange * resRandomSphereThick.Xchange .|> dropSmall
 rTensorSphereThick.Ychange * resRandomSphereThick.Ychange .|> dropSmall
 rTensorSphereThick.Zchange * resRandomSphereThick.Zchange .|> dropSmall
+
+saveTensorToFile(rTensorSphereThick.tensor, "thicker-sphere-51-41-81-recov.txt")
 
 #measure
 testSurfaceTensor(resRandomSphereThick.tensor, resRandomSphereThick.Xes, resRandomSphereThick.Yes, resRandomSphereThick.Zes)
