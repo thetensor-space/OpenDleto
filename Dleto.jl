@@ -519,6 +519,41 @@ function loadTensorFromFile(filename::String)
     return tensor
 end
 
+function createTensorFromIncidence3(M::AbstractMatrix{T}) where T
+    # Check that M is a 01 matrix
+    if !all(x -> x == 0 || x == 1, M)
+        throw(ArgumentError("Matrix M must be a 0-1 matrix"))
+    end
+    
+    d = size(M, 2)  # number of columns
+    e = size(M, 1)  # number of rows
+    
+    # Check that each row has exactly 3 ones
+    for row in 1:e
+        if sum(M[row, :]) != 3
+            throw(ArgumentError("Each row must have exactly 3 ones"))
+        end
+    end
+    
+    # Create d x d x d tensor initialized to zeros
+    t = zeros(Float16, d, d, d)
+    
+    # For each row in M, find the three nonzero columns and set t[i,j,k] = 1
+    for row in 1:e
+        nonzero_cols = findall(x -> x == 1, M[row, :])
+        if length(nonzero_cols) == 3
+            i, j, k = nonzero_cols
+            t[i, j, k] = 1
+            t[i, k, j] = 1
+            t[j, i, k] = 1
+            t[j, k, i] = 1
+            t[k, i, j] = 1
+            t[k, j, i] = 1
+        end
+    end
+    
+    return t
+end
 
 using PlotlyJS
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
