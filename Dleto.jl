@@ -480,6 +480,45 @@ function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Fl
     end
 end
 
+function loadTensorFromFile(filename::String)
+    # Read the file and parse entries
+    entries = []
+    max_i, max_j, max_k = 0, 0, 0
+    
+    open(filename, "r") do file
+        for line in eachline(file)
+            # Skip comments and empty lines
+            if startswith(line, "#") || isempty(strip(line))
+                continue
+            end
+            
+            # Parse the line: i j k value
+            parts = split(strip(line))
+            if length(parts) == 4
+                i = parse(Int, parts[1])
+                j = parse(Int, parts[2])
+                k = parse(Int, parts[3])
+                val = parse(Float64, parts[4])
+                
+                push!(entries, (i, j, k, val))
+                max_i = max(max_i, i)
+                max_j = max(max_j, j)
+                max_k = max(max_k, k)
+            end
+        end
+    end
+    
+    # Create tensor array with appropriate dimensions
+    tensor = zeros(Float64, max_i, max_j, max_k)
+    
+    # Populate the tensor with values
+    for (i, j, k, val) in entries
+        tensor[i, j, k] = val
+    end
+    
+    return tensor
+end
+
 
 using PlotlyJS
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
