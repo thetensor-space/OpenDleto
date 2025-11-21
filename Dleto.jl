@@ -519,6 +519,9 @@ function loadTensorFromFile(filename::String)
     return tensor
 end
 
+
+
+
 function createTensorFromIncidence3(M::AbstractMatrix{T}) where T
     # Check that M is a 01 matrix
     if !all(x -> x == 0 || x == 1, M)
@@ -552,6 +555,50 @@ function createTensorFromIncidence3(M::AbstractMatrix{T}) where T
         end
     end
     
+    return t
+end
+
+
+function createTensorFromIncidence(M::AbstractMatrix{T}, m::Integer; field::Type=Float16) where T
+    # Check that M is a 0-1 matrix
+    if !all(x -> x == 0 || x == 1, M)
+        throw(ArgumentError("Matrix M must be a 0-1 matrix"))
+    end
+    if m < 1
+        throw(ArgumentError("m must be >= 1"))
+    end
+
+    d = size(M, 2)  # number of columns
+    e = size(M, 1)  # number of rows
+    if m > d
+        throw(ArgumentError("m cannot exceed number of columns"))
+    end
+
+    # Create an m-way tensor of size d x d x ... x d with specified element type
+    dims = ntuple(_ -> d, m)
+    t = zeros(field, dims...)
+
+    # recursive helper to set all permutations of indices in tensor to one(field)
+    function set_permutations!(Tarr, inds::Vector{Int}, i::Int)
+        if i == length(inds)
+            Tarr[Tuple(inds)...] = one(field)
+            return
+        end
+        for j in i:length(inds)
+            inds[i], inds[j] = inds[j], inds[i]
+            set_permutations!(Tarr, inds, i + 1)
+            inds[i], inds[j] = inds[j], inds[i]
+        end
+    end
+
+    # Process rows that have exactly m ones
+    for row in 1:e
+        cols = findall(x -> x == 1, M[row, :])
+        if length(cols) == m
+            set_permutations!(t, collect(cols), 1)
+        end
+    end
+
     return t
 end
 
