@@ -234,6 +234,22 @@ end;
 #-------------------------------
 # combine some coordinatres of a vector into a symmetric matrix
 # use with caution -- the function does not perform any checks!
+function expandToMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
+    M = zeros(Float64,n,n)
+    k = 1 + offset
+    for i = 1:n
+        for j = i:n
+            M[i,j] = u[k]
+            # M[j,i] = u[k]
+            k = k + 1
+        end
+    end 
+    return LinearAlgebra.Matrix(M)
+end;
+
+#-------------------------------
+# combine some coordinatres of a vector into a symmetric matrix
+# use with caution -- the function does not perform any checks!
 function expandToSymetricMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
     M = zeros(Float64,n,n)
     k = 1 + offset
@@ -299,13 +315,14 @@ CurveMatrix = [1.0 -1.0 0.0; 1.0 0.0 -1.0; 0.0 1.0 -1.0]
 #-------------------------------
 # technical function for building the linear system 
 # use with caution, there are no checks for consistency
-function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+function buildFullLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
     sizes = [size(t)...]
     Msize = size(eqMatrix)
-    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+    blocks = sizes .|> (n -> n*n)
     numvars =  sum(i -> blocks[i], 1: Msize[2])
     M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
     k=0
+    println("\tSizes: ", size(M))
     R = CartesianIndices(t)
     for ci in R                            #  loop over entries of tensor
         li = LinearIndices(t)[ci]
@@ -323,6 +340,76 @@ function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
             k += 1
         end
     end
+    return M
+end
+
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+    sizes = [size(t)...]
+    Msize = size(eqMatrix)
+    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+    numvars =  sum(i -> blocks[i], 1: Msize[2])
+    M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
+    println("\tNumber of blocks: ", Msize)
+    println("\tNumber of variables: ", numvars)
+    k=0
+    println("\tSizes: ", size(M))
+    R = CartesianIndices(t)
+    println("Number of coordinates: ", length(R))
+    println("loops to do: ", Msize[1] * Msize[2] * length(R))
+    for ci in R                            #  loop over entries of tensor
+        li = LinearIndices(t)[ci]
+        for i = 1:Msize[1] 
+            s=0
+            for j = 1:Msize[2]                
+                # extract 1 dimensional slice of the tensor
+                first = li - (ci[j] - 1)*stride(t,j)
+                last = first + (sizes[j]- 1)*stride(t,j)
+                slice = t[first:stride(t,j):last]
+                # add it to the condition
+                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
+                s += blocks[j]
+            end
+            k += 1
+        end
+    end
+    return M
+end
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+# t[i,j,k]*(X[i,i] + Y[j,j] + Z[k,k]) =0
+function buildDiagonalSystem(t::AbstractArray)::Matrix
+    sizes = [size(t)...]
+    println("Sizes: ", sizes)
+    numvars = sum(sizes)  # Total number of diagonal entries across X, Y, Z
+    
+    # Count non-zero entries to determine number of equations
+    # non_zero_indices = findall(x -> abs(x) > 1e-12, t)
+    num_equations = length(t)
+    
+    M = zeros(Float64, (numvars, num_equations))
+    println("Numvars: ", numvars)
+    println("Matrix size: ", size(M))
+    
+    eq_idx = 1
+    for ci in CartesianIndices(t)
+        t_val = t[ci]
+        
+        # X[i,i] coefficient (first sizes[1] variables)
+        M[ci[1], eq_idx] = t_val
+        
+        # Y[j,j] coefficient (next sizes[2] variables)
+        M[sizes[1] + ci[2], eq_idx] = t_val
+        
+        # Z[k,k] coefficient (last sizes[3] variables)
+        M[sizes[1] + sizes[2] + ci[3], eq_idx] = t_val
+        
+        eq_idx += 1
+    end
+    
     return M
 end
 
@@ -385,6 +472,35 @@ function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     @time XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
     @time YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
     @time ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function stratify(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, SurfaceMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,3]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
 
     return changeTensor(t, XMatrix, YMatrix, ZMatrix)
 end;
@@ -808,7 +924,10 @@ function generateHypergraph(kind::Symbol, d::Integer, k::Integer; kwargs...)
 end
 
 using PlotlyJS
-function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
+
+function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
+                   xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+                   title::String="3D Tensor Visualization")
 
     # function for removing small entries
     dropSmall = x -> abs(x)< threshold ? 0 : x
@@ -832,11 +951,43 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
         marker=attr(size=2, opacity=0.6)
     ), Layout(
         scene=attr(
-            xaxis=attr(range=[1, dims[1]+1], title="X"),
-            yaxis=attr(range=[1, dims[2]+1], title="Y"),
-            zaxis=attr(range=[1, dims[3]+1], title="Z"),
+            xaxis=attr(range=[1, dims[1]+1], title=xlabel),
+            yaxis=attr(range=[1, dims[2]+1], title=ylabel),
+            zaxis=attr(range=[1, dims[3]+1], title=zlabel),
             aspectmode="cube"
         ),
-        title="3D Tensor Visualization"
+        title=title
     ))
 end
+# function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
+
+#     # function for removing small entries
+#     dropSmall = x -> abs(x)< threshold ? 0 : x
+#     tensor = tensor .|> dropSmall
+    
+#     # Get indices of non-zero values in the tensor
+#     indices = findall(x -> x != 0, tensor)
+#     dims = size(tensor)
+
+#     # Extract x, y, z coordinates
+#     x_coords = [idx[1] for idx in indices]
+#     y_coords = [idx[2] for idx in indices]
+#     z_coords = [idx[3] for idx in indices]
+
+#     # Create 3D scatter plot with bounding box based on tensor dimensions
+#     plot(scatter3d(
+#         x=x_coords, 
+#         y=y_coords, 
+#         z=z_coords,
+#         mode="markers",
+#         marker=attr(size=2, opacity=0.6)
+#     ), Layout(
+#         scene=attr(
+#             xaxis=attr(range=[1, dims[1]+1], title="X"),
+#             yaxis=attr(range=[1, dims[2]+1], title="Y"),
+#             zaxis=attr(range=[1, dims[3]+1], title="Z"),
+#             aspectmode="cube"
+#         ),
+#         title="3D Tensor Visualization"
+#     ))
+# end
