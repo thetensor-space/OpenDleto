@@ -294,6 +294,8 @@ SurfaceMatrix = [1.0 1.0 1.0]
 FaceCurveMatrix = [1.0 -1.0]
 # Curve Equation Matrix
 CurveMatrix = [1.0 -1.0 0.0; 1.0 0.0 -1.0; 0.0 1.0 -1.0]
+# Tucker Equation Matrix
+TuckerMatrix = [1.0 0.0 0.0 ; 0.0 1.0 0.0 ; 0.0 0.0 1.0]
 
 #-------------------------------
 # technical function for building the linear system 
@@ -453,6 +455,42 @@ function toCurveTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     
     # exctract the correct vector
     maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
+    YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
+    ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+"""
+function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
+
+Change a basis of a tensor to make it supported on a surface. 
+The output is a named tuple with coordinates .tensor, .Xchange, .Ychange, .Zchange, .Xes, .Yes, .Zes
+consiting of the transformed tensor, the 3 change of basis matrices, and the vectors defining the surface.
+
+The second ardument is a function which performs the svd of some relatively large matrix and rerurns the smallesr singular vectors.
+The defalut value (ArpackEigen) uses the Arpack library, the two other possible functions area LinearAlgebraSVD and LinearAlgebraEigen.
+Sometimes Arpack crashes, so there is a build in fall back to LinearAlgebra function
+"""
+function TuckerDecomposition(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+
+    # set up system of lin equation
+    M = buildLinearSystem(t, TuckerMatrix)
+
+    # do SVD and pick the smallest vectors 
+    lastsvds= svdfunc(M)
+    
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,4]
 
     # expand to matrices
     XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
