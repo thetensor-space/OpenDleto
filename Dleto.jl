@@ -300,6 +300,37 @@ TuckerMatrix = [1.0 0.0 0.0 ; 0.0 1.0 0.0 ; 0.0 0.0 1.0]
 #-------------------------------
 # technical function for building the linear system 
 # use with caution, there are no checks for consistency
+function buildFullLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+    sizes = [size(t)...]
+    Msize = size(eqMatrix)
+    blocks = sizes .|> (n -> n*n)
+    numvars =  sum(i -> blocks[i], 1: Msize[2])
+    M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
+    k=0
+    println("\tSizes: ", size(M))
+    R = CartesianIndices(t)
+    for ci in R                            #  loop over entries of tensor
+        li = LinearIndices(t)[ci]
+        for i = 1:Msize[1] 
+            s=0
+            for j = 1:Msize[2]                
+                # extract 1 dimensional slice of the tensor
+                first = li - (ci[j] - 1)*stride(t,j)
+                last = first + (sizes[j]- 1)*stride(t,j)
+                slice = t[first:stride(t,j):last]
+                # add it to the condition
+                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
+                s += blocks[j]
+            end
+            k += 1
+        end
+    end
+    return M
+end
+
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
 function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
     sizes = [size(t)...]
     Msize = size(eqMatrix)
@@ -481,16 +512,18 @@ function TuckerDecomposition(t::AbstractArray, svdfunc::Function=ArpackEigen)
         throw(DimensionMismatch("wrong arity of tensor"))
     end
     sizes = [size(t)...]
-    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+    blocks = sizes  .|> (n -> n*n) 
 
     # set up system of lin equation
-    M = buildLinearSystem(t, TuckerMatrix)
+    println("\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, TuckerMatrix)
 
     # do SVD and pick the smallest vectors 
-    lastsvds= svdfunc(M)
+    println("\tCalculuating SVD of matrix of dimensions: ", size(M))
+    @time lastsvds= svdfunc(M)
     
     # exctract the correct vector
-    maineigenvector = lastsvds[:,4]
+    maineigenvector = lastsvds[:,1]
 
     # expand to matrices
     XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
