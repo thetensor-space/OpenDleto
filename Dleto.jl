@@ -11,6 +11,12 @@ import Random
 
 import Arpack
 
+
+# import Pkg
+# Pkg.add("PlotlyJS")
+ENV["WEBIO_JUPYTER_DETECTED"] = "true"
+using PlotlyJS
+
 #import Base
 
 #-------------------------------
@@ -546,8 +552,6 @@ function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Fl
     end
 end
 
-
-using PlotlyJS
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
 
     # function for removing small entries
@@ -563,8 +567,10 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
 
+    println("Plotting $(length(indices)) points...")
+    
     # Create 3D scatter plot with bounding box based on tensor dimensions
-    plot(scatter3d(
+    p = PlotlyJS.Plot(scatter3d(
         x=x_coords, 
         y=y_coords, 
         z=z_coords,
@@ -579,4 +585,9 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
         ),
         title="3D Tensor Visualization"
     ))
+    
+    # Return the plot object to let notebook handle rendering
+    return p
 end
+
+println("Dleto.jl loaded successfully.")
