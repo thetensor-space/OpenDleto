@@ -35,14 +35,16 @@ jobs:
             echo "www branch exists, checking out"
             git checkout www
             git pull origin www
+            # Merge changes from main
+            git merge origin/main -m "Merge latest changes from main"
           else
-            echo "Creating new www branch"
+            echo "Creating new www branch from current branch"
             git checkout -b www
           fi
           
-          # Ensure docs/index.html exists
+          # Ensure docs/index.html exists (only create if missing)
           if [ ! -f docs/index.html ]; then
-            echo "Creating docs/index.html"
+            echo "Creating docs/index.html - NOTE: This should be maintained in the repository"
             cat > docs/index.html << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
