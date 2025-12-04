@@ -12,6 +12,12 @@ import Random
 
 import Arpack
 
+
+# import Pkg
+# Pkg.add("PlotlyJS")
+ENV["WEBIO_JUPYTER_DETECTED"] = "true"
+using PlotlyJS
+
 #import Base
 
 #-------------------------------
@@ -311,6 +317,39 @@ SurfaceMatrix = [1.0 1.0 1.0]
 FaceCurveMatrix = [1.0 -1.0]
 # Curve Equation Matrix
 CurveMatrix = [1.0 -1.0 0.0; 1.0 0.0 -1.0; 0.0 1.0 -1.0]
+# Tucker Equation Matrix
+TuckerMatrix = [1.0 0.0 0.0 ; 0.0 1.0 0.0 ; 0.0 0.0 1.0]
+
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+function buildFullLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+    sizes = [size(t)...]
+    Msize = size(eqMatrix)
+    blocks = sizes .|> (n -> n*n)
+    numvars =  sum(i -> blocks[i], 1: Msize[2])
+    M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
+    k=0
+    println("\tSizes: ", size(M))
+    R = CartesianIndices(t)
+    for ci in R                            #  loop over entries of tensor
+        li = LinearIndices(t)[ci]
+        for i = 1:Msize[1] 
+            s=0
+            for j = 1:Msize[2]                
+                # extract 1 dimensional slice of the tensor
+                first = li - (ci[j] - 1)*stride(t,j)
+                last = first + (sizes[j]- 1)*stride(t,j)
+                slice = t[first:stride(t,j):last]
+                # add it to the condition
+                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
+                s += blocks[j]
+            end
+            k += 1
+        end
+    end
+    return M
+end
 
 #-------------------------------
 # technical function for building the linear system 
@@ -574,6 +613,44 @@ function toCurveTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     
     # exctract the correct vector
     maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
+    YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
+    ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+"""
+function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
+
+Change a basis of a tensor to make it supported on a surface. 
+The output is a named tuple with coordinates .tensor, .Xchange, .Ychange, .Zchange, .Xes, .Yes, .Zes
+consiting of the transformed tensor, the 3 change of basis matrices, and the vectors defining the surface.
+
+The second ardument is a function which performs the svd of some relatively large matrix and rerurns the smallesr singular vectors.
+The defalut value (ArpackEigen) uses the Arpack library, the two other possible functions area LinearAlgebraSVD and LinearAlgebraEigen.
+Sometimes Arpack crashes, so there is a build in fall back to LinearAlgebra function
+"""
+function TuckerDecomposition(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n) 
+
+    # set up system of lin equation
+    println("\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, TuckerMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\tCalculuating SVD of matrix of dimensions: ", size(M))
+    @time lastsvds= svdfunc(M)
+    
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,1]
 
     # expand to matrices
     XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
@@ -942,8 +1019,10 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2;
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
 
+    println("Plotting $(length(indices)) points...")
+    
     # Create 3D scatter plot with bounding box based on tensor dimensions
-    plot(scatter3d(
+    p = PlotlyJS.Plot(scatter3d(
         x=x_coords, 
         y=y_coords, 
         z=z_coords,
@@ -958,36 +1037,9 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2;
         ),
         title=title
     ))
-end
-# function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
-
-#     # function for removing small entries
-#     dropSmall = x -> abs(x)< threshold ? 0 : x
-#     tensor = tensor .|> dropSmall
     
-#     # Get indices of non-zero values in the tensor
-#     indices = findall(x -> x != 0, tensor)
-#     dims = size(tensor)
+    # Return the plot object to let notebook handle rendering
+    return p
+end
 
-#     # Extract x, y, z coordinates
-#     x_coords = [idx[1] for idx in indices]
-#     y_coords = [idx[2] for idx in indices]
-#     z_coords = [idx[3] for idx in indices]
-
-#     # Create 3D scatter plot with bounding box based on tensor dimensions
-#     plot(scatter3d(
-#         x=x_coords, 
-#         y=y_coords, 
-#         z=z_coords,
-#         mode="markers",
-#         marker=attr(size=2, opacity=0.6)
-#     ), Layout(
-#         scene=attr(
-#             xaxis=attr(range=[1, dims[1]+1], title="X"),
-#             yaxis=attr(range=[1, dims[2]+1], title="Y"),
-#             zaxis=attr(range=[1, dims[3]+1], title="Z"),
-#             aspectmode="cube"
-#         ),
-#         title="3D Tensor Visualization"
-#     ))
-# end
+println("Dleto.jl loaded successfully.")
