@@ -1,5 +1,13 @@
 # OpenDleto
-Dleto, which means chisel, is a package of tools to carve information out of tensor data. This is a simplified, early release implementation of a larger project of research methods developed in multiple languages.  Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
+Dleto, which means chisel, is a package of tools to carve information out of tensor data. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started with one of the notebooks
+
+ - [Sphere Lab](/examples/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  Too busy to install or run a lab? Try the [PDF results](examples/SphereLab.pdf)
+ - [Cluster Lab](/examples/ClusterLab.ipynb) recovering clusters in high-dimensional data.
+ - [Hypergraph Lab](/examples/HypergraphLab.ipynb) locating structure in hypergraphs.
+ - [Toy data lab](/examples/ToyDataLab.ipynb) use real data about toys to explore potential data science applications of Dleto.
+
+
+Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
 
 
 ## Contents
