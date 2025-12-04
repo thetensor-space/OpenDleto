@@ -25,7 +25,7 @@ for pkg in required_packages
         if pkg == "IJulia"
             using IJulia
         elseif pkg == "Arpack"
-            import Arpack
+            using Arpack
         elseif pkg == "PlotlyJS"
             using PlotlyJS
         end
@@ -50,6 +50,13 @@ catch e
 end
 println()
 
+# Helper function to create sphere parameters
+function create_sphere_parameters(center_val, radius, range_end)
+    """Create sphere equation parameters for a given center and radius"""
+    param = [(0:1:range_end)...] .|> x-> ((x-center_val)*(x-center_val)- (radius*radius)/3.0)
+    return param
+end
+
 # Test 4-8: Run main workflow tests
 sphere5 = nothing
 hidden_sphere5 = nothing
@@ -59,9 +66,9 @@ recovered_sphere5 = nothing
 println("Test 4: Creating test sphere tensor...")
 try
     a = 5.0; b = 5.0; c = 5.0; r = 5.0;
-    Ues = [(0:1:10)...] .|> i-> ((i-a)*(i-a)- (r*r)/3.0)
-    Ves = [(0:1:10)...] .|> j-> ((j-b)*(j-b)- (r*r)/3.0)
-    Wes = [(0:1:10)...] .|> k-> ((k-c)*(k-c)- (r*r)/3.0)
+    Ues = create_sphere_parameters(a, r, 10)
+    Ves = create_sphere_parameters(b, r, 10)
+    Wes = create_sphere_parameters(c, r, 10)
     global sphere5 = randomSurfaceTensor( Ues, Ves, Wes, 1.5)
     println("  ✓ Sphere tensor created: ", size(sphere5))
 catch e
@@ -104,7 +111,7 @@ println()
 # Test 7: Test file I/O
 println("Test 7: Testing file I/O...")
 try
-    test_file = "/tmp/test_sphere.txt"
+    test_file = tempname() * ".txt"
     saveTensorToFile(sphere5, test_file)
     file_size = stat(test_file).size
     println("  ✓ File saved successfully: ", file_size, " bytes")
