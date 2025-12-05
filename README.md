@@ -1,10 +1,12 @@
-# OpenDleto
-Dleto, which means chisel, is a package of tools to carve information out of tensor data. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started with one of the notebooks
+# OpenDleto <!-- omit from toc -->
+Dleto, which means chisel, is a package of tools to carve information out of tensor data. 
+If you want to try the notebooks in your browser without installing anything, click on the binder buttons: ![Binder](https://mybinder.org/badge_logo.svg)
+If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
 
- - [Sphere Lab](labs/geometry/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  Too busy to install or run a lab? Try the [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf)
- - [Cluster Lab](labs/clusters/ClusterLab.ipynb) recovering clusters in high-dimensional data.
- - [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) locating structure in hypergraphs.
- - [Toy data lab](labs/data/ToyDataLab.ipynb) use real data about toys to explore potential data science applications of Dleto.
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) [Sphere Lab](labs/geometry/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  If you want to just read the results instead, try: [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf)
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) [Cluster Lab](labs/clusters/ClusterLab.ipynb) recovering clusters in high-dimensional data. 
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fhypergraphs%2FHypergraphLab.ipynb) [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) locating structure in hypergraphs.
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fdata%2FToyDataLab.ipynb) [Toy data lab](labs/data/ToyDataLab.ipynb) use real data about toys to explore potential data science applications of Dleto.
 
 
 Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
@@ -13,15 +15,16 @@ Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about th
 ## Contents
 
 - [Contents](#contents)
-- [Our Team](#our-team)
-- [Acknowledgements](#acknowledgements)
+- [What can we find?](#what-can-we-find)
 - [Install](#install)
+- [Our Team](#our-team)
+- [Acknowledgments](#acknowledgments)
 - [Samples](#samples)
-    - [Strata](#strata)
-    - [Channels](#channels)
-    - [Blocks](#blocks)
-    - [Steps](#steps)
-- [Performance](#performance)
+  - [Strata](#strata)
+- [Usage](#usage)
+  - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
+  - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
+- [Examples](#examples)
 
 ## What can we find?
 Using the algebra of operators on tensors, Dleto methods determine change of coordinates relative to which tensor data is supported on a smaller valence.  
@@ -125,7 +128,7 @@ A random change of basis to the above tensor:
 
 The reconstruction obtained by our algorithm: 
 ![](docs/images/colossus-X-recon.png)
----
+
 
 
 ## Usage
