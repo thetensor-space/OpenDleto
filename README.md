@@ -1,7 +1,7 @@
 # OpenDleto <!-- omit from toc -->
 Dleto, which means chisel, is a package of tools to carve information out of tensor data. 
-If you want to try the notebooks in your browser without installing anything, click on the binder buttons: ![Binder](https://mybinder.org/badge_logo.svg)
-If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
+
+If you want to try the notebooks in your browser without installing anything, click on the **launch binder** buttons. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
 
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) [Sphere Lab](labs/geometry/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  If you want to just read the results instead, try: [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf)
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) [Cluster Lab](labs/clusters/ClusterLab.ipynb) recovering clusters in high-dimensional data. 
