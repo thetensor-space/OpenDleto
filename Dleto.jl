@@ -1004,7 +1004,7 @@ using PlotlyJS
 
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization")
+                   title::String="3D Tensor Visualization", color::String="blue")
 
     # function for removing small entries
     dropSmall = x -> abs(x)< threshold ? 0 : x
@@ -1014,12 +1014,27 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2;
     indices = findall(x -> x != 0, tensor)
     dims = size(tensor)
 
-    # Extract x, y, z coordinates
+    # Extract x, y, z coordinates and values
     x_coords = [idx[1] for idx in indices]
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
+    values = [abs(tensor[idx]) for idx in indices]
+    
+    # Scale marker sizes proportional to values
+    # Normalize values to a reasonable marker size range (2-20)
+    if length(values) > 0
+        min_val, max_val = extrema(values)
+        if min_val ≈ max_val
+            marker_sizes = fill(5.0, length(values))  # All same size if all values equal
+        else
+            # Scale values to range [2, 20] for marker sizes
+            marker_sizes = 2.0 .+ 18.0 .* (values .- min_val) ./ (max_val - min_val)
+        end
+    else
+        marker_sizes = Float64[]
+    end
 
-    println("Plotting $(length(indices)) points...")
+    println("Plotting $(length(indices)) points with value-proportional sizes...")
     
     # Create 3D scatter plot with bounding box based on tensor dimensions
     p = PlotlyJS.Plot(scatter3d(
@@ -1027,7 +1042,7 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2;
         y=y_coords, 
         z=z_coords,
         mode="markers",
-        marker=attr(size=2, opacity=0.6)
+        marker=attr(size=marker_sizes, opacity=0.6, color=color)
     ), Layout(
         scene=attr(
             xaxis=attr(range=[1, dims[1]+1], title=xlabel),
