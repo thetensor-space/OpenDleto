@@ -521,7 +521,7 @@ function stratify(t::AbstractArray, svdfunc::Function=ArpackEigen)
         throw(DimensionMismatch("wrong arity of tensor"))
     end
     sizes = [size(t)...]
-    blocks = sizes
+    blocks = sizes  .|> (n -> n*n ) 
 
     # set up system of lin equation
     println("\r\n\tBuilding linear system...")
@@ -540,6 +540,66 @@ function stratify(t::AbstractArray, svdfunc::Function=ArpackEigen)
     @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
     @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
     @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function faceBlocks(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n ) 
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, FaceCurveMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    # @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+    ZMatrix = LinearAlgebra.Diagonal([(1:sizes[3])...])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function blocks(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n ) 
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, CurveMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    # @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+    ZMatrix = LinearAlgebra.Diagonal([(1:sizes[3])...])
 
     return changeTensor(t, XMatrix, YMatrix, ZMatrix)
 end;
