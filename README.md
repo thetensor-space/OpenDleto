@@ -11,6 +11,21 @@ If you want to try the notebooks in your browser without installing anything, cl
 
 Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
 
+## GitHub Pages
+
+This repository includes a GitHub Pages site for documentation and project information. The site is configured to serve from the `/docs` folder on the `www` branch.
+
+**To enable GitHub Pages:**
+1. Go to the repository **Settings** > **Pages**
+2. Under **Source**, select **Deploy from a branch**
+3. Under **Branch**, select:
+   - Branch: `www`
+   - Folder: `/docs`
+4. Click **Save**
+
+Once configured, the site will be available at: `https://thetensor-space.github.io/OpenDleto/`
+
+The `www` branch contains the same repository content plus a static `index.html` file in the `/docs` folder that serves as the landing page for the GitHub Pages site.
 
 ## Contents
 
