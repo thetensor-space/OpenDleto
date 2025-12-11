@@ -175,3 +175,6 @@ function spall(chisel::Chisel,
     end
     return M
 end
+
+# t = reshapce(collect(1:24), (2,3,4))
+# M = reduce(vcat, [ spall(uc, t, Tuple(is)) for is in CartesianIndices(t) ])
