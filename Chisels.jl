@@ -30,53 +30,12 @@ struct Chisel{T}
     polynomials :: Array{T,2}
     engaged :: Vector{Integer}
     dimFormula :: Function
+    toVar :: Function
 end
 
-function universalSpall!(M)
-    # placeholder
-end
 
-function spall(chisel::Chisel, 
-    t::AbstractArray{T,v}, 
-    engaged::Vector{Integer}
-    is::Vector{<:Integer}) where {T,v}
+#---------------Universal Chisel-----------------------------------------------
 
-    # find the number of variables from the chisel and tensor size
-    nvars = sum(a -> chisel.dimFormula(a, size(t)[a]), engaged)
-    neqns = size(chisel.polynomials, 1)
-    # initialize the equation matrix
-    M = zeros(T, ( nvars, neqns ) )
-
-    # equation polynomial in the chisel makes one equation.
-    for s in 1:neqns
-
-                        # extract 1 dimensional slice of the tensor
-        first = li - (ci[j] - 1)*stride(t,j)
-        last = first + (sizes[j]- 1)*stride(t,j)
-                slice = t[first:stride(t,j):last]
-                # add it to the condition
-                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
-
-        eqMatrix = spall(chisel, t, s, engaged)
-        chisel.spall!(M,
-    end
-    # Linearize the index
-    lin_is = LinearIndices(t)[is]
-    for i = 1:Msize[1] 
-        s=0
-        for j = 1:Msize[2]                
-            # extract 1 dimensional slice of the tensor
-            first = li - (ci[j] - 1)*stride(t,j)
-            last = first + (sizes[j]- 1)*stride(t,j)
-            slice = t[first:stride(t,j):last]
-            # add it to the condition
-            modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
-            s += blocks[j]
-        end
-        k += 1
-    end
-    return M
-end
 """
     Create a universal chisel with selected engaged axes.
 """
@@ -85,14 +44,17 @@ function UniversalChisel(valence::Integer, engaged::Vector{<:Integer})
     for a in engaged
         mat[1,a] = 1.0
     end
-    function if_engaged(a,n)
-        if a in engaged
-            return n*n
-        else
-            return 0
+    dimFormula(a,n) = a in engaged ? n*n : 0
+    function toVar(dims,a,i,j)
+        offset = 1
+        for ax in engaged
+            if ax < a
+                offset += dims[ax]*dims[ax]
+            end
         end
+        return offset + (i - 1)*dims[a] + j 
     end
-    return Chisel{Float16}(mat, engaged, if_engageda)
+    return Chisel{Float16}(mat, engaged, dimFormula, toVar)
 end
 
 """
@@ -180,36 +142,36 @@ where the sum is over all axes (modes) a and l_a runs over the dimension of the
 a-th axis.  The primal form assume t is given as input and solves for the matrices X_a.
 The dual form assumes the matrices X_a are given and solves for the tensor t.
 """
-function spall(chisel::Chisel, t::AbstractArray{T,val}, s::Integer, is::Vector{Integer,val})
-    num_vars = 0
-    for a in chisel.engaged 
-        num_vars += chisel.dim(size(t)[a],a)
-    end
+function universalSpall!(M)
+    # placeholder
+end
 
-    # a sparse vector to hold the equation
-    the_spall = spzeros(T, num_vars)
-    
-    for a in chisel.engaged  # loop over all engaged modes
-        for l_a in chisel.var_iterator(a, size(t)[a])  
-            # Create index for tensor access
-            tensor_idx = copy(is)
-            tensor_idx[a] = l_a
-            
-            # Determine variable index in the_spall
-            var_index = chisel.var_index(a, l_a, size(t))
-            
-            # Add contribution to equation
-            the_spall[var_index] += t[tensor_idx...] * chisel.chisel[s, a]
-        end
-        for l_a in 1:size(t, a)  # loop over dimension of mode a
-            # Create index for tensor access
-            tensor_idx = copy(i_a)
-            tensor_idx[a] = l_a
-            
-            # Add contribution to equation
-            equation_value += t[tensor_idx...] * X[a][i_a[a], l_a]
-        end
+extractAxisTubes(t::AbstractArray, index::Tuple, engaged::Vector{<:Integer}) = 
+        [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
+
+#-------------------------------
+function spall(chisel::Chisel, 
+    t::AbstractArray, 
+    is::Tuple) 
+
+    # find the number of variables from the chisel and tensor size
+    nvars = sum(a -> chisel.dimFormula(a, size(t)[a]), chisel.engaged)
+    neqns = size(chisel.polynomials, 1)
+
+    # initialize the equation matrix
+    M = zeros(eltype(t), ( neqns, nvars ) )
+
+    # Fetch the terms in the tensor we need in the equation.
+    tubes = extractAxisTubes(t, Tuple(is), chisel.engaged)
+    # Assemble the equation \sum_{a:engaged} \sum_{l_a:dims[a]} \lambda_{sa} t[i_1,...,l_a,...,i_val] X[i_a,l_a]
+    offset = 0
+    for (idx, a) in enumerate(chisel.engaged)
+        println("Assembling axis $a")
+        tube = tubes[idx]
+        println("Tube: ", tube)
+        inset = 1+(is[a]-1) * size(t,a) ## WARNING: this needs to be adapted for symmetric/antisymmetric
+        view(M, :, (offset+inset):(offset+inset+size(tube,1))) .= chisel.polynomials[:, a] .* tube'
+        offset += chisel.dimFormula(a, size(t)[a])
     end
-    
-    return equation_value
+    return M
 end
