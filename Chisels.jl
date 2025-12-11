@@ -170,7 +170,7 @@ function spall(chisel::Chisel,
         tube = tubes[idx]
         println("Tube: ", tube)
         inset = 1+(is[a]-1) * size(t,a) ## WARNING: this needs to be adapted for symmetric/antisymmetric
-        view(M, :, (offset+inset):(offset+inset+size(tube,1))) .= chisel.polynomials[:, a] .* tube'
+        view(M, :, (offset+inset):(offset+inset+size(tube,1)-1)) .= chisel.polynomials[:, a] .* tube'
         offset += chisel.dimFormula(a, size(t)[a])
     end
     return M
