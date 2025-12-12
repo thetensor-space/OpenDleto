@@ -24,6 +24,7 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
+include("TensorSpace.jl") # Imports Tensor categories.
 
 #-------------------------------Chisel Type-------------------------------------
 
@@ -45,37 +46,6 @@ struct Ops
     description :: String
 end;
 
-
-"""
-    Engagement
-
-An enum-like type representing the role of an axis in a chisel:
-- `Primal`: axis is engaged in primal mode
-- `Dual`: axis is engaged in dual mode, an approprriate transpose is applied 
-- `Ambidextrous`: axis is engaged in both primal and dual modes
-- `Disengaged`: axis is not engaged so constraints are dropped or applied as identity on these axes
-"""
-@enum Engagement begin
-    Primal
-    Dual
-    Ambidextrous
-    Disengaged
-end
-
-function Base.show(io::IO, ::MIME"text/plain", engagement::Array{Engagement})
-    for e in engagement
-        if e == Primal
-            print(io, "→")
-        elseif e == Dual
-            print(io, "←")
-        elseif e == Ambidextrous
-            print(io, "↔")
-        else
-            print(io, "·" )
-        end
-    end
-end
-Base.show(io::IO, e::Engagement) = Base.show(io, MIME("text/plain"), [e])
 
 
 """
