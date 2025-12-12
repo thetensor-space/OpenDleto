@@ -261,14 +261,15 @@ end;
 extractAxisTubes(t::AbstractArray, index::Tuple, engaged::Vector{<:Integer}) = 
         [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
 
-"""
+
+        """
 Constructs a chisel constraint equation (the "spall") as specified by 
 the chisel, the tensor, and the indices.
     
     - the `chisel`
     - the tensor `t`
     - `s``: the chisel equation 
-    - `is`: the indices for each axis
+    - `the_is`: the indices for each axis
 
     Returns a (sparse) vector representing the equation:
 
@@ -280,48 +281,7 @@ The dual form assumes the matrices X_a are given and solves for the tensor t.
 """
 function spall(chisel::LinearChisel, 
     t::AbstractArray, 
-    is::Tuple) 
-
-    cat = chisel.category
-    Ω = chisel.operators
-    engaged = findall(e -> e != Disengaged, cat)
-    # find the number of variables from the chisel and tensor size
-    nvars = sum(a -> Ω.dimFormula(a, t), engaged)
-    neqns = size(chisel.polynomials, 1)
-
-    # initialize the equation matrix
-    M = zeros(eltype(t), ( neqns, nvars ) )
-
-    # Fetch the terms in the tensor we need in the equation.
-    tubes = extractAxisTubes(t, Tuple(is), engaged)
-    # Assemble the equation 
-    offset = 0
-    for (idx, a) in enumerate(engaged)
-        # Extract the tube for this axis
-        tube = tubes[idx]
-        # Determine the variable position.
-        inset = Ω.toVar(a,t,is[a]) 
-        insert = Ω.insert(a,tube)
-        view(M, :, (offset+inset):(offset+inset+size(insert,2)-1)) .= insert
-        # advance the offset
-        offset += Ω.dimFormula(a, t)
-    end
-    return M
-end;
-
-"""
-Constructs multiple chisel constraint equations (spalls) for a list of index tuples.
-
-    - the `chisel`
-    - the tensor `t`
-    - `many_is`: a collection of index tuples
-
-Returns a (sparse) matrix where each group of `neqns` rows corresponds to the
-spall equations for each index tuple in `many_is`.
-"""
-function spall(chisel::LinearChisel, 
-    t::AbstractArray, 
-    many_is::AbstractVector{<:Tuple})
+    the_is::AbstractVector{<:Tuple})
     
     cat = chisel.category
     Ω = chisel.operators
@@ -332,10 +292,10 @@ function spall(chisel::LinearChisel,
     neqns = size(chisel.polynomials, 1)
     
     # initialize the equation matrix for all indices
-    M = zeros(eltype(t), (neqns * length(many_is), nvars))
+    M = zeros(eltype(t), (neqns * length(the_is), nvars))
     
     # Process each index tuple
-    for (eq_idx, is) in enumerate(many_is)
+    for (eq_idx, is) in enumerate(the_is)
         # Calculate row offset for this set of equations
         row_offset = (eq_idx - 1) * neqns
         
@@ -357,6 +317,11 @@ function spall(chisel::LinearChisel,
     end
     
     return M
+end;
+
+
+function spall(chisel::LinearChisel, t::AbstractArray, is::Tuple) 
+    return spall(chisel, t, [is])
 end;
 
 function fullSpall(chisel::LinearChisel, t::AbstractArray)
