@@ -23,6 +23,40 @@
 # SOFTWARE.
 # 
 
+
+
+
+"""
+    Engagement
+
+An enum-like type representing the role of an axis in a chisel:
+- `Primal`: axis is engaged in primal mode
+- `Dual`: axis is engaged in dual mode, an approprriate transpose is applied 
+- `Ambidextrous`: axis is engaged in both primal and dual modes
+- `Disengaged`: axis is not engaged so constraints are dropped or applied as identity on these axes
+"""
+@enum Engagement begin
+    Primal
+    Dual
+    Ambidextrous
+    Disengaged
+end
+
+function Base.show(io::IO, ::MIME"text/plain", engagement::Array{Engagement})
+    for e in engagement
+        if e == Primal
+            print(io, "→")
+        elseif e == Dual
+            print(io, "←")
+        elseif e == Ambidextrous
+            print(io, "↔")
+        else
+            print(io, "·" )
+        end
+    end
+end
+Base.show(io::IO, e::Engagement) = Base.show(io, MIME("text/plain"), [e])
+
 #-------------------------------
 # Action of matrices on the tensor
 # raise exception if the sizes are not compatible
@@ -129,17 +163,3 @@ function changeTensor(t::AbstractArray, XMatrix::AbstractMatrix, YMatrix::Abstra
 end;
 
 
-
-#-------------------------------
-# technical function, peroforms inpalce "multiplication" by symmetric matrix 
-
-function modifyRow!(row::Array, shift::Integer, n::Integer, index::Integer, vec::Vector, coef::Number)
-    for i = 1:n
-        if i <= index 
-            row[shift+Int((2*n-i+2)*(i-1)/2)+index-i+1] += vec[i]*coef
-        else
-            row[shift+Int((2*n-index+2)*(index-1)/2)-index+i+1] += vec[i]*coef
-        end
-    end
-    return nothing
-end;
