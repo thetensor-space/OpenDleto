@@ -25,44 +25,215 @@
 #-----------------------------------------------------------------------------
 
 
+#-------------------------------Chisel Type-------------------------------------
 
-struct Chisel{T}
-    polynomials :: Array{T,2}
-    engaged :: Vector{Integer}
+"""
+    Ops
+
+    An internal representation of the operators on the engaged axes.
+    This is a flexible interface to allow different types of chisels
+    domains.  For example, if the domain is to be full or symmetric 
+    matrices than the space defined modifies the equation constraints
+    to model them in that subspace rather than adding them as furhter 
+    constraint equations.  This lowers the dimension and improves 
+    performance.
+"""
+struct Ops 
     dimFormula :: Function
     toVar :: Function
     insert :: Function
+    description :: String
+end;
+
+
+"""
+    Engagement
+
+An enum-like type representing the role of an axis in a chisel:
+- `Primal`: axis is engaged in primal mode
+- `Dual`: axis is engaged in dual mode, an approprriate transpose is applied 
+- `Ambidextrous`: axis is engaged in both primal and dual modes
+- `Disengaged`: axis is not engaged so constraints are dropped or applied as identity on these axes
+"""
+@enum Engagement begin
+    Primal
+    Dual
+    Ambidextrous
+    Disengaged
 end
 
+function Base.show(io::IO, ::MIME"text/plain", engagement::Array{Engagement})
+    for e in engagement
+        if e == Primal
+            print(io, "→")
+        elseif e == Dual
+            print(io, "←")
+        elseif e == Ambidextrous
+            print(io, "↔")
+        else
+            print(io, "·" )
+        end
+    end
+end
+Base.show(io::IO, e::Engagement) = Base.show(io, MIME("text/plain"), [e])
+
+
+"""
+    LinearChisel{T}  
+    A linear chisel structure for tensor decomposition constraints.
+
+    Access chisels through methods below.
+"""
+struct LinearChisel{T<:Number}
+    category :: Array{Engagement}
+    polynomials :: Array{T,2}
+    operators :: Ops
+end;
+
+"""
+    Print a linear chisel.
+"""
+function Base.show(io::IO, ::MIME"text/plain", chisel::LinearChisel)
+    print(io, "Linear chisel category: ")
+    Base.show(io, MIME("text/plain"), collect(chisel.category))
+    println(io)
+    println(io, chisel.polynomials)
+    print(io, chisel.operators.description)
+end;
 
 #---------------Universal Chisel-----------------------------------------------
+"""
+    Create a universal operators with selected engaged axes.
+"""
+function UniversalOps(category::Array{Engagement}, poly::Array{T,2}) where T
+    engaged = findall(e -> e != Disengaged, category)
+    dimFormula(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
+    # Flatten and strided indexing
+    toVar(a,t,i) = 1+(i-1) * size(t,a)
+    insert(a,tube) = poly[:, a] .* tube'
+    return Ops(dimFormula, toVar, insert, "Universal Operators")
+end;
 
 """
     Create a universal chisel with selected engaged axes.
 """
-function UniversalChisel(valence::Integer, engaged::Vector{<:Integer})
-    mat = zeros(Float16, 1, valence)
-    for a in engaged
-        mat[1,a] = 1.0
+function UniversalChisel(category::Array{Engagement})
+    mat = zeros(Number, 1, length(category))
+    for (idx, a) in enumerate(category)
+        if a != Disengaged
+            mat[1,idx] = 1
+        end
     end
     # Each engaged operator is a square matrix
-    dimFormula(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
-    # Flatten and strided indexing
-    toVar(a,t,i) = 1+(i-1) * size(t,a)
-    insert(a,tube) = mat[:, a] .* tube'
 
-    return Chisel{Float16}(mat, engaged, dimFormula, toVar, insert)
-end
+    return LinearChisel(category, mat, UniversalOps(category, mat))
+end;
+
+
+"""
+    Create a universal chisel with all specified primal and dual axes.
+    Note that if an axis is specified in both primal and dual lists,
+    then it recieves teh primal designation. The primal and dual values 
+    must be in the range 1 to valence.
+"""
+function UniversalChisel(valence::Integer, primals::Vector{<:Integer}, duals::Vector{<:Integer})
+    cat = fill(Disengaged, valence)
+    for a in duals
+        cat[a] = Dual
+    end
+    for a in primals
+        cat[a] = Primal
+    end
+    return UniversalChisel(cat)
+end;
 
 """
     Create a universal chisel with all axes engaged.
 """
 function UniversalChisel(valence::Integer)
-    return UniversalChisel(valence, collect(1:valence))
-end
+    cat = fill(Primal, valence)
+    return UniversalChisel(cat)
+end;
 
 # ch = UniversalChisel(3)
 # ch = UniversalChisel(5, [1,3])
+
+
+#-------------------------------Tucker Chisel----------------------------------
+"""
+    Create a Tucker chisel with selected engaged axes.
+"""
+function TuckerChisel(valence::Integer, engaged::Vector{<:Integer})
+    cat = fill(Disengaged, valence)
+    for a in engaged
+        cat[a] = Primal
+    end
+    mat = zeros(Number, length(engaged), valence)
+    for (idx, a) in enumerate(engaged)
+        mat[idx, a] = 1
+    end
+    return LinearChisel(cat, mat, UniversalOps(cat, mat))
+end;
+
+"""
+    Create a Tucker chisel with all axes engaged.  
+"""
+function TuckerChisel(valence::Integer)
+    return TuckerChisel(valence, collect(1:valence))
+end;
+
+#-------------------------------Centroid Chisel--------------------------------
+"""
+    Create a centroid chisel with specified engaged axes.
+"""
+function CentroidChisel(valence::Integer, engaged::Vector{<:Integer})
+    cat = fill(Disengaged, valence)
+    for a in engaged
+        cat[a] = Ambidextrous
+    end
+    mat = zeros(Number, length(engaged)*(length(engaged)-1) ÷ 2, valence)
+    row = 1
+    for primal in 1:length(engaged)
+        for dual in (primal+1):length(engaged)
+            mat[row,engaged[primal]] += 1
+            mat[row,engaged[dual]] += -1
+            row += 1
+        end
+    end
+    return LinearChisel(cat, mat, UniversalOps(cat, mat))
+end;
+
+function CentroidChisel(valence::Integer)
+    return CentroidChisel(valence, collect(1:valence))
+end;
+
+#-------------------------------Adjoint Chisel---------------------------------
+"""
+    Create an adjoint chisel with specified primal and dual axes.
+"""
+function AdjointChisel(valence::Integer, primal::Integer, dual::Integer)
+    cat = fill(Disengaged, valence)
+    cat[dual] = Dual
+    cat[primal] = Primal
+    mat = zeros(Number, 1, valence)
+    mat[1,primal] += 1
+    mat[1,dual] += -1
+    return LinearChisel(cat, mat, UniversalOps(cat, mat))
+end;
+
+
+#-------------------------------Orthogonal Chisel------------------------------
+"""
+    Create a universal operators with selected engaged axes.
+"""
+function SymmetricOps(engaged::Vector{<:Integer}, poly::Array{T,2}) where T
+    dimFormula(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
+    # Flatten and strided indexing
+
+    toVar(a,t,i) = 1+(i-1) * size(t,a)
+    insert(a,tube) = poly[:, a] .* tube'
+    return Ops(dimFormula, toVar, insert)
+end;
 
 """
     Create an orthogonal chisel with selected engaged axes.
@@ -74,51 +245,21 @@ function OrthogonalChisel(valence::Integer, engaged:: Vector{<:Integer})
     # Flatten and strided indexing
     toVar(a,t,i) = size(t,a)*(size(t,a)+1) ÷ 2 - (size(t,a)-i+1)*(size(t,a)-i+2) ÷ 2 + 1
     insert(a,tube) = mat[:, a] .* tube'
-    return Chisel{Float16}(mat, engaged, dimFormula, toVar, insert)
-end
+    return LinearChisel{Float16}(mat, engaged, dimFormula, toVar, insert)
+end;
 
 """
     Create an orthogonal chisel with selected engaged axes.
 """
 function OrthogonalChisel(valence::Integer)
     return OrthogonalChisel(valence, collect(1:valence))
-end
+end;
 
-"""
-    Create a Tucker chisel with selected engaged axes.
-"""
-function TuckerChisel(valence::Integer, engaged:: Vector{Integer})
-    mat = zeros(Float16, length(engaged), valence)
-        function if_engaged(n,a)
-        if a in engaged
-            return n*n
-        else
-            return 0
-        end
-    end
-    return Chisel(mat, engaged, if_engaged)
-end
-"""
-    Create a Tucker chisel with all axes engaged.  
-"""
-function TuckerChisel(valence::Integer)
-    return TuckerChisel(valence, collect(1:valence))
-end
+#-------------------------------Spall Construction-----------------------------
 
-"""
-    Create an adjoint chisel with specified primal and dual axes.
-"""
-function AdjointChisel(valence::Integer, primal::Integer, dual::Integer)
-    mat = zeros(Float16, length(engaged), valence)
-    function if_engaged(a,d)
-        if a == primal || a == dual
-            return d*d
-        else
-            return 0
-        end
-    end
-    return Chisel(mat, engaged, if_engaged)
-end
+# Extract the tubes along engaged axes
+extractAxisTubes(t::AbstractArray, index::Tuple, engaged::Vector{<:Integer}) = 
+        [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
 
 """
 Constructs a chisel constraint equation (the "spall") as specified by 
@@ -137,41 +278,40 @@ where the sum is over all axes (modes) a and l_a runs over the dimension of the
 a-th axis.  The primal form assume t is given as input and solves for the matrices X_a.
 The dual form assumes the matrices X_a are given and solves for the tensor t.
 """
-function universalSpall!(M)
-    # placeholder
-end
-
-extractAxisTubes(t::AbstractArray, index::Tuple, engaged::Vector{<:Integer}) = 
-        [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
-
-#-------------------------------
-function spall(chisel::Chisel, 
+function spall(chisel::LinearChisel, 
     t::AbstractArray, 
     is::Tuple) 
 
+    cat = chisel.category
+    Ω = chisel.operators
+    engaged = findall(e -> e != Disengaged, cat)
     # find the number of variables from the chisel and tensor size
-    nvars = sum(a -> chisel.dimFormula(a, t), chisel.engaged)
+    nvars = sum(a -> Ω.dimFormula(a, t), engaged)
     neqns = size(chisel.polynomials, 1)
 
     # initialize the equation matrix
     M = zeros(eltype(t), ( neqns, nvars ) )
 
     # Fetch the terms in the tensor we need in the equation.
-    tubes = extractAxisTubes(t, Tuple(is), chisel.engaged)
+    tubes = extractAxisTubes(t, Tuple(is), engaged)
     # Assemble the equation 
     offset = 0
-    for (idx, a) in enumerate(chisel.engaged)
+    for (idx, a) in enumerate(engaged)
         # Extract the tube for this axis
         tube = tubes[idx]
         # Determine the variable position.
-        inset = chisel.toVar(a,t,is[a]) 
-        insert = chisel.insert(a,tube)
+        inset = Ω.toVar(a,t,is[a]) 
+        insert = Ω.insert(a,tube)
         view(M, :, (offset+inset):(offset+inset+size(insert,2)-1)) .= insert
         # advance the offset
-        offset += chisel.dimFormula(a, t)
+        offset += Ω.dimFormula(a, t)
     end
     return M
-end
+end;
 
 # t = reshapce(collect(1:24), (2,3,4))
 # M = reduce(vcat, [ spall(uc, t, Tuple(is)) for is in CartesianIndices(t) ])
+
+## Hack to top printing message upon loading
+;
+# println("Chisels.jl loaded.")
