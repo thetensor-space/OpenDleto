@@ -309,6 +309,61 @@ function spall(chisel::LinearChisel,
     return M
 end;
 
+"""
+Constructs multiple chisel constraint equations (spalls) for a list of index tuples.
+
+    - the `chisel`
+    - the tensor `t`
+    - `many_is`: a collection of index tuples
+
+Returns a (sparse) matrix where each group of `neqns` rows corresponds to the
+spall equations for each index tuple in `many_is`.
+"""
+function spall(chisel::LinearChisel, 
+    t::AbstractArray, 
+    many_is::AbstractVector{<:Tuple})
+    
+    cat = chisel.category
+    Ω = chisel.operators
+    engaged = findall(e -> e != Disengaged, cat)
+    
+    # find the number of variables from the chisel and tensor size
+    nvars = sum(a -> Ω.dimFormula(a, t), engaged)
+    neqns = size(chisel.polynomials, 1)
+    
+    # initialize the equation matrix for all indices
+    M = zeros(eltype(t), (neqns * length(many_is), nvars))
+    
+    # Process each index tuple
+    for (eq_idx, is) in enumerate(many_is)
+        # Calculate row offset for this set of equations
+        row_offset = (eq_idx - 1) * neqns
+        
+        # Fetch the terms in the tensor we need in the equation
+        tubes = extractAxisTubes(t, Tuple(is), engaged)
+        
+        # Assemble the equation
+        offset = 0
+        for (idx, a) in enumerate(engaged)
+            # Extract the tube for this axis
+            tube = tubes[idx]
+            # Determine the variable position
+            inset = Ω.toVar(a, t, is[a])
+            insert = Ω.insert(a, tube)
+            view(M, (row_offset+1):(row_offset+neqns), (offset+inset):(offset+inset+size(insert,2)-1)) .= insert
+            # advance the offset
+            offset += Ω.dimFormula(a, t)
+        end
+    end
+    
+    return M
+end;
+
+function fullSpall(chisel::LinearChisel, t::AbstractArray)
+    all_is = vec([ Tuple(is) for is in CartesianIndices(t) ])
+    return spall(chisel, t, all_is)
+end;
+
 # t = reshapce(collect(1:24), (2,3,4))
 # M = reduce(vcat, [ spall(uc, t, Tuple(is)) for is in CartesianIndices(t) ])
 
