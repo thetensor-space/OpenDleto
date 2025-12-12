@@ -31,6 +31,7 @@ struct Chisel{T}
     engaged :: Vector{Integer}
     dimFormula :: Function
     toVar :: Function
+    insert :: Function
 end
 
 
@@ -44,17 +45,13 @@ function UniversalChisel(valence::Integer, engaged::Vector{<:Integer})
     for a in engaged
         mat[1,a] = 1.0
     end
-    dimFormula(a,n) = a in engaged ? n*n : 0
-    function toVar(dims,a,i,j)
-        offset = 1
-        for ax in engaged
-            if ax < a
-                offset += dims[ax]*dims[ax]
-            end
-        end
-        return offset + (i - 1)*dims[a] + j 
-    end
-    return Chisel{Float16}(mat, engaged, dimFormula, toVar)
+    # Each engaged operator is a square matrix
+    dimFormula(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
+    # Flatten and strided indexing
+    toVar(a,t,i) = 1+(i-1) * size(t,a)
+    insert(a,tube) = mat[:, a] .* tube'
+
+    return Chisel{Float16}(mat, engaged, dimFormula, toVar, insert)
 end
 
 """
@@ -72,14 +69,12 @@ end
 """
 function OrthogonalChisel(valence::Integer, engaged:: Vector{<:Integer})
     mat = ones(Float16, 1, valence)
-        function if_engaged(a,d)
-        if a in engaged
-            return d*(d+1) ÷ 2
-        else
-            return 0
-        end
-    end
-    return Chisel{Float16}(mat, engaged, if_engaged)
+    # Each engaged operator is a square matrix
+    dimFormula(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
+    # Flatten and strided indexing
+    toVar(a,t,i) = size(t,a)*(size(t,a)+1) ÷ 2 - (size(t,a)-i+1)*(size(t,a)-i+2) ÷ 2 + 1
+    insert(a,tube) = mat[:, a] .* tube'
+    return Chisel{Float16}(mat, engaged, dimFormula, toVar, insert)
 end
 
 """
@@ -155,7 +150,7 @@ function spall(chisel::Chisel,
     is::Tuple) 
 
     # find the number of variables from the chisel and tensor size
-    nvars = sum(a -> chisel.dimFormula(a, size(t)[a]), chisel.engaged)
+    nvars = sum(a -> chisel.dimFormula(a, t), chisel.engaged)
     neqns = size(chisel.polynomials, 1)
 
     # initialize the equation matrix
@@ -163,15 +158,17 @@ function spall(chisel::Chisel,
 
     # Fetch the terms in the tensor we need in the equation.
     tubes = extractAxisTubes(t, Tuple(is), chisel.engaged)
-    # Assemble the equation \sum_{a:engaged} \sum_{l_a:dims[a]} \lambda_{sa} t[i_1,...,l_a,...,i_val] X[i_a,l_a]
+    # Assemble the equation 
     offset = 0
     for (idx, a) in enumerate(chisel.engaged)
-        println("Assembling axis $a")
+        # Extract the tube for this axis
         tube = tubes[idx]
-        println("Tube: ", tube)
-        inset = 1+(is[a]-1) * size(t,a) ## WARNING: this needs to be adapted for symmetric/antisymmetric
-        view(M, :, (offset+inset):(offset+inset+size(tube,1)-1)) .= chisel.polynomials[:, a] .* tube'
-        offset += chisel.dimFormula(a, size(t)[a])
+        # Determine the variable position.
+        inset = chisel.toVar(a,t,is[a]) 
+        insert = chisel.insert(a,tube)
+        view(M, :, (offset+inset):(offset+inset+size(insert,2)-1)) .= insert
+        # advance the offset
+        offset += chisel.dimFormula(a, t)
     end
     return M
 end
