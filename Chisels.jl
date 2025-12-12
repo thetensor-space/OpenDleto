@@ -77,11 +77,11 @@ end;
 """
 function UniversalOps(category::Array{Engagement}, poly::Array{T,2}) where T
     engaged = findall(e -> e != Disengaged, category)
-    dimFormula(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
+    uni_dims(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
     # Flatten and strided indexing
-    toVar(a,t,i) = 1+(i-1) * size(t,a)
-    insert(a,tube) = poly[:, a] .* tube'
-    return Ops(dimFormula, toVar, insert, "Universal Operators")
+    uni_var(a,t,i) = 1+(i-1) * size(t,a)
+    uni_insert(a,tube, i_a) = poly[:, a] .* tube'
+    return Ops(uni_dims, uni_var, uni_insert, "Universal Operators")
 end;
 
 """
@@ -193,36 +193,76 @@ end;
 
 
 #-------------------------------Orthogonal Chisel------------------------------
-"""
-    Create a universal operators with selected engaged axes.
-"""
-function SymmetricOps(engaged::Vector{<:Integer}, poly::Array{T,2}) where T
-    dimFormula(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
-    # Flatten and strided indexing
 
-    toVar(a,t,i) = 1+(i-1) * size(t,a)
-    insert(a,tube) = poly[:, a] .* tube'
-    return Ops(dimFormula, toVar, insert)
+# Position of (i,j) in lower triangular d×d matrix (i≥j)
+sym_pos(d,i,j) = i >= j ? (i-1)*i ÷ 2 + j : (j-1)*i ÷ 2 + i
+
+# Inverse: given position k in lower triangular storage, return (i,j)
+function sym_index(d, k)
+    # Row i starts at position (i-1)*i/2 + 1
+    # Find i such that (i-1)*i/2 < k ≤ i*(i+1)/2
+    i = ceil(Int, (-1 + sqrt(1 + 8*k)) / 2)
+    j = k - (i-1)*i ÷ 2
+    return (i, j)
+end
+
+# Position of (i,j) in upper triangular d×d matrix (i≤j)
+upper_tri_pos(d,i,j) = (i-1)*(2*d-i) ÷ 2 + (j-i+1)
+
+"""
+    Create symmetric operators with selected engaged axes.
+"""
+function SymmetricOps(category::Array{Engagement}, poly::Array{T,2}) where T
+    engaged = findall(e -> e != Disengaged, category)
+    sym_dims(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
+    # Flatten and strided indexing - for row i, start position (1-indexed) is 1+(i-1)*i/2
+    sym_var(a,t,i) = 1+((i-1)*i) ÷ 2
+    # Take tube and put in tube[x] in position stride(i_a,x) for x 1 to i_a
+    # and then put in tube[x] in position stride(x,i_a) for x > i_a
+    pos = [ sym_pos(size(t,a), x, i_a) for x in 1:size(t,a) ]
+    vec(tube)[pos]
+    sym_insert(a,tube,i_a) = poly[:, a] .* vec(tube)[1:i_a]' 
+    return Ops(sym_dims, sym_var, sym_insert, "Symmetric Operators")
 end;
 
 """
-    Create an orthogonal chisel with selected engaged axes.
+    Create a symmetric chisel with selected engaged axes.
 """
-function OrthogonalChisel(valence::Integer, engaged:: Vector{<:Integer})
-    mat = ones(Float16, 1, valence)
+function SymmetricChisel(category::Array{Engagement})
+    mat = zeros(Number, 1, length(category))
+    for (idx, a) in enumerate(category)
+        if a != Disengaged
+            mat[1,idx] = 1
+        end
+    end
     # Each engaged operator is a square matrix
-    dimFormula(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
-    # Flatten and strided indexing
-    toVar(a,t,i) = size(t,a)*(size(t,a)+1) ÷ 2 - (size(t,a)-i+1)*(size(t,a)-i+2) ÷ 2 + 1
-    insert(a,tube) = mat[:, a] .* tube'
-    return LinearChisel{Float16}(mat, engaged, dimFormula, toVar, insert)
+
+    return LinearChisel(category, mat, SymmetricOps(category, mat))
 end;
 
 """
-    Create an orthogonal chisel with selected engaged axes.
+    Create a universal chisel with all specified primal and dual axes.
+    Note that if an axis is specified in both primal and dual lists,
+    then it recieves teh primal designation. The primal and dual values 
+    must be in the range 1 to valence.
 """
-function OrthogonalChisel(valence::Integer)
-    return OrthogonalChisel(valence, collect(1:valence))
+function SymmetricChisel(valence::Integer, primals::Vector{<:Integer}, duals::Vector{<:Integer})
+    cat = fill(Disengaged, valence)
+    for a in duals
+        cat[a] = Dual
+    end
+    for a in primals
+        cat[a] = Primal
+    end
+    return SymmetricChisel(cat)
+end;
+
+"""
+    Create a universal chisel with all axes engaged.
+"""
+function SymmetricChisel(valence::Integer)
+    cat = fill(Primal, valence)
+    return SymmetricChisel(cat)
 end;
 
 #-------------------------------Spall Construction-----------------------------
@@ -279,8 +319,15 @@ function spall(chisel::LinearChisel,
             tube = tubes[idx]
             # Determine the variable position
             inset = Ω.toVar(a, t, is[a])
-            insert = Ω.insert(a, tube)
-            view(M, (row_offset+1):(row_offset+neqns), (offset+inset):(offset+inset+size(insert,2)-1)) .= insert
+            insert = Ω.insert(a, tube, is[a])
+            col_start = offset + inset
+            col_end = offset + inset + size(insert,2) - 1
+            # if col_end > nvars
+            #     println("ERROR: axis=$a, is[a]=$(is[a]), offset=$offset, inset=$inset, size(insert,2)=$(size(insert,2)), nvars=$nvars")
+            #     println("Trying to access columns $col_start:$col_end")
+            #     error("Column index out of bounds")
+            # end
+            view(M, (row_offset+1):(row_offset+neqns), col_start:col_end) .= insert
             # advance the offset
             offset += Ω.dimFormula(a, t)
         end
@@ -289,13 +336,12 @@ function spall(chisel::LinearChisel,
     return M
 end;
 
-
 function spall(chisel::LinearChisel, t::AbstractArray, is::Tuple) 
     return spall(chisel, t, [is])
 end;
 
-function fullSpall(chisel::LinearChisel, t::AbstractArray)
-    all_is = vec([ Tuple(is) for is in CartesianIndices(t) ])
+function spall(chisel::LinearChisel, t::AbstractArray)
+    all_is = vec([Tuple(is) for is in CartesianIndices(t)])
     return spall(chisel, t, all_is)
 end;
 
