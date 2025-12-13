@@ -41,8 +41,8 @@ include("TensorSpace.jl") # Imports Tensor categories.
 """
 struct Ops 
     dimFormula :: Function
-    toVar :: Function
-    insert :: Function
+    # toVar :: Function
+    insert! :: Function
     description :: String
 end;
 
@@ -78,10 +78,14 @@ end;
 function UniversalOps(category::Array{Engagement}, poly::Array{T,2}) where T
     engaged = findall(e -> e != Disengaged, category)
     uni_dims(a,t) = a in engaged ? size(t,a)*size(t,a) : 0
-    # Flatten and strided indexing
-    uni_var(a,t,i) = 1+(i-1) * size(t,a)
-    uni_insert(a,tube, i_a) = poly[:, a] .* tube'
-    return Ops(uni_dims, uni_var, uni_insert, "Universal Operators")
+    function uni_insert!(M, row_offset, col_offset, coeff, tube, i_a)
+        d = size(tube,1)
+        col_start = col_offset + 1+(i_a-1) * d
+        insert_data = coeff .* tube'           
+        col_end = col_start + d -1
+        view(M, (row_offset+1):(row_offset+size(coeff,1)), col_start:col_end) .= insert_data
+    end
+    return Ops(uni_dims, uni_insert!, "Universal Operators")
 end;
 
 """
@@ -106,7 +110,7 @@ end;
     then it recieves teh primal designation. The primal and dual values 
     must be in the range 1 to valence.
 """
-function UniversalChisel(valence::Integer, primals::Vector{<:Integer}, duals::Vector{<:Integer})
+function UniversalChisel(valence::Integer, primals::Vector{<:Integer}=Int[], duals::Vector{<:Integer}=Int[])
     cat = fill(Disengaged, valence)
     for a in duals
         cat[a] = Dual
@@ -215,14 +219,18 @@ upper_tri_pos(d,i,j) = (i-1)*(2*d-i) ÷ 2 + (j-i+1)
 function SymmetricOps(category::Array{Engagement}, poly::Array{T,2}) where T
     engaged = findall(e -> e != Disengaged, category)
     sym_dims(a,t) = a in engaged ? size(t,a)*(size(t,a)+1) ÷ 2 : 0
-    # Flatten and strided indexing - for row i, start position (1-indexed) is 1+(i-1)*i/2
-    sym_var(a,t,i) = 1+((i-1)*i) ÷ 2
-    # Take tube and put in tube[x] in position stride(i_a,x) for x 1 to i_a
-    # and then put in tube[x] in position stride(x,i_a) for x > i_a
-    pos = [ sym_pos(size(t,a), x, i_a) for x in 1:size(t,a) ]
-    vec(tube)[pos]
-    sym_insert(a,tube,i_a) = poly[:, a] .* vec(tube)[1:i_a]' 
-    return Ops(sym_dims, sym_var, sym_insert, "Symmetric Operators")
+    function sym_insert!(M, row_offset, col_offset, coeff, tube, i_a)
+        d = size(tube,1)
+        insert_data = zeros(eltype(M), d*(d+1) ÷ 2)
+        for x in 1:d
+            insert_data[sym_pos(d, x, i_a)] = tube[x]
+        end
+        col_start = col_offset+1
+        col_end = col_start + d*(d+1) ÷ 2 -1
+        view(M, (row_offset+1):(row_offset+size(coeff,1)), col_start:col_end) .= coeff*insert_data'
+    end
+
+    return Ops(sym_dims, sym_insert!, "Symmetric Operators")
 end;
 
 """
@@ -252,6 +260,17 @@ function SymmetricChisel(valence::Integer, primals::Vector{<:Integer}, duals::Ve
         cat[a] = Dual
     end
     for a in primals
+        cat[a] = Primal
+    end
+    return SymmetricChisel(cat)
+end;
+
+"""
+    Create a universal chisel with all axes engaged.
+"""
+function SymmetricChisel(valence::Integer, engaged::Vector{<:Integer})
+    cat = fill(Disengaged, valence)
+    for a in engaged
         cat[a] = Primal
     end
     return SymmetricChisel(cat)
@@ -313,23 +332,24 @@ function spall(chisel::LinearChisel,
         tubes = extractAxisTubes(t, Tuple(is), engaged)
         
         # Assemble the equation
-        offset = 0
+        col_offset = 0
         for (idx, a) in enumerate(engaged)
             # Extract the tube for this axis
             tube = tubes[idx]
             # Determine the variable position
-            inset = Ω.toVar(a, t, is[a])
-            insert = Ω.insert(a, tube, is[a])
-            col_start = offset + inset
-            col_end = offset + inset + size(insert,2) - 1
+            # inset = Ω.toVar(a, t, is[a])
+            # insert = Ω.insert(a, tube, is[a])
+            # col_start = offset + inset
+            # col_end = offset + inset + size(insert,2) - 1
             # if col_end > nvars
             #     println("ERROR: axis=$a, is[a]=$(is[a]), offset=$offset, inset=$inset, size(insert,2)=$(size(insert,2)), nvars=$nvars")
             #     println("Trying to access columns $col_start:$col_end")
             #     error("Column index out of bounds")
             # end
-            view(M, (row_offset+1):(row_offset+neqns), col_start:col_end) .= insert
+            # view(M, (row_offset+1):(row_offset+neqns), col_start:col_end) .= insert
             # advance the offset
-            offset += Ω.dimFormula(a, t)
+            Ω.insert!(M, row_offset, col_offset, chisel.polynomials[:, a], tube, is[a])
+            col_offset += Ω.dimFormula(a, t)
         end
     end
     
