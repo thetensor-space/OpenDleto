@@ -23,223 +23,421 @@
 # SOFTWARE.
 # -----------------------------------------------------------------------------
 
+using LinearAlgebra
+using Arpack
 using SparseArrays
+using ProgressMeter
+using Plots
+using Statistics
 
-include("Chisel.jl")
+include("Chisels.jl")
+include("TensorSpace.jl")
 
+struct Spall{T}
+    values :: AbstractVector{T}
+    vectors :: AbstractMatrix{T}
+end;
 
 #-------------------------------
 # technical functions for performing svd and returing the smallest singular vectors 
 # these will throw error if there are less than 10 singular vectors
-function LinearAlgebraSVD(M::AbstractMatrix, max::Integer=10)
+
+"""
+    LinearAlgebraSVD(M::AbstractMatrix, max::Integer=10)
+
+    Uses LinearAlgebra.svd to compute the smallest singular vectors of M.
+    We use at most `max` of the smallest singular values so this method 
+    is suboptimal for large systems.  Consider Arpack method for large systems.
+
+    Results returned in reverse order so that smallest singular values are first.
+"""
+function LinearAlgebraSVD(M::AbstractMatrix{T}, max::Integer=10) :: Spall{T} where T
     svds = LinearAlgebra.svd(M)
-    return svds.U[:,end:-1:end-max]
+    n_vals = min(max, length(svds.S))
+    println("Computed $(length(svds.S)) singular values, returning $n_vals smallest.")
+    return Spall(svds.S[end:-1:(end-n_vals+1)], svds.U[:, end:-1:(end-n_vals+1)])
 end;
 
-function LinearAlgebraEigen(M::AbstractMatrix, max::Integer=10)
+function LinearAlgebraEigen(M::AbstractMatrix{T}, max::Integer=10) :: Spall{T} where T
     eigens = LinearAlgebra.eigen( LinearAlgebra.Symmetric(M*M') )
-    return eigens.vectors[:,1:max]
+    n_vals = min(max, size(eigens)[1])
+    println("Computed $(size(eigens)[1]) singular values, returning $n_vals smallest.")
+    ## WARNING: This produces possibly complex eigen values but should be 
+    ## real valued by positivity of M*M'.  We take real part in chisel function.
+    vals = [ sqrt.(real.(v)) for v in eigens.values[end:-1:(end-n_vals+1)] ] 
+    vecs = [ real.(v) for v in eigens.vectors[:, end:-1:(end-n_vals+1)] ]
+    return Spall(vals, vecs)
 end;
 
-#sometimes this crashes so we build fall back to LinearAlgebraEigen
-function ArpackEigen(M::AbstractMatrix)
+"""
+    ArpackEigen(M::AbstractMatrix)
+
+    Uses Arpack to compute the smallest singular vectors of M by computing the
+    largest eigenvectors of M*M'.  If Arpack fails, it falls back to LinearAlgebraEigen.
+"""
+function ArpackEigen(M::AbstractMatrix{T}, max::Integer=20) :: Spall{T} where T
+    n_vals = min(max, size(M)[1])
+    vals = Float64[]
+    vecs = Float64[]
+    
+    primal_dual =  LinearAlgebra.Symmetric(M*M')
     try 
-        eigens = Arpack.eigs( LinearAlgebra.Symmetric(M*M')  ; which =:SR, nev =20)
-        # @show eigens[1]
-        return eigens[2]
+        # println("Computing SVD via Arpack...", max)
+        eigens = Arpack.eigs( primal_dual  ; which =:SR, nev =n_vals )
+        vals = eigens[1][:, end:-1:(end-n_vals+1)] 
+        vecs = eigens[2][:, end:-1:(end-n_vals+1)] 
     catch e
-        return LinearAlgebraEigen(M)
+        #sometimes Arpack fails to converge, so we build fall back to LinearAlgebraEigen
+        # println("Arpack failed with error: $e. Falling back to LinearAlgebraEigen.")
+        eigens = LinearAlgebra.eigen(primal_dual)
+        vals = eigens.values[end:-1:(end-n_vals+1)] 
+        vecs = eigens.vectors[:, end:-1:(end-n_vals+1)] 
     end
+    return Spall(vals, vecs)
+end;
+
+"""
+    chisel(t::AbstractArray{T}, 
+        category::Array{Engagement}, 
+        maxdim::Integer=10,
+        svdfunc::Function=ArpackEigen
+        ) :: Spall{T} where T <: AbstractFloat
+
+    Chisels off part of the tensor t called the spall, 
+    according to the specified chisel category.
+    Uses the specified svdfunc to compute the spall of the constraint matrix.
+
+    - `t`: The input tensor
+    - `category`: Array of Engagement specifying the chisel
+    - `maxdim`: Maximum number of singular vectors to compute (default: 10)
+    - `svdfunc`: Function to compute SVD (default: ArpackEigen)
+
+    Returns a Spall struct containing the singular values and vectors.
+"""
+function chisel(t::AbstractArray{T}, 
+    category::Array{Engagement}, 
+    maxdim::Integer=10,
+    svdfunc::Function=ArpackEigen
+    ) :: Spall{T} where T <: AbstractFloat
+    
+    # Sanity checks
+    if length(category) != ndims(t)
+        error("Category length must match tensor valence")
+    end
+
+    # Build the constraints.
+    ⚒ = UniversalChisel(category)
+    M = constraints(⚒, t) 
+
+    # Chisel off some part of the tensor and collect the spall.
+    spall = svdfunc(M, maxdim)
+
+    # Enter spall analysis.
+    return spall
 end;
 
 
+"""
+    change_point_detection(values::AbstractVector{T}; threshold::Real=0.1, min_segment_length::Integer=3) :: Vector{Integer} where T <: Real
+
+    Detects change points in an increasing sequence of floating point values.
+    
+    # Arguments
+    - `values`: Vector of increasing floating point values
+    - `threshold`: Minimum relative change in slope to consider a change point (default: 0.1 = 10%)
+    - `min_segment_length`: Minimum number of points between change points (default: 3)
+    
+    # Returns
+    - Vector of indices where change points occur
+    
+    # Example
+    ```julia
+    vals = [0.1, 0.2, 0.3, 0.31, 0.32, 0.33, 0.8, 0.9, 1.0]
+    change_points = change_point_detection(vals, threshold=0.5)
+    ```
+"""
+function change_point_detection(values::AbstractVector{T}; 
+                               threshold::Real=0.1, 
+                               min_segment_length::Integer=3) :: Vector{Integer} where T <: Real
+    
+    if length(values) < 2*min_segment_length + 1
+        return Integer[]
+    end
+    
+    # Compute first differences (slopes)
+    slopes = diff(values)
+    
+    # Smooth slopes with a simple moving average to reduce noise
+    window_size = max(2, min_segment_length ÷ 2)
+    smoothed_slopes = similar(slopes)
+    
+    for i in 1:length(slopes)
+        start_idx = max(1, i - window_size + 1)
+        end_idx = min(length(slopes), i + window_size - 1)
+        smoothed_slopes[i] = mean(slopes[start_idx:end_idx])
+    end
+    
+    change_points = Integer[]
+    last_change_point = 1
+    
+    for i in (min_segment_length+1):(length(slopes)-min_segment_length)
+        # Skip if too close to last change point
+        if i - last_change_point < min_segment_length
+            continue
+        end
+        
+        # Calculate average slope before and after potential change point
+        left_window = max(1, i - min_segment_length)
+        right_window = min(length(smoothed_slopes), i + min_segment_length - 1)
+        
+        left_slope = mean(smoothed_slopes[left_window:i-1])
+        right_slope = mean(smoothed_slopes[i:right_window])
+        
+        # Avoid division by zero
+        if left_slope ≈ 0.0
+            left_slope = eps(T)
+        end
+        
+        # Calculate relative change in slope
+        relative_change = abs(right_slope - left_slope) / abs(left_slope)
+        
+        # Detect significant change
+        if relative_change > threshold
+            push!(change_points, i)
+            last_change_point = i
+        end
+    end
+    
+    return change_points
+end
 
 """
-The spall are the bits thrown off when chiseling.  Accordingly, 
-this function constructs a constraint equation as specified by 
-the chisel, the tensor, and the indices.
-    
-    - the chisel 
-    - the tensor t
-    - s: the chisel equation 
-    - i_a: the indices for each axis
+    plot_change_points(values::AbstractVector{T}, change_points::Vector{Integer}; 
+                      title::String="Change Point Detection") where T <: Real
 
-    Returns a (sparse) vector representing the equation:
-
-    0 = Σ_a Σ_{l_a} λ_{sa} t[... , l_a, ...] * X[i_a, l_a]
-
-where the sum is over all axes (modes) a and l_a runs over the dimension of the 
-a-th axis.  The primal form assume t is given as input and solves for the matrices X_a.
-The dual form assumes the matrices X_a are given and solves for the tensor t.
+    Helper function to visualize change points in a sequence.
+    Note: Requires Plots.jl to be loaded for visualization.
 """
-function spall(chisel::Chisel, t::AbstractArray{T,val}, s::Integer, is::Vector{Integer,val})
-    num_vars = 0
-    for a in chisel.engaged 
-        num_vars += chisel.dim(size(t)[a],a)
+function plot_change_points(values::AbstractVector{T}, change_points::Vector{Integer}; 
+                           title::String="Change Point Detection") where T <: Real
+    try
+        p = plot(values, label="Values", linewidth=2, title=title)
+        
+        for cp in change_points
+            vline!([cp], label="Change Point $cp", linestyle=:dash, alpha=0.7)
+        end
+        
+        return p
+    catch
+        println("Plots.jl not available. Change points detected at indices: $change_points")
+        return nothing
     end
+end
+# ...existing code...
 
-    # a sparse vector to hold the equation
-    the_spall = spzeros(T, num_vars)
+"""
+    elbow_detection(values::AbstractVector{T}; method::Symbol=:curvature) :: Integer where T <: Real
+
+    Detects the elbow point in a decreasing sequence using various methods.
     
-    for a in chisel.engaged  # loop over all engaged modes
-        for l_a in chisel.var_iterator(a, size(t)[a])  
-            # Create index for tensor access
-            tensor_idx = copy(is)
-            tensor_idx[a] = l_a
-            
-            # Determine variable index in the_spall
-            var_index = chisel.var_index(a, l_a, size(t))
-            
-            # Add contribution to equation
-            the_spall[var_index] += t[tensor_idx...] * chisel.chisel[s, a]
-        end
-        for l_a in 1:size(t, a)  # loop over dimension of mode a
-            # Create index for tensor access
-            tensor_idx = copy(i_a)
-            tensor_idx[a] = l_a
-            
-            # Add contribution to equation
-            equation_value += t[tensor_idx...] * X[a][i_a[a], l_a]
-        end
+    # Arguments
+    - `values`: Vector of decreasing values (e.g., singular values)
+    - `method`: Detection method (:curvature, :variance, :gradient)
+    
+    # Methods
+    - `:curvature`: Finds point of maximum curvature
+    - `:variance`: Uses variance-based approach 
+    - `:gradient`: Finds largest change in gradient
+    
+    # Returns
+    - Index of the elbow point
+    
+    # Example
+    ```julia
+    vals = [10.0, 5.0, 2.0, 1.8, 1.7, 1.65, 1.6, 1.58, 1.57]
+    elbow_idx = elbow_detection(vals)
+    ```
+"""
+function elbow_detection(values::AbstractVector{T}; method::Symbol=:curvature) :: Integer where T <: Real
+    
+    if length(values) < 3
+        return 1
     end
     
-    return equation_value
+    if method == :curvature
+        return elbow_curvature(values)
+    elseif method == :variance
+        return elbow_variance(values)
+    elseif method == :gradient
+        return elbow_gradient(values)
+    else
+        error("Unknown method: $method. Use :curvature, :variance, or :gradient")
+    end
 end
 
-#-------------------------------
-# technical function for building the linear system 
-# use with caution, there are no checks for consistency
-function buildFullLinearSystem(t::AbstractArray{T}, eqMatrix::AbstractMatrix)::Matrix{T} where T
-    sizes = [size(t)...]
-    Msize = size(eqMatrix)
-    blocks = sizes .|> (n -> n*n)
-    numvars =  sum(i -> blocks[i], 1: Msize[2])
-    M = zeros(T, ( numvars, Msize[1] * length(t) )  )
-    k=0
-    println("\tSizes: ", size(M))
-    R = CartesianIndices(t)
-    for ci in R                            #  loop over entries of tensor
-        li = LinearIndices(t)[ci]
-        for i = 1:Msize[1] 
-            s=0
-            for j = 1:Msize[2]                
-                # extract 1 dimensional slice of the tensor
-                first = li - (ci[j] - 1)*stride(t,j)
-                last = first + (sizes[j]- 1)*stride(t,j)
-                slice = t[first:stride(t,j):last]
-                # add it to the condition
-                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
-                s += blocks[j]
-            end
-            k += 1
+"""
+    elbow_curvature(values::AbstractVector{T}) :: Integer where T <: Real
+    
+    Finds elbow using maximum curvature method.
+    Computes second derivative and finds point of maximum absolute curvature.
+"""
+function elbow_curvature(values::AbstractVector{T}) :: Integer where T <: Real
+    n = length(values)
+    if n < 3
+        return 1
+    end
+    
+    # Normalize values to [0,1] to make curvature calculation scale-independent
+    normalized = (values .- minimum(values)) ./ (maximum(values) - minimum(values))
+    
+    # Create x coordinates
+    x = collect(1:n)
+    
+    # Compute first and second derivatives using finite differences
+    first_deriv = diff(normalized)
+    second_deriv = diff(first_deriv)
+    
+    # Compute curvature: |y''| / (1 + y'^2)^(3/2)
+    curvatures = zeros(T, n-2)
+    for i in 1:(n-2)
+        y_prime = first_deriv[i]
+        y_double_prime = second_deriv[i]
+        curvatures[i] = abs(y_double_prime) / (1 + y_prime^2)^(3/2)
+    end
+    
+    # Find point of maximum curvature (add 1 to account for indexing)
+    return argmax(curvatures) + 1
+end
+
+"""
+    elbow_variance(values::AbstractVector{T}) :: Integer where T <: Real
+    
+    Finds elbow using variance-based method.
+    Splits data at each point and minimizes within-group variance.
+"""
+function elbow_variance(values::AbstractVector{T}) :: Integer where T <: Real
+    n = length(values)
+    if n < 3
+        return 1
+    end
+    
+    min_variance = Inf
+    elbow_point = 1
+    
+    # Try each possible split point
+    for i in 2:(n-1)
+        left_group = values[1:i]
+        right_group = values[(i+1):end]
+        
+        # Calculate weighted within-group variance
+        left_var = length(left_group) > 1 ? var(left_group) : 0.0
+        right_var = length(right_group) > 1 ? var(right_group) : 0.0
+        
+        weighted_var = (length(left_group) * left_var + length(right_group) * right_var) / n
+        
+        if weighted_var < min_variance
+            min_variance = weighted_var
+            elbow_point = i
         end
     end
-    return M
+    
+    return elbow_point
 end
 
-
-#-------------------------------
-# technical function for building the linear system 
-# use with caution, there are no checks for consistency
-function buildLinearSystem(t::AbstractArray{T}, eqMatrix::AbstractMatrix)::Matrix{T} where T
-    sizes = [size(t)...]
-    Msize = size(eqMatrix)
-    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
-    numvars =  sum(i -> blocks[i], 1: Msize[2])
-    M = zeros( T, ( numvars, Msize[1] * length(t) )  )
-    # println("\tNumber of blocks: ", Msize)
-    # println("\tNumber of variables: ", numvars)
-    k=0
-    # println("\tSizes: ", size(M))
-    R = CartesianIndices(t)
-    # println("Number of coordinates: ", length(R))
-    # println("loops to do: ", Msize[1] * Msize[2] * length(R))
-    for ci in R                            #  loop over entries of tensor
-        li = LinearIndices(t)[ci]
-        for i = 1:Msize[1] 
-            s=0
-            for j = 1:Msize[2]                
-                # extract 1 dimensional slice of the tensor
-                first = li - (ci[j] - 1)*stride(t,j)
-                last = first + (sizes[j]- 1)*stride(t,j)
-                slice = t[first:stride(t,j):last]
-                # add it to the condition
-                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
-                s += blocks[j]
-            end
-            k += 1
-        end
+"""
+    elbow_gradient(values::AbstractVector{T}) :: Integer where T <: Real
+    
+    Finds elbow using gradient change method.
+    Finds point where the rate of change (gradient) changes most dramatically.
+"""
+function elbow_gradient(values::AbstractVector{T}) :: Integer where T <: Real
+    n = length(values)
+    if n < 3
+        return 1
     end
-    return M
+    
+    # Compute first differences (gradients)
+    gradients = diff(values)
+    
+    # Compute second differences (change in gradients)
+    gradient_changes = abs.(diff(gradients))
+    
+    # Find point of maximum gradient change (add 1 to account for indexing)
+    return argmax(gradient_changes) + 1
 end
 
-#-------------------------------
-# technical function for building the linear system 
-# use with caution, there are no checks for consistency
-# t[i,j,k]*(X[i,i] + Y[j,j] + Z[k,k]) =0
-function buildDiagonalSystem(t::AbstractArray{T})::Matrix{T} where T
-    sizes = [size(t)...]
-    println("Sizes: ", sizes)
-    numvars = sum(sizes)  # Total number of diagonal entries across X, Y, Z
+"""
+    plot_elbow(values::AbstractVector{T}; method::Symbol=:curvature, title::String="Elbow Detection") where T <: Real
     
-    # Count non-zero entries to determine number of equations
-    # non_zero_indices = findall(x -> abs(x) > 1e-12, t)
-    num_equations = length(t)
-    M = zeros(T, (numvars, num_equations))
-    # M = zeros(Float64, (numvars, num_equations))
-    println("Numvars: ", numvars)
-    println("Matrix size: ", size(M))
+    Visualizes the elbow detection result.
+"""
+function plot_elbow(values::AbstractVector{T}; 
+    method::Symbol=:curvature, 
+    title::String="Elbow Detection") where T <: Real
+    elbow_idx = elbow_detection(values, method=method)
     
-    eq_idx = 1
-    for ci in CartesianIndices(t)
-        t_val = t[ci]
-        
-        # X[i,i] coefficient (first sizes[1] variables)
-        M[ci[1], eq_idx] = t_val
-        
-        # Y[j,j] coefficient (next sizes[2] variables)
-        M[sizes[1] + ci[2], eq_idx] = t_val
-        
-        # Z[k,k] coefficient (last sizes[3] variables)
-        M[sizes[1] + sizes[2] + ci[3], eq_idx] = t_val
-        
-        eq_idx += 1
+    try
+        p = plot(values, marker=:circle, linewidth=2, label="Values", title=title)
+        vline!([elbow_idx], label="Elbow at $elbow_idx", linestyle=:dash, linewidth=2, color=:red)
+        scatter!([elbow_idx], [values[elbow_idx]], color=:red, markersize=8, label="")
+        xlabel!("Index")
+        ylabel!("Value")
+        return p
+    catch
+        println("Plots.jl not available. Elbow detected at index: $elbow_idx")
+        println("Value at elbow: $(values[elbow_idx])")
+        return nothing
     end
-    
-    return M
 end
 
-function stratify(t::AbstractArray{T}, svdfunc::Function=ArpackEigen) where T
-    # test valancy
-    if ndims(t) != 3
-        throw(DimensionMismatch("wrong arity of tensor"))
-    end
-    sizes = [size(t)...]
-    blocks = sizes  .|> (n -> n*n ) 
+# ...existing code...
+function critique(spall::Spall)
 
-        # Determine the float type from the tensor
-    TensorType = eltype(t)
-    if !(TensorType <: AbstractFloat)
-        TensorType = Float64  # fallback for non-float tensors
-    end
+    # # extract the correct vector (use last available column if fewer than 3)
+    # col_idx = min(3, size(lastsvds, 2))
 
-    # set up system of lin equation
-    # println("\r\n\tBuilding linear system...")
-    @time M = buildFullLinearSystem(t, SurfaceMatrix)
+    
+    # eigenvector = lastsvds[:, col_idx]
 
-    # do SVD and pick the smallest vectors 
-    # println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
-        # @time lastsvds = svd(M)
-    @time lastsvds = svdfunc(M)
+    # # expand to matrices
+    # offset = 0
+    # mats = Vector{AbstractMatrix}(undef, valence)
+    # for a in 1:valence
+    #     eng = ⚒.category[a]
+    #     if eng == Primal || eng == Ambidextrous
+    #         mats[a] = Ω.toMatrix(maineigenvector, dims[a], offset )
+    #         offset += Ω.dimFormula(a)
+    #     elseif eng == Dual
+    #         mats[a] = Ω.toMatrix(maineigenvector, dims[a], offset )'
+    #         offset += Ω.dimFormula(a)
+    #     end # Skip Disengaged
+    # end
 
-    # println("\r\n\tExtracting matrices...")
-    # exctract the correct vector
-    maineigenvector = lastsvds[:,3]
-
-    # expand to matrices
-    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
-    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
-    @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
-
-    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+    # # Diagonalize
+    # trans = [ LinearAlgebra.eigen( mat ) for mat in mats ]
+    # vals = [t.values for t in trans]
+    # vecs = [real.(t.vectors) for t in trans]  # Take real part to avoid complex number issues
+    # tensor=act(t_float, vecs )
+    # return (;tensor, matrices=vecs, eigenvalues=vals)
 end;
+
+function chisel(t::AbstractArray, max::Integer=10) :: Spall 
+    # Convert to floating point to avoid integer conversion issues
+    if eltype(t) <: Integer
+        println("Converting integer tensor to Float32 for numerical stability.")
+        # Float 32 should be sufficient precision for SVD
+        # if not user can convert for themselves.
+        t = Float32.(t)
+    end
+
+    category = fill(Primal, ndims(t))
+    mdim = maximum(size(t))
+    if mdim <= 10
+        svdfunc = LinearAlgebraSVD
+    else
+        svdfunc = ArpackEigen
+    end
+    return chisel(t, category, max, svdfunc)
+end;
+
+;
