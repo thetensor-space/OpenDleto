@@ -23,8 +23,54 @@
 # SOFTWARE.
 # 
 
+module TensorIO
+
+export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
+
 using PlotlyJS
 
+"""
+    normalizeTensor(t::AbstractArray)
+
+    Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
+    returns the tensor unchanged.
+"""
+function normalizeTensor(t::AbstractArray)
+    norm_factor = norm(t)
+    if norm_factor == 0
+        return t
+    else
+        return t / norm_factor
+    end
+end
+
+
+"""
+        (left, right; left_title="Left", right_title="Right")
+
+Render two array-like values side-by-side in notebook output using HTML.
+Works in Jupyter/VS Code notebooks. Titles are optional.
+"""
+function sidebyside(left, right; 
+    left_title::AbstractString="Left", 
+    right_title::AbstractString="Right")
+        left_txt = repr("text/plain", left)
+        right_txt = repr("text/plain", right)
+        html = """
+        <div style=\"display:flex; gap:16px; align-items:flex-start\">
+            <div style=\"flex:1\">
+                <h4>$(left_title)</h4>
+                <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(left_txt)</pre>
+            </div>
+            <div style=\"flex:1\">
+                <h4>$(right_title)</h4>
+                <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(right_txt)</pre>
+            </div>
+        </div>
+        """
+        display(MIME("text/html"), html)
+        return nothing
+end
 
 function loadTensorFromFile(filename::String)
     # Read the file and parse entries
@@ -65,7 +111,16 @@ function loadTensorFromFile(filename::String)
     return tensor
 end
 
+"""
+    saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Float64=1e-3)
 
+    Save the tensor to a file in sparse format, writing only entries 
+    whose absolute value exceeds the given threshold.
+
+    - `tensor`: The input tensor to save
+    - `filename`: The name of the output file
+    - `threshold`: Minimum absolute value for entries to be saved (default: 1e-3)
+"""
 function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Float64=1e-3)
     open(filename, "w") do file
         dims = size(tensor)
@@ -79,6 +134,14 @@ function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Fl
     end
 end
 
+"""
+    plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
+                   xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+                   title::String="3D Tensor Visualization", color::String="blue")   
+                   
+    Visualize a 3D tensor using PlotlyJS, plotting only entries
+    whose absolute value exceeds the given threshold.
+"""
 function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::String="blue")
@@ -136,3 +199,5 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2;
     # Return the plot object to let notebook handle rendering
     return p
 end
+
+end # module TensorIO

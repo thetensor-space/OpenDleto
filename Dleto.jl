@@ -22,146 +22,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 # 
-import LinearAlgebra
-import Random
-# using LinearAlgebra
-
-# install Arpack if it is not installed -- comment the next two if it ialready installed
-#import Pkg
-#Pkg.add("Arpack")
-
-import Arpack
-
 
 # import Pkg
-# Pkg.add("PlotlyJS")
-ENV["WEBIO_JUPYTER_DETECTED"] = "true"
+import LinearAlgebra
+import Random
+import SparseArrays
+import Statistics
+import ProgressMeter
+import Arpack
+ENV["WEBIO_JUPYTER_DETECTED"] = "false"
 using PlotlyJS
 
-#import Base
-
-
-#-------------------------------
-# combine some coordinatres of a vector into a symmetric matrix
-# use with caution -- the function does not perform any checks!
-function expandToMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
-    M = zeros(Float64,n,n)
-    k = 1 + offset
-    for i = 1:n
-        for j = i:n
-            M[i,j] = u[k]
-            # M[j,i] = u[k]
-            k = k + 1
-        end
-    end 
-    return LinearAlgebra.Matrix(M)
-end;
-
-#-------------------------------
-# combine some coordinatres of a vector into a symmetric matrix
-# use with caution -- the function does not perform any checks!
-function expandToSymetricMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
-    # Check and use the float type from the vector
-    VectorType = eltype(u)
-    if !(VectorType <: AbstractFloat)
-        VectorType = Float64  # fallback for non-float vectors
-    end
-    M = zeros(VectorType,n,n)
-    k = 1 + offset
-    for i = 1:n
-        for j = i:n
-            M[i,j] = u[k]
-            M[j,i] = u[k]
-            k = k + 1
-        end
-    end 
-    return LinearAlgebra.Symmetric(M)
-end;
+include("TensorSpace.jl")
+include("Chisels.jl")
+include("Sylvester.jl")
+include("TensorSynthesis.jl")
 
 
 
-
-
-#-------------------------------
-# find orhtogonal transformations to put support of a tensor on a surface
-"""
-function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
-
-Change a basis of a tensor to make it supported on a surface. 
-The output is a named tuple with coordinates .tensor, .Xchange, .Ychange, .Zchange, .Xes, .Yes, .Zes
-consiting of the transformed tensor, the 3 change of basis matrices, and the vectors defining the surface.
-
-The second ardument is a function which performs the svd of some relatively large matrix and rerurns the smallesr singular vectors.
-The defalut value (ArpackEigen) uses the Arpack library, the two other possible functions area LinearAlgebraSVD and LinearAlgebraEigen.
-Sometimes Arpack crashes, so there is a build in fall back to LinearAlgebra function
-"""
-function toSurfaceTensor(t::AbstractArray{T}, svdfunc::Function=ArpackEigen) where T
-    # test valancy
-    if ndims(t) != 3
-        throw(DimensionMismatch("wrong arity of tensor"))
-    end
-    sizes = [size(t)...]
-    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
-
-    # Determine the float type from the tensor
-    # set up system of lin equation
-    # println("\r\n\tBuilding linear system...")
-    # @time 
-    M = buildLinearSystem(t, SurfaceMatrix)
-    # println("\tSize of matrix: ", size(M), " of type ", eltype(M) )
-
-    # do SVD and pick the smallest vectors 
-    # println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
-        # @time lastsvds = svd(M)
-    # @time 
-    lastsvds = svdfunc(M)
-
-    # println("\r\n\tExtracting matrices...")
-    # exctract the correct vector
-    maineigenvector = lastsvds[:,3]
-
-    # expand to matrices
-    XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
-    YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
-    ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
-
-    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
-end;
-
-function stratify(t::AbstractArray{T}, svdfunc::Function=ArpackEigen) where T
-    # test valancy
-    if ndims(t) != 3
-        throw(DimensionMismatch("wrong arity of tensor"))
-    end
-    sizes = [size(t)...]
-    blocks = sizes  .|> (n -> n*n ) 
-
-        # Determine the float type from the tensor
-    TensorType = eltype(t)
-    if !(TensorType <: AbstractFloat)
-        TensorType = Float64  # fallback for non-float tensors
-    end
-
-    # set up system of lin equation
-    # println("\r\n\tBuilding linear system...")
-    @time M = buildFullLinearSystem(t, SurfaceMatrix)
-
-    # do SVD and pick the smallest vectors 
-    # println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
-        # @time lastsvds = svd(M)
-    @time lastsvds = svdfunc(M)
-
-    # println("\r\n\tExtracting matrices...")
-    # exctract the correct vector
-    maineigenvector = lastsvds[:,3]
-
-    # expand to matrices
-    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
-    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
-    @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
-
-    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
-end;
 
 function faceBlocks(t::AbstractArray, svdfunc::Function=ArpackEigen)
     # test valancy
