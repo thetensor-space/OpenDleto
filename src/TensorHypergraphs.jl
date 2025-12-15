@@ -1,3 +1,35 @@
+
+#
+# Strata Dleto: Sylvester Solvers
+#   Algorithms for solving Sylvester equations arising in chiseling.
+# -----------------------------------------------------------------------------
+# Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, Amaury Minino,J
+# James B. Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the “Software”), 
+# to deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# SOFTWARE.
+# -----------------------------------------------------------------------------
+
+module TensorHypergraphs
+
+## This is too rough to export as a whole.
+
+
 function createTensorFromIncidence3(M::AbstractMatrix{T}) where T
     # Check that M is a 01 matrix
     if !all(x -> x == 0 || x == 1, M)
@@ -279,3 +311,5 @@ function generateHypergraph(kind::Symbol, d::Integer, k::Integer; kwargs...)
         throw(ArgumentError("Unknown hypergraph kind: $kind"))
     end
 end
+
+end; # module TensorHypergraphs

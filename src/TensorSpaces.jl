@@ -23,8 +23,11 @@
 # SOFTWARE.
 # 
 
+module TensorSpaces
 
+import LinearAlgebra
 
+export act, spin, randomize, changeTensor, Engagement
 
 """
     Engagement
@@ -97,10 +100,27 @@ function act(t ::AbstractArray, mat ::AbstractMatrix, axis ::Integer) ::Array
     return reshape(res, Tuple(dims))
 end;
 
+"""
+act(t ::AbstractArray, category::Array{Engagement}, m::Vector{A} where A <: AbstractMatrix) ::Array
 
-#-------------------------------
-# Act on all Axises
-# m is a list of matrices
+Act on the engaged axes of the tensor category with the matrices given.
+"""
+function act(t ::AbstractArray, category::Array{Engagement}, m::Vector{A} where A <: AbstractMatrix) ::Array
+    if (length(category) != length(m))
+        throw(DimensionMismatch("Must act on all engaged axes."))
+    end
+    res= t;
+    for a in 1:ndims(t)
+        if category[a] == Disengaged
+            continue
+        elseif category[a] == Dual
+            res = act( res, m[a]', a)
+        else
+            res = act( res, m[a], a)
+        end
+    end
+    return res
+end;
 
 """
 actAllDirections(t ::AbstractArray, m::Vector{A} where A <: AbstractArray) ::Array
@@ -139,30 +159,23 @@ Picks 3 random orthogonal matrices and use them to peform a random basis change 
 Retruns named tupple with coordinates .tensor, .Xchange, .Ychange, .Zchange
 """ 
 function randomize(t::AbstractArray)
-    mats = collect([ randomMatrix(size(t,a)) for a in 1:ndims(t) ])
-    tensor = act(t,mats)
+    function getRand(n) 
+        mat = randn(n,n)
+        count = 0
+        while LinearAlgebra.rank(mat) < n && count < 100
+            count += 1
+            mat = randn(n,n)
+        end
+        if count > 99
+            throw(ErrorException("Could not generate random invertible matrix"))
+        end
+        return mat
+    end
+    matrices = collect([ getRand(size(t,a)) for a in 1:ndims(t) ])
+    tensor = act(t,matrices)
     return (;tensor, matrices)
 end;
 
-#-------------------------------
-# technical function for performing base change based on 3 symmetric matrices 
-# use with caution, there are no checks for consistency
-# the output is a named tuple
-function changeTensor(t::AbstractArray, XMatrix::AbstractMatrix, YMatrix::AbstractMatrix, ZMatrix::AbstractMatrix)
-    # compute change of basis and other data
-    Xeig = LinearAlgebra.eigen(XMatrix)
-    Yeig = LinearAlgebra.eigen(YMatrix)
-    Zeig = LinearAlgebra.eigen(ZMatrix)
-    Xchange = Xeig.vectors 
-    Ychange = Yeig.vectors 
-    Zchange = Zeig.vectors
-    Xes = Xeig.values 
-    Yes = Yeig.values 
-    Zes = Zeig.values 
-    # perform change of basis
-    tensor=actAllDirections(t, [Xchange,Ychange,Zchange])
-
-    return (;tensor, Xchange, Ychange, Zchange, Xes, Yes, Zes)
-end;
+end # module TensorSpaces
 
 

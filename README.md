@@ -51,29 +51,75 @@ Here are some examples of what this can look like:
 
 ## Install
 
-We have packaged the essentials into a single file `Delto.jl` having rudimentary but stand-alone implementations of some of the chiseling methods.  You may download that file alone, but you may also benefit from using the examples in `examples/..`.  Start with `examples/Demo.jl`.
+Dleto is now a proper Julia package! You can install it in several ways:
 
- - A recent installation of the Julia Language is needed (ver. 1.7.0 or later seems to be compatible with the features required for `OpenDleto`).  If you do not have an installation of Julia, follow the installation instructions for the Julia system available [here](https://julialang.org/).
- - Clone or Download the `OpenDleto` release from github [here](https://github.com/thetensor-space/OpenDleto).  Make sure `julia` can be run from whatever folder contains your `OpenDleto` download, typically by ensuring that `julia` is in the path of your operating system shell.
- - From the command line start julia and load the `OpenDleto` package by using `include("$path$/OpenDleto/Dleto.jl")`
----
-The functions mostly require standard Julia packages like `Random` and `LinearAlgebra`. The only other requirement is the package `Arpack` which will be installed automatically by the include command above. It is recommended that this package is manually installed; the following are commented out of `Dleto.jl` (lines 5 & 6):
+### Option 1: From Local Directory (Development)
+
+If you've cloned or downloaded this repository:
 
 ```julia
-julia> import Pkg
-julia> Pkg.add("Arpack")
+using Pkg
+Pkg.develop(path="/path/to/OpenDleto")
+using Dleto
 ```
 
-The code can be used without `Arpack` but it will run significantly 
-more slowly. To do so, one must comment out the function `ArpackEigen` (lines 274-282) and change the default function from `ArpackEigen` to `LinearAlgebraEigen` in the function `toSurfaceTensor`, `toFaceCurveTensor` and `ToCurveTensor` (lines 358, 396  and 436)
+### Option 2: Direct from GitHub
 
+```julia
+using Pkg
+Pkg.add(url="https://github.com/thetensor-space/OpenDleto")
+using Dleto
+```
 
-Our algorithms are provided in a number of platforms.   
-  * The bleeding edge algorithms are developed for, and tested in the [Magma] Computer Algebra System (http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system. Further information about extensions and experimental additions can be found at [TheTensor.Space](https://TheTensor.Space/).
-  * Python access is available to core algorithms through [SageTensorSpace](https://github.com/thetensor-space/SageTensorSpace) for the [Sage Math](https://www.sagemath.org/) (in Python).
-  * [Julia](https://julialang.org/) language port is being developed as [OpenDelto](https://github.com/thetensor-space/OpenDleto).
+### Option 3: For Development/Testing
 
-The algorithms presented in this tutorial are for instructional purposes.  For detailed treatments and improved performance follow the attached references.
+If you want to work on the package:
+
+```julia
+using Pkg
+Pkg.activate(".")  # From OpenDleto directory
+Pkg.instantiate()  # Install dependencies
+using Dleto
+```
+
+### Requirements
+
+ - Julia 1.7 or later
+ - Dependencies (installed automatically):
+   - `Arpack` - for fast SVD computations
+   - `PlotlyJS` - for visualization
+   - `LinearAlgebra`, `SparseArrays`, `Statistics`, `ProgressMeter`, `Random`
+
+### Running Tests
+
+To verify your installation:
+
+```julia
+using Pkg
+Pkg.test("Dleto")
+```
+
+### Quick Start
+
+```julia
+using Dleto
+
+# Create a random 3D tensor
+t = randn(10, 10, 10)
+
+# Transform to surface tensor
+result = toSurfaceTensor(t)
+
+# Access components
+transformed_tensor = result.tensor
+X_transform = result.Xchange
+Y_transform = result.Ychange
+Z_transform = result.Zchange
+```
+
+---
+
+**Legacy Usage:** The old `include("Dleto.jl")` method still works if you include the file from the root directory, but using it as a package is now recommended.
 
 ---
 
