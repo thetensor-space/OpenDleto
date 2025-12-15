@@ -63,40 +63,38 @@ Base.show(io::IO, e::Engagement) = Base.show(io, MIME("text/plain"), [e])
 
 
 """
-actionOnTensor(t ::AbstractArray, mat ::AbstractArray, dir ::Integer)
+act(t ::AbstractArray, mat ::AbstractArray, axis ::Integer)
 
 Act on a tensor by a matrix via a given axis 
 """
-function actionOnTensor(t ::AbstractArray, mat ::AbstractArray, dir ::Integer) ::Array
-    if (dir < 1) || (dir >  ndims(t))
-        throw(DimensionMismatch("direction does not exist"))
+function act(t ::AbstractArray, mat ::AbstractMatrix, axis ::Integer) ::Array
+    if (axis < 1) || (axis >  ndims(t))
+        throw(DimensionMismatch("Axis not in frame of tensor."))
     end
-    if ndims(mat) != 2
-        throw(DimensionMismatch("only matrices can act!"))
-    end 
-    sizes = [size(t)...]
+    dims = [size(t)...]
     matsizes = size(mat)
 
     #matrices act on the right
-    if matsizes[1] != sizes[dir]
+    if matsizes[1] != dims[axis]
         throw(DimensionMismatch("incompatible sizes of tensor and matrices"))
     end
-    # compute sizes to reshape into 3 tensor
-    p=prod(sizes[1 : (dir - 1)])
-    q=prod(sizes[(dir + 1) : end])
 
-    # reshape the tensor into 3 tensor
-    ten = reshape(t, p, sizes[dir], q)
-    # same for result
+    # Flatten the tensor
+    p=prod(dims[1 : (axis - 1)])
+    q=prod(dims[(axis + 1) : end])
+
+    # reshape the tensor into 3 matrix
+    ten = reshape(t, p, dims[axis], q)
+    # make a place to store  result
     res = similar(ten, p, matsizes[2], q)
     # use matrix multiplication to compute the action 
     for i = 1:q
         LinearAlgebra.mul!(@view(res[:, :, i]), @view(ten[:, :, i]), mat)
     end
     # find the new size
-    sizes[dir] = matsizes[2]
+    dims[axis] = matsizes[2]
     # reshape the result and return 
-    return reshape(res, Tuple(sizes))
+    return reshape(res, Tuple(dims))
 end;
 
 
@@ -109,36 +107,41 @@ actAllDirections(t ::AbstractArray, m::Vector{A} where A <: AbstractArray) ::Arr
 
 Act on a tensor by a many matrices on all axes 
 """
-function actAllDirections(t ::AbstractArray, m::Vector{A} where A <: AbstractArray) ::Array
+function act(t ::AbstractArray, m::Vector{A} where A <: AbstractMatrix) ::Array
     if (ndims(t) != length(m))
         throw(DimensionMismatch("wrong size of vector of matrices"))
     end
     res= t;
-    for i = 1:ndims(t)
-        res = actionOnTensor( res, m[i], i)
+    for a = 1:ndims(t)
+        res = act( res, m[a], a)
     end
     return res
 end;
 
-#-------------------------------
-# randomize a tensor by basis change with random orthogonal matrices
 """
-randomizeTensor(t::AbstractArray)
+spin(t::AbstractArray)
+
+Applies random orthogonal changes of basis to all axes of the tensor t.
+
+Retruns a record tuple with coordinates .tensor, .matrices
+""" 
+function spin(t::AbstractArray)
+    mats = collect([ randomOrthogonalMatrix(size(t,a)) for a in 1:ndims(t) ])
+    tensor = act(t,mats)
+    return (;tensor, matrices)
+end;
+
+
+"""
+randomize(t::AbstractArray)
 
 Picks 3 random orthogonal matrices and use them to peform a random basis change of a 3 tensor.
 Retruns named tupple with coordinates .tensor, .Xchange, .Ychange, .Zchange
 """ 
-function randomizeTensor(t::AbstractArray)
-    # test valancy
-    if ndims(t) != 3
-        throw(DimensionMismatch("wrong arity of tensor"))
-    end
-    sizes = [size(t)...]
-    Xchange=  randomOthogonalMatrix(sizes[1])
-    Ychange=  randomOthogonalMatrix(sizes[2])
-    Zchange=  randomOthogonalMatrix(sizes[3])
-    tensor = actAllDirections(t,[Xchange,Ychange,Zchange])
-    return (;tensor, Xchange, Ychange, Zchange)
+function randomize(t::AbstractArray)
+    mats = collect([ randomMatrix(size(t,a)) for a in 1:ndims(t) ])
+    tensor = act(t,mats)
+    return (;tensor, matrices)
 end;
 
 #-------------------------------

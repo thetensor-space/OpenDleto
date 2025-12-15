@@ -41,8 +41,8 @@ include("TensorSpace.jl") # Imports Tensor categories.
 """
 struct Ops 
     dimFormula :: Function
-    # toVar :: Function
     insert! :: Function
+    toMatrix :: Function
     description :: String
 end;
 
@@ -85,7 +85,8 @@ function UniversalOps(category::Array{Engagement}, poly::Array{T,2}) where T
         col_end = col_start + d -1
         view(M, (row_offset+1):(row_offset+size(coeff,1)), col_start:col_end) .= insert_data
     end
-    return Ops(uni_dims, uni_insert!, "Universal Operators")
+    uni_matrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix = reshape( u[offset+1:offset+n*n],  (n,n) )
+    return Ops(uni_dims, uni_insert!, uni_matrix, "Universal Operators")
 end;
 
 """
@@ -229,8 +230,17 @@ function SymmetricOps(category::Array{Engagement}, poly::Array{T,2}) where T
         col_end = col_start + d*(d+1) ÷ 2 -1
         view(M, (row_offset+1):(row_offset+size(coeff,1)), col_start:col_end) .= coeff*insert_data'
     end
+    function sym_matrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix 
+        M = zeros(Float64,n,n)
+        for k in 1:(n*(n+1) ÷ 2)
+            (i,j) = sym_index(n, k)
+            M[i,j] = u[offset + k]
+            M[j,i] = u[offset + k]  # Symmetric entry
+        end
+        return LinearAlgebra.Matrix(M)
+    end;
 
-    return Ops(sym_dims, sym_insert!, "Symmetric Operators")
+    return Ops(sym_dims, sym_insert!, sym_matrix, "Symmetric Operators")
 end;
 
 """
@@ -284,15 +294,15 @@ function SymmetricChisel(valence::Integer)
     return SymmetricChisel(cat)
 end;
 
-#-------------------------------Spall Construction-----------------------------
+#-------------------------------Constraint Construction------------------------
 
 # Extract the tubes along engaged axes
 extractAxisTubes(t::AbstractArray, index::Tuple, engaged::Vector{<:Integer}) = 
-        [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
+     [t[ntuple(i -> i == a ? Colon() : index[i], ndims(t))...] for a in engaged]
 
 
-        """
-Constructs a chisel constraint equation (the "spall") as specified by 
+"""
+Constructs a chisel constraint equation as specified by 
 the chisel, the tensor, and the indices.
     
     - the `chisel`
@@ -308,7 +318,7 @@ where the sum is over all axes (modes) a and l_a runs over the dimension of the
 a-th axis.  The primal form assume t is given as input and solves for the matrices X_a.
 The dual form assumes the matrices X_a are given and solves for the tensor t.
 """
-function spall(chisel::LinearChisel, 
+function constraints(chisel::LinearChisel, 
     t::AbstractArray, 
     the_is::AbstractVector{<:Tuple})
     
@@ -334,20 +344,7 @@ function spall(chisel::LinearChisel,
         # Assemble the equation
         col_offset = 0
         for (idx, a) in enumerate(engaged)
-            # Extract the tube for this axis
             tube = tubes[idx]
-            # Determine the variable position
-            # inset = Ω.toVar(a, t, is[a])
-            # insert = Ω.insert(a, tube, is[a])
-            # col_start = offset + inset
-            # col_end = offset + inset + size(insert,2) - 1
-            # if col_end > nvars
-            #     println("ERROR: axis=$a, is[a]=$(is[a]), offset=$offset, inset=$inset, size(insert,2)=$(size(insert,2)), nvars=$nvars")
-            #     println("Trying to access columns $col_start:$col_end")
-            #     error("Column index out of bounds")
-            # end
-            # view(M, (row_offset+1):(row_offset+neqns), col_start:col_end) .= insert
-            # advance the offset
             Ω.insert!(M, row_offset, col_offset, chisel.polynomials[:, a], tube, is[a])
             col_offset += Ω.dimFormula(a, t)
         end
@@ -356,18 +353,25 @@ function spall(chisel::LinearChisel,
     return M
 end;
 
-function spall(chisel::LinearChisel, t::AbstractArray, is::Tuple) 
-    return spall(chisel, t, [is])
+"""
+    constraint(chisel::LinearChisel, t::AbstractArray, is::Tuple)
+
+    Build the constraint equations for a single index tuple.
+        - the `chisel`
+        - the tensor `t`
+        - `is`: the index for each axis
+"""
+function constraint(chisel::LinearChisel, t::AbstractArray, is::Tuple) 
+    return constraints(chisel, t, [is])
 end;
 
-function spall(chisel::LinearChisel, t::AbstractArray)
+function constraints(chisel::LinearChisel, t::AbstractArray)
     all_is = vec([Tuple(is) for is in CartesianIndices(t)])
-    return spall(chisel, t, all_is)
+    return constraints(chisel, t, all_is)
 end;
 
-# t = reshapce(collect(1:24), (2,3,4))
-# M = reduce(vcat, [ spall(uc, t, Tuple(is)) for is in CartesianIndices(t) ])
-
+# t = reshape(collect(1:24), (2,3,4))
+# M = reduce(vcat, [ constraints(uc, t, Tuple(is)) for is in CartesianIndices(t) ])
 ## Hack to top printing message upon loading
 ;
 # println("Chisels.jl loaded.")
