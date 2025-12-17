@@ -27,7 +27,7 @@ module TensorSpaces
 
 import LinearAlgebra
 
-export act, spin, randomize, changeTensor, Engagement
+export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrous, Disengaged
 
 """
     Engagement
@@ -44,6 +44,12 @@ An enum-like type representing the role of an axis in a chisel:
     Ambidextrous
     Disengaged
 end
+
+struct TensorSpace
+    frame :: Vector{Int}
+    category :: Vector{Engagement}
+end
+
 
 function Base.show(io::IO, ::MIME"text/plain", engagement::Array{Engagement})
     for e in engagement
