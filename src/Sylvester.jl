@@ -26,7 +26,7 @@
 
 module SylvesterSolvers
 
-export chisel, sculpt, Spall
+export der, sculpt, Derivation
 
 using LinearAlgebra
 using Arpack
@@ -34,16 +34,16 @@ using SparseArrays
 using ProgressMeter
 # using Plots
 using Statistics
-using ..TensorSpaces: Engagement
+using ..TensorSpaces: Engagement, Primal, Dual, Ambidextrous, Disengaged, act
 using ..Chisels: LinearChisel, UniversalChisel, constraints
 
 # Chisels.jl and TensorSpaces.jl are included by the main Dleto module
 
-struct Spall{T}
-    values :: AbstractVector{T}
-    vectors :: AbstractMatrix{T}
-    chisel :: LinearChisel
-end;
+# struct Spall{T}
+#     values :: AbstractVector{T}
+#     vectors :: AbstractMatrix{T}
+#     chisel :: LinearChisel
+# end;
 
 #-------------------------------
 # technical functions for performing svd and returing the smallest singular vectors 
@@ -59,16 +59,18 @@ end;
     Results returned in reverse order so that smallest singular values are first.
 """
 function LinearAlgebraSVD(M::AbstractMatrix, max::Integer=10) 
-    svds = LinearAlgebra.svd(M)
+    println("Computing SVD via LinearAlgebra...", size(M))
+    svds = LinearAlgebra.svd(M')
+    println("SVD S ", size(svds.S), " U ", size(svds.U))
     n_vals = min(max, length(svds.S))
     println("Computed $(length(svds.S)) singular values, returning $n_vals smallest.")
     return (;vals=svds.S[end:-1:(end-n_vals+1)], vecs=svds.U[:, end:-1:(end-n_vals+1)])
 end;
 
 function LinearAlgebraEigen(M::AbstractMatrix, max::Integer=10) 
-    eigens = LinearAlgebra.eigen( LinearAlgebra.Symmetric(M*M') )
+    eigens = LinearAlgebra.eigen( LinearAlgebra.Symmetric(M'*M) )
     n_vals = min(max, size(eigens)[1])
-    println("Computed $(size(eigens)[1]) singular values, returning $n_vals smallest.")
+    println("Computed $(size(eigens)[1]) eigen values, returning $n_vals smallest.")
     ## WARNING: This produces possibly complex eigen values but should be 
     ## real valued by positivity of M*M'.  We take real part in chisel function.
     vals = [ sqrt.(real.(v)) for v in eigens.values[end:-1:(end-n_vals+1)] ] 
@@ -87,7 +89,7 @@ function ArpackEigen(M::AbstractMatrix, max::Integer=20)
     vals = Float64[]
     vecs = Float64[]
     
-    primal_dual =  LinearAlgebra.Symmetric(M*M')
+    primal_dual =  LinearAlgebra.Symmetric(M'*M)
     try 
         # println("Computing SVD via Arpack...", max)
         eigens = Arpack.eigs( primal_dual  ; which =:SR, nev =n_vals )
@@ -104,49 +106,98 @@ function ArpackEigen(M::AbstractMatrix, max::Integer=20)
 end;
 
 
+function group_conjugate_pairs(eigenvals, eigenvecs)
+    n = length(eigenvals)
+    real_blocks = zeros(real(eltype(eigenvecs)), n, n)
+    
+    processed = falses(n)
+    for i in 1:n
+        if processed[i]
+            continue
+        end
+        
+        λ = eigenvals[i]
+        if isreal(λ)
+            # Real eigenvalue
+            real_blocks[:, i] = real(eigenvecs[:, i])
+            processed[i] = true
+        else
+            # Find conjugate pair
+            conj_idx = findfirst(j -> !processed[j] && isapprox(eigenvals[j], conj(λ)), 1:n)
+            if conj_idx !== nothing
+                # Create real 2D subspace from conjugate pair
+                v = eigenvecs[:, i]
+                real_blocks[:, i] = real(v)
+                real_blocks[:, conj_idx] = imag(v)
+                processed[i] = processed[conj_idx] = true
+            end
+        end
+    end
+    
+    return real_blocks
+end
+
+struct Derivation 
+    chisel :: LinearChisel
+    mats :: Vector{Matrix}
+end
 
 """
-    chisel(t::AbstractArray{T}, 
+    der(t::AbstractArray, 
         category::Array{Engagement}, 
-        maxdim::Integer=10,
+        nsamples::Integer=10,
         svdfunc::Function=ArpackEigen
-        ) :: Spall{T} where T <: AbstractFloat
+        ) :: Vector{Derivation} 
 
-    Chisels off part of the tensor t called the spall, 
-    according to the specified chisel category.
-    Uses the specified svdfunc to compute the spall of the constraint matrix.
+    Computes up to `nsamples` many C-derivations of `t` for the to the given chisel C.
+    If `nsamples` is negative or exceeds the dimension of the derivation space
+    then the a basis for the derivation space is returned.
 
+    - `C`: a linear chisel
     - `t`: The input tensor
-    - `category`: Array of Engagement specifying the chisel
-    - `maxdim`: Maximum number of singular vectors to compute (default: 10)
+    - `nsamples`: Maximum number of singular vectors to compute (default: 10)
     - `svdfunc`: Function to compute SVD (default: ArpackEigen)
 
-    Returns a Spall struct containing the singular values and vectors.
+    Returns a vector of derivations.
 """
-function chisel(t::AbstractArray{T}, 
-    category::Array{Engagement}, 
-    maxdim::Integer=10,
+function der(C::LinearChisel,
+    t::AbstractArray, 
+    nsamples::Integer=10,
     svdfunc::Function=ArpackEigen
-    ) :: Spall{T} where T <: AbstractFloat
+    ) :: Vector{Derivation}
     
     # Sanity checks
-    if length(category) != ndims(t)
+    if length(C.category) != ndims(t)
         error("Category length must match tensor valence")
     end
 
     # Build the constraints.
-    ⚒ = UniversalChisel(category)
-    M = constraints(⚒, t) 
+    M = constraints(C, t) 
 
     # Chisel off some part of the tensor and collect the spall.
-    spall = svdfunc(M, maxdim)
+    spall = svdfunc(M, nsamples)
 
-    # Enter spall analysis.
-    return Spall(spall.vals, spall.vecs, ⚒)
+    # Break up the matrices
+    engaged = findall( e -> e != Disengaged, C.category )
+    ders = Vector{Derivation}()
+    offset = 0
+    for i in 1:nsamples
+        der_i = Vector{Matrix{eltype(t)}, length(engaged)}()
+        for a in engaged
+            if C.category[a] == Dual
+                der_i[a] = C.operators.toMatrix(spall.vecs, size(t,a), offset)' 
+            else # Primal or Ambidextrous
+                der_i[a] = C.operators.toMatrix(spall.vecs, size(t,a), offset)
+            end
+            offset += C.operators.dimFormula(a, t)
+        end
+        push!(ders, Derivation(C, der_i))
+    end
+    return ders
 end
 
 """
-    chisel(t::AbstractArray, max::Integer=10) :: Spall 
+    der(t::AbstractArray, max::Integer=10) :: Spall 
 
     Chisels off part of the tensor t called the spall, 
     using a default primal chisel category.
@@ -157,7 +208,7 @@ end
 
     Returns a Spall struct containing the singular values and vectors.
 """
-function chisel(t::AbstractArray, max::Integer=10) :: Spall 
+function der(t::AbstractArray, nsamples::Integer=10) :: Spall 
     # Convert to floating point to avoid integer conversion issues
     if eltype(t) <: Integer
         println("Converting integer tensor to Float32 for numerical stability.")
@@ -166,22 +217,37 @@ function chisel(t::AbstractArray, max::Integer=10) :: Spall
         t = Float32.(t)
     end
 
-    category = fill(Primal, ndims(t))
     mdim = maximum(size(t))
     if mdim <= 10
         svdfunc = LinearAlgebraSVD
     else
         svdfunc = ArpackEigen
     end
-    return chisel(t, category, max, svdfunc)
+    return der(t, UniversalChisel(ndims(t)), nsamples, svdfunc)
 end
 
+"""
+    stratify(t::AbstractArray, 
+    der::Vector{Derivation},
+    pos::Vector{T} where T <: Integer
+    ) 
 
+    Sculpt the tensor t using the spall and the specified positions.
+    Returns a named tuple with the sculpted tensor and the transforms used.
+
+    - `t`: The input tensor
+    - `spall`: The Spall struct obtained from chiseling
+    - `pos`: Vector of integer positions indicating which singular vectors to use
+
+    Returns a named tuple with fields:
+    - `tensor`: The sculpted tensor
+    - `transform`: The list of transformation matrices applied to each mode
+"""
 function sculpt(t::AbstractArray, 
     spall::Spall,
     pos::Vector{T} where T <: Integer
     )
-
+    
     chisel = spall.chisel
     category = chisel.category
     engaged = findall( e -> e != Disengaged, category )
@@ -199,11 +265,11 @@ function sculpt(t::AbstractArray,
         end
   
     end
-    for i in 1:length(matrices)
-        println("Ranks ", rank(matrices[i]) )
-    end
-    tensor = act(t, category, matrices)
-    return (;tensor, matrices)
+
+    temp = [ LinearAlgebra.eigen(matrices[i]) for i in 1:length(matrices) ]
+    transform = map( eigs -> group_conjugate_pairs(eigs.values, eigs.vectors), temp )
+    tensor = act(t, category, transform)
+    return (;tensor, transform)
 end
 
 end # module SylvesterSolvers

@@ -45,6 +45,8 @@ using .SylvesterSolvers
 
 include("TensorSynthesis.jl")
 
+using .TensorSynthesis
+
 include("TensorHypergraphs.jl")
 using .TensorHypergraphs
 
@@ -54,10 +56,10 @@ using .TensorIO
 # Export main functions
 
 # Re-export from TensorSpaces
-export act, spin, randomize, changeTensor, Engagement
+export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrous, Disengaged
 
 # Re-export from Chisels
-export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, constraint, constraints
+export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, SymmetricChisel,constraint, constraints
 
 # Re-export from SylvesterSolvers
 export chisel, sculpt, Spall
@@ -66,7 +68,17 @@ export chisel, sculpt, Spall
 export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
 
 # Re-export from TensorSynthesis
-export randomOthogonalMatrix
+export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export testSurfaceTensor, testFaceCurveTensor, testCurveTensor
 
+function stratify(t::AbstractArray)
+    spall = chisel(t)
+    return sculpt(t, spall, collect(1:ndims(t)))
+end
+
+function orthoStratify(t::AbstractArray)
+    spall = chisel(SymmetricChisel(ndims()),t)
+    return sculpt(t, spall, collect(ndims(t):ndims(t)))
+end
 
 end # module Dleto

@@ -23,22 +23,26 @@
 # SOFTWARE.
 # 
 
+module TensorSynthesis
+
+export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export testSurfaceTensor, testFaceCurveTensor, testCurveTensor
 
 #-------------------------------
 # generate random othorgonal matrix (likely uniform with respect to Haar maeasure, if not it should be close enough...)
-"""
-randomOthogonalMatrix(d::Integer)::Matrix
+# """
+# randomOthogonalMatrix(d::Integer)::Matrix
 
-Generate a random orthogonal matrix of size d 
-"""
-function randomOthogonalMatrix(d::Integer)::AbstractMatrix
-    if d < 1 
-        throw(DimensionMismatch("matrix size needs to be non-negative"))
-    end
-    R = randn(d,d)
-    M = LinearAlgebra.Symmetric(R*R')
-    return LinearAlgebra.eigen(M).vectors
-end;
+# Generate a random orthogonal matrix of size d 
+# """
+# function randomOthogonalMatrix(d::Integer)::AbstractMatrix
+#     if d < 1 
+#         throw(DimensionMismatch("matrix size needs to be non-negative"))
+#     end
+#     R = randn(d,d)
+#     M = LinearAlgebra.Symmetric(R*R')
+#     return LinearAlgebra.eigen(M).vectors
+# end;
 
 #-------------------------------
 # Measure distance to the surface
@@ -54,7 +58,19 @@ curveDistance(a,b,c) = sqrt((a-b)*(a-b) + (a-c)*(a-c) + (c-b)*(c-b) );
 
 #-------------------------------
 # generate a tensor with support restricted by a distace function
-function randomTensorSupport(xes::Vector, yes::Vector, zes::Vector, cutoff::Number, dist::Function)::Array
+"""
+randTensorSupport(xes::Vector, yes::Vector, zes::Vector, cutoff::Number, dist::Function)::Array
+
+Generate a random tensor supported on a surface defined by dist(x,y,z) < cutoff
+"""
+function randTensor(
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector,
+        cutoff::Number, 
+        dist::Function
+    )::Array
+
     res = zeros(Float64,(length(xes),length(yes), length(zes )))
     # loop over entries
     for ci in CartesianIndices(res)
@@ -69,30 +85,50 @@ end;
 #-------------------------------
 # generate a tensor supported on the a surface
 """
-randomSurfaceTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array 
+randSurfaceTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array 
 
 Generate a random tensor supported on a surface with equation x_i + y_j + z_k \approx 0 
 """
-randomSurfaceTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)= randomTensorSupport(xes,yes,zes,cutoff,surfaceDistance); 
+function randSurfaceTensor(
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector, 
+        cutoff::Number
+    ):: Array
+    return randTensor(xes,yes,zes,cutoff,surfaceDistance)
+end;
 
 #-------------------------------
 # generate a tensor supported on the a face curve
 """
-randomFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
+randFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
 
 Generate a random tensor supported on a surface with equation x_i \approx y_j, we need z_k to determine the size of the tensor 
 """
-randomFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)= randomTensorSupport(xes,yes,zes,cutoff,faceCurveDistance); 
+function randFaceCurveTensor(
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector,
+        cutoff::Number
+    )::Array
+    return randTensor(xes,yes,zes,cutoff,faceCurveDistance)
+end;
 
 #-------------------------------
 # generate a tensor supported on the a curve
 """
-randomFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
+randFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
 
 Generate a random tensor supported on a surface with equation x_i \approx y_j \approx z_k 
 """
-randomCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)= randomTensorSupport(xes,yes,zes,cutoff,curveDistance); 
-
+function randCurveTensor(
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector, 
+        cutoff::Number
+    )::Array
+    return randTensor(xes,yes,zes,cutoff,curveDistance)
+end
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distace function
@@ -132,7 +168,14 @@ Measure how far a tensor is from being supported on a surface with equation x_i 
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the surface 
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-testSurfaceTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector) = testTensorSupport(t,xes,yes,zes,surfaceDistance); 
+function testSurfaceTensor(
+        t::AbstractArray, 
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector
+    )::Number
+    return testTensorSupport(t,xes,yes,zes,surfaceDistance)
+end
 
 
 #-------------------------------
@@ -144,7 +187,15 @@ Measure how far a tensor is from being supported on a face curve with equation x
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the face curve 
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-testFaceCurveTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector) = testTensorSupport(t,xes,yes,zes,faceCurveDistance); 
+function testFaceCurveTensor(
+        t::AbstractArray, 
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector
+    )::Number
+    return testTensorSupport(t,xes,yes,zes,faceCurveDistance)
+end
+
 
 #-------------------------------
 # test if a tensor is supported on a curve
@@ -155,6 +206,13 @@ Measure how far a tensor is from being supported on a face curve with equation x
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the curve
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-testCurveTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector) = testTensorSupport(t,xes,yes,zes,curveDistance); 
+function testCurveTensor(
+        t::AbstractArray, 
+        xes::Vector, 
+        yes::Vector, 
+        zes::Vector
+    )::Number
+    return testTensorSupport(t,xes,yes,zes,curveDistance)
+end
 
-
+end # module

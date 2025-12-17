@@ -26,10 +26,10 @@
 
 module Chisels
 
-using ..TensorSpaces: Engagement
+using ..TensorSpaces: Engagement, Primal, Dual, Ambidextrous, Disengaged
 
 # TensorSpace.jl is included by the main Dleto module
-export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, constraint, constraints
+export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, SymmetricChisel,constraint, constraints
 
 #-------------------------------Chisel Type-------------------------------------
 
