@@ -88,6 +88,41 @@ function act(t ::AbstractArray, mat ::AbstractMatrix, axis ::Integer) ::Array
         throw(DimensionMismatch("incompatible sizes of tensor and matrices"))
     end
 
+    # Special high-speed cases for low valence, call into `TensorOperations.jl`
+    if ndims(t) == 1. # t a vector, so Julia "column" 
+        return mat*t
+    elseif ndims(t) == 2 
+        if axis == 1 # t a matrix
+            return mat * t
+        else    
+            return t * mat
+    elseif ndims(t) == 3 # t an a x b x c tensor
+        if axis == 1
+            @tensor res[i,j,k] := t[i',j,k] * mat[i,i']
+            return res
+        elseif axis == 2
+            @tensor res[i,j,k] := t[i,j',k] * mat[j,j']
+            return res
+        else
+            @tensor res[i,j,k] := t[i,j,k'] * mat[k,k']
+            return res
+    elseif ndims(t) == 4 # t an a x b x c x d tensor
+        if axis == 1
+            @tensor res[i,j,k,l] := t[i',j,k,l] * mat[i,i']
+            return res
+        elseif axis == 2
+            @tensor res[i,j,k,l] := t[i,j',k,l] * mat[j,j']
+            return res
+        elseif axis == 3
+            @tensor res[i,j,k,l] := t[i,j,k',l] * mat[k,k']
+            return res
+        else
+            @tensor res[i,j,k,l] := t[i,j,k,l'] * mat[l,l']
+            return res
+    end
+
+    ## Backup options is reshape and pay the price, but at least we use views so no copies.
+
     # Flatten the tensor
     p=prod(dims[1 : (axis - 1)])
     q=prod(dims[(axis + 1) : end])
@@ -142,6 +177,13 @@ function act(t ::AbstractArray, m::Vector{A} where A <: AbstractMatrix) ::Array
         res = act( res, m[a], a)
     end
     return res
+end;
+
+function randomOrthogonalMatrix(n::Integer)
+    mat = randn(n,n)
+    Q,R = LinearAlgebra.qr(mat)
+    D = Diagonal(sign.(diag(R)))
+    return Q*D
 end;
 
 """
