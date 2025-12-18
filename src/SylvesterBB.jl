@@ -1,7 +1,15 @@
+module SylvesterBB
+
+
 using LinearMaps
 using TensorOperations
 using Arpack
 using IterativeSolvers
+using CUDA
+using cuTENSOR
+
+
+export sylverlin3, sylverlin1, toMat, solveeig, solveit, cusylverlin3
 
 #----------- Black-box Sylvester solvers --------------------------------------
 function sylverlin3(s::AbstractArray, chisel::Matrix)
@@ -38,7 +46,6 @@ function sylverlin3(s::AbstractArray, chisel::Matrix)
     return L
 end
 
-using CUDA
 
 function cusylverlin3(s::CuArray, chisel::Matrix)
     # Make black-box linear map.
@@ -139,3 +146,5 @@ function solveit(t)
     C = reshape(view(v[:,end], (offset2+1):length(v[:,end])), (size(t,3), size(t,3)))
     return A, B, C
 end
+
+end # module SylvesterBB
