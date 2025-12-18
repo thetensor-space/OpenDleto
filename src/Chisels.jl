@@ -114,7 +114,7 @@ end;
 """
     Create a universal chisel with all specified primal and dual axes.
     Note that if an axis is specified in both primal and dual lists,
-    then it recieves teh primal designation. The primal and dual values 
+    then it receives the primal designation. The primal and dual values 
     must be in the range 1 to valence.
     
     If called with only valence, all axes are set to Primal (fully engaged).
