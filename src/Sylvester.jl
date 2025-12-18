@@ -99,7 +99,7 @@ function SylvesterMap(ops::TransverseOps, chisel::LinearChisel, t::AbstractArray
         # (1) Contract with ch'
         # (2) mult with t
         # (3) contains flattens matrix to vector
-        sylv(y) = unsafe_contains(ops, [ (ch*t)*view(y,(offset+1):(offset+size(t,1))) for offset in 0:size(t,1):(length(ch)-1)*size(t,1) ] |> vcat )
+        sylv(y) = unsafe_contains(ops, [ (t*ch')*view(y,(offset+1):(offset+size(t,1))) for offset in 0:size(t,1):(length(ch)-1)*size(t,1) ] |> vcat )
 
         Sylv = LinearMap( x -> ch*(x*t)', y -> (ch' * y') * t , length(ch)*size(t,1), size(t,1)^2; ismutating=false )
         ester = LinearMap( x -> (ch' * x') * t , y -> ch*(y*t)' , size(t,1)^2, length(ch)*size(t,1); ismutating=false )
