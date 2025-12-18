@@ -31,6 +31,8 @@ export der, sculpt, Derivation
 using LinearAlgebra
 using Arpack
 using SparseArrays
+using LinearMaps
+using IterativeSolvers
 using ProgressMeter
 # using Plots
 using Statistics
@@ -39,11 +41,6 @@ using ..Chisels: LinearChisel, UniversalChisel, constraints
 
 # Chisels.jl and TensorSpaces.jl are included by the main Dleto module
 
-# struct Spall{T}
-#     values :: AbstractVector{T}
-#     vectors :: AbstractMatrix{T}
-#     chisel :: LinearChisel
-# end;
 
 #-------------------------------
 # technical functions for performing svd and returing the smallest singular vectors 
@@ -59,12 +56,29 @@ using ..Chisels: LinearChisel, UniversalChisel, constraints
     Results returned in reverse order so that smallest singular values are first.
 """
 function LinearAlgebraSVD(M::AbstractMatrix, max::Integer=10) 
-    println("Computing SVD via LinearAlgebra...", size(M))
     svds = LinearAlgebra.svd(M')
-    println("SVD S ", size(svds.S), " U ", size(svds.U))
     n_vals = min(max, length(svds.S))
-    println("Computed $(length(svds.S)) singular values, returning $n_vals smallest.")
     return (;vals=svds.S[end:-1:(end-n_vals+1)], vecs=svds.U[:, end:-1:(end-n_vals+1)])
+end;
+
+"""
+    LinearAlgebraSVD(M::AbstractMatrix, max::Integer=10)
+
+    Uses LinearAlgebra.svd to compute the smallest singular vectors of M.
+    We use at most `max` of the smallest singular values so this method 
+    is suboptimal for large systems.  Consider Arpack method for large systems.
+
+    Results returned in reverse order so that smallest singular values are first.
+"""
+function BlackBoxSVD(M::LinearMap, max::Integer=10) 
+    # Compute svd via IterativeSolvers.
+    # We only need the right singular vectors as we want a right null space.
+    # svdl does partial SVD via Lanczos bidiagonalization, so we need to 
+    # ask for a larger number of singular values `nsv` to reach the smallest ones.
+    vals = min(size(M))
+    S, L = IterativeSolvers.svdl(M; nsv=vals, vecs=:right)
+    nvals = min(max, length(S))
+    return (;vals=S[end:-1:(end-nvals)], vecs=L[:, end:-1:(end-nvals)])
 end;
 
 function LinearAlgebraEigen(M::AbstractMatrix, max::Integer=10) 
@@ -208,7 +222,7 @@ end
 
     Returns a Spall struct containing the singular values and vectors.
 """
-function der(t::AbstractArray, nsamples::Integer=10) :: Spall 
+function der(t::AbstractArray, nsamples::Integer=10) :: Vector{Derivation} 
     # Convert to floating point to avoid integer conversion issues
     if eltype(t) <: Integer
         println("Converting integer tensor to Float32 for numerical stability.")
@@ -244,29 +258,18 @@ end
     - `transform`: The list of transformation matrices applied to each mode
 """
 function sculpt(t::AbstractArray, 
-    spall::Spall,
+    ders::Vector{Derivation},
     pos::Vector{T} where T <: Integer
     )
     
-    chisel = spall.chisel
+    chisel = ders[1].chisel
     category = chisel.category
     engaged = findall( e -> e != Disengaged, category )
 
-    # We use all the positions provided to build a random matrix
-    # in that span with invertible transforms.
-    matrices = [ zeros(eltype(t), size(t,a), size(t,a)) for a in engaged ]
-    for p in pos 
-        flatmats = spall.vectors[:, p] 
-        offset = 0
-        for (i, a) in enumerate(engaged)
-            mat_a = chisel.operators.toMatrix(flatmats, size(t,a), offset)
-            matrices[i] += mat_a
-            offset += chisel.operators.dimFormula(i, t)
-        end
-  
-    end
+    # take a random combo of ders given then diagonalize the list.
+    der = ders[1]
 
-    temp = [ LinearAlgebra.eigen(matrices[i]) for i in 1:length(matrices) ]
+    temp = [ LinearAlgebra.eigen(matrices[i]) for i in 1:length(der) ]
     transform = map( eigs -> group_conjugate_pairs(eigs.values, eigs.vectors), temp )
     tensor = act(t, category, transform)
     return (;tensor, transform)

@@ -30,8 +30,10 @@ import Random
 import SparseArrays
 import Statistics
 import ProgressMeter
+import LinearMaps
 import Arpack
-using PlotlyJS
+import IterativeSolvers
+import PlotlyJS
 
 # Include/use component modules
 include("TensorSpaces.jl")
@@ -62,7 +64,7 @@ export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrou
 export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, SymmetricChisel,constraint, constraints
 
 # Re-export from SylvesterSolvers
-export chisel, sculpt, Spall
+export der, sculpt, Derivation
 
 # Re-export from TensorIO
 export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
@@ -72,13 +74,13 @@ export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export testSurfaceTensor, testFaceCurveTensor, testCurveTensor
 
 function stratify(t::AbstractArray)
-    spall = chisel(t)
-    return sculpt(t, spall, collect(1:ndims(t)))
+    ders = der(t)
+    return sculpt(t, ders, collect(1:ndims(t)))
 end
 
 function orthoStratify(t::AbstractArray)
-    spall = chisel(SymmetricChisel(ndims()),t)
-    return sculpt(t, spall, collect(ndims(t):ndims(t)))
+    ders = der(t)
+    return sculpt(t, ders, collect(ndims(t):ndims(t)))
 end
 
 end # module Dleto
