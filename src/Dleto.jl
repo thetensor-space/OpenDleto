@@ -30,6 +30,9 @@ import Random
 import SparseArrays
 import Statistics
 import ProgressMeter
+import TensorOperations
+import CUDA
+import cuTENSOR
 import LinearMaps
 import Arpack
 import IterativeSolvers
@@ -39,6 +42,9 @@ import PlotlyJS
 include("TensorSpaces.jl")
 using .TensorSpaces
 
+include("TransverseOperators.jl")
+using .TransverseOperators
+
 include("Chisels.jl")
 using .Chisels
 
@@ -46,8 +52,10 @@ include("Sylvester.jl")
 using .SylvesterSolvers
 
 include("TensorSynthesis.jl")
-
 using .TensorSynthesis
+
+include("SylvesterBB.jl")
+using .SylvesterBB
 
 include("TensorHypergraphs.jl")
 using .TensorHypergraphs
@@ -60,6 +68,8 @@ using .TensorIO
 # Re-export from TensorSpaces
 export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrous, Disengaged
 
+export TransverseOperators, UniversalOps, SymmetricOps
+
 # Re-export from Chisels
 export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, SymmetricChisel,constraint, constraints
 
@@ -68,6 +78,8 @@ export der, sculpt, Derivation
 
 # Re-export from TensorIO
 export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
+
+export sylverlin3, sylverlin1, toMat, solveeig, solveit, cusylverlin3
 
 # Re-export from TensorSynthesis
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
