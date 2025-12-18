@@ -68,13 +68,14 @@ using .TensorIO
 # Re-export from TensorSpaces
 export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrous, Disengaged
 
-export TransverseOperators, UniversalOps, SymmetricOps
+# Re-export from TransverseOperators
+export TransverseOperators, UniversalOps, SymmetricOps, DiagonalOps
 
 # Re-export from Chisels
-export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, SymmetricChisel,constraint, constraints
+export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 
 # Re-export from SylvesterSolvers
-export der, sculpt, Derivation
+export Derivation, der, sculpt, sylverlin, sylverlin2, sylverlin3d, cusylverlin3d
 
 # Re-export from TensorIO
 export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
