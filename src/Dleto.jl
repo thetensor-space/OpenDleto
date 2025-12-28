@@ -25,75 +25,35 @@
 
 module Dleto
 
-import LinearAlgebra
-import Random
-import SparseArrays
-import Statistics
-import ProgressMeter
-import TensorOperations
-import CUDA
-import cuTENSOR
-import LinearMaps
-import Arpack
-import IterativeSolvers
-import PlotlyJS
-
-# Include/use component modules
-include("TensorSpaces.jl")
-using .TensorSpaces
-
-include("TransverseOperators.jl")
-using .TransverseOperators
+import ITensors
 
 include("Chisels.jl")
 using .Chisels
-
-include("Sylvester.jl")
-using .SylvesterSolvers
+# Re-export from Chisels
+export LinearChisel, Chisel, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 include("TensorSynthesis.jl")
 using .TensorSynthesis
+# Re-export from TensorSynthesis
+export randomOrthogonalMatrix, spin, randomize
+export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 
-include("SylvesterBB.jl")
-using .SylvesterBB
-
-include("TensorHypergraphs.jl")
-using .TensorHypergraphs
+using PlotlyJS
 
 include("TensorIO.jl")
 using .TensorIO
-
-# Export main functions
-
-# Re-export from TensorSpaces
-export act, spin, randomize, changeTensor, Engagement, Primal, Dual, Ambidextrous, Disengaged
-
-# Re-export from TransverseOperators
-export TransverseOperators, UniversalOps, SymmetricOps, DiagonalOps
-
-# Re-export from Chisels
-export UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
-
-# Re-export from SylvesterSolvers
-export Derivation, der, sculpt, sylverlin, sylverlin2, sylverlin3d, cusylverlin3d
-
 # Re-export from TensorIO
-export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
+export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
 
-export sylverlin3, sylverlin1, toMat, solveeig, solveit, cusylverlin3
+include("TransverseOperators.jl")
+using .TransverseOperators
+# Re-export from TransverseOperators
+export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
-# Re-export from TensorSynthesis
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export testSurfaceTensor, testFaceCurveTensor, testCurveTensor
-
-function stratify(t::AbstractArray)
-    ders = der(t)
-    return sculpt(t, ders, collect(1:ndims(t)))
-end
-
-function orthoStratify(t::AbstractArray)
-    ders = der(t)
-    return sculpt(t, ders, collect(ndims(t):ndims(t)))
-end
+# include("SylverLining.jl")
+# using .SylverLining
+# # Re-export from SylverLining
+# export sylvesterLM
 
 end # module Dleto

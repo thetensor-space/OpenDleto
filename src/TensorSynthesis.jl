@@ -25,8 +25,75 @@
 
 module TensorSynthesis
 
+using ITensors
+
+# TBD: rename and rethink these functions and their names
+export randomOrthogonalMatrix, spin, randomize
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export testSurfaceTensor, testFaceCurveTensor, testCurveTensor
+export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
+
+
+function randomOrthogonalMatrix(n::Integer)
+    mat = randn(n,n)
+    Q,R = LinearAlgebra.qr(mat)
+    D = Diagonal(sign.(diag(R)))
+    return Q*D
+end;
+
+"""
+spin(t::AbstractArray)
+
+Applies random orthogonal changes of basis to all axes of the tensor t.
+
+Retruns a record tuple with coordinates .tensor, .matrices
+""" 
+function spin(t::AbstractArray)
+    mats = collect([ randomOrthogonalMatrix(size(t,a)) for a in 1:ndims(t) ])
+    tensor = act(t,mats)
+    return (;tensor, matrices)
+end;
+
+
+"""
+randomize(t::ITensor)
+
+Picks 3 random invertible matrices and use them to peform a random basis change of a 3 tensor.
+Returuns named tupple with coordinates .tensor, .Xchange, .Ychange, .Zchange
+""" 
+function randomize(Γ::ITensor)::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
+    function getRand(n) 
+        mat = randn(n,n)
+        count = 0
+        while LinearAlgebra.rank(mat) < n && count < 100
+            count += 1
+            mat = randn(n,n)
+        end
+        if count > 99
+            throw(ErrorException("Could not generate random invertible matrix"))
+        end
+        return mat
+    end
+    matrices = collect([ getRand(size(Γ,a)) for a in 1:ndims(Γ) ])
+    frame = inds(Γ)
+    X = [ ITensor(Matrix(matrices[a]), frame[a]', frame[a]) for a in 1:ndims(Γ) ]
+    Σ = Γ
+    for x in X
+        Σ = x * Σ
+        noprime!(Σ)
+        Σ = permute(Σ, inds(Γ)...)
+    end
+    return (;Γ=Σ, X)
+end;
+
+function randomize(t::AbstractArray)
+    frame = [ Index(size(t,a), "a$a") for a in 1:ndims(t) ]
+    if eltype(t) != Float64
+        t = Float64.(t)
+    end
+    return randomize(ITensor(t, frame...))
+end;
+    
+
 
 #-------------------------------
 # generate random othorgonal matrix (likely uniform with respect to Haar maeasure, if not it should be close enough...)
@@ -69,7 +136,7 @@ function randTensor(
         zes::Vector,
         cutoff::Number, 
         dist::Function
-    )::Array
+    )::ITensor
 
     res = zeros(Float64,(length(xes),length(yes), length(zes )))
     # loop over entries
@@ -79,7 +146,10 @@ function randTensor(
             res[ci] = randn()
         end
     end
-    return res
+    x = Index(length(xes), "x")
+    y = Index(length(yes), "y")
+    z = Index(length(zes), "z")
+    return ITensor(res, x, y, z)
 end;
 
 #-------------------------------
@@ -94,7 +164,7 @@ function randSurfaceTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    ):: Array
+    ):: ITensor
     return randTensor(xes,yes,zes,cutoff,surfaceDistance)
 end;
 
@@ -110,7 +180,7 @@ function randFaceCurveTensor(
         yes::Vector, 
         zes::Vector,
         cutoff::Number
-    )::Array
+    )::ITensor
     return randTensor(xes,yes,zes,cutoff,faceCurveDistance)
 end;
 
@@ -126,13 +196,14 @@ function randCurveTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    )::Array
+    )::ITensor
     return randTensor(xes,yes,zes,cutoff,curveDistance)
 end
 
 #-------------------------------
-# test if the support of a tensor is restricted by a distace function
-function testTensorSupport(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector, dist::Function)::Number
+# test if the support of a tensor is restricted by a distance function
+function dist(Γ ::ITensor, xes::Vector, yes::Vector, zes::Vector, dist::Function)::Number
+    t = store(Γ)
     # test valancy and sizes
     if ndims(t) != 3
         throw(DimensionMismatch("wrong arity of tensor"))
@@ -162,57 +233,57 @@ end;
 #-------------------------------
 # test if a tensor is supported on a surface
 """
-testSurfaceTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector)::Number
+testSurfaceTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
 
 Measure how far a tensor is from being supported on a surface with equation x_i + y_j + z_k =0 
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the surface 
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-function testSurfaceTensor(
-        t::AbstractArray, 
+function distSurfaceTensor(
+        t::ITensor, 
         xes::Vector, 
         yes::Vector, 
         zes::Vector
     )::Number
-    return testTensorSupport(t,xes,yes,zes,surfaceDistance)
+    return dist(t,xes,yes,zes,surfaceDistance)
 end
 
 
 #-------------------------------
 # test if a tensor is supported on a face curve
 """
-testFaceCurveTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector)::Number
+distFaceCurveTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
 
 Measure how far a tensor is from being supported on a face curve with equation x_i = y_j 
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the face curve 
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-function testFaceCurveTensor(
-        t::AbstractArray, 
+function distFaceCurveTensor(
+        t::ITensor, 
         xes::Vector, 
         yes::Vector, 
         zes::Vector
     )::Number
-    return testTensorSupport(t,xes,yes,zes,faceCurveDistance)
+    return dist(t,xes,yes,zes,faceCurveDistance)
 end
 
 
 #-------------------------------
 # test if a tensor is supported on a curve
 """
-testCurveTensor(t::AbstractArray, xes::Vector, yes::Vector, zes::Vector)::Number 
+distCurveTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number 
 
 Measure how far a tensor is from being supported on a face curve with equation x_i = y_j = z_k 
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the curve
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-function testCurveTensor(
-        t::AbstractArray, 
+function distCurveTensor(
+        t::ITensor, 
         xes::Vector, 
         yes::Vector, 
         zes::Vector
     )::Number
-    return testTensorSupport(t,xes,yes,zes,curveDistance)
+    return dist(t,xes,yes,zes,curveDistance)
 end
 
 end # module

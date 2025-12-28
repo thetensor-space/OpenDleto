@@ -32,160 +32,336 @@
     for compact representations that exploit available symmetries
     or impose constraints while behaving compatibly with general transverse operators.
 
-    A tranverse operator `Ops` should extend `TransverseOperators` implementing 
-    the functions 
-    - `contains(Ops, mats::Vector{Matrix})`
+    A transverse operator `Ops` should extend implement two functions
+    - `member(Ops, mats::Vector{Matrix})`
     - `transverse(Ops, data::Vector{Number})`
     
     and satisfy the "Membership Law": for all data v considered an operator of `Ops`
     ```julia 
-    v = contains(Ops,transverse(Ops,v))
+    v = member(Ops,transverse(Ops,v))
     ```
-    If this rule is honored then Dleto can use `unsafe_contains` for efficiency.
+    If this rule is honored then Dleto can use `unsafe_member` for efficiency.
 
     The built in transverse operator sets are:
     - `UniversalOps`: all operators on the engaged axes
+    - `GLOps`: invertible operators on the engaged axes
     - `SymmetricOps`: symmetric operators on the engaged axes
-    - `SkewSymmetricOps`: skew-symmetric operators on the engaged axes (TODO)
+    - `OrthogonalOps`: orthogonal operators on the engaged axes 
     - `DiagonalOps`: diagonal operators on the engaged axes 
+    - `TorusOps`: diagonal invertible operators on the engaged axes (TODO)
+    - `HermitianOps`: skew-symmetric operators on the engaged axes (TODO)
+    - `UnitaryOps`: unitary operators on the engaged axes (TODO)
     - `UserDefinedOps`: user defined insertion and matrix functions (TODO)
 """
 module TransverseOperators
 
-using LinearAlgebra
+using ITensors
+# using LinearAlgebra
 # using SkewLinearAlgebra
-using ..TensorSpaces: Engagement, Primal, Dual, Ambidextrous, Disengaged
 
-export TransverseOperators, UniversalOps, SymmetricOps, DiagonalOps
+export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
 """
     TransverseOperators
 
-    A subspace of operators between tensors in a tensor category.
+    A subspace of operators between tensors in a tensor category,
+    what is sometimes denoted hom(Γ,Υ), but with builtin functions 
+    for compact encoding.
 
-    This is used primarily as an interface for compressing the 
-    representation of transformations to exploint available symmetries
-    and constraints while remaining compatible with general tensor spaces.
-
+    The alignment of the axes is determined by the matching `Index` terms 
+    of the individual tensors stored as `ITensor` terms.
 
 """
-abstract type TransverseOps end
+abstract type TransverseOps  end
+
+function frame(Ω::TransverseOps)::Vector{Index} end
+function engaged(Ω::TransverseOps)::Vector{Bool} end
+
 
 """
     Return the native encoding of an operator in the transverse set,
     or `Nothing` if it is not a member.
 """
-function contains(ops::TransverseOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing} end
-function unsafe_contains(ops::TransverseOps, mats::Vector{Matrix}) :: Vector{Number} end
+function member(Ω::TransverseOps, mats::Vector{ITensor}) :: Union{Vector{Number}, Nothing} end
+function unsafe_member(Ω::TransverseOps, mats::Vector{Matrix}) :: Vector{Number} end
 
 """
     Convert the native encoding of an operator in the transverse set
     into a vector of matrices representing the operator on each engaged axis.
 """
-function transverse(ops::TransverseOps, data::Vector{Number} ) :: Vector{AbstractMatrix} end
+function transverse(Ω::TransverseOps, data::Vector{Number} ) :: Vector{ITensor} end
 
 
 #------------------------------- Universal Operators -------------------------------------
 
-struct UniversalOps <: TransverseOps
-    dims :: Vector{Integer}
+# narrowed the type for method dispatch
+struct UniversalOps <: TransverseOps 
+    frame :: Vector{Index}
+    engaged :: Vector{Bool}
 end
 
-# Flatten the list of matrices, rejecting if wrong size.
-function unsafe_contains(ops::UniversalOps, mats::Vector{Matrix}) :: Vector{Number}
-    return [vec(M) for M in mats] |> vcat
+function frame(Ω::UniversalOps)::Vector{Index{Int64}}
+    return Ω.frame
 end
-function contains(ops::UniversalOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing}
-    for (idx, M) in enumerate(mats)
-        if size(M,1) != ops.dims[idx] || size(M,2) != ops.dims[idx]
-            return nothing
-        end
-    end
-    return unsafe_contains(ops, mats)
+function engaged(Ω::UniversalOps)::Vector{Bool}
+    return Ω.engaged
 end
-# Reshap vector into vector of matrices.
-function transverse(ops::UniversalOps, data::Vector{Number} ) :: Vector{AbstractMatrix} 
-    offset = 0
-    mats = Vector{Matrix{eltype(data)}}(undef, length(ops.dims))
-    for (idx, n) in enumerate(ops.dims)
-        mats[idx] = reshape(data[offset+1:offset + n*n], (n,n))
-        offset += n*n
-    end
-    return mats
+function UniversalOps(frame::Vector{Index{Int64}})
+    engaged = [ true for a in 1:length(frame) ]
+    return UniversalOps(frame, engaged)
 end
 
-#------------------------------- Symmetric Operators -------------------------------------
-struct SymmetricOps <: TransverseOps
-    dims :: Vector{Integer}
+# Flatten the list of matrices, assumes ITensors are dense arrays
+function unsafe_member(Ω::UniversalOps, mats::Vector{ITensor}) :: Vector{Number}
+    # if created by transverse then store is correct.
+    return [vec(asarray(M)) for M in mats] |> vcat
 end
-
-# Store only the lower triangle of each symmetric matrix
-function unsafe_contains(ops::SymmetricOps, mats::Vector{AbstractMatrix}) :: Vector{Number}
-    v = eltype(mats[1])[]
-    for M in ops.mats
-        flat_M = [view(M,i:size(M,1), :) for i in 1:size(M,1)] |> vcat
-        push!(v, vec(flat_M)...)
+function member(Ω::UniversalOps, mats::Vector{ITensor}) :: Union{Vector{Number}, Nothing}
+    eng = engaged(Ω); fr = frame(Ω)
+    if length(mats) != length(eng)
+        return nothing
     end
-    return v |> vcat
-end
-function contains(ops::SymmetricOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing} 
-    for (idx, M) in enumerate(mats)
-        if size(M,1) != ops.dims[idx] || size(M,2) != ops.dims[idx] || !issymmetric(M)
-            return nothing
-        end
-    end
-    return unsafe_contains(ops, mats)
-end
-function transverse(ops::SymmetricOps, data::Vector{Number} ) :: Vector{AbstractMatrix}
-    offset = 0
-    mats = Vector{Symmetric}(undef, length(ops.dims))
-    for (idx, n) in enumerate(ops.dims)
-        M = zeros(eltype(data), n, n)
-        for i in 1:n
-            for j in i:n
-                M[i,j] = data[offset + (i-1)*n - (i-2)*(i-1) ÷ 2 + (j - i +1)]
-                # M[j,i] = M[i,j]  # Symmetric entry
+    total = 0
+    for a in 1:length(fr)
+        if eng[a] 
+            if (inds(mats[a])[1], inds(mats[a])[2]) != (fr[a], fr[a]')
+                return nothing
+            else
+                total += dim(fr[a]) * dim(fr[a])
             end
         end
-        mats[idx] = LinearAlgebra.Symmetric(M)
-        offset += n*(n+1) ÷ 2
     end
-    return mats
-end
-
-#------------------------------- Diagonal Operators -------------------------------------
-struct DiagonalOps <: TransverseOps 
-    dims :: Vector{Integer}
-end
-
-
-# Store only the lower triangle of each symmetric matrix
-function unsafe_contains(ops::DiagonalOps, mats::Vector{AbstractMatrix}) :: Vector{Number}
-    v = Vector{eltype(mats[1])}(undef,sum(ops.dims))
+    data = Vector{eltype(mats[1])}(undef, total)
     offset = 0
-    for a in 1:length(ops.dims)
-        for i in 1:ops.dims[a]
-            v[offset + i] = mats[a][i,i]
-        end
-        offset += ops.dims[a]
-    end
-    return v
-end
-function contains(ops::DiagonalOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing} 
-    for (idx, M) in enumerate(mats)
-        if size(M,1) != ops.dims[idx] || size(M,2) != ops.dims[idx] || !isdiagonal(M)
-            return nothing
+    for a in 1:length(fr)
+        if eng[a]
+            M = mats[a]; l = fr[a]; r = fr[a]';
+            # not great to copy here but ITensor doesn't accept views
+            data[offset+1:offset + size(M,1)*size(M,2)] = collect(M[l=> i, r=> j] for i in 1:dim(l), j in 1:dim(r))
+            offset += size(M,1)*size(M,2)
         end
     end
-    return unsafe_contains(ops, mats)
+    return data
 end
-function transverse(ops::DiagonalOps, data::Vector{Number} ) :: Vector{AbstractMatrix}
-    mats = Vector{Diagonal}(undef, length(ops.dims))
-    for (idx, n) in enumerate(ops.dims)
-        mats[idx] = Diagonal(data[offset+1:offset+n])
+
+# Reshape vector into vector of matrices.
+function transverse(Ω::UniversalOps, data::Vector{Number} ) :: Vector{ITensor} 
+    eng = engaged(Ω); fr = frame(Ω)
+    offset = 0; 
+    mats = Vector{ITensor}(undef, length(eng))
+    for a in findall(eng)
+        l = dim(fr[a]); r = dim(fr[a]');
+        # small technical issue is that Matrix copies data but ITensor does not 
+        # accept output of reshape which is AbstractArray but not an Array.
+        # so some copying going on here
+        mat = Matrix(reshape(view(data, (offset+1):(offset + l*r)), (l, r)))
+        mats[a] = ITensor(mat, fr[a], fr[a]')
+        offset += l*r
     end
     return mats
 end
+
+# #-------------------------------- Invertible Operators -------------------------------------
+# """
+#     Invertible Transverse Operators
+
+#     A subspace of operators between tensors in a tensor category
+#     where each operator on an engaged axis is invertible.
+
+# """
+# struct InvertibleOps <: TransverseOps     
+#     frame :: Vector{Index}
+#     engaged :: Vector{Bool}
+# end
+
+# function frame(Ω::InvertibleOps)::Vector{Index}
+#     return Ω.frame
+# end
+# function engaged(Ω::InvertibleOps)::Vector{Bool}
+#     return Ω.engaged
+# end
+
+# # Flatten the list of matrices, rejecting if wrong size.
+# function unsafe_member(Ω::InvertibleOps, mats::Vector{ITensor}) :: Vector{Number}
+#     return [vec(asarray(M)) for M in mats] |> vcat
+# end
+# function member(Ω::InvertibleOps, mats::Vector{ITensor}) :: Union{Vector{Number}, Nothing}
+#     if length(mats) != length(Ω.engaged)
+#         return nothing
+#     end
+#     frame = Ω.frame
+#     for a in 1:length(Ω.engaged)
+#         e, f = Ω.engaged[a]
+#         if inds(mats[a]) != (frame[e], frame[f]')
+#             return nothing
+#         end
+#     end
+#     total = sum(dim(Ω.frame[e]) * dim(Ω.frame[f]) for (e,f) in Ω.engaged)
+#     data = Vector{eltype(mats[1])}(undef, total)
+#     offset = 0
+#     for (a, (e,f)) in enumerate(Ω.engaged)
+#         M = mats[a]; 
+#         if det(M) == 0
+#             return nothing
+#         end
+#         l = frame[e]; r = frame[f]';
+#         data[offset+1:offset + size(M,1)*size(M,2)] = vec(M[l=> i, r=> j] for i in 1:dim(l), j in 1:dim(r))
+#         offset += size(M,1)*size(M,2)
+#     end
+#     return data
+# end
+# # Reshape vector into vector of matrices.
+# function transverse(Ω::InvertibleOps, data::Vector{Number} ) :: Vector{AbstractMatrix} 
+#     offset = 0; frame = Ω.frame
+#     mats = Vector{Matrix{eltype(data)}}(undef, length(Ω.engaged))
+#     for e in Ω.engaged
+#         l = dim(frame[e]); r = dim(frame[e]')
+#         # small technical issue is that Matrix copies data but ITensor does not 
+#         # accept output of reshape which is AbstractArray but not an Array.
+#         # so some copying going on here
+#         mat = Matrix(reshape(view(data, (offset+1):(offset + l*r)), (l, r)))
+#         mats[e] = ITensor(mat, frame[e], frame[e]')
+#         offset += l*r
+#     end
+#     return mats
+# end
+
+
+
+# #------------------------------- Symmetric Operators -------------------------------------
+# struct SymmetricOps <: TransverseOps
+#     frame :: Vector{Index}
+#     engaged :: Vector{Bool}
+# end
+# function frame(Ω::SymmetricOps)::Vector{Index}
+#     return Ω.frame
+# end
+# function engaged(Ω::SymmetricOps)::Vector{Bool}
+#     return Ω.engaged
+# end
+# function SymmetricOps(frame::Vector{Index})
+#     engaged = [ true for a in 1:length(frame) ]
+#     return SymmetricOps(frame, engaged)
+# end
+
+# # Store only the lower triangle of each symmetric matrix
+# function unsafe_member(Ω::SymmetricOps, mats::Vector{ITensor}) :: Vector{Number}
+#     v = eltype(mats[1])[]
+#     for M in mats
+#         flat_M = [view(store(M),i:size(M,1), :) for i in 1:size(M,1)] |> vcat
+#         push!(v, vec(flat_M)...)
+#     end
+#     return v |> vcat
+# end
+# function member(ops::SymmetricOps, mats::Vector{ITensor}) :: Union{Vector{Number}, Nothing} 
+#     for (idx, M) in enumerate(mats)
+#         if size(M,1) != ops.ldims[idx] || size(M,2) != ops.rdims[idx] || !issymmetric(M)
+#             return nothing
+#         end
+#     end
+#     return unsafe_member(ops, mats)
+# end
+# function transverse(ops::SymmetricOps, data::Vector{Number} ) :: Vector{ITensor}
+#     offset = 0
+#     mats = Vector{Symmetric}(undef, length(ops.dims))
+#     for (idx, n) in enumerate(ops.dims)
+#         M = zeros(eltype(data), n, n)
+#         for i in 1:n
+#             for j in i:n
+#                 M[i,j] = data[offset + (i-1)*n - (i-2)*(i-1) ÷ 2 + (j - i +1)]
+#                 # M[j,i] = M[i,j]  # Symmetric entry
+#             end
+#         end
+#         mats[idx] = LinearAlgebra.Symmetric(M)
+#         offset += n*(n+1) ÷ 2
+#     end
+#     return mats
+# end
+
+# struct OrthogonalOps <: TransverseOps
+#     frame :: Vector{Index}
+#     engaged :: Vector{Bool}
+# end
+#     frame :: Vector{Index}
+#     engaged :: Vector{Bool}
+# end
+
+# function frame(Ω::UniversalOps)::Vector{Index}
+#     return Ω.frame
+# end
+# function engaged(Ω::UniversalOps)::Vector{Bool}
+#     return Ω.engaged
+# end
+# function unsafe_member(ops::OrthogonalOps, mats::Vector{Matrix}) :: Vector{Number}
+#     return [vec(M) for M in mats] |> vcat
+# end
+# """
+#      checks orthogonality to within tolerance 1e-8, if that fails and you know it is 
+#      orthogonal use unsafe_member for efficiency
+# """
+# function member(ops::OrthogonalOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing}
+#     for (idx, M) in enumerate(mats)
+#         if size(M,1) != ops.dims[idx] || size(M,2) != ops.dims[idx] || isapprox(M' * M, I, atol=1e-8) == false
+#             return nothing
+#         end
+#     end
+#     return unsafe_member(ops, mats)
+# end
+# """
+#     Converts encoded data into orthogonal matrices.
+# """
+# function transverse(ops::OrthogonalOps, data::Vector{Number} ) :: Vector{AbstractMatrix} 
+#     offset = 0
+#     mats = Vector{Matrix{eltype(data)}}(undef, length(ops.dims))
+#     for (idx, n) in enumerate(ops.dims)
+#         mats[idx] = reshape(data[offset+1:offset + n*n], (n,n))
+#         offset += n*n
+#     end
+#     return mats
+# end
+
+# #------------------------------- Diagonal Operators -------------------------------------
+# struct DiagonalOps <: TransverseOps 
+#     frame :: Vector{Index}
+#     engaged :: Vector{Bool}
+# end
+# function frame(Ω::DiagonalOps)::Vector{Index}
+#     return Ω.frame
+# end
+# function engaged(Ω::DiagonalOps)::Vector{Bool}
+#     return Ω.engaged
+# end
+
+# # Store only the lower triangle of each symmetric matrix
+# function unsafe_member(ops::DiagonalOps, mats::Vector{AbstractMatrix}) :: Vector{Number}
+#     v = Vector{eltype(mats[1])}(undef,sum(ops.dims))
+#     offset = 0
+#     for a in 1:length(ops.dims)
+#         for i in 1:ops.dims[a]
+#             v[offset + i] = mats[a][i,i]
+#         end
+#         offset += ops.dims[a]
+#     end
+#     return v
+# end
+# function member(ops::DiagonalOps, mats::Vector{AbstractMatrix}) :: Union{Vector{Number}, Nothing} 
+#     for (idx, M) in enumerate(mats)
+#         if size(M,1) != ops.dims[idx] || size(M,2) != ops.dims[idx] || !isdiagonal(M)
+#             return nothing
+#         end
+#     end
+#     return unsafe_member(ops, mats)
+# end
+# function transverse(ops::DiagonalOps, data::Vector{Number} ) :: Vector{AbstractMatrix}
+#     mats = Vector{Diagonal}(undef, length(ops.dims))
+#     for (idx, n) in enumerate(ops.dims)
+#         mats[idx] = Diagonal(data[offset+1:offset+n])
+#     end
+#     return mats
+# end
+
+
+#------------------------------- User Defined Operators -------------------------------------
 
 
 # struct TransverseOperators{A}
