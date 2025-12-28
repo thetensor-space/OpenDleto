@@ -25,18 +25,22 @@
 
 module TensorIO
 
-export normalizeTensor, sidebyside, loadTensorFromFile, saveTensorToFile, plotTensor
-
+using ITensors
+# using LinearAlgebra
+# using SparseArrays
 using PlotlyJS
 
+export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
+
+
 """
-    normalizeTensor(t::AbstractArray)
+    normalizeTensor(t::ITensor)
 
     Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
     returns the tensor unchanged.
 """
-function normalizeTensor(t::AbstractArray)
-    norm_factor = norm(t)
+function normalizeTensor(t::ITensor)
+    norm_factor = norm(store(t))
     if norm_factor == 0
         return t
     else
@@ -44,6 +48,14 @@ function normalizeTensor(t::AbstractArray)
     end
 end
 
+function asarray(Γ::ITensor)
+    dims = size(Γ)
+    arr = zeros(Float64, dims...)
+    for idx in CartesianIndices(arr)
+        arr[idx] = Γ[Tuple(idx)...]
+    end
+    return arr
+end
 
 """
         (left, right; left_title="Left", right_title="Right")
@@ -72,11 +84,20 @@ function sidebyside(left, right;
         return nothing
 end
 
-function loadTensorFromFile(filename::String)
+"""
+    loadTensor(filename::String) -> ITensor
+
+    [TBD: This should work with any valence!]
+    Load a tensor from a file in sparse format. The file should contain lines of the form:
+    i j k value
+    where i, j, k are the indices and value is the tensor entry at that position.
+"""
+function loadTensor(filename::String)::ITensor
     # Read the file and parse entries
     entries = []
-    max_i, max_j, max_k = 0, 0, 0
+    max_dims = []
     
+    valence = -1
     open(filename, "r") do file
         for line in eachline(file)
             # Skip comments and empty lines
@@ -84,35 +105,39 @@ function loadTensorFromFile(filename::String)
                 continue
             end
             
-            # Parse the line: i j k value
+            # Parse the line into values
             parts = split(strip(line))
-            if length(parts) == 4
-                i = parse(Int, parts[1])
-                j = parse(Int, parts[2])
-                k = parse(Int, parts[3])
-                val = parse(Float64, parts[4])
+            if valence == -1
+                valence = length(parts) - 1
+                max_dims = zeros(Int, valence)
+            end
+
+            if length(parts) != valence + 1
+                error("Inconsistent valence in tensor file: expected $valence indices, got $(length(parts)-1)")
+            end
+            is = [ parse(Int, parts[i]) for i in 1:(valence) ]
+            val = parse(Float64, parts[valence+1])
                 
-                push!(entries, (i, j, k, val))
-                max_i = max(max_i, i)
-                max_j = max(max_j, j)
-                max_k = max(max_k, k)
+            push!(entries, (is, val))
+            for d in 1:valence
+                max_dims[d] = max(max_dims[d], is[d])
             end
         end
     end
-    
-    # Create tensor array with appropriate dimensions
-    tensor = zeros(Float64, max_i, max_j, max_k)
-    
-    # Populate the tensor with values
-    for (i, j, k, val) in entries
-        tensor[i, j, k] = val
+    # create a sparse array to hold the tensor data
+    axes = [Index(max_dims[a], "x_$a") for a in 1:valence]
+    # Create ITensor from array
+    Γ = ITensor(axes...)
+    for (is, val) in entries
+        Γ[(axes[a] => is[a] for a in 1:valence)...] = val
     end
-    
-    return tensor
+    return Γ
 end
 
+
+
 """
-    saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Float64=1e-3)
+    save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
 
     Save the tensor to a file in sparse format, writing only entries 
     whose absolute value exceeds the given threshold.
@@ -121,7 +146,7 @@ end
     - `filename`: The name of the output file
     - `threshold`: Minimum absolute value for entries to be saved (default: 1e-3)
 """
-function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Float64=1e-3)
+function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
     open(filename, "w") do file
         dims = size(tensor)
         println(file, "# i j k value")
@@ -135,14 +160,14 @@ function saveTensorToFile(tensor::AbstractArray, filename::String, threshold::Fl
 end
 
 """
-    plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
+    plot(tensor::ITensor, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::String="blue")   
                    
     Visualize a 3D tensor using PlotlyJS, plotting only entries
     whose absolute value exceeds the given threshold.
 """
-function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
+function plot(tensor::ITensor, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::String="blue")
 
