@@ -1,0 +1,16 @@
+Chisels.jl 
+    Do we have a strucuture for a Chisel or we simoply use a matrix?
+    We need at least a linear Chisel
+    Why do we have real values and not integers
+    what is the point of normalizing derivation chisel?
+    Centroid chisel does not work correctly
+
+
+It seems that basic tensor operatrions like act by a matrix are missing
+
+TensorSynthesis.jl
+    Diagonal -> LinearAlgebra.Diagonal
+    move getRand outside randomize
+    why do we need to wrap everythign in ITensor?
+    If we wrap everything in Ithensor, we need to change the index every time we change the basis
+    generate tensors by chisel and then pass derivation/centroid etc into it 
