@@ -1,5 +1,6 @@
 # Chisel Testing.
 
+using Test
 using ITensors
 using Dleto
 
@@ -7,26 +8,33 @@ function testAllChisels()
     for valence in 1:20
         testChisels(valence)
     end
-    println("All Chisel tests passed.")
+    println("✓ All Delto Chisel tests passed.")
+    return true
 end
 
 function testChisels(valence::Integer)
+    passing = true
     # test numeric.
     eng = [ true for i in 1:valence ]
-    test(eng)
-
+    passing &= testChiselEngaged(eng)
+    passing = true
     for _ in 1:5
         # test random engaged.
         eng = [ rand(1:10) % 2 == 1 for i in 1:valence ]
-        test(eng)
+        passing &= testChiselEngaged(eng)
     end
+    return passing
 end
 
-function test(eng::Vector{Bool})
+function testChiselEngaged(eng::Vector{Bool})
+    passing = true
     valence = length(eng)
     # Universal Chisel test.
     uc = UniversalChisel(eng)
-    @assert engaged(uc) == eng "UniversalChisel engaged axes incorrect:\r\n $eng \r\n $uc"
+    passing &= engaged(uc) == eng
+    if !passing
+        println("Failed Chisel engaged test:\r\n $eng \r\n $uc")
+    end
     @assert size(uc, 1) == 1 "UniversalChisel should have one row."
     @assert size(uc, 2) == valence "UniversalChisel should have correct number of columns."
     for a in 1:valence
@@ -40,6 +48,7 @@ function test(eng::Vector{Bool})
             end
         end
     end
+    
 
     # Tucker Chisel test.
     tc = TuckerChisel(eng)
@@ -56,7 +65,7 @@ function test(eng::Vector{Bool})
 
     # Adjoint Chisel test.
     if valence < 2
-        return
+        return passing
     end
     a = rand(1:(valence-1)); e= rand((a+1):valence)
     ac = AdjointChisel(valence, a,e)
@@ -68,10 +77,11 @@ function test(eng::Vector{Bool})
     v[e] = 1.0
     @assert isapprox(ac*(u+v), zeros(size(ac,1)))  "AdjointChisel nullity incorrect $ac\r\n $u\r\n $v."
 
+
     # Centroid Chisel test.
     e = sum(eng)
     if e < 2
-        return
+        return passing
     end
     cc = CentroidChisel(eng)
     @assert engaged(cc) == eng "CentroidChisel engaged axes incorrect\r\n $cc\r\rn $eng"
@@ -85,6 +95,6 @@ function test(eng::Vector{Bool})
         end
     end
     @assert isapprox(cc*u, zeros(size(cc,1)))  "CentroidChisel nullity incorrect\r\n $cc \r\n $u."
-
-
+    return true
 end
+    
