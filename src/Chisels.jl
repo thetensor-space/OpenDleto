@@ -42,7 +42,7 @@ module Chisels
 
 using ITensors
 
-export engaged, LinearChisel, Chisel, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
+export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 function engaged(ch::Matrix)::Vector{Bool}
     valence = size(ch, 2)
@@ -50,48 +50,7 @@ function engaged(ch::Matrix)::Vector{Bool}
     return engaged
 end;
 
-#-------------------------------Chisel Type-------------------------------------
-
-# """
-#     LinearChisel{T}  
-#     A linear chisel structure for tensor decomposition constraints.
-
-# """
-# struct LinearChisel
-#     frame :: Vector{Index}
-#     engaged :: Vector{Integer}
-#     columns :: Vector{ITensor}
-# end;
-
-# """
-#     Print a linear chisel.
-# """
-# function Base.show(io::IO, ::MIME"text/plain", chisel::LinearChisel)
-#     println(io, "Linear chisel polynomials:")
-#     mat = zeros(eltype(chisel.columns[1]), dim(chisel.columns[1]), length(chisel.frame))
-#     for (idx, a) in enumerate(chisel.engaged)
-#         mat[:, a] = store(chisel.columns[idx])
-#     end
-#     println(io, mat)
-# end;
-
 #-------------------------------Chisel Constructors-------------------------------------
-
-# """
-#     Create a linear chisel from a matrix of polynomials and a frame of indices.
-
-#     - `polynomials`: A matrix whose columns define the chisel polynomials.
-#     - `frame`: A vector of `Index` objects defining the tensor frame.
-
-#     Returns a `LinearChisel` object.
-# """
-# function Chisel(polynomials::AbstractMatrix, frame::Vector{Index{Int64}})::Matrix
-#     @assert size(polynomials, 2) == length(frame) "Chisel polynomial valence must match frame length."
-#     ch_axis = Index(size(polynomials, 1), "chisel_axis")
-#     engaged = [ a for a in 1:size(polynomials, 2) if any(polynomials[:,a] .!= 0) ]
-#     columns = [ ITensor(polynomials[:, a], ch_axis ) for a in engaged ]
-#     return LinearChisel(frame, engaged, columns)
-# end;
 
 """
     Create a universal chisel with all axes engaged.
@@ -102,6 +61,10 @@ function UniversalChisel(engaged::Vector{Bool})::Matrix
         if is_engaged
             polynomials[i] = 1
         end
+    end
+    s = sum(polynomials .^ 2)
+    if s == 0
+        return polynomials
     end
     norm = 1/sqrt(sum(polynomials .^ 2))
     polynomials .*= norm
@@ -146,12 +109,13 @@ function CentroidChisel(engaged::Vector{Bool})::Matrix
     is = [ i for i in 1:valence if engaged[i] ]
     e = length(is)
     polynomials = zeros( e*(e-1) ÷ 2, valence )
+    row = 1    
     for a in is 
         for b in is
             if a < b
-                row = findfirst( x -> x == 0.0, polynomials[:,a] ) # next available row
                 polynomials[row, a] = 1.0
                 polynomials[row, b] = -1.0
+                row += 1
             end
         end
     end

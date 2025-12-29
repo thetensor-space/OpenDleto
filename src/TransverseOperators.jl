@@ -262,20 +262,25 @@ end
 #     return unsafe_member(ops, mats)
 # end
 # function transverse(ops::SymmetricOps, data::Vector{Number} ) :: Vector{ITensor}
+#     eng = engaged(ops); fr = frame(ops)
 #     offset = 0
-#     mats = Vector{Symmetric}(undef, length(ops.dims))
-#     for (idx, n) in enumerate(ops.dims)
-#         M = zeros(eltype(data), n, n)
-#         for i in 1:n
-#             for j in i:n
-#                 M[i,j] = data[offset + (i-1)*n - (i-2)*(i-1) ÷ 2 + (j - i +1)]
+#     Xs = Vector{ITensor}(undef, length(ops.dims))
+#     for a in 1:length(fr)
+#         if !eng[a]
+#             continue
+#         end
+#         d = dim(fr[a])
+#         Xs[a] = ITensor(fr[a], fr[a]') # TBD: does ITensor have a symmetric type?
+#         for i in 1:d
+#             for j in i:d
+#                 (Xs[a])[fr[a]=>i,fr[a]'=>j] = data[offset + (i-1)*d - (i-2)*(i-1) ÷ 2 + (j - i +1)]
+#                 (Xs[a])[fr[a]=>j,fr[a]'=>i] = data[offset + (i-1)*d - (i-2)*(i-1) ÷ 2 + (j - i +1)]
 #                 # M[j,i] = M[i,j]  # Symmetric entry
 #             end
 #         end
-#         mats[idx] = LinearAlgebra.Symmetric(M)
-#         offset += n*(n+1) ÷ 2
+#         offset += d*(d+1) ÷ 2
 #     end
-#     return mats
+#     return Xs
 # end
 
 # struct OrthogonalOps <: TransverseOps
