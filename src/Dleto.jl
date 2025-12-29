@@ -26,6 +26,7 @@
 module Dleto
 
 import ITensors
+using ITensors
 
 include("Chisels.jl")
 using .Chisels: engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
@@ -61,5 +62,38 @@ using .Derivations
 # Re-export from Derivations
 export DerivationMethod, der, den, stratify
 
+# -- Direct action by a vector of ITensors -----
+
+function Base.:*(Γ ::ITensors.ITensor, X::Vector{ITensors.ITensor})  
+    Σ = Γ  
+    for x in X
+        # setprime!(Σ, 1; plev=inds(Γ)[i])
+        Σ = Σ * x
+        # noprime!(Σ; plev=inds(Γ)[i])
+    end
+    return Σ
+end
+
+# --- Wrappers to promote AbstractArray to ITensor -----
+function Base.:*(Γ ::AbstractArray, X::Vector{ITensors.ITensor}) 
+    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
+    frame = [ inds(x)[1] for x in X ]
+    iΓ = typeof(Γ) <: Array ? ITensor(Γ, frame...) : ITensor( Array(Γ), frame...)
+    return iΓ * X
+end
+
+# Make actions Ambidextrous
+function Base.:*(X::Vector{ITensors.ITensor}, Γ ::AbstractArray ) 
+    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
+    frame = inds(Γ)
+    X = [ ITensor(x, frame[a], frame[a]') for (a,x) in enumerate(X) ]
+    return Γ * X
+end
+function Base.:*(X::Vector{ITensors.ITensor}, Γ ::ITensors.ITensor ) 
+    return Γ * X
+end
+function Base.:*(X::Vector{AbstractMatrix}, Γ ::ITensors.ITensor ) 
+    return Γ * X
+end
 
 end # module Dleto
