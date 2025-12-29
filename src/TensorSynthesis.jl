@@ -24,14 +24,8 @@
 # SOFTWARE.
 # 
 
-module TensorSynthesis
-
 using ITensors
 
-# TBD: rename and rethink these functions and their names
-export randomOrthogonalMatrix, spin, randomize
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 
 
 function randomOrthogonalMatrix(n::Integer)
@@ -204,7 +198,7 @@ end
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
 function dist(Γ ::ITensor, xes::Vector, yes::Vector, zes::Vector, dist::Function)::Number
-    t = store(Γ)
+    t = asarray(Γ)
     # test valancy and sizes
     if ndims(t) != 3
         throw(DimensionMismatch("wrong arity of tensor"))
@@ -286,5 +280,3 @@ function distCurveTensor(
     )::Number
     return dist(t,xes,yes,zes,curveDistance)
 end
-
-end # module

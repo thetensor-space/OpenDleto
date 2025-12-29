@@ -5,8 +5,21 @@
 
 using ITensors
 using Dleto
-using Dleto.TransverseOperators
+# using Dleto.TransverseOperators
 
+function testAllTransverseOps()
+    passing = true
+    for valence in 1:10
+        try
+            testUnvOps(valence)
+        catch e
+            println("Failed UniversalOps transverse test at valence $valence")
+            println(e)
+            passing = false
+        end
+    end
+    return passing
+end
 #
 # Test UniversalOps with law 
 #

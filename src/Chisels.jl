@@ -38,11 +38,11 @@
     - `CentroidChisel`: centroid-type operators
 
 """
-module Chisels
+# module Chisels
 
-using ITensors
+# using ITensors
 
-export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
+# export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 function engaged(ch::Matrix)::Vector{Bool}
     valence = size(ch, 2)
@@ -125,4 +125,4 @@ end;
 
 
 
-end # module Chisels
+# end # module Chisels

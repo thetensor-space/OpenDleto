@@ -30,17 +30,17 @@
     Interface to methods for solving Sylvester equations arising in chiseling.
 
 """
-module Derivations
+# module Derivations
 
-include("TransverseOperators.jl")
-using .TransverseOperators: TransverseOps, engaged, frame, transverse, contains
+# include("TransverseOperators.jl")
+# using .TransverseOperators: TransverseOps, engaged, frame, transverse, contains
 
-include("SylverLining.jl")
-using .SylverLining: sylvesterLM
+# include("SylverLining.jl")
+# using .SylverLining: sylvesterLM
 
-export der, den, stratify
+# export der, den, stratify
 # using SylverLining as SL
-using ITensors
+# using ITensors
 # using LinearMaps
 # using ..Chisels: LinearChisel
 # using ..TransverseOperators: TransverseOps
@@ -105,7 +105,7 @@ end
 function der(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
-    Γ::AbstractArray,
+    Γ::ITensor,
     nd::Integer=10, 
     kwargs...,
     ) :: Vector{ITensor} end
@@ -115,7 +115,7 @@ struct SylverLiningMethod <: DerivationMethod end
 function der(method::SylverLiningMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
-    Γ::AbstractArray;
+    Γ::ITensor,
     nd::Integer=10, 
     tol=1e-6,
     kwargs...,
@@ -250,4 +250,4 @@ function blockdiag(M::Matrix)
 end
 
 
-end # module SylvesterSolvers
+# end # module SylvesterSolvers

@@ -53,13 +53,13 @@
     - `UnitaryOps`: unitary operators on the engaged axes (TODO)
     - `UserDefinedOps`: user defined insertion and matrix functions (TODO)
 """
-module TransverseOperators
+# module TransverseOperators
 
-using ITensors
+# using ITensors
 # using LinearAlgebra
 # using SkewLinearAlgebra
 
-export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
+# export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
 """
     TransverseOperators
@@ -89,7 +89,9 @@ function unsafe_member(Ω::TransverseOps, mats::Vector{Matrix}) :: Vector{Number
     Convert the native encoding of an operator in the transverse set
     into a vector of matrices representing the operator on each engaged axis.
 """
-function transverse(Ω::TransverseOps, data::Vector{Number} ) :: Vector{ITensor} end
+function transverse(Ω::TransverseOps, data::Vector{<:Number} ) :: Vector{ITensor} end
+
+function dim(Ω::TransverseOps)::Integer end
 
 
 #------------------------------- Universal Operators -------------------------------------
@@ -106,6 +108,17 @@ end
 function engaged(Ω::UniversalOps)::Vector{Bool}
     return Ω.engaged
 end
+function dim(Ω::UniversalOps)::Integer
+    total = 0
+    eng = engaged(Ω); fr = frame(Ω)
+    println("engaged: ", eng)
+    for a in 1:length(fr)
+        if eng[a]
+            total += ITensors.dim(fr[a])^2
+        end
+    end
+    return total
+end
 function UniversalOps(frame::Vector{Index{Int64}})
     engaged = [ true for a in 1:length(frame) ]
     return UniversalOps(frame, engaged)
@@ -113,8 +126,11 @@ end
 
 # Flatten the list of matrices, assumes ITensors are dense arrays
 function unsafe_member(Ω::UniversalOps, mats::Vector{ITensor}) :: Vector{Number}
-    # if created by transverse then store is correct.
-    return [vec(asarray(M)) for M in mats] |> vcat
+    # Extract arrays with consistent index ordering matching transverse
+    # mats is indexed 1:n_engaged, corresponding to engaged axes in order
+    eng = engaged(Ω); fr = frame(Ω)
+    engaged_axes = findall(eng)
+    return vcat([vec(Array(mats[i], fr[engaged_axes[i]], fr[engaged_axes[i]]')) for i in 1:length(mats)]...)
 end
 function member(Ω::UniversalOps, mats::Vector{ITensor}) :: Union{Vector{Number}, Nothing}
     eng = engaged(Ω); fr = frame(Ω)
@@ -127,7 +143,7 @@ function member(Ω::UniversalOps, mats::Vector{ITensor}) :: Union{Vector{Number}
             if (inds(mats[a])[1], inds(mats[a])[2]) != (fr[a], fr[a]')
                 return nothing
             else
-                total += dim(fr[a]) * dim(fr[a])
+                total += ITensors.dim(fr[a]) * ITensors.dim(fr[a])
             end
         end
     end
@@ -137,7 +153,7 @@ function member(Ω::UniversalOps, mats::Vector{ITensor}) :: Union{Vector{Number}
         if eng[a]
             M = mats[a]; l = fr[a]; r = fr[a]';
             # not great to copy here but ITensor doesn't accept views
-            data[offset+1:offset + size(M,1)*size(M,2)] = collect(M[l=> i, r=> j] for i in 1:dim(l), j in 1:dim(r))
+            data[offset+1:offset + size(M,1)*size(M,2)] = collect(M[l=> i, r=> j] for i in 1:ITensors.dim(l), j in 1:ITensors.dim(r))
             offset += size(M,1)*size(M,2)
         end
     end
@@ -145,18 +161,21 @@ function member(Ω::UniversalOps, mats::Vector{ITensor}) :: Union{Vector{Number}
 end
 
 # Reshape vector into vector of matrices.
-function transverse(Ω::UniversalOps, data::Vector{Number} ) :: Vector{ITensor} 
+function transverse(Ω::UniversalOps, data::Vector{<:Number} ) :: Vector{ITensor} 
     eng = engaged(Ω); fr = frame(Ω)
-    offset = 0; 
-    mats = Vector{ITensor}(undef, length(eng))
+    offset = 0
+    n_engaged = count(eng)
+    mats = Vector{ITensor}(undef, n_engaged)
+    next = 1
     for a in findall(eng)
-        l = dim(fr[a]); r = dim(fr[a]');
+        l = ITensors.dim(fr[a]); r = ITensors.dim(fr[a]');
         # small technical issue is that Matrix copies data but ITensor does not 
         # accept output of reshape which is AbstractArray but not an Array.
         # so some copying going on here
         mat = Matrix(reshape(view(data, (offset+1):(offset + l*r)), (l, r)))
-        mats[a] = ITensor(mat, fr[a], fr[a]')
+        mats[next] = ITensor(mat, fr[a], fr[a]')
         offset += l*r
+        next += 1
     end
     return mats
 end
@@ -460,4 +479,4 @@ end
 #     return TransverseOperators(sym_dims, sym_insert!, sym_matrix, "Symmetric Operators")
 # end;
 
-end # module TransverseOperators
+# end # module TransverseOperators
