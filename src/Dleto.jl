@@ -26,16 +26,17 @@
 module Dleto
 
 import ITensors
-using ITensors
+using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm
 
-include("Chisels.jl")
-using .Chisels: engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
+include("Chisels.jl")   
+# using .Chisels: engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 # Re-export from Chisels
 export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 include("TensorSynthesis.jl")
-using .TensorSynthesis
+# using .TensorSynthesis
 # Re-export from TensorSynthesis
+# TBD: Rethink these functions and their names for final users
 export randomOrthogonalMatrix, spin, randomize
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
@@ -43,28 +44,28 @@ export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 using PlotlyJS
 
 include("TensorIO.jl")
-using .TensorIO
+# using .TensorIO
 # Re-export from TensorIO
 export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
 
 include("TransverseOperators.jl")
-using .TransverseOperators
+# using .TransverseOperators
 # Re-export from TransverseOperators
-export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
+export TransverseOps, UniversalOps, engaged, frame, dim, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
 include("SylverLining.jl")
-using .SylverLining
+# using .SylverLining
 # Re-export from SylverLining
 export sylvesterLM
 
 include("Derivations.jl")
-using .Derivations
+# using .Derivations
 # Re-export from Derivations
 export DerivationMethod, der, den, stratify
 
 # -- Direct action by a vector of ITensors -----
 
-function Base.:*(Γ ::ITensors.ITensor, X::Vector{ITensors.ITensor})  
+function Base.:*(Γ::ITensor, X::Vector{ITensor})  
     Σ = Γ  
     for x in X
         # setprime!(Σ, 1; plev=inds(Γ)[i])
@@ -75,24 +76,28 @@ function Base.:*(Γ ::ITensors.ITensor, X::Vector{ITensors.ITensor})
 end
 
 # --- Wrappers to promote AbstractArray to ITensor -----
-function Base.:*(Γ ::AbstractArray, X::Vector{ITensors.ITensor}) 
+function Base.:*(Γ ::AbstractArray, X::Vector{ITensor}) 
     @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
     frame = [ inds(x)[1] for x in X ]
     iΓ = typeof(Γ) <: Array ? ITensor(Γ, frame...) : ITensor( Array(Γ), frame...)
     return iΓ * X
 end
 
+function Base.:*(Γ::ITensor, X::Vector{AbstractMatrix}) 
+    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match ITensor axes"
+    fr = inds(Γ)
+    iX = [ ITensor( Array(X[i]), fr[i], prime(fr[i]) ) for i in 1:length(X) ]
+    return Γ * iX
+end
+
 # Make actions Ambidextrous
-function Base.:*(X::Vector{ITensors.ITensor}, Γ ::AbstractArray ) 
-    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
-    frame = inds(Γ)
-    X = [ ITensor(x, frame[a], frame[a]') for (a,x) in enumerate(X) ]
+function Base.:*(X::Vector{ITensor}, Γ::AbstractArray ) 
     return Γ * X
 end
-function Base.:*(X::Vector{ITensors.ITensor}, Γ ::ITensors.ITensor ) 
+function Base.:*(X::Vector{ITensor}, Γ::ITensor ) 
     return Γ * X
 end
-function Base.:*(X::Vector{AbstractMatrix}, Γ ::ITensors.ITensor ) 
+function Base.:*(X::Vector{AbstractMatrix}, Γ::ITensor ) 
     return Γ * X
 end
 

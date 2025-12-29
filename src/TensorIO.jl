@@ -23,7 +23,7 @@
 # SOFTWARE.
 # 
 
-module TensorIO
+# module TensorIO
 
 using ITensors
 # using LinearAlgebra
@@ -225,4 +225,4 @@ function plot(tensor::ITensor, threshold::Float64=1e-2;
     return p
 end
 
-end # module TensorIO
+# end # module TensorIO
