@@ -32,6 +32,12 @@
 """
 module Derivations
 
+include("TransverseOperators.jl")
+using .TransverseOperators: TransverseOps, engaged, frame, transverse, contains
+
+include("SylverLining.jl")
+using .SylverLining: sylvesterLM
+
 export der, den, stratify
 # using SylverLining as SL
 using ITensors
@@ -59,7 +65,7 @@ function der(ops::TransverseOps, ch::AbstractMatrix, Γ::ITensor)
     return der(SylverLining(), ops, chisel(ch, inds(Γ)), Γ)
 end
 function der(ops::TransverseOps, ch::AbstractMatrix, Γ::AbstractArray)
-    frame = [Index(size(Γ, i), "a$i") for i in 1:ndims(Γ)]
+    frame = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, frame...)
     return der( ops, ch, Σ)
 end
@@ -99,10 +105,32 @@ end
 function der(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
-    Γ::AbstractArray; 
-    nd::Integer=10,
-    tol::Real=1e-6,
+    Γ::AbstractArray,
+    nd::Integer=10, 
+    kwargs...,
     ) :: Vector{ITensor} end
+
+struct SylverLiningMethod <: DerivationMethod end
+
+function der(method::SylverLiningMethod,
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::AbstractArray;
+    nd::Integer=10, 
+    tol=1e-6,
+    kwargs...,
+    ) :: Vector{ITensor} 
+    sylvester, ester = sylvesterLM(Ω, P, Γ)
+    if size(sylvester, 1) < 10000
+        println("Using dense solve.")
+        M = Matrix(sylvester)
+        vecs, vals = eigen(M)
+        vecs = vecs[:, findall(abs.(diag(vals)) .< tol)]
+        Xs = [ member(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
+        return Xs
+    end
+    return nothing
+end
 
 """
     den(method::DerivationMethod, 
@@ -134,11 +162,6 @@ function den(method::DerivationMethod,
     ) :: Vector{ITensor} end
 
 
-#---------------- Generic Derivation Densor Functions -------------------------
-
-struct SylvesterDerivationMethod <: DerivationMethod end
-
-
 """
     stratify(Γ::AbstractArray, der::Vector{ITensor}) 
     :: NamedTuple{(:tensor, :transform), Tuple{AbstractArray, TransverseOps}}
@@ -153,8 +176,10 @@ struct SylvesterDerivationMethod <: DerivationMethod end
     - `Σ` The sculpted tensor
     - `T` a transverse operator 
 """
-function stratify(Γ::ITensor, der::Vector{ITensor}) 
-    :: NamedTuple{(:tensor, :transform), Tuple{ITensor, Vector{ITensor}}}
+function stratify(
+        Γ::ITensor, 
+        der::Vector{ITensor}
+    ) :: NamedTuple{(:tensor, :transform), Tuple{ITensor, Vector{ITensor}}}
     mats = map( M -> blockdiag(M).T, der )
     dims = [size(Γ, i) for i in 1:ndims(Γ)]
     T = contains(InvertibleOps(cat, dims), mats)
@@ -166,6 +191,10 @@ function stratify(Γ::ITensor, der::Vector{ITensor})
     end
     return (;Σ, T)
 end
+
+#---------------- Generic Derivation Densor Functions -------------------------
+
+
 
 #---------------- Internal Functions -------------------------------------
 

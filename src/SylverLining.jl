@@ -4,7 +4,11 @@ export sylvesterLM #, derdenSMO, invderdenSMO
 
 using ITensors
 import LinearMaps as LM
-using .TransverseOperators: TransverseOps, engaged, transverse, contains
+
+include("TransverseOperators.jl")
+using .TransverseOperators: TransverseOps, engaged, frame, transverse, contains
+
+
 
 # import LinearSolve as LS
 # import SciMLOperators as SMO

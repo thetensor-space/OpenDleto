@@ -28,9 +28,9 @@ module Dleto
 import ITensors
 
 include("Chisels.jl")
-using .Chisels
+using .Chisels: engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 # Re-export from Chisels
-export LinearChisel, Chisel, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
+export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 include("TensorSynthesis.jl")
 using .TensorSynthesis
@@ -51,9 +51,15 @@ using .TransverseOperators
 # Re-export from TransverseOperators
 export TransverseOps, UniversalOps, engaged, frame, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
-# include("SylverLining.jl")
-# using .SylverLining
-# # Re-export from SylverLining
-# export sylvesterLM
+include("SylverLining.jl")
+using .SylverLining
+# Re-export from SylverLining
+export sylvesterLM
+
+include("Derivations.jl")
+using .Derivations
+# Re-export from Derivations
+export DerivationMethod, der, den, stratify
+
 
 end # module Dleto
