@@ -76,14 +76,14 @@ function randomize(Γ::ITensor)::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITen
     end
     matrices = collect([ getRand(size(Γ,a)) for a in 1:ndims(Γ) ])
     frame = inds(Γ)
-    X = [ ITensor(Matrix(matrices[a]), frame[a]', frame[a]) for a in 1:ndims(Γ) ]
-    Σ = Γ
-    for x in X
-        Σ = x * Σ
-        noprime!(Σ)
-        Σ = permute(Σ, inds(Γ)...)
-    end
-    return (;Γ=Σ, X)
+    X = [ ITensor(Matrix(matrices[a]), frame[a], frame[a]') for a in 1:ndims(Γ) ]
+    # Σ = Γ
+    # for x in X
+    #     Σ = x * Σ
+    #     noprime!(Σ)
+    #     Σ = permute(Σ, inds(Γ)...)
+    # end
+    return (;Γ=(Γ*X), X)
 end;
 
 function randomize(t::AbstractArray)
