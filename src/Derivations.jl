@@ -62,15 +62,22 @@ abstract type DerivationMethod end
 
 #---- Convenience Functions -------------------------------------------------------
 function der(ops::TransverseOps, ch::AbstractMatrix, Γ::ITensor)
-    return der(SylverLining(), ops, chisel(ch, inds(Γ)), Γ)
+    return der(SylverLiningMethod(), ops, ch, Γ)
 end
 function der(ops::TransverseOps, ch::AbstractMatrix, Γ::AbstractArray)
-    frame = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
-    Σ = ITensor(Γ, frame...)
+    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
+    Σ = ITensor(Γ, fr...)
     return der( ops, ch, Σ)
 end
-function der(ch::AbstractMatrix, Γ)
-    ops = UniversalOps(frame)
+function der(ch::AbstractMatrix, Γ::AbstractArray)
+    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
+    Σ = ITensor(Γ, fr...)
+    ops = UniversalOps(fr)
+    return der(ops, ch, Σ)
+end
+function der(ch::AbstractMatrix, Γ::ITensor)
+    fr = collect(inds(Γ))
+    ops = UniversalOps(fr)
     return der(ops, ch, Γ)
 end
 function der(Γ)
@@ -190,6 +197,13 @@ function stratify(
         noprime!(Σ; plev=inds(Γ)[i])
     end
     return (;Σ, T)
+end
+
+function stratify(
+        Γ::ITensor
+    ) :: NamedTuple{(:tensor, :transform), Tuple{AbstractArray, Vector{ITensor}}}
+    ders = der(Γ)
+    return stratify(Γ, ders)
 end
 
 #---------------- Generic Derivation Densor Functions -------------------------
