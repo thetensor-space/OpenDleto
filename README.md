@@ -1,5 +1,5 @@
 # OpenDleto <!-- omit from toc -->
-Dleto, which means chisel, is a package of tools to carve information out of tensor data. 
+Dleto, which means chisel, is a package of tools to sculpt information from tensor data. 
 
 If you want to try the notebooks in your browser without installing anything, click on the **launch binder** buttons. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
 
