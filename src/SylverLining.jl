@@ -65,26 +65,31 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
     # Returns a vectorized representation of the tensor
     function ester(Xvec)
         Xs = transverse(Ω, Xvec)
-        Σ = ITensor(Σ_frame...)
+        Σ = ITensor(ch_axis, Γ_frame...)
         next = 1
         for a in 1:n_axes
             if !eng[a]
                 continue
             end
+            println(inds(Σ))
+            p = plev(Γ_frame[a])
             X = Xs[next]
+            X = addtags(inds(X)[2], "moved")  # X has (fr[a]', fr[a]), need (fr[a], fr[a]')
             C = Cs[a]
-            Z = C*X*Γ  # X has primed index, contracts with Γ, result has unprimed indices
-            Σ += permute(noprime!(Z), inds(Σ))
+            Δ = C*X*Γ  # X has primed index, contracts with Γ, result has unprimed indices
+            prime!(Δ, p, Γ_frame[a])  # Decrement prime level by 1 on axis a
+            println(inds(Δ))
+            Σ += permute(Δ, ch_axis, Γ_frame...)
             next += 1
         end
-        return vec(Array(Σ, Σ_frame...))
+        return vec(Array(Σ, ch_axis, Γ_frame...))
     end
     
     dims = ITensors.dim.(Σ_frame)
     # sylv: takes a vectorized tensor, returns a vector of matrices (one per axis)
     function sylve(y)
         y_array = Array(reshape(y, dims)) ## slow step?  Dense.
-        Σ = ITensor(y_array, Σ_frame...)
+        Σ = ITensor(y_array, ch_axis, Γ_frame...)
         n_engaged = count(eng)
         Z = Vector{ITensor}(undef, n_engaged)
         next = 1
@@ -92,11 +97,12 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            setprime!(Σ, 1; plev=Γ_frame[a]) # raise prime to isolate axis
+            p = plev(Γ_frame[a])
+            prime!(Σ, Γ_frame[a]) # raise prime to isolate axis
             C = Cs[a]
             Z[next] = C*Σ*Γ 
             next += 1
-            noprime!(Σ) # revert axis for next round.
+            setprime!(Σ,p, Γ_frame[a])  # Decrement prime level by 1 on axis a
         end
         return unsafe_member(Ω, Z)
     end
@@ -105,17 +111,19 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
     function sylvester(Xvec)
         # flattened vector reshaped as list of ITensors
         Xs = transverse(Ω, Xvec)
-        Σ = ITensor(zeros(dims), Σ_frame...)
+        # Create fresh Σ with unprimed indices
+        Σ = ITensor(zeros(dims), ch_axis, Γ_frame...)
         next = 1
         for a in 1:n_axes
             if !eng[a]
                 continue
             end
+            p = plev(Γ_frame[a])
             X = Xs[next]
             C = Cs[a]
-            # setprime!(Σ, 1; plev=Γ_frame[a]) # raise prime to isolate axis
-            Z = C*X*Γ  # changes the index orders with primes
-            Σ += permute(noprime!(Z), inds(Σ))
+            Z = C*X*Γ  # X has (fr[a], fr[a]'), contracts with Γ on fr[a]
+            setprime!(Z, p, Γ_frame[a])  # Decrement prime level by 1 on axis a
+            Σ += permute(Z, ch_axis, Γ_frame...)
             next += 1
         end
         n_engaged = count(eng)
@@ -125,10 +133,11 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            setprime!(Σ, 1; plev=Γ_frame[a]) # raise prime to isolate axis
+            p = plev(Γ_frame[a])
+            prime!(Σ, Γ_frame[a]) # raise prime to isolate axis
             C = Cs[a]
             Z[next] = C*Σ*Γ
-            noprime!(Σ) # revert axis for next round.
+            setprime!(Σ,p, Γ_frame[a])  # Decrement prime level by 1 on axis a
             next += 1
         end
         return unsafe_member(Ω, Z)
