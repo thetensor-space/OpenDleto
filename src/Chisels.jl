@@ -36,24 +36,50 @@
     - `TuckerChisel`: tucker-type operators
     - `AdjointChisel`: adjoint-type operators
     - `CentroidChisel`: centroid-type operators
+    - 'NormalizeChisel': replace a chisel with equivalen one to improve numerical stability
 
 """
-# module Chisels
 
-# using ITensors
+export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, NormalizeChisel, EvaluateChisel 
 
-# export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
-function engaged(ch::Matrix)::Vector{Bool}
+"""
+     Create a universal chisel with selected engaged axes.
+"""
+function engaged(ch::Matrix, cutoff::Float64=1e-6)::Vector{Bool}
     valence = size(ch, 2)
-    engaged = [ any(ch[:,a] .!= 0) for a in 1:valence ]
+    engaged = [ any(ch[:,a] .|> ( x -> abs(x) >cutoff )) for a in 1:valence ]
     return engaged
 end;
+
+
+"""
+    Replace chisel with equivalent one to improve stability.
+"""
+function NormalizeChisel(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
+    E=engaged(Ch)
+    TE = TuckerChisel(E)
+    svddecom = LinearAlgebra.svd(Ch*TE')
+    num = sum( svddecom.S .|> ( x -> abs(x) > cutoff))
+    RC =  svddecom.Vt[1:num,:]
+    return RC * TE
+end;
+# I think it might be better to normalize using dimensions of the tensor, but I do not know what is the best way to do that 
+
+
+"""
+    Evaluate cheise on a vector, and use it to estimate the distance betwee the point and the surface.
+"""
+function EvaluateChisel(Ch::Matrix, delta::Vector)::Float64
+    return Ch*delta .|> (x -> x*x) |> sum |> sqrt 
+end;
+
+
 
 #-------------------------------Chisel Constructors-------------------------------------
 
 """
-    Create a universal chisel with all axes engaged.
+    Create a universal chisel with selected engaged axes.
 """
 function UniversalChisel(engaged::Vector{Bool})::Matrix
     polynomials = zeros(1, length(engaged) )
@@ -62,23 +88,27 @@ function UniversalChisel(engaged::Vector{Bool})::Matrix
             polynomials[i] = 1
         end
     end
-    s = sum(polynomials .^ 2)
-    if s == 0
-        return polynomials
-    end
-    norm = 1/sqrt(sum(polynomials .^ 2))
-    polynomials .*= norm
+    # s = sum(polynomials .^ 2)
+    # if s == 0
+    #     return polynomials
+    # end
+    # norm = 1/sqrt(sum(polynomials .^ 2))
+    # polynomials .*= norm
     return polynomials
 end;
 
 """
-     Create a universal chisel with selected engaged axes.
+    Create a universal chisel with all axes engaged.
 """
 function UniversalChisel(valence::Integer)::Matrix  
     engaged = [ true for _ in 1:valence ]
     return UniversalChisel(engaged)
 end;
 
+
+"""
+    Create a Tucker chisel with selected engaged axes.
+"""
 function TuckerChisel(engaged::Vector{Bool})::Matrix  
     valence = length(engaged)
     e = sum(engaged)
@@ -92,11 +122,18 @@ function TuckerChisel(engaged::Vector{Bool})::Matrix
     end
     return polynomials
 end
+
+"""
+    Create a Tucker chisel with all axes engaged.
+"""
 function TuckerChisel(valence::Integer)::Matrix  
     engaged = [ true for _ in 1:valence ]
     return TuckerChisel(engaged)
 end;
 
+"""
+    Create a adjoint chisel with two axes engaged.
+"""
 function AdjointChisel(valence::Integer, left::Integer, right::Integer)::Matrix  
     polynomials = zeros(1, valence )
     polynomials[1, left] = 1.0
@@ -104,6 +141,9 @@ function AdjointChisel(valence::Integer, left::Integer, right::Integer)::Matrix
     return polynomials
 end;
 
+"""
+    Create a Centroid chisel with selected engaged axes.
+"""
 function CentroidChisel(engaged::Vector{Bool})::Matrix  
     valence = length(engaged)
     is = [ i for i in 1:valence if engaged[i] ]
@@ -123,6 +163,13 @@ function CentroidChisel(engaged::Vector{Bool})::Matrix
     return polynomials
 end;
 
+"""
+    Create a Centroid chisel with all axes engaged.
+"""
+function CentroidChisel(valence::Integer)::Matrix  
+    engaged = [ true for _ in 1:valence ]
+    return CentroidChisel(engaged)
+end;
 
 
 # end # module Chisels
