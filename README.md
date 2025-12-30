@@ -1,15 +1,14 @@
 # OpenDleto <!-- omit from toc -->
 Dleto, which means chisel, is a package of tools to sculpt information from tensor data. 
-
-If you want to try the notebooks in your browser without installing anything, click on the **launch binder** buttons. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
-
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) [Sphere Lab](labs/geometry/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  If you want to just read the results instead, try: [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf)
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) [Cluster Lab](labs/clusters/ClusterLab.ipynb) recovering clusters in high-dimensional data. 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fhypergraphs%2FHypergraphLab.ipynb) [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) locating structure in hypergraphs.
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fdata%2FToyDataLab.ipynb) [Toy data lab](labs/data/ToyDataLab.ipynb) use real data about toys to explore potential data science applications of Dleto.
-
-
 Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
+
+You can open Jupyter notebooks in your browser without installing anything by clicking on the **launch binder** buttons. These notebooks allow you to explore the functionality of OpenDleto immediately, so long as you have some experience with Jupyter notebooks and a recent installation of Julia.
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) The [Sphere Lab](labs/geometry/SphereLab.ipynb) shows how to recover a surface pattern, arising from say a hidden fourier transform, underlying a seemingly random point cloud. If you want to just inspect the results of the experiment, you can look at [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf).
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) The [Cluster Lab](labs/clusters/ClusterLab.ipynb) shows how to recover clusters in high-dimensional tensor data. 
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fhypergraphs%2FHypergraphLab.ipynb) The [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) shows how you can also use the software to locate structure in hypergraphs.
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fdata%2FToyDataLab.ipynb) The [Toy Data Lab](labs/data/ToyDataLab.ipynb) uses the software on real data about toys to explore potential data science applications of Dleto.
+
 
 
 ## Contents
@@ -25,15 +24,13 @@ Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about th
   - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
   - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
 
-## What can we find?
-Using the algebra of operators on tensors, Dleto methods determine change of coordinates relative to which tensor data is supported on a smaller valence.  
-
-For a 3-tensor represented as a point cloud 
+## What does OpenDleto do?
+Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal a lower valence support. For instance, given a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
 </center>
 
-this means a to cluster the data near a block array of 2-tensors. 
+this means to demonstrate that the data cluster near a block array of 2-tensors. 
 
 Here are some examples of what this can look like:
 
@@ -51,11 +48,11 @@ Here are some examples of what this can look like:
 
 ## Install
 
-Dleto is now a proper Julia package! You can install it in several ways:
+Dleto is now a Julia package! You can install it in several ways:
 
 ### Option 1: From Local Directory (Development)
 
-If you've cloned or downloaded this repository:
+First clone or download this repository and then run:
 
 ```julia
 using Pkg
@@ -73,7 +70,7 @@ using Dleto
 
 ### Option 3: For Development/Testing
 
-If you want to work on the package:
+To work on the package:
 
 ```julia
 using Pkg
@@ -129,7 +126,7 @@ We invite you explore the repository and join our team.  We welcome and encourag
 
 |                                                                              | Name                | Username                         | Affiliation                |
 -------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
-<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/brooksbankpa" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
 <img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov, Ph.D.     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
 <img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>      | Joshua Maglione, Ph.D. | [`@joshmaglione`](https://github.com/joshmaglione)                | University of Galway |
 <img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
