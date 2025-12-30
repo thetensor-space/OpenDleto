@@ -26,20 +26,17 @@
 module Dleto
 
 import ITensors
-using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm
+using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
+
+include("ITensorExtension.jl")
 
 include("Chisels.jl")   
-# using .Chisels: engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
-# Re-export from Chisels
-export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel 
 
 include("TensorSynthesis.jl")
+include("TensorSynthesis3D.jl")
 # using .TensorSynthesis
 # Re-export from TensorSynthesis
 # TBD: Rethink these functions and their names for final users
-export randomOrthogonalMatrix, spin, randomize
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 
 using PlotlyJS
 
@@ -63,42 +60,5 @@ include("Derivations.jl")
 # Re-export from Derivations
 export DerivationMethod, der, den, stratify
 
-# -- Direct action by a vector of ITensors -----
-
-function Base.:*(Γ::ITensor, X::Vector{ITensor})  
-    Σ = Γ  
-    for x in X
-        # setprime!(Σ, 1; plev=inds(Γ)[i])
-        Σ = Σ * x
-        # noprime!(Σ; plev=inds(Γ)[i])
-    end
-    return Σ
-end
-
-# --- Wrappers to promote AbstractArray to ITensor -----
-function Base.:*(Γ ::AbstractArray, X::Vector{ITensor}) 
-    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
-    frame = [ inds(x)[1] for x in X ]
-    iΓ = typeof(Γ) <: Array ? ITensor(Γ, frame...) : ITensor( Array(Γ), frame...)
-    return iΓ * X
-end
-
-function Base.:*(Γ::ITensor, X::Vector{AbstractMatrix}) 
-    @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match ITensor axes"
-    fr = inds(Γ)
-    iX = [ ITensor( Array(X[i]), fr[i], prime(fr[i]) ) for i in 1:length(X) ]
-    return Γ * iX
-end
-
-# Make actions Ambidextrous
-function Base.:*(X::Vector{ITensor}, Γ::AbstractArray ) 
-    return Γ * X
-end
-function Base.:*(X::Vector{ITensor}, Γ::ITensor ) 
-    return Γ * X
-end
-function Base.:*(X::Vector{AbstractMatrix}, Γ::ITensor ) 
-    return Γ * X
-end
 
 end # module Dleto

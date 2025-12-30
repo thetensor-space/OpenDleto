@@ -26,8 +26,13 @@
 
 using ITensors
 
+#export randomOrthogonalMatrix, spin, randomize
 
+#add exports...
 
+"""
+    Produces a random orthogonal matrix of size n
+"""
 function randomOrthogonalMatrix(n::Integer)
     mat = randn(n,n)
     Q,R = LinearAlgebra.qr(mat)
@@ -35,248 +40,146 @@ function randomOrthogonalMatrix(n::Integer)
     return Q*D
 end;
 
-"""
-spin(t::AbstractArray)
-
-Applies random orthogonal changes of basis to all axes of the tensor t.
-
-Retruns a record tuple with coordinates .tensor, .matrices
-""" 
-function spin(t::AbstractArray)
-    mats = collect([ randomOrthogonalMatrix(size(t,a)) for a in 1:ndims(t) ])
-    tensor = act(t,mats)
-    return (;tensor, matrices)
-end;
+randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
 
 
 """
-randomize(t::ITensor)
-
-Picks 3 random invertible matrices and use them to peform a random basis change of a 3 tensor.
-Returuns named tupple with coordinates .tensor, .Xchange, .Ychange, .Zchange
-""" 
-function randomize(Γ::ITensor)::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
-    function getRand(n) 
+    Produces a random invertible matrix of size n
+"""
+function randomInvertibleMatrix(n::Integer)
+    mat = randn(n,n)
+    count = 0
+    while LinearAlgebra.rank(mat) < n && count < 100
+        count += 1
         mat = randn(n,n)
-        count = 0
-        while LinearAlgebra.rank(mat) < n && count < 100
-            count += 1
-            mat = randn(n,n)
-        end
-        if count > 99
-            throw(ErrorException("Could not generate random invertible matrix"))
-        end
-        return mat
     end
-    matrices = collect([ getRand(size(Γ,a)) for a in 1:ndims(Γ) ])
+    if count > 99
+        throw(ErrorException("Could not generate random invertible matrix"))
+    end
+    return mat
+end;
+# I thnk there shoulbe be a better way to do this...
+
+randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
+
+
+
+
+"""
+randomizeITensor(t::ITensor,f::Function, extratags)
+
+Randomize ITensor by generating random transformations for each axis using the function f
+add extra tags to the axis 
+""" 
+function randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
     frame = inds(Γ)
-    X = [ ITensor(Matrix(matrices[a]), frame[a], frame[a]') for a in 1:ndims(Γ) ]
-    # Σ = Γ
-    # for x in X
-    #     Σ = x * Σ
-    #     noprime!(Σ)
-    #     Σ = permute(Σ, inds(Γ)...)
-    # end
+    matrices = f(frame)
+    X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
     return (;Γ=(Γ*X), X)
 end;
+# I am applying f to the list of axis, because I want to be able to make transformations to be the same if the axis are the same
+# this is an internal function
 
-function randomize(t::AbstractArray)
-    frame = [ Index(size(t,a), "a$a") for a in 1:ndims(t) ]
-    if eltype(t) != Float64
-        t = Float64.(t)
-    end
-    return randomize(ITensor(t, frame...))
-end;
-    
+"""
+randomizeITensorSimilar(t::ITensor,f::Function)
+
+Randomize ITensor by generating random transformations for each axis using the function f
+""" 
+randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensor(Γ, x-> x.|>f ,extratags);
 
 
-#-------------------------------
-# generate random othorgonal matrix (likely uniform with respect to Haar maeasure, if not it should be close enough...)
-# """
-# randomOthogonalMatrix(d::Integer)::Matrix
+randomizeITensorOthorgonal(Γ::ITensor,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(Γ, randomOrthogonalMatrix);
 
-# Generate a random orthogonal matrix of size d 
-# """
-# function randomOthogonalMatrix(d::Integer)::AbstractMatrix
-#     if d < 1 
-#         throw(DimensionMismatch("matrix size needs to be non-negative"))
-#     end
-#     R = randn(d,d)
-#     M = LinearAlgebra.Symmetric(R*R')
-#     return LinearAlgebra.eigen(M).vectors
-# end;
+randomizeITensorOthorgonal(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(ArrayToITensor(t), randomOrthogonalMatrix);
 
-#-------------------------------
-# Measure distance to the surface
-surfaceDistance(a,b,c) = Base.abs(a+b+c);
+randomizeArrayOthorgonal(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(ArrayToITensor(t), randomOrthogonalMatrix);
 
-#-------------------------------
-# Measure distance to the face curve
-faceCurveDistance(a,b,c) = Base.abs(a-b);
+randomizeITensorInvertible(Γ::ITensor,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(Γ, randomInvertibleMatrix);
 
-#-------------------------------
-# Measure distance to the face curve
-curveDistance(a,b,c) = sqrt((a-b)*(a-b) + (a-c)*(a-c) + (c-b)*(c-b) );
+randomizeITensorInvertible(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(ArrayToITensor(t), randomInvertibleMatrix);
+
+randomizeArrayInvertible(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(ArrayToITensor(t), randomInvertibleMatrix);
+
 
 #-------------------------------
 # generate a tensor with support restricted by a distace function
-"""
-randTensorSupport(xes::Vector, yes::Vector, zes::Vector, cutoff::Number, dist::Function)::Array
 
-Generate a random tensor supported on a surface defined by dist(x,y,z) < cutoff
 """
-function randTensor(
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector,
-        cutoff::Number, 
+randTensorSupport(deltas::Vector{Vector}, frames::Vector{Index}, cutoff::Number, dist::Function)::ITensor
+
+Generate a random tensor supported on the constarint  dist(...) < cutoff
+"""
+function randTensorDistFunct(
+        deltas::Vector{Vector{K}} where K <: Number,
+        frames::Vector{Index{L}} where L,
+        cutoff::Number,
         dist::Function
     )::ITensor
+    val = length(deltas)
+    sizes = deltas .|> length
+    @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
+    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
-    res = zeros(Float64,(length(xes),length(yes), length(zes )))
+    res = zeros(Float64,sizes... )
     # loop over entries
+    # @show res 
     for ci in CartesianIndices(res)
         # make random numbers if the point satisfies the equation
-        if dist(xes[ci[1]], yes[ci[2]], zes[ci[3]]) < cutoff
+        # @show ci
+        # @show [deltas[i][ci[i]] for i =1:val]
+        if dist([deltas[i][ci[i]] for i =1:val] ) < cutoff
             res[ci] = randn()
         end
     end
-    x = Index(length(xes), "x")
-    y = Index(length(yes), "y")
-    z = Index(length(zes), "z")
-    return ITensor(res, x, y, z)
+    return ITensor(res, frames...)
 end;
+## it might be more efficient to generate it as zero ITensor and then add entries
 
-#-------------------------------
-# generate a tensor supported on the a surface
-"""
-randSurfaceTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array 
 
-Generate a random tensor supported on a surface with equation x_i + y_j + z_k \approx 0 
-"""
-function randSurfaceTensor(
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector, 
-        cutoff::Number
-    ):: ITensor
-    return randTensor(xes,yes,zes,cutoff,surfaceDistance)
-end;
 
-#-------------------------------
-# generate a tensor supported on the a face curve
-"""
-randFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
+randTensorDistFunct(deltas::Vector{Vector{K}} where K <: Number,cutoff::Number,dist::Function)::ITensor =
+randTensorDistFunct(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
 
-Generate a random tensor supported on a surface with equation x_i \approx y_j, we need z_k to determine the size of the tensor 
-"""
-function randFaceCurveTensor(
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector,
-        cutoff::Number
-    )::ITensor
-    return randTensor(xes,yes,zes,cutoff,faceCurveDistance)
-end;
 
-#-------------------------------
-# generate a tensor supported on the a curve
-"""
-randFaceCurveTensor(xes::Vector, yes::Vector, zes::Vector, cutoff::Number)::Array
+randTensorChisel(deltas::Vector{Vector{K}} where K <: Number, frames::Vector{Index{L}} where L, cutoff::Number, ch::Matrix)::ITensor = 
+randTensorDistFunct(deltas,frames,cutoff, x -> EvaluateChisel(ch, x));
 
-Generate a random tensor supported on a surface with equation x_i \approx y_j \approx z_k 
-"""
-function randCurveTensor(
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector, 
-        cutoff::Number
-    )::ITensor
-    return randTensor(xes,yes,zes,cutoff,curveDistance)
-end
+randTensorChisel(deltas::Vector{Vector{K}} where K <: Number, cutoff::Number, ch::Matrix)::ITensor = 
+randTensorDistFunct(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> EvaluateChisel(ch, x));
+
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
-function dist(Γ ::ITensor, xes::Vector, yes::Vector, zes::Vector, dist::Function)::Number
-    t = asarray(Γ)
-    # test valancy and sizes
-    if ndims(t) != 3
-        throw(DimensionMismatch("wrong arity of tensor"))
-    end
-    sizes = size(t)
-    if (sizes[1] != length(xes)) && (sizes[2] != length(yes)) && (sizes[3] != length(zes))
-        throw(DimensionMismatch("incompatible equation"))
-    end
+function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, dist::Function)::Number
+    frames=inds(Γ)
+    val = length(deltas)
+    sizes = deltas .|> length
+    @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
+    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
+ 
+    t = asarray(Γ)
     mass = 0.0
-    # randmass =0.0
     distance = 0.0
-    # randdist = 0.0
     product = 0.0
     for ci in CartesianIndices(t)
-    #    r = randn()
         mass += t[ci] * t[ci]
-    #    randmass += r*r
-        distance += abs( t[ci] * dist(xes[ci[1]],yes[ci[2]],zes[ci[3]] ) ) 
-    #    randdist += abs( r * dist(xes[ci[1]], yes[ci[2]], zes[ci[3]] ) )
-        product +=  dist(xes[ci[1]], yes[ci[2]], zes[ci[3]]) * dist(xes[ci[1]], yes[ci[2]], zes[ci[3]]) 
+        d= dist([deltas[i][ci[i]] for i =1:val] )
+        distance += abs( t[ci] * d ) 
+        product +=  d * d 
     end
     return distance*distance/(mass * product + 1e-15) 
 end;
 
-
-#-------------------------------
-# test if a tensor is supported on a surface
-"""
-testSurfaceTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
-
-Measure how far a tensor is from being supported on a surface with equation x_i + y_j + z_k =0 
-The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the surface 
-The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
-"""
-function distSurfaceTensor(
-        t::ITensor, 
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector
-    )::Number
-    return dist(t,xes,yes,zes,surfaceDistance)
-end
+ITensorNormChisel(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, ch::Matrix)::Number=
+ITensorNorm(Γ,deltas, x -> EvaluateChisel(ch, x) );
 
 
-#-------------------------------
-# test if a tensor is supported on a face curve
-"""
-distFaceCurveTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
 
-Measure how far a tensor is from being supported on a face curve with equation x_i = y_j 
-The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the face curve 
-The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
-"""
-function distFaceCurveTensor(
-        t::ITensor, 
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector
-    )::Number
-    return dist(t,xes,yes,zes,faceCurveDistance)
-end
-
-
-#-------------------------------
-# test if a tensor is supported on a curve
-"""
-distCurveTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number 
-
-Measure how far a tensor is from being supported on a face curve with equation x_i = y_j = z_k 
-The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the curve
-The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
-"""
-function distCurveTensor(
-        t::ITensor, 
-        xes::Vector, 
-        yes::Vector, 
-        zes::Vector
-    )::Number
-    return dist(t,xes,yes,zes,curveDistance)
-end
