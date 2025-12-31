@@ -30,16 +30,16 @@ using ITensors
 # using SparseArrays
 using PlotlyJS
 
-export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
+export normalize_tensor, side_by_side, load_tensor, save, plot
 
 
 """
-    normalizeTensor(t::ITensor)
+    normalize_tensor(t::ITensor)
 
     Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
     returns the tensor unchanged.
 """
-function normalizeTensor(t::ITensor)
+function normalize_tensor(t::ITensor)
     norm_factor = norm(store(t))
     if norm_factor == 0
         return t
@@ -48,22 +48,23 @@ function normalizeTensor(t::ITensor)
     end
 end
 
-function asarray(Γ::ITensor)
-    dims = size(Γ)
-    arr = zeros(Float64, dims...)
-    for idx in CartesianIndices(arr)
-        arr[idx] = Γ[Tuple(idx)...]
-    end
-    return arr
-end
+## DONT USE, use Array(Γ, inds(Γ)) instead!!
+# function asarray(Γ::ITensor)
+#     dims = size(Γ)
+#     arr = zeros(Float64, dims...)
+#     for idx in CartesianIndices(arr)
+#         arr[idx] = Γ[Tuple(idx)...]
+#     end
+#     return arr
+# end
 
 """
-        (left, right; left_title="Left", right_title="Right")
+        side_by_side(left, right; left_title="Left", right_title="Right")
 
 Render two array-like values side-by-side in notebook output using HTML.
 Works in Jupyter/VS Code notebooks. Titles are optional.
 """
-function sidebyside(left, right; 
+function side_by_side(left, right; 
     left_title::AbstractString="Left", 
     right_title::AbstractString="Right")
         left_txt = repr("text/plain", left)

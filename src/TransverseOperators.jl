@@ -173,6 +173,10 @@ function transverse(Ω::UniversalOps, data::Vector{<:Number} ) :: Vector{ITensor
         # accept output of reshape which is AbstractArray but not an Array.
         # so some copying going on here
         mat = Matrix(reshape(view(data, (offset+1):(offset + l*r)), (l, r)))
+        # derivation applications must be tagged so that we can add 
+        # Γ*X+Γ*Y+... which have different tags otherwise.
+        # for non-derivation applications this is not necessary.
+        # df = addtags( fr[a]', "der541" )
         mats[next] = ITensor(mat, fr[a], fr[a]')
         offset += l*r
         next += 1

@@ -28,7 +28,8 @@ module Dleto
 import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 
-include("ITensorExtension.jl")
+include("DletoUtil.jl")
+export randomize_tensor
 
 include("Chisels.jl")   
 
@@ -42,8 +43,7 @@ using PlotlyJS
 
 include("TensorIO.jl")
 # using .TensorIO
-# Re-export from TensorIO
-export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
+export normalize_tensor, side_by_side, load_tensor, save, plot
 
 include("TransverseOperators.jl")
 # using .TransverseOperators
@@ -58,7 +58,7 @@ export sylvesterLM
 include("Derivations.jl")
 # using .Derivations
 # Re-export from Derivations
-export DerivationMethod, der, den, stratify
+export DerivationMethod, der, stratify
 
 
 end # module Dleto
