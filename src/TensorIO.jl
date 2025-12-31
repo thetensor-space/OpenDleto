@@ -64,12 +64,17 @@ end
 Render two array-like values side-by-side in notebook output using HTML.
 Works in Jupyter/VS Code notebooks. Titles are optional.
 """
-function side_by_side(left, right; 
+function side_by_side(left, right;
     left_title::AbstractString="Left", 
     right_title::AbstractString="Right")
-        left_txt = repr("text/plain", left)
-        right_txt = repr("text/plain", right)
-        html = """
+
+    the_left = (typeof(left) <: ITensor) ? Array(left, inds(left)) : left
+    left_txt = repr("text/plain", the_left)
+
+    the_right = (typeof(right) <: ITensor) ? Array(right,inds(right)) : right
+    right_txt = repr("text/plain", the_right)
+    
+    html = """
         <div style=\"display:flex; gap:16px; align-items:flex-start\">
             <div style=\"flex:1\">
                 <h4>$(left_title)</h4>
@@ -80,11 +85,11 @@ function side_by_side(left, right;
                 <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(right_txt)</pre>
             </div>
         </div>
-        """
-        display(MIME("text/html"), html)
-        return nothing
+    """
+    display(MIME("text/html"), html)
+    return nothing
 end
-
+ 
 """
     loadTensor(filename::String) -> ITensor
 
@@ -161,43 +166,43 @@ function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
 end
 
 """
-    plot(tensor::ITensor, threshold::Float64=1e-2; 
+    plot_tensor(tensor::ITensor, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization", color::String="blue")   
+                   title::String="3D Tensor Visualization", color::Symbol=:blue)   
                    
-    Visualize a 3D tensor using PlotlyJS, plotting only entries
+    Visualize a 3D tensor using Plots.jl, plotting only entries
     whose absolute value exceeds the given threshold.
 """
-function plot(tensor::ITensor, threshold::Float64=1e-2; 
+function plot_tensor(tensor, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization", color::String="blue")
+                   title::String="3D Tensor Visualization", color::Symbol=:blue)
 
-                # function for rounding to threshold decimal places
-                roundToThreshold = x -> round(x, digits=Int(-log10(threshold)))
-                tensor = tensor .|> roundToThreshold
-    # # function for removing small entries
-    # dropSmall = x -> abs(x)< threshold ? 0 : x
-    # tensor = tensor .|> dropSmall
+    # Convert ITensor to array for processing
+    arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor
+    
+    # function for rounding to threshold decimal places
+    roundToThreshold = x -> round(x, digits=Int(-log10(threshold)))
+    arr = arr .|> roundToThreshold
     
     # Get indices of non-zero values in the tensor
-    indices = findall(x -> x != 0, tensor)
-    dims = size(tensor)
+    indices = findall(x -> x != 0, arr)
+    dims = size(arr)
 
     # Extract x, y, z coordinates and values
     x_coords = [idx[1] for idx in indices]
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
-    values = [abs(tensor[idx]) for idx in indices]
+    values = [abs(arr[idx]) for idx in indices]
     
     # Scale marker sizes proportional to values
-    # Normalize values to a reasonable marker size range (2-20)
+    # Normalize values to a reasonable marker size range (2-10)
     if length(values) > 0
         min_val, max_val = extrema(values)
         if min_val ≈ max_val
             marker_sizes = fill(5.0, length(values))  # All same size if all values equal
         else
-            # Scale values to range [2, 20] for marker sizes
-            marker_sizes = 2.0 .+ 18.0 .* (values .- min_val) ./ (max_val - min_val)
+            # Scale values to range [2, 10] for marker sizes
+            marker_sizes = 2.0 .+ 8.0 .* (values .- min_val) ./ (max_val - min_val)
         end
     else
         marker_sizes = Float64[]
@@ -205,25 +210,24 @@ function plot(tensor::ITensor, threshold::Float64=1e-2;
 
     println("Plotting $(length(indices)) points with value-proportional sizes...")
     
-    # Create 3D scatter plot with bounding box based on tensor dimensions
-    p = PlotlyJS.Plot(scatter3d(
-        x=x_coords, 
-        y=y_coords, 
-        z=z_coords,
-        mode="markers",
-        marker=attr(size=marker_sizes, opacity=0.6, color=color)
-    ), Layout(
-        scene=attr(
-            xaxis=attr(range=[1, dims[1]+1], title=xlabel),
-            yaxis=attr(range=[1, dims[2]+1], title=ylabel),
-            zaxis=attr(range=[1, dims[3]+1], title=zlabel),
-            aspectmode="cube"
-        ),
-        title=title
-    ))
+    # Create 3D scatter plot using Plots.jl
+    p = Plots.scatter3d(x_coords, y_coords, z_coords;
+        markersize=marker_sizes,
+        markeralpha=0.6,
+        color=color,
+        xlabel=xlabel,
+        ylabel=ylabel,
+        zlabel=zlabel,
+        title=title,
+        xlims=(1, dims[1]+1),
+        ylims=(1, dims[2]+1),
+        zlims=(1, dims[3]+1),
+        legend=false
+    )
     
-    # Return the plot object to let notebook handle rendering
+    # Return the plot object
     return p
 end
+
 
 # end # module TensorIO
