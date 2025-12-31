@@ -71,14 +71,10 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            println(inds(Σ))
-            p = plev(Γ_frame[a])
             X = Xs[next]
-            X = addtags(inds(X)[2], "moved")  # X has (fr[a]', fr[a]), need (fr[a], fr[a]')
             C = Cs[a]
             Δ = C*X*Γ  # X has primed index, contracts with Γ, result has unprimed indices
-            prime!(Δ, p, Γ_frame[a])  # Decrement prime level by 1 on axis a
-            println(inds(Δ))
+            replaceind!(Δ, Γ_frame[a]', Γ_frame[a])  # remove der tag from result
             Σ += permute(Δ, ch_axis, Γ_frame...)
             next += 1
         end
@@ -97,12 +93,12 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            p = plev(Γ_frame[a])
-            prime!(Σ, Γ_frame[a]) # raise prime to isolate axis
             C = Cs[a]
+            # specialize the a-th axis
+            replaceind!(Σ, Γ_frame[a], Γ_frame[a]') 
             Z[next] = C*Σ*Γ 
+            replaceind!(Σ, Γ_frame[a]', Γ_frame[a]) 
             next += 1
-            setprime!(Σ,p, Γ_frame[a])  # Decrement prime level by 1 on axis a
         end
         return unsafe_member(Ω, Z)
     end
@@ -118,11 +114,10 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            p = plev(Γ_frame[a])
             X = Xs[next]
             C = Cs[a]
             Z = C*X*Γ  # X has (fr[a], fr[a]'), contracts with Γ on fr[a]
-            setprime!(Z, p, Γ_frame[a])  # Decrement prime level by 1 on axis a
+            replaceind!(Z, Γ_frame[a]', Γ_frame[a] ) #"der541")  # remove der tag from result
             Σ += permute(Z, ch_axis, Γ_frame...)
             next += 1
         end
@@ -133,11 +128,11 @@ function sylvesterLM(Ω::TransverseOps, ch::Matrix, Γ::ITensor)::Tuple{LinearMa
             if !eng[a]
                 continue
             end
-            p = plev(Γ_frame[a])
-            prime!(Σ, Γ_frame[a]) # raise prime to isolate axis
             C = Cs[a]
+            # specialize the a-th axis
+            replaceind!(Σ, Γ_frame[a], Γ_frame[a]') 
             Z[next] = C*Σ*Γ
-            setprime!(Σ,p, Γ_frame[a])  # Decrement prime level by 1 on axis a
+            replaceind!(Σ, Γ_frame[a]', Γ_frame[a]) 
             next += 1
         end
         return unsafe_member(Ω, Z)

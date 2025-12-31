@@ -94,7 +94,7 @@ end
             Γ::ITensor; 
             nd::Integer=10,
             tol::Real=1e-6,
-        ) :: Vector{ITensor}
+        ) :: Vector{Vector{ITensor}}
 
     Computes up to `nd` many `P`-derivations of `Γ` for the to the given chisel `P` and transverse operators `Ω`.
     If `nd` is negative or exceeds the dimension of the derivation space
@@ -126,14 +126,13 @@ function der(method::SylverLiningMethod,
     nd::Integer=10, 
     tol=1e-6,
     kwargs...,
-    ) :: Vector{ITensor} 
+    ) :: Vector{Vector{ITensor}}
     sylvester, ester = sylvesterLM(Ω, P, Γ)
     if size(sylvester, 1) < 10000
-        println("Using dense solve.")
         M = Matrix(sylvester)
-        vecs, vals = eigen(M)
-        vecs = vecs[:, findall(abs.(diag(vals)) .< tol)]
-        Xs = [ member(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
+        vals, vecs = eigen(M)
+        vecs = vecs[:, findall(abs.(vals) .< tol)]
+        Xs = [ transverse(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
         return Xs
     end
     return nothing
@@ -146,7 +145,7 @@ end
             Δ ::Vector{ITensor};
             nd::Integer=10,
             tol::Real=1e-6,
-        ) :: Vector{ITensor}
+        ) :: Vector{Vector{ITensor}}
 
     Computes up to `nd` many tensors with `P`-derivations of `Γ` for the to the given chisel `P` and transverse operators `Ω`.
     If `nd` is negative or exceeds the dimension of the derivation space
@@ -166,12 +165,12 @@ function den(method::DerivationMethod,
     der::Vector{ITensor}; 
     nd::Integer=10,
     tol::Real=1e-6,
-    ) :: Vector{ITensor} end
+    ) :: Vector{Vector{ITensor}} end
 
 
 """
     stratify(Γ::AbstractArray, der::Vector{ITensor}) 
-    :: NamedTuple{(:tensor, :transform), Tuple{AbstractArray, TransverseOps}}
+    :: NamedTuple{(:Σ, :Xs), Tuple{AbstractArray, Vector{ITensor}}}
 
     Stratify the tensor Γ using the spall and the specified positions.
     Returns a named tuple with the sculpted tensor and the transforms used.
@@ -181,27 +180,25 @@ function den(method::DerivationMethod,
 
     Returns a named tuple with fields:
     - `Σ` The sculpted tensor
-    - `T` a transverse operator 
+    - `Xs` a transverse operator 
 """
 function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
-    ) :: NamedTuple{(:tensor, :transform), Tuple{ITensor, Vector{ITensor}}}
-    mats = map( M -> blockdiag(M).T, der )
-    dims = [size(Γ, i) for i in 1:ndims(Γ)]
-    T = contains(InvertibleOps(cat, dims), mats)
-    Σ = ITensor(inds(Γ)...)
-    for i in 1:ndims(Γ)
-        setprime!(Σ, 1; plev=inds(Γ)[i])
-        Σ = Σ * T[i]
-        noprime!(Σ; plev=inds(Γ)[i])
+    )
+    # Convert ITensors to Matrices before calling blockdiag
+    Xs = Vector{ITensor}(undef, length(der))
+    for i in 1:length(der)
+        X = der[i]
+        D, T = blockdiag(Array(X, inds(X)...))
+        Xs[i] = ITensor(T, inds(X)...)
     end
-    return (;Σ, T)
+    return (;Σ=Γ*Xs, Xs=Xs)
 end
 
 function stratify(
         Γ::ITensor
-    ) :: NamedTuple{(:tensor, :transform), Tuple{AbstractArray, Vector{ITensor}}}
+    )
     ders = der(Γ)
     return stratify(Γ, ders)
 end

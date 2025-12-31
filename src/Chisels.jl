@@ -36,7 +36,7 @@
     - `TuckerChisel`: tucker-type operators
     - `AdjointChisel`: adjoint-type operators
     - `CentroidChisel`: centroid-type operators
-    - 'NormalizeChisel': replace a chisel with equivalen one to improve numerical stability
+    - `NormalizeChisel`: replace a chisel with equivalent one to improve numerical stability
 
 """
 
@@ -68,7 +68,7 @@ end;
 
 
 """
-    Evaluate cheise on a vector, and use it to estimate the distance betwee the point and the surface.
+    Evaluate chisel on a vector, used to estimate the distance between the point and the surface.
 """
 function EvaluateChisel(Ch::Matrix, delta::Vector)::Float64
     return Ch*delta .|> (x -> x*x) |> sum |> sqrt 
