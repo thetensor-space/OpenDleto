@@ -40,7 +40,8 @@ function randomOrthogonalMatrix(n::Integer)
     return Q*D
 end;
 
-randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
+# randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
+randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(ITensors.dim(i));
 
 
 """
@@ -60,7 +61,8 @@ function randomInvertibleMatrix(n::Integer)
 end;
 # I thnk there shoulbe be a better way to do this...
 
-randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
+# randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
+randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(ITensors.dim(i));
 
 
 
@@ -125,7 +127,8 @@ function randTensorDistFunct(
     val = length(deltas)
     sizes = deltas .|> length
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
-    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
+#    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
+    @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
     res = zeros(Float64,sizes... )
     # loop over entries
@@ -162,7 +165,8 @@ function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, 
     val = length(deltas)
     sizes = deltas .|> length
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
-    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
+    # @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
+    @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
  
     t = asarray(Γ)

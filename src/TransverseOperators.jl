@@ -74,6 +74,45 @@
 """
 abstract type TransverseOps  end
 
+abstract type LocalTransverseOps  end
+
+
+"""
+    Return the native encoding of an operator in the transverse set,
+    or `Nothing` if it is not a member.
+"""
+function member(LΩ::LocalTransverseOps, mats::Matrix) :: Union{Vector{Number}, Nothing} end
+function unsafe_member(LΩ::LocalTransverseOps, mats::Vector{Matrix}) :: Vector{Number} end
+
+"""
+    Convert the native encoding of an operator in the transverse set
+    into a vector of matrices representing the operator on each engaged axis.
+"""
+function transverse(LΩ::TransverseOps, dim::Integer, data::Vector{<:Number} ) ::Matrix  end
+
+function localDim(LΩ::LocalTransverseOps, dim::Integer)::Integer end
+function containScalars(LΩ::LocalTransverseOps)::Bool  end
+
+
+
+struct LocalUniversalOps <: LocalTransverseOps end 
+struct LocalDiagonalOps <: LocalTransverseOps end 
+struct LocalSymmetricOps <: LocalTransverseOps end 
+struct LocalAnitSymmetricOps <: LocalTransverseOps end 
+
+
+localDim(::LocalUniversalOps, dim::Integer) = dim*dim; 
+localDim(::LocalDiagonalOps, dim::Integer) = dim; 
+localDim(::LocalSymmetricOps, dim::Integer) = dim*(dim+1) ÷ 2; 
+localDim(::LocalAnitSymmetricOps, dim::Integer) = dim*(dim-1) ÷ 2; 
+
+containScalars(::LocalUniversalOps)= true;
+containScalars(::LocalDiagonalOps) = true; 
+containScalars(::LocalSymmetricOps) = true; 
+containScalars(::LocalAnitSymmetricOps) = false; 
+
+
+
 function frame(Ω::TransverseOps)::Vector{Index} end
 function engaged(Ω::TransverseOps)::Vector{Bool} end
 

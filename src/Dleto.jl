@@ -25,6 +25,8 @@
 
 module Dleto
 
+#we need to prune the toml files since we most likely do not need dataframes and other such packages
+
 import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 
@@ -38,12 +40,14 @@ include("TensorSynthesis3D.jl")
 # Re-export from TensorSynthesis
 # TBD: Rethink these functions and their names for final users
 
+# I am not sure this is part of the Dleto package -- vissualization is extra
 using PlotlyJS
-
 include("TensorIO.jl")
 # using .TensorIO
 # Re-export from TensorIO
 export normalizeTensor, asarray, sidebyside, loadTensor, save, plotTensor
+
+include("LocalTransverseOperators.jl")
 
 include("TransverseOperators.jl")
 # using .TransverseOperators
