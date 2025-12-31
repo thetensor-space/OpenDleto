@@ -53,16 +53,18 @@ end
 # --- Wrappers to promote AbstractArray to ITensor -----
 function Base.:*(Γ ::AbstractArray, X::Vector{ITensor}) 
     @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match array axes"
+    # we need assert that dims are the same not only valances
     fr = [ ITensors.inds(x)[1] for x in X ]
     iΓ = typeof(Γ) <: Array ? ITensor(Γ, fr...) : ITensor( Array(Γ), fr...)
     return iΓ * X
 end
 
-function Base.:*(Γ::ITensor, X::Vector{AbstractMatrix}) 
+function Base.:*(Γ::ITensor, X::Vector{<:AbstractMatrix}) 
     @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match ITensor axes"
     fr = inds(Γ)
     iX = [ ITensor( Array(X[i]), fr[i], fr[i]' ) for i in 1:length(X) ] 
     return Γ * iX
+    # MDK This does not work if Γ = random_itensor(i,i',i'')!!!!!
 end
 
 # Make actions Ambidextrous
@@ -74,7 +76,7 @@ function Base.:*(X::Vector{ITensor}, Γ::ITensor )
     return Γ * X
 end
 
-function Base.:*(X::Vector{AbstractMatrix}, Γ::ITensor ) 
+function Base.:*(X::Vector{<:AbstractMatrix}, Γ::ITensor ) 
     return Γ * X
 end
 
@@ -94,17 +96,19 @@ type can be:
 - `:orthogonal` random orthogonal matrices
 """ 
 function randomize_tensor(Γ::ITensor; type::Symbol=:invertible):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    getRand = if type == :invertible
-        n -> __random_invertible(n)
-    elseif type == :orthogonal
-        n -> __random_orthogonal(n)
-    else
-        throw(ErrorException("Unknown randomization type: $type"))
-    end
+    # getRand = if type == :invertible
+    #     n -> __random_invertible(n)
+    # elseif type == :orthogonal
+    #     n -> __random_orthogonal(n)
+    # else
+    #     throw(ErrorException("Unknown randomization type: $type"))
+    # end
     fr = inds(Γ)
     mats = Vector{ITensor}(undef, length(fr))
-    for a in 1:length(fr)
-        mats[a] = ITensor( getRand(ITensors.dim(fr[a])), fr[a], fr[a]' )
+    for a in 1:length(fr)        
+        # mats[a] = ITensor( getRand(ITensors.dim(fr[a])), fr[a], fr[a]' )
+        mats[a] = ITensor( __random_function(type)(ITensors.dim(fr[a])), fr[a], fr[a]' )
+        # MDK This does not work if Γ = random_itensor(i,i',i'')!!!!!
     end
     return (;Δ=Γ*mats, Xs=mats)
 end;
@@ -141,4 +145,14 @@ function __random_orthogonal(n::Integer)
     Q,R = LinearAlgebra.qr(mat)
     D = Diagonal(sign.(diag(R)))
     return Q*D
+end;
+
+function __random_function(type::Symbol)::Function  
+    if type == :invertible
+        return __random_invertible
+    elseif type == :orthogonal
+        return __random_orthogonal
+    else
+        throw(ErrorException("Unknown randomization type: $type"))
+    end
 end;
