@@ -111,7 +111,7 @@ end
 function dim(Ω::UniversalOps)::Integer
     total = 0
     eng = engaged(Ω); fr = frame(Ω)
-    println("engaged: ", eng)
+    # println("engaged: ", eng)
     for a in 1:length(fr)
         if eng[a]
             total += ITensors.dim(fr[a])^2
