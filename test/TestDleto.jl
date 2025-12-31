@@ -25,3 +25,16 @@ function testMultiplication()
 
     return passing
 end
+
+function testRandomization()
+    passing = true
+    Γ = reshape( 1:8, (2,2,2))
+    
+    Ξ, Xs = randomize_tensor(Γ)
+    # Check that Γ * Xs == Ξ
+    if !isapprox(Γ * Xs, Ξ)
+        println("Randomization test failed: Γ * Xs != Ξ")
+        passing = false
+    end
+    return passing
+end
