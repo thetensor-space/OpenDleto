@@ -64,13 +64,13 @@ function NormalizeChisel(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
     RC =  svddecom.Vt[1:num,:]
     return RC * TE
 end;
-# I think it might be better to normalize using dimensions of the tensor, but I do not know what is the best way to do that 
+# MDK: I think it might be better to normalize using dimensions of the tensor, but I do not know what is the best way to do that 
 
 
 """
     Evaluate chisel on a vector, used to estimate the distance between the point and the surface.
 """
-function EvaluateChisel(Ch::Matrix, delta::Vector)::Float64
+function EvaluateChisel(Ch::Matrix, delta::Vector)::Number
     return Ch*delta .|> (x -> x*x) |> sum |> sqrt 
 end;
 

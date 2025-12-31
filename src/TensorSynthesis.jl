@@ -30,40 +30,43 @@ using ITensors
 
 #add exports...
 
-"""
-    Produces a random orthogonal matrix of size n
-"""
-function randomOrthogonalMatrix(n::Integer)
-    mat = randn(n,n)
-    Q,R = LinearAlgebra.qr(mat)
-    D = Diagonal(sign.(diag(R)))
-    return Q*D
-end;
+#moved to DletoUtil.jl
+    # """
+    #     Produces a random orthogonal matrix of size n
+    # """
+    # function randomOrthogonalMatrix(n::Integer)
+    #     mat = randn(n,n)
+    #     Q,R = LinearAlgebra.qr(mat)
+    #     D = Diagonal(sign.(diag(R)))
+    #     return Q*D
+    # end;
 
-randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
-
-
-"""
-    Produces a random invertible matrix of size n
-"""
-function randomInvertibleMatrix(n::Integer)
-    mat = randn(n,n)
-    count = 0
-    while LinearAlgebra.rank(mat) < n && count < 100
-        count += 1
-        mat = randn(n,n)
-    end
-    if count > 99
-        throw(ErrorException("Could not generate random invertible matrix"))
-    end
-    return mat
-end;
-# I thnk there shoulbe be a better way to do this...
-
-randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
+    # randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
 
 
+#moved to DletoUtil.jl
 
+    # """
+    #     Produces a random invertible matrix of size n
+    # """
+    # function randomInvertibleMatrix(n::Integer)
+    #     mat = randn(n,n)
+    #     count = 0
+    #     while LinearAlgebra.rank(mat) < n && count < 100
+    #         count += 1
+    #         mat = randn(n,n)
+    #     end
+    #     if count > 99
+    #         throw(ErrorException("Could not generate random invertible matrix"))
+    #     end
+    #     return mat
+    # end;
+    # # I thnk there shoulbe be a better way to do this...
+
+    # randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
+
+
+# All of these need to be moved to DletoUtil.jl but need some modification
 
 """
 randomizeITensor(t::ITensor,f::Function, extratags)
@@ -117,47 +120,52 @@ randTensorSupport(deltas::Vector{Vector}, frames::Vector{Index}, cutoff::Number,
 Generate a random tensor supported on the constarint  dist(...) < cutoff
 """
 function randTensorDistFunct(
-        deltas::Vector{Vector{K}} where K <: Number,
-        frames::Vector{Index{L}} where L,
+        # deltas::Vector{Vector{K}} where K <: Number,
+        # frames::Vector{Index{L}} where L,
+        deltas::Vector{Vector{<: Number}},
+        frames::Vector{Index{<: Any}},
         cutoff::Number,
         dist::Function
     )::ITensor
     val = length(deltas)
     sizes = deltas .|> length
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
-    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
+    @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
-    res = zeros(Float64,sizes... )
-    # loop over entries
-    # @show res 
-    for ci in CartesianIndices(res)
-        # make random numbers if the point satisfies the equation
-        # @show ci
-        # @show [deltas[i][ci[i]] for i =1:val]
+# MDK: add option to change the type of the entries
+# it should be more efficient to generate it as zero ITensor and then add entries
+    A = ITensor(frames...)
+    for ci in CartesianIndices(sizes)
         if dist([deltas[i][ci[i]] for i =1:val] ) < cutoff
-            res[ci] = randn()
+            A[ci] = randn()
         end
     end
-    return ITensor(res, frames...)
+    return A
+    # res = zeros(Float64,sizes... )
+    # for ci in CartesianIndices(res)
+    #     if dist([deltas[i][ci[i]] for i =1:val] ) < cutoff
+    #         res[ci] = randn()
+    #     end
+    # end
+    # return ITensor(res, frames...)
 end;
-## it might be more efficient to generate it as zero ITensor and then add entries
 
 
 
-randTensorDistFunct(deltas::Vector{Vector{K}} where K <: Number,cutoff::Number,dist::Function)::ITensor =
+randTensorDistFunct(deltas::Vector{Vector{<:Number}},cutoff::Number,dist::Function)::ITensor =
 randTensorDistFunct(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
 
 
-randTensorChisel(deltas::Vector{Vector{K}} where K <: Number, frames::Vector{Index{L}} where L, cutoff::Number, ch::Matrix)::ITensor = 
+randTensorChisel(deltas::Vector{Vector{<: Number}}, frames::Vector{Index{<:Any}}, cutoff::Number, ch::Matrix)::ITensor = 
 randTensorDistFunct(deltas,frames,cutoff, x -> EvaluateChisel(ch, x));
 
-randTensorChisel(deltas::Vector{Vector{K}} where K <: Number, cutoff::Number, ch::Matrix)::ITensor = 
+randTensorChisel(deltas::Vector{Vector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
 randTensorDistFunct(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> EvaluateChisel(ch, x));
 
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
-function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, dist::Function)::Number
+function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{<:Number}}, dist::Function)::Number
     frames=inds(Γ)
     val = length(deltas)
     sizes = deltas .|> length
@@ -165,20 +173,20 @@ function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, 
     @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
  
-    t = asarray(Γ)
+#    t = asarray(Γ) -- no need to make array we can use ccartesian indexes directly
     mass = 0.0
     distance = 0.0
     product = 0.0
-    for ci in CartesianIndices(t)
-        mass += t[ci] * t[ci]
+    for ci in CartesianIndices(sizes)
+        mass += Γ[ci] * Γ[ci]
         d= dist([deltas[i][ci[i]] for i =1:val] )
-        distance += abs( t[ci] * d ) 
+        distance += abs( Γ[ci] * d ) 
         product +=  d * d 
     end
     return distance*distance/(mass * product + 1e-15) 
 end;
 
-ITensorNormChisel(Γ ::ITensor, deltas::Vector{Vector{K}} where K <: Number, ch::Matrix)::Number=
+ITensorNormChisel(Γ ::ITensor, deltas::Vector{Vector{ <: Number}}, ch::Matrix)::Number=
 ITensorNorm(Γ,deltas, x -> EvaluateChisel(ch, x) );
 
 
