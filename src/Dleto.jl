@@ -29,6 +29,8 @@ import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 
 include("DletoUtil.jl")
+
+include("Random.jl")
 export randomize_tensor
 
 include("Chisels.jl")   
