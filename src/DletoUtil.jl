@@ -48,7 +48,7 @@ function Base.:*(Γ::ITensor, X::Vector{ITensor})
         Σ = Σ * x
     end
     return Σ
-end
+end;
 
 # --- Wrappers to promote AbstractArray to ITensor -----
 function Base.:*(Γ ::AbstractArray, X::Vector{ITensor}) 
@@ -57,7 +57,7 @@ function Base.:*(Γ ::AbstractArray, X::Vector{ITensor})
     fr = [ ITensors.inds(x)[1] for x in X ]
     iΓ = typeof(Γ) <: Array ? ITensor(Γ, fr...) : ITensor( Array(Γ), fr...)
     return iΓ * X
-end
+end;
 
 function Base.:*(Γ::ITensor, X::Vector{<:AbstractMatrix}) 
     @assert length(X) == ndims(Γ) "Ambiguous frame matching: length of list of matrices must match ITensor axes"
@@ -65,19 +65,20 @@ function Base.:*(Γ::ITensor, X::Vector{<:AbstractMatrix})
     iX = [ ITensor( Array(X[i]), fr[i], __new_index_for_change_of_basis(fr[i]) ) for i in 1:length(X) ] 
     return Γ * iX
     # MDK This does not work if Γ = random_itensor(i,i',i'')!!!!!
-end
+end;
 
 # Make actions Ambidextrous
 function Base.:*(X::Vector{ITensor}, Γ::AbstractArray ) 
     return Γ * X
-end
+end;
 
 function Base.:*(X::Vector{ITensor}, Γ::ITensor ) 
     return Γ * X
-end
+end;
 
 function Base.:*(X::Vector{<:AbstractMatrix}, Γ::ITensor ) 
     return Γ * X
-end
+end;
 
+__isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
