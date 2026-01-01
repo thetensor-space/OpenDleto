@@ -1,6 +1,6 @@
 #
-# Strata Dleto: LocalTransverse Operators
-#   Creation and application of transverse operators for tensors.
+# Strata Dleto: Local Operators
+#   Creation and application of local operators for tensors.
 #
 # -----------------------------------------------------------------------------
 # Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
@@ -41,46 +41,64 @@
     of the individual tensors stored as `ITensor` terms.
 
 """
-abstract type LocalTransverseOps  end
+abstract type LocalOps  end
 
 
 """
     Return the native encoding of an operator in the transverse set,
     or `Nothing` if it is not a member.
 """
-function coordinates(LΩ::LocalTransverseOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} end;
-function unsafe_coordinates(LΩ::LocalTransverseOps, M::AbstractMatrix) :: Vector{<: Number} end;
+function coordinates(LΩ::LocalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
+    @assert false "Calling Placeholder Abstract Function"
+end;
+function unsafe_coordinates(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<: Number} 
+    @assert false "Calling Placeholder Abstract Function"
+end;
 # this is the inverse of the embedding map
 
-function transposeEmbedding(LΩ::LocalTransverseOps, M::AbstractMatrix) :: Vector{<:Number}
-    @assert size(M)[1]==size(M)[2]
+function transposeEmbedding(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<:Number}
+    @assert size(M)[1]==size(M)[2] "Incompatable Data"
     return unsafe_transposeEmbedding(LΩ, M)  
 end;
 
-function unsafe_transposeEmbedding(LΩ::LocalTransverseOps, M::AbstractMatrix) :: Vector{<:Number} end;
+function unsafe_transposeEmbedding(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<:Number} 
+    @assert false "Calling Placeholder Abstract Function"
+end;
 # this is the transpose of the embedding map
 
 """
     Convert the native encoding of an operator into matrix.
 """
-function embedding(LΩ::TransverseOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function embedding(LΩ::LocalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
     unsafe_embedding(LΩ,dim,data)
 end;
-function unsafe_embedding(LΩ::TransverseOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  end
+function unsafe_embedding(LΩ::LocalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+    @assert false "Calling Placeholder Abstract Function"
+end;
 
 
 
-function localDim(LΩ::LocalTransverseOps, dim::Integer)::Integer end
-function containScalars(LΩ::LocalTransverseOps)::Bool  end
+function localDim(LΩ::LocalOps, dim::Integer)::Integer 
+    @assert false "Calling Placeholder Abstract Function"
+end;
 
+function containScalars(LΩ::LocalOps)::Bool  
+    @assert false "Calling Placeholder Abstract Function"
+end;
 
+export LocalOps, coordinates, unsafe_coordinates, transposeEmbedding, unsafe_transposeEmbedding, embedding, unsafe_embedding, localDim, containScalars
 
-struct LocalUniversalOps <: LocalTransverseOps end 
-struct LocalDiagonalOps <: LocalTransverseOps end 
-struct LocalSymmetricOps <: LocalTransverseOps end 
-struct LocalAnitSymmetricOps <: LocalTransverseOps end 
+struct LocalUniversalOps <: LocalOps end 
+struct LocalDiagonalOps <: LocalOps end 
+struct LocalSymmetricOps <: LocalOps end 
+struct LocalAntiSymmetricOps <: LocalOps end 
 
+#TODO
+struct LocalScalarOps <: LocalOps end 
+struct LocalEmptyOps <: LocalOps end 
+
+export LocalUniversalOps, LocalDiagonalOps, LocalSymmetricOps, LocalAntiSymmetricOps, LocalScalarOps, LocalEmptyOps
 #coordinates
 function coordinates(LΩ::LocalUniversalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     if size(M)[1]==size(M)[2]
@@ -95,96 +113,50 @@ function coordinates(LΩ::LocalDiagonalOps, M::AbstractMatrix) :: Union{Vector{<
     if sizes[1]!=sizes[2]
         return Nothing
     end
-    for i = 1: sizes[1]
-        for j =(i+1): sizes[1]
-            if M[i,j] != 0
-                return Nothing
-            end
-        end
-    end 
-    return [M[i,i] for i=1:size(M)[1]]
+    if all(__isapproxzero, vcat([M[1:i-1,i] for i=1:sizes[1]]...))
+        return [M[i,i] for i=1:size(M)[1]]
+    else
+        return Nothing
+    end
 end;
 
 
 function coordinates(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
-    k = 1
     if sizes[1]!=sizes[2]
         return Nothing
     end
-    k = 1
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    for i = 1:dim
-        A[k] = M[i,i]
-        k = k+1
-        for j = (i+1):dim
-            if M[i,j] !=  M[j,i]
-                return Nothing
-            end
-            A[k] = M[i,j]
-            k = k + 1
-        end
-    end 
-    return A
+    if all(__isapproxzero ,vcat([M[1:i-1,i] - M[i,1:i-1] for i=1:dim]...))
+        return vcat([M[1:i,i] for i=1:dim]...)
+    else 
+        return Nothing
+    end
 end;
 
-function coordinates(LΩ::LocalAnitSymmetricOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::LocalAntiSymmetricOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
-    k = 1
     if sizes[1]!=sizes[2]
         return Nothing
     end
-    k = 1
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    for i = 1:dim
-        if M[i,i]!=0
-            return Nothing
-        end
-        for j = (i+1):dim
-            if (M[i,j] +  M[j,i])!=
-                return Nothing
-            end
-            A[k] = M[i,j]
-            k = k + 1
-        end
-    end 
-    return A
+    if all(__isapproxzero ,vcat([M[1:i-1,i] + M[i,1:i-1] for i=1:dim]...))
+        return vcat([M[1:i-1,i] for i=1:dim]...)
+    else 
+        return Nothing
+    end
 end;
 
 
 #unsafe_coordinates
 unsafe_coordinates(LΩ::LocalUniversalOps, M::AbstractMatrix) :: Vector{<:Number} = reshape(M,length(M));
-unsafe_coordinates(LΩ::LocalDiagonalOps, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]]
 
-function unsafe_coordinates(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Vector{<:Number}
-    dim=size(M)[1]
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    k = 1
-    for i = 1:dim
-        A[k] = M[i,i]
-        k = k+1
-        for j = (i+1):dim
-            A[k] = (M[i,j] + M[j,i])/2
-            k = k + 1
-        end
-    end 
-    return A
-end;
+unsafe_coordinates(LΩ::LocalDiagonalOps, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
 
-function unsafe_coordinates(LΩ::LocalAnitSymmetricOps, M::AbstractMatrix) :: Vector{<:Number}
-    dim=size(M)[1]
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    k = 1
-    for i = 1:dim
-        for j = (i+1):dim
-            A[k] = M[i,j] - M[j,i]
-            k = k + 1
-        end
-    end 
-    return A
-end;
+unsafe_coordinates(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:i,i] for i=1:size(M)[1]]...);
+
+
+unsafe_coordinates(LΩ::LocalAntiSymmetricOps, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:(i-1),i] for i=1:size(M)[1]]...);
 
 
 #unsafe_transposeEmbedding
@@ -192,36 +164,12 @@ unsafe_transposeEmbedding(LΩ::LocalUniversalOps, M::AbstractMatrix) :: Vector{<
 
 unsafe_transposeEmbedding(LΩ::LocalDiagonalOps, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]]
 
-function unsafe_transposeEmbedding(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Vector{<:Number}
-    dim=size(M)[1]
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    k = 1
-    for i = 1:dim
-        A[k] = M[i,i]
-        k = k+1
-        for j = (i+1):dim
-            A[k] = M[i,j] + M[j,i]
-            k = k + 1
-        end
-    end 
-    return A
-end;
+unsafe_transposeEmbedding(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Vector{<:Number} = vcat( [vcat( M[1:(i-1),i] + M[i,1:(i-1)],M[i,i]) for i=1:size(M)[1]]...);
 
-function unsafe_transposeEmbedding(LΩ::LocalAnitSymmetricOps, M::AbstractMatrix) :: Vector{<:Number}
-    dim=size(M)[1]
-    A=zeros(eltype(M),localDim(LΩ,dim))
-    k = 1
-    for i = 1:dim
-        for j = (i+1):dim
-            A[k] = M[i,j] - M[j,i]
-            k = k + 1
-        end
-    end 
-    return A
-end;
+unsafe_transposeEmbedding(LΩ::LocalAntiSymmetricOps, M::AbstractMatrix) :: Vector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
 
 #unsafe_embedding
-unsafe_embedding(LΩ::LocalUniversalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrixMatrix = reshape(data,dim,dim);
+unsafe_embedding(LΩ::LocalUniversalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = reshape(data,dim,dim);
 
 unsafe_embedding(LΩ::LocalDiagonalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =  LinearAlgebra.Diagonal(data);
 
@@ -229,24 +177,20 @@ function unsafe_embedding(LΩ::LocalSymmetricOps, dim::Integer, data::Vector{<:N
     A=zeros(eltype(data),dim,dim)
     k = 1
     for i = 1:dim
-        for j = i:dim
-            A[i,j] = data[k]
-            A[j,i] = data[k]
-            k = k + 1
-        end
+        A[1:i,i] = data[k:k+i-1]
+        A[i,1:i] = data[k:k+i-1]
+        k = k+i
     end 
-    return A
+    return LinearAlgebra.Symmetric(A)
 end;
 
-function unsafe_embedding(LΩ::LocalAnitSymmetricOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embedding(LΩ::LocalAntiSymmetricOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     A=zeros(eltype(data),dim,dim)
     k = 1
     for i = 1:dim
-        for j = (i+1):dim
-            A[i,j] = data[k]
-            A[j,i] = - data[k]
-            k = k + 1
-        end
+        A[1:(i-1),i] = data[k:k+i-2]
+        A[i,1:(i-1)] = -data[k:k+i-2]
+        k = k+i-1
     end 
     return A
 end;
@@ -255,12 +199,12 @@ end;
 localDim(::LocalUniversalOps, dim::Integer) = dim*dim; 
 localDim(::LocalDiagonalOps, dim::Integer) = dim; 
 localDim(::LocalSymmetricOps, dim::Integer) = dim*(dim+1) ÷ 2; 
-localDim(::LocalAnitSymmetricOps, dim::Integer) = dim*(dim-1) ÷ 2; 
+localDim(::LocalAntiSymmetricOps, dim::Integer) = dim*(dim-1) ÷ 2; 
 
 #contains Scalars
 containScalars(::LocalUniversalOps)= true;
 containScalars(::LocalDiagonalOps) = true; 
 containScalars(::LocalSymmetricOps) = true; 
-containScalars(::LocalAnitSymmetricOps) = false; 
+containScalars(::LocalAntiSymmetricOps) = false; 
 
 

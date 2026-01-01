@@ -47,6 +47,12 @@ include("TensorIO.jl")
 # using .TensorIO
 export normalize_tensor, side_by_side, load_tensor, save, plot
 
+
+include("LocalOperators.jl")
+include("GlobalOperatorsAbstract.jl")
+#include("GlobalOperators.jl")
+#include("GlobalOperatorsSymmetries.jl")
+
 include("TransverseOperators.jl")
 # using .TransverseOperators
 # Re-export from TransverseOperators
