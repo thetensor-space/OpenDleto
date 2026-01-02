@@ -41,17 +41,22 @@ include("TensorSynthesis3D.jl")
 # Re-export from TensorSynthesis
 # TBD: Rethink these functions and their names for final users
 
+include("LocalOperatorsAbstract.jl")
+include("LocalOperatorsImplementations.jl")
+include("GlobalOperatorsAbstract.jl")
+include("GlobalOperatorsIndependant.jl")
+
+# include("GlobalOperatorsSymmetries.jl")
+
+
+
+
 using PlotlyJS
 
 include("TensorIO.jl")
 # using .TensorIO
 export normalize_tensor, side_by_side, load_tensor, save, plot
 
-
-include("LocalOperators.jl")
-include("GlobalOperatorsAbstract.jl")
-include("GlobalOperators.jl")
-#include("GlobalOperatorsSymmetries.jl")
 
 include("TransverseOperators.jl")
 # using .TransverseOperators
