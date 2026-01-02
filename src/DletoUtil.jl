@@ -216,7 +216,7 @@ function Base.:*(X::Vector{AbstractMatrix}, Γ::ITensor )
 end
 
 function Base.:*(X::Vector{T},Γ::ITensor ) where T<:Number
-    return X * Γ
+    return Γ * X
 end
 
 
