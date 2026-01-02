@@ -59,7 +59,7 @@ export sylvesterLM
 include("Derivations.jl")
 # using .Derivations
 # Re-export from Derivations
-export DerivationMethod, der, stratify
+export DerivationMethod, der, stratify, blockdiag
 
 
 end # module Dleto
