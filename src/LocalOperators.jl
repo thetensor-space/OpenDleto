@@ -100,23 +100,16 @@ struct LocalEmptyOps <: LocalOps end
 
 export LocalUniversalOps, LocalDiagonalOps, LocalSymmetricOps, LocalAntiSymmetricOps, LocalScalarOps, LocalEmptyOps
 #coordinates
-function coordinates(LΩ::LocalUniversalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
-    if size(M)[1]==size(M)[2]
-        return reshape(M,length(M))
-    else
-        return Nothing
-    end 
-end;
+coordinates(LΩ::LocalUniversalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} =
+    size(M)[1]==size(M)[2] ? reshape(M,length(M)) : nothing;
 
 function coordinates(LΩ::LocalDiagonalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
-    if sizes[1]!=sizes[2]
-        return Nothing
-    end
+    (sizes[1]==sizes[2]) || return nothing
     if all(__isapproxzero, vcat([M[1:i-1,i] for i=1:sizes[1]]...))
         return [M[i,i] for i=1:size(M)[1]]
     else
-        return Nothing
+        return nothing
     end
 end;
 
@@ -124,26 +117,22 @@ end;
 function coordinates(LΩ::LocalSymmetricOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
-    if sizes[1]!=sizes[2]
-        return Nothing
-    end
+    (sizes[1]==sizes[2]) || return nothing
     if all(__isapproxzero ,vcat([M[1:i-1,i] - M[i,1:i-1] for i=1:dim]...))
         return vcat([M[1:i,i] for i=1:dim]...)
     else 
-        return Nothing
+        return nothing
     end
 end;
 
 function coordinates(LΩ::LocalAntiSymmetricOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
-    if sizes[1]!=sizes[2]
-        return Nothing
-    end
+    (sizes[1]==sizes[2]) || return nothing
     if all(__isapproxzero ,vcat([M[1:i-1,i] + M[i,1:i-1] for i=1:dim]...))
         return vcat([M[1:i-1,i] for i=1:dim]...)
     else 
-        return Nothing
+        return nothing
     end
 end;
 
