@@ -29,7 +29,7 @@ import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 
 include("DletoUtil.jl")
-export randomize_tensor
+export randomize_tensor, nondeg
 
 include("Chisels.jl")   
 

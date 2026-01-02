@@ -173,7 +173,7 @@ end
     Visualize a 3D tensor using Plots.jl, plotting only entries
     whose absolute value exceeds the given threshold.
 """
-function plot_tensor(tensor, threshold::Float64=1e-2; 
+function plot_tensor(tensor, threshold::Float64=1e-6; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::Symbol=:blue)
 

@@ -128,14 +128,14 @@ function der(method::SylverLiningMethod,
     kwargs...,
     ) :: Vector{Vector{ITensor}}
     sylvester, ester = sylvesterLM(Ω, P, Γ)
-    if size(sylvester, 1) < 10000
+    # if size(sylvester, 1) < 10000
         M = Matrix(sylvester)
         vals, vecs = eigen(M)
         vecs = vecs[:, findall(abs.(vals) .< tol)]
         Xs = [ transverse(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
         return Xs
-    end
-    return nothing
+    # end
+    # return nothing
 end
 
 """
@@ -200,7 +200,27 @@ function stratify(
         Γ::ITensor
     )
     ders = der(Γ)
-    return stratify(Γ, ders)
+    if isempty(ders)
+        # should never happen as there are always trivial derivations
+        # so this indicates an error
+        error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
+    end
+    # Select a random linear combination of derivations
+    # Each derivation is a Vector{ITensor} with one ITensor per axis
+    n_ders = length(ders)
+    n_axes = ndims(Γ)
+    coefs = [ randn(10) for _ in 1:n_ders ]
+    
+    # Initialize δ as zeros with same structure as ders[1]
+    δ = Vector{ITensor}(undef, n_axes)
+    for a in 1:n_axes
+        # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
+        δ[a] = coefs[1] * ders[1][a]
+        for d in 2:n_ders
+            δ[a] += coefs[d] * ders[d][a]
+        end
+    end
+    return stratify(Γ, δ)
 end
 
 function stratify(
@@ -214,8 +234,7 @@ end
 function stratify(
         Γ::AbstractArray
     )
-    ders = der(Γ)
-    return stratify(Γ, ders[1])
+    return stratify(__ITensor(Γ))
 end
 
 #---------------- Generic Derivation Densor Functions -------------------------
@@ -258,7 +277,14 @@ function blockdiag(M::Matrix)
             real_blocks[:, i] = real(eigenvecs[:, i])
             processed[i] = true
         else
-            j = i+findfirst(j -> !processed[j] && isapprox(eigenvals[j], conj(λ)), (i+1):n)
+            # Find the conjugate pair in remaining eigenvalues
+            j = nothing
+            for k in (i+1):n
+                if !processed[k] && isapprox(eigenvals[k], conj(λ))
+                    j = k
+                    break
+                end
+            end
             if j !== nothing
                 # Create real 2D subspace from conjugate pair
                 v = eigenvecs[:, i]
