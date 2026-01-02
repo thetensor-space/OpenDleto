@@ -32,6 +32,9 @@
 
     - `Γ`: The input tensor.
     - `A`: A vector of indices of `Γ` to consider.
+    - mode: Symbol, either `:trunc` (default) or `:Tucker`.
+        - `:trunc`: Projects onto nondegenerate subspace.
+        - `:full`: Performs Tucker decomposition without truncation.
     - `tol`: Tolerance for determining nondegeneracy (default: 1e-10).
 
     Returns a named tuple with fields:
@@ -43,6 +46,7 @@
 """
 function nondeg(Γ::ITensor, 
                 A::Vector{Index{T}}, 
+                mode::Symbol=:trunc,
                 tol::Float64=1e-10) where T
     fr = inds(Γ)
     # Sort fr from largest size to smallest
@@ -52,10 +56,15 @@ function nondeg(Γ::ITensor,
     for (i, a) in enumerate(filter(x -> x in A, fr))
         a_comp = filter(e -> e != a, fr)
         U, S, V = ITensors.svd(Γ, a_comp)
+        if mode == :full
+            Es[i] = V
+            Δ = Δ * Es[i]
+            continue
+        end
         # Extract diagonal singular values from S as a regular array
         S_vals = diag(Array(S, inds(S)...))
         nondeg_idx = findall(s -> s >= tol, S_vals)
-println("Nondegenerate indices for axis $(i): ", nondeg_idx)
+# println("Nondegenerate indices for axis $(i): ", nondeg_idx)
         in_dim = ITensors.dim(a)
         if isempty(nondeg_idx)
             # Fully degenerate - return identity (edge case)
@@ -123,8 +132,8 @@ println("Nondegenerate indices for axis $(i): ", nondeg_idx)
     # end
     # return (;Δ = Γ*E, E=E)
 end;
-function nondeg(Γ::ITensor)
-    return nondeg(Γ, collect(inds(Γ)))
+function nondeg(Γ::ITensor; mode::Symbol=:trunc, tol::Float64=1e-10)
+    return nondeg(Γ, collect(inds(Γ)), mode, tol)
 end;
 
 function nondeg(Γ::AbstractArray, 
