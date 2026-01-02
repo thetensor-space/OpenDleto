@@ -1,6 +1,6 @@
 # Local Operator Testing
 
-# TODO add tests that the timensions are OK and other similar thigns
+# TODO add tests that the dimensions are OK; return nothing etc
 
 
 LΩs=[ LocalUniversalOps(), LocalDiagonalOps(), LocalSymmetricOps(), LocalAntiSymmetricOps() ];
@@ -13,7 +13,7 @@ function testInverse(Ω::LocalOps, dim::Integer, num::Integer)
         M = embedding(Ω,dim,a)
         mat = Matrix(M)
         @assert isapprox(a, coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
-        @assert isapprox(a, coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $M \r\n"
+        @assert isapprox(a, coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
     end
     return true
 end;
