@@ -33,10 +33,26 @@
 """
     Abstract Global Operators
 
-    TO BE WRITTEN
+    Abstract Class for providing encoding and decoving data from list of matrices/ITensors to in internal vectors.
+    Need to provide functions
+    -- coodinates: turn list of matrices into vector or retruns nothing.
+    -- unsafe_coordinates: same but assumes that the vector is in the image and does not do any checking
+    -- embeddingMatrices/embeddingITensors: turns a vector into list of matrices 
+        (this needs to be a linear map, which is left(right?) of coordinatres) 
+    -- unsafe_embeddingMatrices/unsafe_embeddingITensors: as above but does not do any checking
+    -- transposeEmbedding: linear dual(transpose) of the emnedding, turns list of matrices into a vector
+
+    several function like globalDim, axisDims, valancy: which provide data for the sizes of matrices
+        
+    most safe functions are auto-generated from the unsafe one by adding trivial checks
+    
+    -- reduceByEngaged(::AbstractGlobalOps, ::Vector{Bool})::AbstractGlobalOps produce new GlobalOps,
+        where some of the axis are not engaged
 
 """
 abstract type AbstractGlobalOps end
+
+
 export AbstractGlobalOps
 export coordinates, unsafe_coordinates, transposeEmbedding, unsafe_transposeEmbedding
 export embeddingMatrices, unsafe_embeddingMatrices, embeddingITensors, unsafe_embeddingITensors
