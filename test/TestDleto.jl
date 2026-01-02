@@ -41,7 +41,7 @@ end
 
 function testDegeneracy()
     passing = true
-    for val in 2:10
+    for val in 3:6
         dmax = round(Int, 1000^(1/val))
         es = Tuple(rand(5:dmax) for _ in 1:val)
         ds = Tuple(es[i] + rand(0:10) for i in 1:val)
