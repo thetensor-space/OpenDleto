@@ -70,9 +70,12 @@ function coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Union{Vec
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
     @assert all([ length(inds(ITs[i])) == 2  for i =1:val ])  "Incompatable Data"
-    @assert all([ inds(ITs[i])[1] == fr[i]  for i =1:val ])  "Incompatable Data"
-    @assert all([ inds(ITs[i])[2] == frT[i]  for i =1:val ])  "Incompatable Data"
-    coordinates(GΩ, ITs.|> __asMatrix);
+    @assert all([ 
+            ((inds(ITs[i])[1] == fr[i]) || (inds(ITs[i])[1] == frT[i])) && 
+            ((inds(ITs[i])[2] == fr[i]) || (inds(ITs[i])[2] == frT[i])) && 
+            (inds(ITs[i])[1] != inds(ITs[i])[2]) 
+        for i =1:val ])  "Incompatable Data"
+    return coordinates(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
 function unsafe_coordinates(GΩ::AbstractGlobalOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} 
@@ -96,9 +99,12 @@ function transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{ITensor}) :: Vec
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
     @assert all([ length(inds(ITs[i])) == 2  for i =1:val ])  "Incompatable Data"
-    @assert all([ inds(ITs[i])[1] == fr[i]  for i =1:val ])  "Incompatable Data"
-    @assert all([ inds(ITs[i])[2] == frT[i]  for i =1:val ])  "Incompatable Data"
-    return unsafe_transposeEmbedding(LΩ, ITs .|> __asMatrix)  
+    @assert all([ 
+            ((inds(ITs[i])[1] == fr[i]) || (inds(ITs[i])[1] == frT[i])) && 
+            ((inds(ITs[i])[2] == fr[i]) || (inds(ITs[i])[2] == frT[i])) && 
+            (inds(ITs[i])[1] != inds(ITs[i])[2]) 
+        for i =1:val ])  "Incompatable Data"
+    return unsafe_transposeEmbedding(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
 function unsafe_transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
@@ -174,6 +180,17 @@ function __asMatrix(T::ITensor)::AbstractMatrix
     A = zeros(eltype(T),n,m)
     for ci in CartesianIndices(A)
         A[ci] = T[ci]
+    end
+    return A
+end;
+
+function __asMatrixTranspose(T::ITensor)::AbstractMatrix
+    fr = inds(T)
+    n = ITensors.dim(fr[1])
+    m = ITensors.dim(fr[2])
+    A = zeros(eltype(T),n,m)
+    for ci in CartesianIndices(A)
+        A[ci] = T[ci[2],ci[1]]
     end
     return A
 end;
