@@ -14,12 +14,16 @@ function testInverse(Ω::LocalOps, dim::Integer, num::Integer)
         M = embedding(Ω,dim,a)
         mat = Matrix(M)
         # @show Ω, M, mat
+        @assert !isa(coordinates(Ω, M), Nothing) "Failed Invertability rturn Nothing"
+        @assert !isa(coordinates(Ω, mat), Nothing) "Failed Invertability rturn Nothing"
         @assert isapprox(a, coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
         M = unsafe_embedding(Ω,dim,a)
         mat = Matrix(M)
+        @assert !isa(coordinates(Ω, M), Nothing) "Failed Invertability rturn Nothing"
+        @assert !isa(coordinates(Ω, mat), Nothing) "Failed Invertability rturn Nothing"
         @assert isapprox(a, coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
