@@ -78,8 +78,6 @@ GlobalOpsIndependant(fr ::Vector{Index{K}} where K, localOp ::LocalOps) =
 
 
 
-#Todo function reduceByEngaged TO BE IMPLEMENTED
-
 export GlobalOpsIndependant
 
 globalDim(GΩ::GlobalOpsIndependant)::Integer  = GΩ.globalDim;
@@ -119,10 +117,6 @@ end;
 
 function reduceByEngaged(GΩ::GlobalOpsIndependant, engaged::Vector{Bool})::AbstractGlobalOps 
     @assert GΩ.val == length(engaged) "Incompatible data"
-    GlobalOpsIndependant(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
+    return GlobalOpsIndependant(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
 end;
 
-# function to create temp index
-function __globalOpsMakeTempIndex(I::Index)::Index
-    return Index(ITensors.dim(I),"Temp index for $I")
-end;
