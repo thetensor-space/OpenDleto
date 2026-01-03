@@ -194,3 +194,8 @@ function __asMatrixTranspose(T::ITensor)::AbstractMatrix
     end
     return A
 end;
+
+# function to create temp index
+function __globalOpsMakeTempIndex(I::Index)::Index
+    return Index(ITensors.dim(I),"Temp index for $I")
+end;
