@@ -135,10 +135,20 @@ function coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} )
     return vcat(filteredres...)
 end;
 
-#ToDo.....
+#Needs Testing
 function reduceByEngaged(GΩ::GlobalOpsSymmetries, engaged::Vector{Bool})::AbstractGlobalOps 
-    @assert GΩ.val == length(engaged) "Incompatible data"
-    ## generate new symmetries 
+    val=GΩ.val
+    syms=GΩ.syms
+    duals=Ω.duals
+    @assert val == length(engaged) "Incompatible data"
+
+    renumsyms= [ minimum( [ syms[j]== k && engaged[j] ? j : 1000 for j = k:val ])  for k =1:val]
+    newsyms = [ renumsyms[syms[k]] for k = 1:val ]
+    fixdual = [ engaged[k] ? xor(duals[k], duals[newsyms[k] ] ) :  true for k =1:val ] 
+    renumber = [sum(engaged[1:k]) for k =1:val]
+    newsymmetries_all = [fixdual[k] ? -renumber[newsyms[k]] : renumber[newsyms[k]]  for k =1:val]
+    newsymmetries = newsymmetries_all[engaged] 
+    ## generate new GlobalOps 
     return all( [i==newsymmetries[i]  for i=1:lenght(newsymmetries)]) ? 
         GlobalOpsIndependant(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) : 
         GlobalOpsSymmetries(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], newsymmetries)

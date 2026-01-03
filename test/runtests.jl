@@ -15,9 +15,9 @@ const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
 
 #     #include( "TestDletoUtils.jl" )
-# include( "TestChisels.jl" )
-# include( "TestLocalOperators.jl" )
-# include( "TestGlobalOperators.jl" )
+include( "TestChisels.jl" )
+include( "TestLocalOperators.jl" )
+include( "TestGlobalOperators.jl" )
 
     #include( "TestTransverseOps.jl" )
 include( "TestSylverLining.jl" )
