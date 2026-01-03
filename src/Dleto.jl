@@ -31,7 +31,7 @@ using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 include("DletoUtil.jl")
 
 include("Random.jl")
-export randomize_tensor
+export randomize_tensor, nondeg
 
 include("Chisels.jl")   
 
@@ -72,7 +72,7 @@ export sylvesterLM
 include("Derivations.jl")
 # using .Derivations
 # Re-export from Derivations
-export DerivationMethod, der, stratify
+export DerivationMethod, der, stratify, blockdiag
 
 
 end # module Dleto

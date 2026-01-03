@@ -61,28 +61,28 @@
 abstract type DerivationMethod end
 
 #---- Convenience Functions -------------------------------------------------------
-function der(ops::TransverseOps, ch::AbstractMatrix, Γ::ITensor)
-    return der(SylverLiningMethod(), ops, ch, Γ)
+function der(ops::TransverseOps, ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
+    return der(SylverLiningMethod(), ops, ch, Γ, nd, tol)
 end
-function der(ops::TransverseOps, ch::AbstractMatrix, Γ::AbstractArray)
+function der(ops::TransverseOps, ch::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    return der( ops, ch, Σ)
+    return der(ops, ch, Σ; nd=nd, tol=tol)
 end
-function der(ch::AbstractMatrix, Γ::AbstractArray)
+function der(ch::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
     ops = UniversalOps(fr)
-    return der(ops, ch, Σ)
+    return der(ops, ch, Σ; nd=nd, tol=tol)
 end
-function der(ch::AbstractMatrix, Γ::ITensor)
+function der(ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
     fr = collect(inds(Γ))
     ops = UniversalOps(fr)
-    return der(ops, ch, Γ)
+    return der(ops, ch, Γ; nd=nd, tol=tol)
 end
-function der(Γ)
+function der(Γ; nd::Integer=10, tol::Real=1e-6)
     ch = UniversalChisel(ndims(Γ))
-    return der(ch, Γ)
+    return der(ch, Γ; nd=nd, tol=tol)
 end
 
 
@@ -128,14 +128,17 @@ function der(method::SylverLiningMethod,
     kwargs...,
     ) :: Vector{Vector{ITensor}}
     sylvester, ester = sylvesterLM(Ω, P, Γ)
-    if size(sylvester, 1) < 10000
+    # if size(sylvester, 1) < 10000
         M = Matrix(sylvester)
         vals, vecs = eigen(M)
         vecs = vecs[:, findall(abs.(vals) .< tol)]
+        if nd > 0 && size(vecs, 2) > nd
+            vecs = vecs[:, 1:nd]
+        end
         Xs = [ transverse(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
         return Xs
-    end
-    return nothing
+    # end
+    # return nothing
 end
 
 """
@@ -200,7 +203,28 @@ function stratify(
         Γ::ITensor
     )
     ders = der(Γ)
-    return stratify(Γ, ders)
+    if isempty(ders)
+        # should never happen as there are always trivial derivations
+        # so this indicates an error
+        error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
+    end
+    println("Found $(length(ders)) derivations for stratification.")
+    # Select a random linear combination of derivations
+    # Each derivation is a Vector{ITensor} with one ITensor per axis
+    n_ders = length(ders)
+    n_axes = ndims(Γ)
+    coefs = [ randn(10) for _ in 1:n_ders ]
+    
+    # Initialize δ as zeros with same structure as ders[1]
+    δ = Vector{ITensor}(undef, n_axes)
+    for a in 1:n_axes
+        # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
+        δ[a] = coefs[1] * ders[1][a]
+        for d in 2:n_ders
+            δ[a] += coefs[d] * ders[d][a]
+        end
+    end
+    return stratify(Γ, δ)
 end
 
 function stratify(
@@ -214,8 +238,7 @@ end
 function stratify(
         Γ::AbstractArray
     )
-    ders = der(Γ)
-    return stratify(Γ, ders[1])
+    return stratify(__ITensor(Γ))
 end
 
 #---------------- Generic Derivation Densor Functions -------------------------
@@ -237,7 +260,7 @@ end
     res = blockdiag(M); isapprox(M * res.T, res.T * res.D)
     ```
 """
-function blockdiag(M::Matrix)
+function blockdiag(M::Matrix; tol::Float64=1e-10)
     res = LinearAlgebra.eigen(M)
     eigenvals = res.values
     eigenvecs = res.vectors
@@ -252,13 +275,21 @@ function blockdiag(M::Matrix)
         end
         
         λ = eigenvals[i]
-        if isreal(λ)
+        # Check if eigenvalue is effectively real (imaginary part below tolerance)
+        if abs(imag(λ)) < tol
             # Real eigenvalue
             real_diag[i,i] = real(λ)
             real_blocks[:, i] = real(eigenvecs[:, i])
             processed[i] = true
         else
-            j = i+findfirst(j -> !processed[j] && isapprox(eigenvals[j], conj(λ)), (i+1):n)
+            # Find the conjugate pair in remaining eigenvalues
+            j = nothing
+            for k in (i+1):n
+                if !processed[k] && isapprox(eigenvals[k], conj(λ); atol=tol)
+                    j = k
+                    break
+                end
+            end
             if j !== nothing
                 # Create real 2D subspace from conjugate pair
                 v = eigenvecs[:, i]
@@ -269,6 +300,12 @@ function blockdiag(M::Matrix)
                 real_blocks[:, i] = real(v)
                 real_blocks[:, j] = imag(v)
                 processed[i] = processed[j] = true
+            else
+                # No conjugate found - treat as real (shouldn't happen for real matrices)
+                @warn "No conjugate pair found for eigenvalue $λ at index $i, treating as real"
+                real_diag[i,i] = real(λ)
+                real_blocks[:, i] = real(eigenvecs[:, i])
+                processed[i] = true
             end
         end
     end
