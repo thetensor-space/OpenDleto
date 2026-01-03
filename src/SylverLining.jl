@@ -70,6 +70,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
                     reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
                     ) 
                 for a in 1:engsize] 
+                # I think permute is might be avoided by swichting the order of the tensor multiplication, but this needs to be tested
         return unsafe_transposeEmbedding(reducedΩ,Ys)
     end
 
