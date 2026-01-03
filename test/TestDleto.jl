@@ -38,3 +38,27 @@ function testRandomization()
     end
     return passing
 end
+
+function testDegeneracy()
+    passing = true
+    for val in 3:6
+        dmax = round(Int, 1000^(1/val))
+        es = Tuple(rand(5:dmax) for _ in 1:val)
+        ds = Tuple(es[i] + rand(0:10) for i in 1:val)
+        Δ = zeros(Float64, ds);  
+        Δ[UnitRange.(1, es)...] .= randn(es...)
+        Δ_rand, Xs = randomize_tensor(Δ);  
+        @assert isapprox(Δ * Xs, Δ_rand) "Randomization test failed: Δ * Xs != Δ_rand"
+        Δ_nondeg, Ys = nondeg(Δ_rand)
+        @assert isapprox(Δ_rand * Ys, Δ_nondeg) "Nondegeneracy test failed: Δ_nondeg * Y2s != Δ"
+        # check dims.
+        for a in 1:ndims(Δ)
+            if size(Δ_nondeg, a) != es[a]
+                println("Nondegeneracy test failed: axis $a size mismatch $(size(Δ_nondeg, a)) != $(es[a])")
+                passing = false
+                return Δ_rand, Δ
+            end
+        end
+    end
+    return passing
+end
