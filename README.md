@@ -14,8 +14,8 @@ You can open Jupyter notebooks in your browser without installing anything by cl
 ## Contents
 
 - [Contents](#contents)
-- [What can we find?](#what-can-we-find)
-- [Install](#install)
+- [What OpenDleto Does](#What-OpenDleto-Does)
+- [Installation Guide](#Installation-Guide)
 - [Our Team](#our-team)
 - [Acknowledgments](#acknowledgments)
 - [Samples](#samples)
@@ -24,7 +24,7 @@ You can open Jupyter notebooks in your browser without installing anything by cl
   - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
   - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
 
-## What does OpenDleto do?
+## What OpenDleto Does
 Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal a lower valence support. For instance, given a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
@@ -44,9 +44,7 @@ Here are some examples of what this can look like:
 |------------------|----------------|
 | <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
 
-
-
-## Install
+## Installation Guide
 
 Dleto is now a Julia package! You can install it in several ways:
 
