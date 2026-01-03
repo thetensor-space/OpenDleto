@@ -26,55 +26,14 @@
 
 using ITensors
 
-#export randomOrthogonalMatrix, spin, randomize
-
-#add exports...
-
-#moved to DletoUtil.jl
-    # """
-    #     Produces a random orthogonal matrix of size n
-    # """
-    # function randomOrthogonalMatrix(n::Integer)
-    #     mat = randn(n,n)
-    #     Q,R = LinearAlgebra.qr(mat)
-    #     D = Diagonal(sign.(diag(R)))
-    #     return Q*D
-    # end;
-
-    # randomOrthogonalMatrix(i::Index) = randomOrthogonalMatrix(i.space);
-
-
-#moved to DletoUtil.jl
-
-    # """
-    #     Produces a random invertible matrix of size n
-    # """
-    # function randomInvertibleMatrix(n::Integer)
-    #     mat = randn(n,n)
-    #     count = 0
-    #     while LinearAlgebra.rank(mat) < n && count < 100
-    #         count += 1
-    #         mat = randn(n,n)
-    #     end
-    #     if count > 99
-    #         throw(ErrorException("Could not generate random invertible matrix"))
-    #     end
-    #     return mat
-    # end;
-    # # I thnk there shoulbe be a better way to do this...
-
-    # randomInvertibleMatrix(i::Index) = randomInvertibleMatrix(i.space);
-
-
-# All of these need to be moved to DletoUtil.jl but need some modification
 
 """
-randomizeITensor(t::ITensor,f::Function, extratags)
+__randomizeITensor(t::ITensor,f::Function, extratags)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 add extra tags to the axis 
 """ 
-function randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
+function __randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
     frame = inds(Γ)
     matrices = f(frame)
     X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
@@ -88,7 +47,7 @@ randomizeITensorSimilar(t::ITensor,f::Function)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 """ 
-randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
+randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = __randomizeITensor(Γ, x-> x.|>f ,extratags);
 randomizeITensor(Γ, x-> x.|>f ,extratags);
 
 
