@@ -45,8 +45,7 @@ include("LocalOperatorsAbstract.jl")
 include("LocalOperatorsImplementations.jl")
 include("GlobalOperatorsAbstract.jl")
 include("GlobalOperatorsIndependant.jl")
-
-# include("GlobalOperatorsSymmetries.jl")
+include("GlobalOperatorsSymmetries.jl")
 
 
 
@@ -58,20 +57,20 @@ include("TensorIO.jl")
 export normalize_tensor, side_by_side, load_tensor, save, plot
 
 
-include("TransverseOperators.jl")
+#include("TransverseOperators.jl")
 # using .TransverseOperators
 # Re-export from TransverseOperators
-export TransverseOps, UniversalOps, engaged, frame, dim, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
+#export TransverseOps, UniversalOps, engaged, frame, dim, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
 include("SylverLining.jl")
 # using .SylverLining
 # Re-export from SylverLining
 export sylvesterLM
 
-include("Derivations.jl")
-# using .Derivations
-# Re-export from Derivations
-export DerivationMethod, der, stratify
+# include("Derivations.jl")
+# # using .Derivations
+# # Re-export from Derivations
+# export DerivationMethod, der, stratify
 
 
 end # module Dleto

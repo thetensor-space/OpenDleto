@@ -68,20 +68,30 @@ struct GlobalOpsSymmetries <: AbstractGlobalOps
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
         axisDims = fr .|> ITensors.dim;
-        @assert val = length(symmetires) "Incompatable data";
-        syms = symmetires .|> abs;
+        @assert val == length(symmetries) "Incompatable data";
+        syms = symmetries .|> abs;
         @assert all([ (syms[i] <= i) && (syms[i] >=1 ) && (symmetries[i] != -i)   for i=1:val]) "Incompatable dimensions";
-        duals = symmetires .|> (x -> x < 0 );
-        @assert all([ axisDims[i] == axisDims[sym[i]]    for i=1:val]) "Incompatable dimensions";
-        @assert all([ localOps[i] == localOps[sym[i]]    for i=1:val]) "Incompatable dimensions";
+        duals = symmetries .|> (x -> x < 0 );
+        @assert all([ axisDims[i] == axisDims[syms[i]]    for i=1:val]) "Incompatable local dimensions";
+        @assert all([ localOps[i] == localOps[syms[i]]    for i=1:val]) "Incompatable local operators";
 
-        localDims =[ sym[i] == i ? localDim(localOps[i], axisDims[i]) : 0 for i=1:val];
+        localDims =[ syms[i] == i ? localDim(localOps[i], axisDims[i]) : 0 for i=1:val];
         globalDim = sum(localDims);
         offsets = [ sum(localDims[1:(i-1)]) for i=1:(val+1)]; 
         new(val,fr,frTemp,axisDims,globalDim,offsets,localOps,syms,duals)
     )
 end; 
 #extra constructors
+# auto generate new indexes
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:LocalOps},symmetries ::Vector{<:Integer}) = 
+    GlobalOpsSymmetries(fr, fr .|> __globalOpsMakeTempIndex ,localOps, symmetries);
+#same localOp on each axis
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::LocalOps,symmetries ::Vector{<:Integer}) = 
+    GlobalOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::LocalOps) = 
+    GlobalOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
+
+
 ## #TO BE DONE
 
 export GlobalOpsSymmetries

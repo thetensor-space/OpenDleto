@@ -77,7 +77,7 @@ function testTranspose(Ω::AbstractGlobalOps, num::Integer)
 end;
 
 
-@testset "GlobalOperators Tests" begin
+@testset "Independent Global Operators Tests" begin
     for val = 2:10
         @testset "Valency $val Tests" begin
             for i = 1:30
@@ -85,6 +85,21 @@ end;
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
                 localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
                 Ω = GlobalOpsIndependant(frames,localops)
+                @test testInverse(Ω, 100)
+                @test testTranspose(Ω, 100)
+            end 
+        end
+    end
+end
+
+@testset "Symetries Global Operators Tests" begin
+    for val = 2:10
+        @testset "NoSymmetry Valency $val Tests" begin
+            for i = 1:30
+                axisdim = rand(1:15, val)
+                frames = axisdim .|>  (i-> Index(i,"dim $i"))
+                localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
+                Ω = GlobalOpsSymmetries(frames,localops,[i for i=1:val])
                 @test testInverse(Ω, 100)
                 @test testTranspose(Ω, 100)
             end 
