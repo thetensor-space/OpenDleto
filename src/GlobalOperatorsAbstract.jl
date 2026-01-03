@@ -65,7 +65,7 @@ function coordinates(GΩ::AbstractGlobalOps, Mats::Vector{<: AbstractMatrix} ) :
     @assert false "Calling Placeholder Abstract Function"
 end;
 function coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Union{Vector{<:Number}, Nothing} 
-    val = valancy(GΩ)
+    val = valency(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
@@ -83,7 +83,7 @@ unsafe_coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Vector{<: N
 # this is the inverse of the embedding map
 
 function transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number}
-    val = valancy(GΩ)
+    val = valency(GΩ)
     @assert length(Mats) == val "Incompatable Data"
     localdims= axisDims(GΩ) 
     @assert all([ size(Mats[i])[1] == localdims[i]  for i =1:val ])  "Incompatable Data"
@@ -91,7 +91,7 @@ function transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatri
     return unsafe_transposeEmbedding(GΩ, Mats)  
 end;
 function transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{ITensor}) :: Vector{<:Number}
-    val = valancy(GΩ)
+    val = valency(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
@@ -106,7 +106,7 @@ function unsafe_transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:Abstra
 end;
 
 unsafe_transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{<:ITensor}) :: Vector{<:Number} =
-    unsafe_transposeEmbedding(GΩ, Its.|> __asMatrix);
+    unsafe_transposeEmbedding(GΩ, ITs.|> __asMatrix);
 # this is the transpose of the embedding map
 
 """
@@ -131,7 +131,7 @@ function unsafe_embeddingITensors(GΩ::AbstractGlobalOps, data::Vector{<:Number}
 end;
 
 
-export globalDim, axisDims, valancy, frames, framesTemporary, reduceByEngaged
+export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
 """
     dimension of the vectors in the encoding
 """
@@ -144,7 +144,7 @@ function axisDims(GΩ::AbstractGlobalOps)::Vector{<:Integer}
 end;
 
 
-function valancy(GΩ::AbstractGlobalOps)::Integer 
+function valency(GΩ::AbstractGlobalOps)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
 

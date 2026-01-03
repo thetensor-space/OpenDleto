@@ -86,7 +86,7 @@ globalDim(GΩ::GlobalOpsIndependant)::Integer  = GΩ.globalDim;
 
 axisDims(GΩ::GlobalOpsIndependant)::Vector{<:Integer} = GΩ.axisDims;
 
-valancy(GΩ::GlobalOpsIndependant)::Integer = GΩ.val
+valency(GΩ::GlobalOpsIndependant)::Integer = GΩ.val
 
 frames(GΩ::GlobalOpsIndependant) = GΩ.frames
 
@@ -118,7 +118,8 @@ end;
 
 
 function reduceByEngaged(GΩ::GlobalOpsIndependant, engaged::Vector{Bool})::AbstractGlobalOps 
-    @assert false "Calling Placeholder Abstract Function"
+    @assert GΩ.val == length(engaged) "Incompatible data"
+    GlobalOpsIndependant(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
 end;
 
 # function to create temp index
