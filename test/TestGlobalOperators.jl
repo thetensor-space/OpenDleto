@@ -1,7 +1,10 @@
 # Global Operator Testing
 
-# TODO many things, but mose packking and unpacking functions work as expected and satsify the reuired properties
+# TODO many things,
+# the only implemened tests are that packking and unpacking functions work as expected 
+# and satsify the required properties
 
+# reduceByEngaged not tested
 
 LΩs=[ LocalUniversalOps(), LocalDiagonalOps(), LocalSymmetricOps(), LocalAntiSymmetricOps(), LocalScalarOps(), LocalEmptyOps() ];
 
@@ -80,7 +83,7 @@ end;
             for i = 1:30
                 axisdim = rand(1:15, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
-                localops = rand(1:4, val) .|> (i-> LΩs[i] )
+                localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
                 Ω = GlobalOpsIndependant(frames,localops)
                 @test testInverse(Ω, 100)
                 @test testTranspose(Ω, 100)
