@@ -28,12 +28,12 @@ using ITensors
 
 
 """
-__randomizeITensor(t::ITensor,f::Function, extratags)
+randomizeITensor(t::ITensor,f::Function, extratags)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 add extra tags to the axis 
 """ 
-function __randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
+function randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
     frame = inds(Γ)
     matrices = f(frame)
     X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
@@ -47,7 +47,7 @@ randomizeITensorSimilar(t::ITensor,f::Function)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 """ 
-randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = __randomizeITensor(Γ, x-> x.|>f ,extratags);
+randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = randomizeITensor(Γ, x-> x.|>f ,extratags);
 randomizeITensor(Γ, x-> x.|>f ,extratags);
 
 
