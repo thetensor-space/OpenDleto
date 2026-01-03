@@ -3,6 +3,7 @@ import LinearMaps
 # using LinearMaps
 using ITensors
 
+export sylvesterLM
 
 """
     sylvesterLM(ch::Matrix, T::ITensor)
@@ -16,7 +17,7 @@ using ITensors
     - `derdensor_map`: the composed derivation-densor `LinearMap` (a real symmetric operator).
     - `densormap`: the densor operator with transpose---the derivation operator---included.
 """
-function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
+function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
 #temporary the function retunrs also the naked functions in addition to the linear maps
 #this is done for only for testing but needs to be fixed during the merge.
 #I am gettign stupid error is ch is and empty matrix!!!
@@ -64,13 +65,14 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
     function sylve(y)
         # y_array = Array(reshape(y, dims)) ## slow step?  Dense.  no need
         Σ = ITensor(y, Γ_frame_ch...)
-        Ys = [ 
-                permute(
-                    replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
-                    reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
-                    ) 
-                for a in 1:engsize] 
-                # I think permute is might be avoided by swichting the order of the tensor multiplication, but this needs to be tested
+        # Ys = [ 
+        #         permute(
+        #             replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
+        #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
+        #             ) 
+        #         for a in 1:engsize] 
+        Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
+                # Permute can be avoided by swichting the order of the tensor multiplication
         return unsafe_transposeEmbedding(reducedΩ,Ys)
     end
 
@@ -84,12 +86,14 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
             # Σ += permute(Δ, ch_axis, Γ_frame...) 
             Σ += Δ 
         end
-        Ys = [ 
-                permute(
-                    replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
-                    reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
-                    ) 
-                for a in 1:engsize] 
+        # Ys = [ 
+        #         permute(
+        #             replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
+        #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
+        #             ) 
+        #         for a in 1:engsize] 
+        Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
+                 # Permute can be avoided by swichting the order of the tensor multiplication
         return unsafe_transposeEmbedding(reducedΩ,Ys)
     end
 

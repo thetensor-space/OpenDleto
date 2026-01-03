@@ -43,11 +43,13 @@ include("TensorSynthesis3D.jl")
 
 include("LocalOperatorsAbstract.jl")
 include("LocalOperatorsImplementations.jl")
+
 include("GlobalOperatorsAbstract.jl")
 include("GlobalOperatorsIndependant.jl")
 include("GlobalOperatorsSymmetries.jl")
 
-
+include("DerivationMethodAbstract.jl")
+include("DerivationMethodSylverLininig.jl")
 
 
 using PlotlyJS
@@ -62,10 +64,10 @@ export normalize_tensor, side_by_side, load_tensor, save, plot
 # Re-export from TransverseOperators
 #export TransverseOps, UniversalOps, engaged, frame, dim, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
 
-include("SylverLining.jl")
+#include("SylverLining.jl")
 # using .SylverLining
 # Re-export from SylverLining
-export sylvesterLM
+# export sylvesterLM
 
 # include("Derivations.jl")
 # # using .Derivations
