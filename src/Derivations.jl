@@ -241,6 +241,21 @@ function stratify(
     return stratify(__ITensor(Γ))
 end
 
+function stratify(
+        Γ::AbstractArray,
+        der::Vector{ITensor}
+    )
+    # Convert array to ITensor and delegate
+    return stratify(__ITensor(Γ), der)
+end
+
+function stratify(
+        Γ::AbstractArray
+    )
+    ders = der(Γ)
+    return stratify(Γ, ders[1])
+end
+
 #---------------- Generic Derivation Densor Functions -------------------------
 
 

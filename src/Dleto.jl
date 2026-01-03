@@ -52,10 +52,6 @@ using PlotlyJS
 import Plots
 
 include("TensorIO.jl")
-# export normalize_tensor, side_by_side, load_tensor, save, plot
-
-
-include("TensorIO.jl")
 # using .TensorIO
 export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
 
