@@ -186,17 +186,18 @@ end;
 function reduceByEngaged(GΩ::GlobalOpsSymmetries, engaged::Vector{Bool})::AbstractGlobalOps 
     val=GΩ.val
     syms=GΩ.syms
-    duals=Ω.duals
+    duals=GΩ.duals
     @assert val == length(engaged) "Incompatible data"
 
     renumsyms= [ minimum( [ syms[j]== k && engaged[j] ? j : 1000 for j = k:val ])  for k =1:val]
-    newsyms = [ renumsyms[syms[k]] for k = 1:val ]
+    # newsyms = [ engaged[k] ? renumsyms[syms[k]] : 1000 for k = 1:val ]
+    newsyms = [ renumsyms[syms[k]]  for k = 1:val ]
     fixdual = [ engaged[k] ? xor(duals[k], duals[newsyms[k] ] ) :  true for k =1:val ] 
     renumber = [sum(engaged[1:k]) for k =1:val]
-    newsymmetries_all = [fixdual[k] ? -renumber[newsyms[k]] : renumber[newsyms[k]]  for k =1:val]
+    newsymmetries_all = [engaged[k] ? (fixdual[k] ? -renumber[newsyms[k]] : renumber[newsyms[k]]) : 1000  for k =1:val]
     newsymmetries = newsymmetries_all[engaged] 
     ## generate new GlobalOps 
-    return all( [i==newsymmetries[i]  for i=1:lenght(newsymmetries)]) ? 
+    return all( [i==newsymmetries[i]  for i=1:length(newsymmetries)]) ? 
         GlobalOpsIndependant(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) : 
         GlobalOpsSymmetries(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], newsymmetries)
 end;

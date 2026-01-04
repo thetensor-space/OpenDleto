@@ -158,7 +158,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::
     # Wrap ester and sylve as LinearMaps
     densor_map = LinearMaps.LinearMap(ester, sylve, densor_dim, op_dim; ismutating=false)
     derdensor_map = LinearMaps.LinearMap(sylvester, sylvester, op_dim, op_dim; ismutating=false, issymmetric=true, isposdef=false)
-    # return derdensor_map, densor_map
-    return ester, sylve, sylvester, op_dim, densor_dim, derdensor_map, densor_map
+    return derdensor_map, densor_map
+    # return ester, sylve, sylvester, op_dim, densor_dim, derdensor_map, densor_map
 end;
 

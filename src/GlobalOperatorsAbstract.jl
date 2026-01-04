@@ -59,7 +59,7 @@ export embeddingMatrices, unsafe_embeddingMatrices, embeddingITensors, unsafe_em
 
 """
     Return the native encoding of an operator in the transverse set,
-    or `Nothing` if it is not a member.
+    or `nothing` if it is not a member.
 """
 function coordinates(GΩ::AbstractGlobalOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
@@ -93,6 +93,7 @@ function transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatri
     @assert all([ size(Mats[i])[2] == localdims[i]  for i =1:val ])  "Incompatable Data"
     return unsafe_transposeEmbedding(GΩ, Mats)  
 end;
+
 function transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{ITensor}) :: Vector{<:Number}
     val = valency(GΩ)
     @assert length(ITs) == val "Incompatable Data"
@@ -188,7 +189,7 @@ function __asMatrixTranspose(T::ITensor)::AbstractMatrix
     fr = inds(T)
     n = ITensors.dim(fr[1])
     m = ITensors.dim(fr[2])
-    A = zeros(eltype(T),n,m)
+    A = zeros(eltype(T),m,n)
     for ci in CartesianIndices(A)
         A[ci] = T[ci[2],ci[1]]
     end
