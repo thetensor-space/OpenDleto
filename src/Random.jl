@@ -24,7 +24,6 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
-
 # ----- Randomization of tensors -----
 """
 randomize_tensor(t::ITensor; type::Symbol=:invertible)

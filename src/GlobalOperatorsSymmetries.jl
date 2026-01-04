@@ -68,20 +68,30 @@ struct GlobalOpsSymmetries <: AbstractGlobalOps
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
         axisDims = fr .|> ITensors.dim;
-        @assert val = length(symmetires) "Incompatable data";
-        syms = symmetires .|> abs;
+        @assert val == length(symmetries) "Incompatable data";
+        syms = symmetries .|> abs;
         @assert all([ (syms[i] <= i) && (syms[i] >=1 ) && (symmetries[i] != -i)   for i=1:val]) "Incompatable dimensions";
-        duals = symmetires .|> (x -> x < 0 );
-        @assert all([ axisDims[i] == axisDims[sym[i]]    for i=1:val]) "Incompatable dimensions";
-        @assert all([ localOps[i] == localOps[sym[i]]    for i=1:val]) "Incompatable dimensions";
+        duals = symmetries .|> (x -> x < 0 );
+        @assert all([ axisDims[i] == axisDims[syms[i]]    for i=1:val]) "Incompatable local dimensions";
+        @assert all([ localOps[i] == localOps[syms[i]]    for i=1:val]) "Incompatable local operators";
 
-        localDims =[ sym[i] == i ? localDim(localOps[i], axisDims[i]) : 0 for i=1:val];
+        localDims =[ syms[i] == i ? localDim(localOps[i], axisDims[i]) : 0 for i=1:val];
         globalDim = sum(localDims);
         offsets = [ sum(localDims[1:(i-1)]) for i=1:(val+1)]; 
         new(val,fr,frTemp,axisDims,globalDim,offsets,localOps,syms,duals)
     )
 end; 
 #extra constructors
+# auto generate new indexes
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:LocalOps},symmetries ::Vector{<:Integer}) = 
+    GlobalOpsSymmetries(fr, fr .|> __globalOpsMakeTempIndex ,localOps, symmetries);
+#same localOp on each axis
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::LocalOps,symmetries ::Vector{<:Integer}) = 
+    GlobalOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
+GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::LocalOps) = 
+    GlobalOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
+
+
 ## #TO BE DONE
 
 export GlobalOpsSymmetries
@@ -99,22 +109,43 @@ framesTemporary(GΩ::GlobalOpsSymmetries) = GΩ.framesTemp
 
 unsafe_embeddingMatrices(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
     [   GΩ.duals[i] ? 
-            transpose(unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]])) : 
-            unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]) 
+            transpose(unsafe_embedding(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
+            )) : 
+            unsafe_embedding(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
+            ) 
         for i=1:GΩ.val
     ];
 
 unsafe_embeddingITensors(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         GΩ.duals[i] ? 
-            transpose(unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]])) : 
-            unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]),
+            # without matrix ITensor messes up the encoding
+            Matrix(transpose(unsafe_embedding(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
+            ))) : 
+            unsafe_embedding(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]),
         GΩ.frames[i],GΩ.framesTemp[i] ) 
-        for i=1:GΩ.val
+    for i=1:GΩ.val
     ];
 
 function unsafe_transposeEmbedding(GΩ::GlobalOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
-    ltEmbedding = [ unsafe_transposeEmbedding(GΩ.localOps[i], GΩ.duals[i] ? transpose(Mats[i]) : Mats[i]) for i=1:GΩ.val ]
+    ltEmbedding = [ 
+            unsafe_transposeEmbedding(
+                GΩ.localOps[i], 
+                GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])
+            ) 
+        for i=1:GΩ.val ]
     res = zeros(GΩ.globalDim)
     for i = 1:GΩ.val
         res[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]] += ltEmbedding[i]
@@ -123,23 +154,50 @@ function unsafe_transposeEmbedding(GΩ::GlobalOpsSymmetries, Mats::Vector{<:Abst
 end;
 
 unsafe_coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
-    vcat([ GΩ.syms[i]==i ? unsafe_coordinates(GΩ.localOps[i], Mats[i]) : [] for i=1:GΩ.val ]...);
+    vcat([ GΩ.syms[i]==i ? unsafe_coordinates(GΩ.localOps[i], Mats[i]) : zeros(0) for i=1:GΩ.val ]...);
 
 
 function coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
     all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
-    res= [coordinates(GΩ.localOps[i], GΩ.duals[i] ? transpose(Mats[i]) : Mats[i]) for i=1:GΩ.val]
+    res= [coordinates(GΩ.localOps[i], GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])) for i=1:GΩ.val]
     any(res .|> isnothing) && return nothing
-    filteredres= [GΩ.syms[i] == i ? res[i] : (res[i] == res[GΩ.syms[i]] ? [] : nothing) for i=1:GΩ.val ]
+    # if any(res .|> isnothing)
+    #     @show res .|> isnothing
+    #     return nothing
+    # end
+    # for i=1:GΩ.val
+    #     if GΩ.syms[i] != i && !isapprox(res[i], res[GΩ.syms[i]])
+    #         @show i, GΩ.syms, GΩ.duals
+    #         @show Mats[i], Mats[GΩ.syms[i]]
+    #         @show Mats
+    #     end
+    # end
+    filteredres= [GΩ.syms[i] == i ? res[i] : (isapprox(res[i], res[GΩ.syms[i]]) ? zeros(0) : nothing) for i=1:GΩ.val ]
+    # filteredres= [GΩ.syms[i] == i ? res[i] : (isapprox(res[i], res[GΩ.syms[i]]) ? zeros(0) : zeros(0)) for i=1:GΩ.val ]
     any(filteredres .|> isnothing) && return nothing
+    # if any(filteredres .|> isnothing)
+    #     @show filteredres .|> isnothing
+    #     return nothing
+    # end
     return vcat(filteredres...)
 end;
 
-#ToDo.....
+#Needs Testing
 function reduceByEngaged(GΩ::GlobalOpsSymmetries, engaged::Vector{Bool})::AbstractGlobalOps 
-    @assert GΩ.val == length(engaged) "Incompatible data"
-    ## generate new symmetries 
-    return all( [i==newsymmetries[i]  for i=1:lenght(newsymmetries)]) ? 
+    val=GΩ.val
+    syms=GΩ.syms
+    duals=GΩ.duals
+    @assert val == length(engaged) "Incompatible data"
+
+    renumsyms= [ minimum( [ syms[j]== k && engaged[j] ? j : 1000 for j = k:val ])  for k =1:val]
+    # newsyms = [ engaged[k] ? renumsyms[syms[k]] : 1000 for k = 1:val ]
+    newsyms = [ renumsyms[syms[k]]  for k = 1:val ]
+    fixdual = [ engaged[k] ? xor(duals[k], duals[newsyms[k] ] ) :  true for k =1:val ] 
+    renumber = [sum(engaged[1:k]) for k =1:val]
+    newsymmetries_all = [engaged[k] ? (fixdual[k] ? -renumber[newsyms[k]] : renumber[newsyms[k]]) : 1000  for k =1:val]
+    newsymmetries = newsymmetries_all[engaged] 
+    ## generate new GlobalOps 
+    return all( [i==newsymmetries[i]  for i=1:length(newsymmetries)]) ? 
         GlobalOpsIndependant(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) : 
         GlobalOpsSymmetries(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], newsymmetries)
 end;

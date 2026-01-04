@@ -95,7 +95,10 @@ unsafe_embeddingMatrices(GΩ::GlobalOpsIndependant, data::Vector{<:Number} ) ::V
 
 unsafe_embeddingITensors(GΩ::GlobalOpsIndependant, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
-        unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]),
+        Matrix(unsafe_embedding(
+            GΩ.localOps[i],
+            GΩ.axisDims[i],
+            data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]])),
         GΩ.frames[i],GΩ.framesTemp[i] ) 
         for i=1:GΩ.val
     ];
@@ -119,4 +122,3 @@ function reduceByEngaged(GΩ::GlobalOpsIndependant, engaged::Vector{Bool})::Abst
     @assert GΩ.val == length(engaged) "Incompatible data"
     return GlobalOpsIndependant(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
 end;
-
