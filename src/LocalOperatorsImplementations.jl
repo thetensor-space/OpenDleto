@@ -56,11 +56,14 @@ struct LocalAntiSymmetricOps <: LocalOps end;
     Scalar Matrices
 """
 struct LocalScalarOps <: LocalOps end; 
+# this gives errors when combined with symmetries, no idea why
 
 """
     Empty Matrices
 """
 struct LocalEmptyOps <: LocalOps end; 
+# this gives errors when combined with symmetries, no idea why
+
 
 export LocalUniversalOps, LocalDiagonalOps, LocalSymmetricOps, LocalAntiSymmetricOps, LocalScalarOps, LocalEmptyOps
 

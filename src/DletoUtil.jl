@@ -228,69 +228,8 @@ end
 
 
 
-# ----- Randomization of tensors -----
-"""
-randomize_tensor(t::ITensor; type::Symbol=:invertible)
-
-Picks random invertible matrices and use them to perform a random basis change of a tensor.
-
-Returns a named tuple with fields:
-- `Δ` the randomized tensor
-- `Xs` the list of random matrices used for the basis change
-
-type can be:
-- `:invertible` (default) random invertible matrices
-- `:orthogonal` random orthogonal matrices
-""" 
-function randomize_tensor(Γ::ITensor; type::Symbol=:invertible):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    getRand = if type == :invertible
-        n -> __random_invertible(n)
-    elseif type == :orthogonal
-        n -> __random_orthogonal(n)
-    else
-        throw(ErrorException("Unknown randomization type: $type"))
-    end
-    fr = inds(Γ)
-    mats = Vector{ITensor}(undef, length(fr))
-    for a in 1:length(fr)
-        mats[a] = ITensor( getRand(ITensors.dim(fr[a])), fr[a], fr[a]' )
-    end
-    return (;Δ=Γ*mats, Xs=mats)
-end;
-
-function randomize_tensor(Γ::AbstractArray; type::Symbol=:invertible)
-    iΓ = __ITensor(Γ)
-    return randomize_tensor(iΓ; type=type)
-end;
 
 # --- Utiliity functions ---
 
 __isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
-function __random_invertible(n) 
-    mat = randn(n,n)
-    count = 0
-    while LinearAlgebra.rank(mat) < n && count < 100
-        count += 1
-        mat = randn(n,n)
-    end
-    if count > 99
-        throw(ErrorException("Could not generate random invertible matrix"))
-    end
-    return mat
-end
-
-function __random_orthogonal(n::Integer)
-    mat = randn(n,n)
-    count = 0
-    while LinearAlgebra.rank(mat) < n && count < 100
-        count += 1
-        mat = randn(n,n)
-    end
-    if count > 99
-        throw(ErrorException("Could not generate random orthogonal matrix"))
-    end
-    Q,R = LinearAlgebra.qr(mat)
-    D = Diagonal(sign.(diag(R)))
-    return Q*D
-end;
