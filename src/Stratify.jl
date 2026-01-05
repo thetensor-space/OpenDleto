@@ -36,7 +36,7 @@ function stratify(
         # so this indicates an error
         error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
     end
-    println("Found $(length(ders)) derivations for stratification.")
+    @info "Found $(length(ders)) derivations for stratification."
     # Select a random linear combination of derivations
     # Each derivation is a Vector{ITensor} with one ITensor per axis
     n_ders = length(ders)
