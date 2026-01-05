@@ -26,9 +26,6 @@
 
 using ITensors
 
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
-
 
 #-------------------------------
 # generate a tensor supported on the a surface

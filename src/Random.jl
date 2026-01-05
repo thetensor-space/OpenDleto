@@ -38,7 +38,11 @@ type can be:
 - `:invertible` (default) random invertible matrices
 - `:orthogonal` random orthogonal matrices
 """ 
-function randomize_tensor(Γ::ITensor; type::Symbol=:invertible):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+function randomize_tensor(
+    Γ::ITensor; 
+    type::Symbol=:invertible,
+    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+    
     fr = inds(Γ)
     mats = Vector{ITensor}(undef, length(fr))
     for a in 1:length(fr)        
@@ -47,7 +51,8 @@ function randomize_tensor(Γ::ITensor; type::Symbol=:invertible):: NamedTuple{(:
         mats[a] = ITensor( mat, fr[a], outer )
     end
     return (;Δ=Γ*mats, Xs=mats)
-end;
+end
+
 
 function randomize_tensor(Γ::AbstractArray; type::Symbol=:invertible)
     iΓ = __ITensor(Γ)
@@ -81,7 +86,7 @@ function __random_orthogonal(n::Integer)
         throw(ErrorException("Could not generate random orthogonal matrix"))
     end
     Q,R = LinearAlgebra.qr(mat)
-    D = Diagonal(sign.(diag(R)))
+    D = LinearAlgebra.Diagonal(sign.(LinearAlgebra.diag(R)))
     return Q*D
 end;
 __random_orthogonal(i::Index) = __random_orthogonal(ITensors.dim(i));
