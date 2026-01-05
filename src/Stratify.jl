@@ -16,7 +16,7 @@
 function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
-    )
+    ) :: NamedTuple{(:Σ, :Xs), Tuple{ITensor, Vector{ITensor}}}
     # Convert ITensors to Matrices before calling blockdiag
     Xs = Vector{ITensor}(undef, length(der))
     for i in 1:length(der)
@@ -28,9 +28,10 @@ function stratify(
 end
 
 function stratify(
-        Γ::ITensor
+        Γ::ITensor;
+        tol::Float64=1e-6
     )
-    ders = der(Γ)
+    ders = der(Γ; tol=tol)
     if isempty(ders)
         # should never happen as there are always trivial derivations
         # so this indicates an error

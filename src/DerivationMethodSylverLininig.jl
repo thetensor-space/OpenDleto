@@ -37,9 +37,9 @@ struct SylverLiningMethod <: DerivationMethod end;
 function der(method::SylverLiningMethod,
     Ω::TransverseOps, 
     Ch::AbstractMatrix, 
-    Γ::ITensor,
-    nd::Integer=10, 
-    tol=1e-6,
+    Γ::ITensor;
+    tol::Float64=1e-6,
+    nd=10,  # Don't type as integer to allow Inf 
     kwargs...,
     ) :: Vector{Vector{ITensor}}
     Γ_frame = inds(Γ)
@@ -51,21 +51,21 @@ function der(method::SylverLiningMethod,
     eng = engaged(Ch)
     reducedΩ = reduceByEngaged(Ω, eng)
     
-    if globalDim(reducedΩ) < 10000
+    # if globalDim(reducedΩ) < 10000
         sylvester, ester = sylvesterLM(Ω, Ch, Γ)
         M = Matrix(sylvester)
         vals, vecs = eigen(M)
         vecs = vecs[:, findall(abs.(vals) .< tol)]
-        # give only nd many vectors, unles nd < 0
+        # give only nd many vectors, unless nd < 0 or Inf
         if nd > 0 && size(vecs,2) > nd
-            vecs = vecs[:, 1:nd]
+            vecs = vecs[:, 1:floor(Int, nd)]
         end
         # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
         return [ unsafe_embedITensors(reducedΩ, vecs[:,i]) for i in 1:size(vecs,2) ]
-    else
-        @assert false "Dimenstion Too Large"
-        return []
-    end
+    # else
+    #     @assert false "Dimenstion Too Large"
+    #     return []
+    # end
 end
 
 
