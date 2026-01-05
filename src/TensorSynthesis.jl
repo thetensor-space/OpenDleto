@@ -28,18 +28,19 @@ using ITensors
 
 
 """
-randomizeITensor(t::ITensor,f::Function, extratags)
+__randomize_tensor(t::ITensor,f::Function, extratags)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 add extra tags to the axis 
 """ 
-function randomizeITensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
+function __randomize_tensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
     frame = inds(Γ)
     matrices = f(frame)
     X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
     return (;Γ=(Γ*X), X)
-end;
-# I am applying f to the list of axis, because I want to be able to make transformations to be the same if the axis are the same
+end
+# I am applying f to the list of axis, 
+# because I want to be able to make transformations to be the same if the axis are the same
 # this is an internal function
 
 """
@@ -47,8 +48,13 @@ randomizeITensorSimilar(t::ITensor,f::Function)
 
 Randomize ITensor by generating random transformations for each axis using the function f
 """ 
-randomizeITensorSimilar(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = randomizeITensor(Γ, x-> x.|>f ,extratags);
-randomizeITensor(Γ, x-> x.|>f ,extratags);
+randomizeITensorSimilar(
+    Γ::ITensor,
+    f::Function,
+    extratags="randomized"
+    )::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = __randomize_tensor(Γ, x-> x.|>f ,extratags);
+
+# __randomize_tensor(Γ, x-> x.|>f ,extratags);
 
 
 randomizeITensorOthorgonal(Γ::ITensor,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
@@ -76,18 +82,19 @@ randomizeITensorSimilar(ArrayToITensor(t), randomInvertibleMatrix);
 """
 randTensorSupport(deltas::Vector{Vector}, frames::Vector{Index}, cutoff::Number, dist::Function)::ITensor
 
-Generate a random tensor supported on the constarint  dist(...) < cutoff
+Generate a random tensor with supported on the constarint  dist(...) < cutoff
 """
-function randTensorDistFunct(
+function rand_den(
         # deltas::Vector{Vector{K}} where K <: Number,
         # frames::Vector{Index{L}} where L,
-        deltas::Vector{Vector{<: Number}},
-        frames::Vector{Index{<: Any}},
+        deltas::Vector{<:Vector{<:Number}},
+        frames::Vector{<:Index},
         cutoff::Number,
         dist::Function
     )::ITensor
+    
     val = length(deltas)
-    sizes = deltas .|> length
+    sizes = Tuple(length.(deltas))
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
     @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
 
@@ -107,23 +114,23 @@ function randTensorDistFunct(
     #     end
     # end
     # return ITensor(res, frames...)
-end;
+end
 
 
 
-randTensorDistFunct(deltas::Vector{Vector{<:Number}},cutoff::Number,dist::Function)::ITensor =
-randTensorDistFunct(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
+rand_den(deltas::Vector{<:Vector{<:Number}},cutoff::Number,dist::Function)::ITensor =
+rand_den(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
 
 
-randTensorChisel(deltas::Vector{Vector{<: Number}}, frames::Vector{Index{<:Any}}, cutoff::Number, ch::Matrix)::ITensor = 
-randTensorDistFunct(deltas,frames,cutoff, x -> __dist(ch, x));
+randTensorChisel(deltas::Vector{<:Vector{<:Number}}, frames::Vector{<:Index}, cutoff::Number, ch::Matrix)::ITensor = 
+rand_den(deltas,frames,cutoff, x -> __dist(ch, x));
 
-randTensorChisel(deltas::Vector{Vector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
-randTensorDistFunct(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> __dist(ch, x));        
+randTensorChisel(deltas::Vector{<:Vector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
+rand_den(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> __dist(ch, x));        
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
-function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{<:Number}}, dist::Function)::Number
+function ITensorNorm(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, dist::Function)::Number
     frames=inds(Γ)
     val = length(deltas)
     sizes = deltas .|> length

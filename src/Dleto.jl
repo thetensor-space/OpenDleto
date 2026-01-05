@@ -72,6 +72,11 @@ export stratify
 # TensorIO.jl
 export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
 
+export rand_den
+export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
+
+
 # ============================================================================
 # Includes
 # ============================================================================
@@ -82,8 +87,8 @@ include("Random.jl")
 
 include("Chisels.jl")   
 
-# include("TensorSynthesis.jl")
-# include("TensorSynthesis3D.jl")
+include("TensorSynthesis.jl")
+include("TensorSynthesis3D.jl")
 # using .TensorSynthesis
 # Re-export from TensorSynthesis
 # TBD: Rethink these functions and their names for final users

@@ -25,26 +25,21 @@
 #-----------------------------------------------------------------------------
 
 
-"""
-    Global Operators Symmetries
-
-    Global Operartors whcih are product of independant operators on each axis 
-"""
 
 """
-    Global Operators Symmetries
+    Transverse Operators Symmetries
 
-    Global Operartors whcih are product of independant operators on each axis 
+    Transverse Operators which are product of independent operators on each axis 
     stores info for each axis 
         - as Index in frames 
         - as tempIndex in framesTemp
         - dimension in axisDim
         - local operator in localOps
         - syms array like [1 2 -2 4 4] saying that the third coordinated is dual to the second and the 4th and 5th are the same
-    in addition precomutes the Global dimenstion and the offsets (in the inner constructor)
+    in addition precomputes the transverse dimenstion and the offsets (in the inner constructor)
 
-    the embed function dispaches the corresponding emebedding from the local operator on the view of the input data
-    the coordinates and transposeEmbed dispaches the corresponding function 
+    the embed function dispatches the corresponding embedding from the local operator on the view of the input data
+    the coordinates and transposeEmbed dispatches the corresponding function 
         from the local operator to the correct matrix and then combines the results    
 """
 struct TransverseOpsSymmetries <: TransverseOps
