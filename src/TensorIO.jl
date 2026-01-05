@@ -185,7 +185,7 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
     arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor
     
     # function for rounding to threshold decimal places
-    roundToThreshold = x -> round(x, digits=Int(-log10(threshold)))
+    roundToThreshold = x -> round(x, digits=round(Int,-log10(threshold)))
     arr = arr .|> roundToThreshold
     
     # Get indices of non-zero values in the tensor

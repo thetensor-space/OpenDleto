@@ -53,7 +53,7 @@ end;
 """
     Replace chisel with equivalent one to improve stability.
 """
-function normalize(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
+function normalize_chisel(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
     E=engaged(Ch)
     TE = TuckerChisel(E)
     svddecom = LinearAlgebra.svd(Ch*TE')

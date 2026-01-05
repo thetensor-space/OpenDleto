@@ -37,7 +37,7 @@ export randomize_tensor, nondeg
 
 # Chisels.jl
 export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
-export normalize
+export normalize_chisel
 
 # LocalOperatorsAbstract.jl
 export Operator                             # abstract type
