@@ -18,9 +18,9 @@ function testUnivesalChiselEngaged(eng::Vector{Bool})
             if eng[a] && eng[e] 
                 u = zeros(valence)
                 u[a] = 1.0
-                v = zeros( valence)
+                v = zeros( valence) 
                 v[e] = 1.0
-                @assert isapprox(EvaluateChisel(uc,(u - v)), 0.0)  "UniversalChisel nullity incorrect."
+                @assert isapprox(__dist(uc,(u - v)), 0.0)  "UniversalChisel nullity incorrect."
             end
         end
     end
@@ -38,7 +38,7 @@ function testTuckerChiselEngaged(eng::Vector{Bool})
         if !eng[a]
             u = zeros(valence)
             u[a] = 1.0
-            @assert isapprox(EvaluateChisel(tc,u) , 0.0 )  "TuckerChisel image incorrect, $eng."
+            @assert isapprox(__dist(tc,u) , 0.0 )  "TuckerChisel image incorrect, $eng."
         end
     end
     return true
@@ -61,8 +61,8 @@ function testCentroidChiselEngaged(eng::Vector{Bool})
         if eng[a]
             u[a] = 1.0
         end
-    end
-    @assert isapprox(EvaluateChisel(cc,u), 0.0)  "CentroidChisel nullity incorrect\r\n $cc \r\n $u."
+    end    
+    @assert isapprox(__dist(cc,u), 0.0)  "CentroidChisel nullity incorrect\r\n $cc \r\n $u."
     return true
 end;
 
@@ -81,7 +81,7 @@ function testAdjointChisel(valence::Integer)
             u[a] = 1.0
             v = zeros(valence)
             v[e] = 1.0
-            @assert isapprox(EvaluateChisel(ac,u+v), 0.0)  "AdjointChisel nullity incorrect $ac\r\n $u\r\n $v."
+            @assert isapprox(__dist(ac,u+v), 0.0)  "AdjointChisel nullity incorrect $ac\r\n $u\r\n $v."
         end
     end
     return true

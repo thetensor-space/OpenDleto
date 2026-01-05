@@ -40,9 +40,6 @@
 
 """
 
-export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel, NormalizeChisel, EvaluateChisel 
-
-
 """
      Create a universal chisel with selected engaged axes.
 """
@@ -56,7 +53,7 @@ end;
 """
     Replace chisel with equivalent one to improve stability.
 """
-function NormalizeChisel(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
+function normalize(Ch::Matrix, cutoff::Float64=1e-6)::Matrix
     E=engaged(Ch)
     TE = TuckerChisel(E)
     svddecom = LinearAlgebra.svd(Ch*TE')
@@ -70,7 +67,7 @@ end;
 """
     Evaluate chisel on a vector, used to estimate the distance between the point and the surface.
 """
-function EvaluateChisel(Ch::Matrix, delta::Vector)::Number
+function __dist(Ch::Matrix, delta::Vector)::Number
     return Ch*delta .|> (x -> x*x) |> sum |> sqrt 
 end;
 

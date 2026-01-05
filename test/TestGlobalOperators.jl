@@ -6,38 +6,38 @@
 
 # reduceByEngaged not tested
 
-LΩs=[ LocalUniversalOps(), LocalDiagonalOps(), LocalSymmetricOps(), LocalAntiSymmetricOps(), LocalScalarOps(), LocalEmptyOps() ];
+LΩs=[ UniversalOp(), DiagonalOp(), SymmetricOp(), AntiSymmetricOp(), ScalarOp(), EmptyOp() ];
 
-function testInverse(Ω::AbstractGlobalOps, num::Integer)
+function testInverse(Ω::TransverseOps, num::Integer)
     globaldim = globalDim(Ω)
     for i = 1:num
         a = rand(globaldim)
-        Mats = embeddingMatrices(Ω,a)
+        Mats = embedMatrices(Ω,a)
         @assert isapprox(a, coordinates(Ω, Mats)) "Failed Invertability\r\n $Ω $a $Mats \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, Mats)) "Failed Invertability\r\n $Ω $a $Mats \r\n"
-        Mats = unsafe_embeddingMatrices(Ω,a)
+        Mats = unsafe_embedMatrices(Ω,a)
         @assert isapprox(a, coordinates(Ω, Mats)) "Failed Invertability\r\n $Ω $a $Mats \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, Mats)) "Failed Invertability\r\n $Ω $a $Mats \r\n"
 
-        ITs = embeddingITensors(Ω,a)
+        ITs = embedITensors(Ω,a)
         @assert isapprox(a, coordinates(Ω, ITs)) "Failed Invertability\r\n $Ω $a $ITs \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, ITs)) "Failed Invertability\r\n $Ω $a $ITs \r\n"
-        ITs = unsafe_embeddingITensors(Ω,a)
+        ITs = unsafe_embedITensors(Ω,a)
         @assert isapprox(a, coordinates(Ω, ITs)) "Failed Invertability\r\n $Ω $a $ITs \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, ITs)) "Failed Invertability\r\n $Ω $a $ITs \r\n"
     end
     return true
 end;
 
-function testTranspose(Ω::AbstractGlobalOps, num::Integer)
+function testTranspose(Ω::TransverseOps, num::Integer)
     globaldim = globalDim(Ω)
     adim=axisDims(Ω)
     for c = 1:num
         a = rand(globaldim)
         BBs = [ rand(adim[i],adim[i]) for i=1:length(adim) ]
 
-        AAs = embeddingMatrices(Ω,a)
-        b = transposeEmbedding(Ω,BBs) 
+        AAs = embedMatrices(Ω,a)
+        b = transposeEmbed(Ω,BBs) 
         @assert isapprox(
             LinearAlgebra.dot(a,b), 
             sum([LinearAlgebra.dot(
@@ -45,7 +45,7 @@ function testTranspose(Ω::AbstractGlobalOps, num::Integer)
                         reshape(BBs[i],adim[i]*adim[i])
                     )  for i=1:length(adim) ] )
         ) "Failed Transpose\r\n $Ω $a $AAs $BBs $b\r\n"
-        b = unsafe_transposeEmbedding(Ω,BBs) 
+        b = unsafe_transposeEmbed(Ω,BBs) 
         @assert isapprox(
             LinearAlgebra.dot(a,b), 
             sum([LinearAlgebra.dot(
@@ -55,8 +55,8 @@ function testTranspose(Ω::AbstractGlobalOps, num::Integer)
         ) "Failed Transpose\r\n $Ω $a $AAs $BBs $b\r\n"
 
 
-        AAs = unsafe_embeddingMatrices(Ω,a)
-        b = transposeEmbedding(Ω,BBs) 
+        AAs = unsafe_embedMatrices(Ω,a)
+        b = transposeEmbed(Ω,BBs) 
         @assert isapprox(
             LinearAlgebra.dot(a,b), 
             sum([LinearAlgebra.dot(
@@ -64,7 +64,7 @@ function testTranspose(Ω::AbstractGlobalOps, num::Integer)
                         reshape(BBs[i],adim[i]*adim[i])
                     )  for i=1:length(adim) ] )
         ) "Failed Transpose\r\n $Ω $a $AAs $BBs $b\r\n"
-        b = unsafe_transposeEmbedding(Ω,BBs) 
+        b = unsafe_transposeEmbed(Ω,BBs) 
         @assert isapprox(
             LinearAlgebra.dot(a,b), 
             sum([LinearAlgebra.dot(
@@ -84,7 +84,7 @@ end;
                 axisdim = rand(1:15, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
                 localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
-                Ω = GlobalOpsIndependant(frames,localops)
+                Ω = TransverseOpsIndependant(frames,localops)
                 @test testInverse(Ω, 100)
                 @test testTranspose(Ω, 100)
             end 

@@ -37,34 +37,29 @@
     Need to provide functions
     -- coodinates: turn list of matrices into vector or retruns nothing.
     -- unsafe_coordinates: same but assumes that the vector is in the image and does not do any checking
-    -- embeddingMatrices/embeddingITensors: turns a vector into list of matrices 
+    -- embedMatrices/embedITensors: turns a vector into list of matrices 
         (this needs to be a linear map, which is left(right?) of coordinatres) 
-    -- unsafe_embeddingMatrices/unsafe_embeddingITensors: as above but does not do any checking
-    -- transposeEmbedding: linear dual(transpose) of the emnedding, turns list of matrices into a vector
+    -- unsafe_embedMatrices/unsafe_embedITensors: as above but does not do any checking
+    -- transposeEmbed: linear dual(transpose) of the emnedding, turns list of matrices into a vector
 
     several function like globalDim, axisDims, valancy: which provide data for the sizes of matrices
         
     most safe functions are auto-generated from the unsafe one by adding trivial checks
     
-    -- reduceByEngaged(::AbstractGlobalOps, ::Vector{Bool})::AbstractGlobalOps produce new GlobalOps,
+    -- reduceByEngaged(::TransverseOps, ::Vector{Bool})::TransverseOps produce new GlobalOps,
         where some of the axis are not engaged
 
 """
-abstract type AbstractGlobalOps end
-
-
-export AbstractGlobalOps
-export coordinates, unsafe_coordinates, transposeEmbedding, unsafe_transposeEmbedding
-export embeddingMatrices, unsafe_embeddingMatrices, embeddingITensors, unsafe_embeddingITensors
+abstract type TransverseOps end
 
 """
     Return the native encoding of an operator in the transverse set,
     or `nothing` if it is not a member.
 """
-function coordinates(GΩ::AbstractGlobalOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-function coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Union{Vector{<:Number}, Nothing} 
     val = valency(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
@@ -78,23 +73,23 @@ function coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Union{Vec
     return coordinates(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
-function unsafe_coordinates(GΩ::AbstractGlobalOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} 
+function unsafe_coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-unsafe_coordinates(GΩ::AbstractGlobalOps, ITs::Vector{ITensor} ) :: Vector{<: Number} = 
+unsafe_coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Vector{<: Number} = 
     unsafe_coordinates(GΩ, ITs.|> __asMatrix);
-# this is the inverse of the embedding map
+# this is the inverse of the embed map
 
-function transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number}
+function transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number}
     val = valency(GΩ)
     @assert length(Mats) == val "Incompatable Data"
     localdims= axisDims(GΩ) 
     @assert all([ size(Mats[i])[1] == localdims[i]  for i =1:val ])  "Incompatable Data"
     @assert all([ size(Mats[i])[2] == localdims[i]  for i =1:val ])  "Incompatable Data"
-    return unsafe_transposeEmbedding(GΩ, Mats)  
+    return unsafe_transposeEmbed(GΩ, Mats)  
 end;
 
-function transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{ITensor}) :: Vector{<:Number}
+function transposeEmbed(GΩ::TransverseOps, ITs::Vector{ITensor}) :: Vector{<:Number}
     val = valency(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
@@ -105,71 +100,69 @@ function transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{ITensor}) :: Vec
             ((inds(ITs[i])[2] == fr[i]) || (inds(ITs[i])[2] == frT[i])) && 
             (inds(ITs[i])[1] != inds(ITs[i])[2]) 
         for i =1:val ])  "Incompatable Data"
-    return unsafe_transposeEmbedding(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
+    return unsafe_transposeEmbed(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
-function unsafe_transposeEmbedding(GΩ::AbstractGlobalOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
+function unsafe_transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-unsafe_transposeEmbedding(GΩ::AbstractGlobalOps, ITs::Vector{<:ITensor}) :: Vector{<:Number} =
-    unsafe_transposeEmbedding(GΩ, ITs.|> __asMatrix);
-# this is the transpose of the embedding map
+unsafe_transposeEmbed(GΩ::TransverseOps, ITs::Vector{<:ITensor}) :: Vector{<:Number} =
+    unsafe_transposeEmbed(GΩ, ITs.|> __asMatrix);
+# this is the transpose of the embed map
 
 """
     Convert the native encoding of an operator into matrices.
 """
-function embeddingMatrices(GΩ::AbstractGlobalOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}  
+function embedMatrices(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
-    unsafe_embeddingMatrices(GΩ,data)
+    unsafe_embedMatrices(GΩ,data)
 end;
 
-function unsafe_embeddingMatrices(GΩ::AbstractGlobalOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}
+function unsafe_embedMatrices(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function embeddingITensors(GΩ::AbstractGlobalOps, data::Vector{<:Number} ) ::Vector{ITensor}  
+function embedITensors(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
-    unsafe_embeddingITensors(GΩ,data)
+    unsafe_embedITensors(GΩ,data)
 end;
 
-function unsafe_embeddingITensors(GΩ::AbstractGlobalOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
+function unsafe_embedITensors(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-
-export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
 """
     dimension of the vectors in the encoding
 """
-function globalDim(GΩ::AbstractGlobalOps)::Integer 
+function globalDim(GΩ::TransverseOps)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function axisDims(GΩ::AbstractGlobalOps)::Vector{<:Integer} 
+function axisDims(GΩ::TransverseOps)::Vector{<:Integer} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 
-function valency(GΩ::AbstractGlobalOps)::Integer 
+function valency(GΩ::TransverseOps)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function frames(GΩ::AbstractGlobalOps)::Vector   #should be Vector{Index}
+function frames(GΩ::TransverseOps)::Vector   #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function framesTemporary(GΩ::AbstractGlobalOps)::Vector  #should be Vector{Index}
+function framesTemporary(GΩ::TransverseOps)::Vector  #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function reduceByEngaged(GΩ::AbstractGlobalOps, engaged::Vector{Bool})::AbstractGlobalOps 
+function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::TransverseOps 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 
 # no needed
-# function engaged(GΩ::AbstractGlobalOps)::Vector{Bool} 
+# function engaged(GΩ::TransverseOps)::Vector{Bool} 
 #     @assert false "Calling Placeholder Abstract Function"
 # end;
 

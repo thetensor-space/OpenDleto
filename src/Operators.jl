@@ -35,55 +35,53 @@
 
     A subspace of operators acting on each axis
 
-    needs to prodive functions like coordinates, embedding and theansposeEmbedding
+    needs to prodive functions like coordinates, embed and theansposeEmbedding
 
 """
-abstract type LocalOps  end
+abstract type Operator  end
 
 
 """
     Return the native encoding of an operator in the transverse set,
     or `Nothing` if it is not a member.
 """
-function coordinates(LΩ::LocalOps, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(LΩ::Operator, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-function unsafe_coordinates(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<: Number} 
+function unsafe_coordinates(LΩ::Operator, M::AbstractMatrix) :: Vector{<: Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-# this is the inverse of the embedding map
+# this is the inverse of the embed map
 
-function transposeEmbedding(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<:Number}
+function transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number}
     @assert size(M)[1]==size(M)[2] "Incompatable Data"
-    return unsafe_transposeEmbedding(LΩ, M)  
+    return unsafe_transposeEmbed(LΩ, M)  
 end;
 
-function unsafe_transposeEmbedding(LΩ::LocalOps, M::AbstractMatrix) :: Vector{<:Number} 
+function unsafe_transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-# this is the transpose of the embedding map
+# this is the transpose of the embed map
 
 """
     Convert the native encoding of an operator into matrix.
 """
-function embedding(LΩ::LocalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
-    unsafe_embedding(LΩ,dim,data)
+    unsafe_embed(LΩ,dim,data)
 end;
-function unsafe_embedding(LΩ::LocalOps, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 
 
-function localDim(LΩ::LocalOps, dim::Integer)::Integer 
+function localDim(LΩ::Operator, dim::Integer)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function containScalars(LΩ::LocalOps)::Bool  
+function containScalars(LΩ::Operator)::Bool  
     @assert false "Calling Placeholder Abstract Function"
 end;
-
-export LocalOps, coordinates, unsafe_coordinates, transposeEmbedding, unsafe_transposeEmbedding, embedding, unsafe_embedding, localDim, containScalars
 
 

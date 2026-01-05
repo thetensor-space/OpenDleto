@@ -39,19 +39,12 @@ type can be:
 - `:orthogonal` random orthogonal matrices
 """ 
 function randomize_tensor(Γ::ITensor; type::Symbol=:invertible):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    # getRand = if type == :invertible
-    #     n -> __random_invertible(n)
-    # elseif type == :orthogonal
-    #     n -> __random_orthogonal(n)
-    # else
-    #     throw(ErrorException("Unknown randomization type: $type"))
-    # end
     fr = inds(Γ)
     mats = Vector{ITensor}(undef, length(fr))
     for a in 1:length(fr)        
-        # mats[a] = ITensor( getRand(ITensors.dim(fr[a])), fr[a], fr[a]' )
-        mats[a] = ITensor( __generate_random_matrix(type)(ITensors.dim(fr[a])), fr[a], __new_index_for_randomization(fr[a]) )
-        # MDK This does not work if Γ = random_itensor(i,i',i'')!!!!!
+        mat = __generate_random_matrix(type)(ITensors.dim(fr[a]))
+        outer = __new_index_for_randomization(fr[a])
+        mats[a] = ITensor( mat, fr[a], outer )
     end
     return (;Δ=Γ*mats, Xs=mats)
 end;
@@ -106,9 +99,9 @@ end;
 
 ### MDK potentially very unsafe! It is beter to add a suitable tag
 function __new_index_for_randomization(i::Index)::Index
-    return i'
+    return addtags(i, "Randomized," * string(rand(UInt16))) #i'
 end;
 
 function __new_index_for_change_of_basis(i::Index)::Index
-    return i'
+    return addtags(i, "Basis," * string(rand(UInt16))) #i'
 end;

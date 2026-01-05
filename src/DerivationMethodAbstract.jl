@@ -51,7 +51,7 @@ abstract type DerivationMethod end;
     If `nd` is negative or exceeds the dimension of the derivation space
     then the a basis for the derivation space is returned.
     - `method`: An instance of a subtype of `DerivationMethod` defining the solving method.
-    - `Ω`: AbstractGlobalOps.
+    - `Ω`: TransverseOps.
     - `P`: a linear chisel
     - `Γ`: The input tensor
     - `nd`: (optional) Maximum number of singular vectors to compute (default: 10). If negative, 
@@ -61,7 +61,7 @@ abstract type DerivationMethod end;
     Returns a vector of derivations as `ITensor`s with `a` axis labelled by `(a,a')`.
 """
 function der(method::DerivationMethod,
-    Ω::AbstractGlobalOps, 
+    Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor,
     nd::Integer=10, 
@@ -74,7 +74,7 @@ end;
 
 """
     den(method::DerivationMethod, 
-            Ω::AbstractGlobalOps, 
+            Ω::TransverseOps, 
             P::LinearChisel, 
             Δ ::Vector{Vector{ITensor}};
             nd::Integer=10,
@@ -94,7 +94,7 @@ end;
     Returns a vector `nd` many tensors that admit `D` as derivations.
 """
 function den(method::DerivationMethod,
-    Ω::AbstractGlobalOps, 
+    Ω::TransverseOps, 
     P::AbstractMatrix, 
     der::Vector{ITensor}; 
     nd::Integer=10,
@@ -104,4 +104,38 @@ function den(method::DerivationMethod,
 end;
 
 
-export DerivationMethod, der, den;
+#---- Convenience Functions -------------------------------------------------------
+
+"""
+    der(Γ; nd::Integer=10, tol::Real=1e-6)
+
+    Convenience method to compute derivations of a tensor using defaults:
+    - Universal chisel
+    - Universal transverse operators
+    - SylverLiningMethod
+"""
+function der(Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
+    ch = UniversalChisel(length(inds(Γ)))
+    fr = collect(inds(Γ))
+    ops = IndTransverseOps(fr, UniversalOp())
+    return der(SylverLiningMethod(), ops, ch, Γ, nd, tol)
+end
+
+function der(Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
+    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
+    Σ = ITensor(Γ, fr...)
+    return der(Σ; nd=nd, tol=tol)
+end
+
+function der(ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
+    fr = collect(inds(Γ))
+    ops = IndTransverseOps(fr, UniversalOp())
+    return der(SylverLiningMethod(), ops, ch, Γ, nd, tol)
+end
+
+function der(ch::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
+    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
+    Σ = ITensor(Γ, fr...)
+    return der(ch, Σ; nd=nd, tol=tol)
+end
+

@@ -28,10 +28,57 @@ module Dleto
 import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 
+# ============================================================================
+# Exports
+# ============================================================================
+
+# Random.jl
+export randomize_tensor, nondeg
+
+# Chisels.jl
+export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
+export normalize
+
+# LocalOperatorsAbstract.jl
+export Operator                             # abstract type
+export embed, unsafe_embed                  # Embed
+export coordinates, unsafe_coordinates      # Membership
+export transposeEmbed, unsafe_transposeEmbed  
+export localDim, containScalars
+
+# LocalOperatorsImplementations.jl
+export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
+
+# GlobalOperatorsAbstract.jl
+export TransverseOps
+export embedMatrices, unsafe_embedMatrices, embedITensors, unsafe_embedITensors
+export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
+
+# GlobalOperatorsIndependant.jl
+export IndTransverseOps
+
+# GlobalOperatorsSymmetries.jl
+export TransverseOpsSymmetries
+
+# DerivationMethodAbstract.jl
+export DerivationMethod, der, den
+
+# DerivationMethodSylverLininig.jl
+export sylvesterLM, SylverLiningMethod
+
+# Stratify.jl
+export stratify
+
+# TensorIO.jl
+export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
+
+# ============================================================================
+# Includes
+# ============================================================================
+
 include("DletoUtil.jl")
 
 include("Random.jl")
-export randomize_tensor, nondeg
 
 include("Chisels.jl")   
 
@@ -41,38 +88,23 @@ include("Chisels.jl")
 # Re-export from TensorSynthesis
 # TBD: Rethink these functions and their names for final users
 
-include("LocalOperatorsAbstract.jl")
-include("LocalOperatorsImplementations.jl")
+include("Operators.jl")
+include("OperatorsImpl.jl")
 
-include("GlobalOperatorsAbstract.jl")
-include("GlobalOperatorsIndependant.jl")
-include("GlobalOperatorsSymmetries.jl")
+include("TransverseOperators.jl")
+include("TransverseOpsIndependant.jl")
+include("TransverseOpsSymmetries.jl")
 
 include("DerivationMethodAbstract.jl")
+
 include("DerivationMethodSylverLininig.jl")
 
+include("Stratify.jl")
 
 using PlotlyJS
 import Plots
 
 include("TensorIO.jl")
-# using .TensorIO
-export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
-
-# include("TransverseOperators.jl")
-# # using .TransverseOperators
-# # Re-export from TransverseOperators
-# export TransverseOps, UniversalOps, engaged, frame, dim, transverse, member, unsafe_member #, SymmetricOps, DiagonalOps, InvertibleOps, OrthogonalOps
-
-# include("SylverLining.jl")
-# # using .SylverLining
-# # Re-export from SylverLining
-# export sylvesterLM
-
-# include("Derivations.jl")
-# # using .Derivations
-# # Re-export from Derivations
-# export DerivationMethod, der, stratify, blockdiag
 
 
 end # module Dleto

@@ -49,7 +49,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
     # Takes a vectorized representation of derivations
     # Returns a vectorized representation of the tensor
     function ester(Xvec)
-        Xs = unsafe_embeddingITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(reducedΩ, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
             Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
@@ -71,12 +71,12 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
                     ) 
                 for a in 1:engsize] 
                 # I think permute is might be avoided by swichting the order of the tensor multiplication, but this needs to be tested
-        return unsafe_transposeEmbedding(reducedΩ,Ys)
+        return unsafe_transposeEmbed(reducedΩ,Ys)
     end
 
     # Compose sylv and ester as in sylvester4
     function sylvester(Xvec)
-        Xs = unsafe_embeddingITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(reducedΩ, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
             Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
@@ -90,7 +90,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::Matrix, Γ::ITensor) #::Tuple{Li
                     reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
                     ) 
                 for a in 1:engsize] 
-        return unsafe_transposeEmbedding(reducedΩ,Ys)
+        return unsafe_transposeEmbed(reducedΩ,Ys)
     end
 
     # Wrap ester and sylve as LinearMaps
