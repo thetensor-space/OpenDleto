@@ -1,5 +1,5 @@
 #
-# Strata Dleto: Global Operators
+# Strata Dleto: Transverse Operators
 #   Creation and application of transverse operators for tensors.
 #
 # -----------------------------------------------------------------------------
@@ -24,38 +24,33 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
-"""
-    Global Operators Independant
-
-    Global Operartors whcih are product of independant operators on each axis 
-"""
 
 """
-    Global Operators Independant
+    Transverse Operators Independent
 
-    Global Operartors whcih are product of independant operators on each axis 
+    Transverse Operators which are product of independent operators on each axis 
     stores info for each axis 
         - as Index in frames 
         - as tempIndex in framesTemp
         - dimension in axisDim
         - local operator in localOps
-    in addition precomutes the Global dimenstion and the offsets (in the inner constructor)
+    in addition pre-computes the Global dimension and the offsets (in the inner constructor)
 
-    the embedding function dispaches the corresponding emebedding from the local operator on the view of the input data
-    the coordinates and transposeEmbedding dispaches the corresponding function 
+    the embed function dispatches the corresponding embed from the local operator on the view of the input data
+    the coordinates and transposeEmbed dispatches the corresponding function 
         from the local operator to the correct matrix and then combines the results    
 """
-struct GlobalOpsIndependant <: AbstractGlobalOps
+struct IndTransverseOps <: TransverseOps
     val ::Integer
     frames ::Vector{Index{K}} where K
     framesTemp ::Vector{Index{KK}} where KK
     axisDims ::Vector{<:Integer}
     globalDim ::Integer
     offsets ::Vector{<:Integer}
-    localOps ::Vector{<:LocalOps} 
+    localOps ::Vector{<:Operator} 
     #inner constructor
     # we need ; after each line???
-    GlobalOpsIndependant(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOps ::Vector{<:LocalOps}) = (
+    IndTransverseOps(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOps ::Vector{<:Operator}) = (
         val =  length(fr);
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
@@ -68,34 +63,30 @@ struct GlobalOpsIndependant <: AbstractGlobalOps
 end; 
 #extra constructors
 # auto generate new indexes
-GlobalOpsIndependant(fr ::Vector{Index{K}} where K, localOps ::Vector{<:LocalOps}) = 
-    GlobalOpsIndependant(fr, fr .|> __globalOpsMakeTempIndex ,localOps);
+IndTransverseOps(fr ::Vector{Index{K}} where K, localOps ::Vector{<:Operator}) = 
+    IndTransverseOps(fr, fr .|> __globalOpsMakeTempIndex ,localOps);
 #same localOp on each axis
-GlobalOpsIndependant(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::LocalOps) = 
-    GlobalOpsIndependant(fr, frTemp, fr .|> (x -> localOp) );
-GlobalOpsIndependant(fr ::Vector{Index{K}} where K, localOp ::LocalOps) = 
-    GlobalOpsIndependant(fr, fr .|> (x -> localOp) );
+IndTransverseOps(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::Operator) = 
+    IndTransverseOps(fr, frTemp, fr .|> (x -> localOp) );
+IndTransverseOps(fr ::Vector{Index{K}} where K, localOp ::Operator) = 
+    IndTransverseOps(fr, fr .|> (x -> localOp) );
 
 
+globalDim(GΩ::IndTransverseOps)::Integer  = GΩ.globalDim;
 
-export GlobalOpsIndependant
+axisDims(GΩ::IndTransverseOps)::Vector{<:Integer} = GΩ.axisDims;
 
-globalDim(GΩ::GlobalOpsIndependant)::Integer  = GΩ.globalDim;
+valency(GΩ::IndTransverseOps)::Integer = GΩ.val
 
-axisDims(GΩ::GlobalOpsIndependant)::Vector{<:Integer} = GΩ.axisDims;
+frames(GΩ::IndTransverseOps) = GΩ.frames
+framesTemporary(GΩ::IndTransverseOps) = GΩ.framesTemp
 
-valency(GΩ::GlobalOpsIndependant)::Integer = GΩ.val
+unsafe_embedMatrices(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
+    [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]) for i=1:GΩ.val];
 
-frames(GΩ::GlobalOpsIndependant) = GΩ.frames
-
-framesTemporary(GΩ::GlobalOpsIndependant) = GΩ.framesTemp
-
-unsafe_embeddingMatrices(GΩ::GlobalOpsIndependant, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
-    [ unsafe_embedding(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]) for i=1:GΩ.val];
-
-unsafe_embeddingITensors(GΩ::GlobalOpsIndependant, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensors(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
-        Matrix(unsafe_embedding(
+        Matrix(unsafe_embed(
             GΩ.localOps[i],
             GΩ.axisDims[i],
             data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]])),
@@ -103,14 +94,14 @@ unsafe_embeddingITensors(GΩ::GlobalOpsIndependant, data::Vector{<:Number} ) ::V
         for i=1:GΩ.val
     ];
 
-unsafe_transposeEmbedding(GΩ::GlobalOpsIndependant, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} =
-    vcat([ unsafe_transposeEmbedding(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
+unsafe_transposeEmbed(GΩ::IndTransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} =
+    vcat([ unsafe_transposeEmbed(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
 
-unsafe_coordinates(GΩ::GlobalOpsIndependant, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
+unsafe_coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
     vcat([ unsafe_coordinates(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
 
 
-function coordinates(GΩ::GlobalOpsIndependant, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
+function coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
     all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
     res= [coordinates(GΩ.localOps[i],Mats[i]) for i=1:GΩ.val]
     any(res .|> isnothing) && return nothing
@@ -118,7 +109,7 @@ function coordinates(GΩ::GlobalOpsIndependant, Mats::Vector{<: AbstractMatrix} 
 end;
 
 
-function reduceByEngaged(GΩ::GlobalOpsIndependant, engaged::Vector{Bool})::AbstractGlobalOps 
+function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::TransverseOps 
     @assert GΩ.val == length(engaged) "Incompatible data"
-    return GlobalOpsIndependant(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
+    return IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
 end;

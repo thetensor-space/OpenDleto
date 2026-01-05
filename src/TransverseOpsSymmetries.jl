@@ -43,26 +43,26 @@
         - syms array like [1 2 -2 4 4] saying that the third coordinated is dual to the second and the 4th and 5th are the same
     in addition precomutes the Global dimenstion and the offsets (in the inner constructor)
 
-    the embedding function dispaches the corresponding emebedding from the local operator on the view of the input data
-    the coordinates and transposeEmbedding dispaches the corresponding function 
+    the embed function dispaches the corresponding emebedding from the local operator on the view of the input data
+    the coordinates and transposeEmbed dispaches the corresponding function 
         from the local operator to the correct matrix and then combines the results    
 """
-struct GlobalOpsSymmetries <: AbstractGlobalOps
+struct TransverseOpsSymmetries <: TransverseOps
     val ::Integer
     frames ::Vector{Index{K}} where K
     framesTemp ::Vector{Index{KK}} where KK
     axisDims ::Vector{<:Integer}
     globalDim ::Integer
     offsets ::Vector{<:Integer}
-    localOps ::Vector{<:LocalOps}
+    localOps ::Vector{<:Operator}
     syms ::Vector{<:Integer}
     duals ::Vector{Bool} 
     #inner constructor
     # we need ; after each line???
-    GlobalOpsSymmetries(
+    TransverseOpsSymmetries(
         fr ::Vector{Index{K}} where K, 
         frTemp ::Vector{Index{KK}} where KK, 
-        localOps ::Vector{<:LocalOps},
+        localOps ::Vector{<:Operator},
         symmetries ::Vector{<:Integer} ) = (
         val =  length(fr);
         @assert val == length(localOps) "Incompatable data";
@@ -83,38 +83,36 @@ struct GlobalOpsSymmetries <: AbstractGlobalOps
 end; 
 #extra constructors
 # auto generate new indexes
-GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:LocalOps},symmetries ::Vector{<:Integer}) = 
-    GlobalOpsSymmetries(fr, fr .|> __globalOpsMakeTempIndex ,localOps, symmetries);
+TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:Operator},symmetries ::Vector{<:Integer}) = 
+    TransverseOpsSymmetries(fr, fr .|> __globalOpsMakeTempIndex ,localOps, symmetries);
 #same localOp on each axis
-GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::LocalOps,symmetries ::Vector{<:Integer}) = 
-    GlobalOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
-GlobalOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::LocalOps) = 
-    GlobalOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
+TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::Operator,symmetries ::Vector{<:Integer}) = 
+    TransverseOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
+TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator) = 
+    TransverseOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
 
 
 ## #TO BE DONE
 
-export GlobalOpsSymmetries
+globalDim(GΩ::TransverseOpsSymmetries)::Integer  = GΩ.globalDim;
 
-globalDim(GΩ::GlobalOpsSymmetries)::Integer  = GΩ.globalDim;
+axisDims(GΩ::TransverseOpsSymmetries)::Vector{<:Integer} = GΩ.axisDims;
 
-axisDims(GΩ::GlobalOpsSymmetries)::Vector{<:Integer} = GΩ.axisDims;
+valency(GΩ::TransverseOpsSymmetries)::Integer = GΩ.val
 
-valency(GΩ::GlobalOpsSymmetries)::Integer = GΩ.val
+frames(GΩ::TransverseOpsSymmetries) = GΩ.frames
 
-frames(GΩ::GlobalOpsSymmetries) = GΩ.frames
-
-framesTemporary(GΩ::GlobalOpsSymmetries) = GΩ.framesTemp
+framesTemporary(GΩ::TransverseOpsSymmetries) = GΩ.framesTemp
 
 
-unsafe_embeddingMatrices(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
+unsafe_embedMatrices(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
     [   GΩ.duals[i] ? 
-            transpose(unsafe_embedding(
+            transpose(unsafe_embed(
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
             )) : 
-            unsafe_embedding(
+            unsafe_embed(
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
@@ -122,16 +120,16 @@ unsafe_embeddingMatrices(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Ve
         for i=1:GΩ.val
     ];
 
-unsafe_embeddingITensors(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         GΩ.duals[i] ? 
             # without matrix ITensor messes up the encoding
-            Matrix(transpose(unsafe_embedding(
+            Matrix(transpose(unsafe_embed(
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]
             ))) : 
-            unsafe_embedding(
+            unsafe_embed(
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[(GΩ.offsets[GΩ.syms[i]]+1):GΩ.offsets[GΩ.syms[i]+1]]),
@@ -139,9 +137,9 @@ unsafe_embeddingITensors(GΩ::GlobalOpsSymmetries, data::Vector{<:Number} ) ::Ve
     for i=1:GΩ.val
     ];
 
-function unsafe_transposeEmbedding(GΩ::GlobalOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
+function unsafe_transposeEmbed(GΩ::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
     ltEmbedding = [ 
-            unsafe_transposeEmbedding(
+            unsafe_transposeEmbed(
                 GΩ.localOps[i], 
                 GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])
             ) 
@@ -153,11 +151,11 @@ function unsafe_transposeEmbedding(GΩ::GlobalOpsSymmetries, Mats::Vector{<:Abst
     return res;
 end;
 
-unsafe_coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
+unsafe_coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
     vcat([ GΩ.syms[i]==i ? unsafe_coordinates(GΩ.localOps[i], Mats[i]) : zeros(0) for i=1:GΩ.val ]...);
 
 
-function coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
+function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
     all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
     res= [coordinates(GΩ.localOps[i], GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])) for i=1:GΩ.val]
     any(res .|> isnothing) && return nothing
@@ -183,7 +181,7 @@ function coordinates(GΩ::GlobalOpsSymmetries, Mats::Vector{<: AbstractMatrix} )
 end;
 
 #Needs Testing
-function reduceByEngaged(GΩ::GlobalOpsSymmetries, engaged::Vector{Bool})::AbstractGlobalOps 
+function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::TransverseOps 
     val=GΩ.val
     syms=GΩ.syms
     duals=GΩ.duals
@@ -198,6 +196,6 @@ function reduceByEngaged(GΩ::GlobalOpsSymmetries, engaged::Vector{Bool})::Abstr
     newsymmetries = newsymmetries_all[engaged] 
     ## generate new GlobalOps 
     return all( [i==newsymmetries[i]  for i=1:length(newsymmetries)]) ? 
-        GlobalOpsIndependant(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) : 
-        GlobalOpsSymmetries(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], newsymmetries)
+        TransverseOpsIndependant(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) : 
+        TransverseOpsSymmetries(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], newsymmetries)
 end;

@@ -31,7 +31,44 @@ function stratify(
         Γ::ITensor
     )
     ders = der(Γ)
-    return stratify(Γ, ders)
+    if isempty(ders)
+        # should never happen as there are always trivial derivations
+        # so this indicates an error
+        error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
+    end
+    println("Found $(length(ders)) derivations for stratification.")
+    # Select a random linear combination of derivations
+    # Each derivation is a Vector{ITensor} with one ITensor per axis
+    n_ders = length(ders)
+    n_axes = ndims(Γ)
+    coefs = [ randn(10) for _ in 1:n_ders ]
+    
+    # Initialize δ as zeros with same structure as ders[1]
+    δ = Vector{ITensor}(undef, n_axes)
+    for a in 1:n_axes
+        # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
+        δ[a] = coefs[1] * ders[1][a]
+        for d in 2:n_ders
+            δ[a] += coefs[d] * ders[d][a]
+        end
+    end
+    return stratify(Γ, δ)
+end
+
+# ---- Convenience wrappers for stratify ---
+
+function stratify(
+        Γ::AbstractArray,
+        der::Vector{ITensor}
+    )
+    # Convert array to ITensor and delegate
+    return stratify(__ITensor(Γ), der)
+end
+
+function stratify(
+        Γ::AbstractArray
+    )
+    return stratify(__ITensor(Γ))
 end
 
 
@@ -48,7 +85,7 @@ end
     res = blockdiag(M); isapprox(M * res.T, res.T * res.D)
     ```
 """
-function blockdiag(M::Matrix)
+function blockdiag(M::Matrix; tol::Float64=1e-10)
     res = LinearAlgebra.eigen(M)
     eigenvals = res.values
     eigenvecs = res.vectors
@@ -57,19 +94,28 @@ function blockdiag(M::Matrix)
     real_blocks = zeros(real(eltype(eigenvecs)), n, n)
     
     processed = falses(n)
+    warning = false
     for i in 1:n
         if processed[i]
             continue
         end
         
         λ = eigenvals[i]
-        if isreal(λ)
+        # Check if eigenvalue is effectively real (imaginary part below tolerance)
+        if abs(imag(λ)) < tol
             # Real eigenvalue
             real_diag[i,i] = real(λ)
             real_blocks[:, i] = real(eigenvecs[:, i])
             processed[i] = true
         else
-            j = i+findfirst(j -> !processed[j] && isapprox(eigenvals[j], conj(λ)), (i+1):n)
+            # Find the conjugate pair in remaining eigenvalues
+            j = nothing
+            for k in (i+1):n
+                if !processed[k] && isapprox(eigenvals[k], conj(λ); atol=tol)
+                    j = k
+                    break
+                end
+            end
             if j !== nothing
                 # Create real 2D subspace from conjugate pair
                 v = eigenvecs[:, i]
@@ -80,8 +126,17 @@ function blockdiag(M::Matrix)
                 real_blocks[:, i] = real(v)
                 real_blocks[:, j] = imag(v)
                 processed[i] = processed[j] = true
+            else
+                # No conjugate found - treat as real (shouldn't happen for real matrices)
+                warning = true
+                real_diag[i,i] = real(λ)
+                real_blocks[:, i] = real(eigenvecs[:, i])
+                processed[i] = true
             end
         end
     end
+    if warning
+        @warn "No conjugate pair found for some eigenvalues, treating as real"
+    end            
     return (;D = real_diag, T = real_blocks)
 end

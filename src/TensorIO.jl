@@ -30,9 +30,6 @@ using ITensors
 # using SparseArrays
 using PlotlyJS
 
-export normalize_tensor, side_by_side, load_tensor, save, plot
-
-
 """
     normalize_tensor(t::ITensor)
 
@@ -91,14 +88,14 @@ function side_by_side(left, right;
 end
  
 """
-    loadTensor(filename::String) -> ITensor
+    load_tensor(filename::String) -> ITensor
 
     [TBD: This should work with any valence!]
     Load a tensor from a file in sparse format. The file should contain lines of the form:
     i j k value
     where i, j, k are the indices and value is the tensor entry at that position.
 """
-function loadTensor(filename::String)::ITensor
+function load_tensor(filename::String)::ITensor
     # Read the file and parse entries
     entries = []
     max_dims = []

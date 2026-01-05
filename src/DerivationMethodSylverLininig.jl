@@ -27,9 +27,6 @@
 import LinearMaps
 using ITensors
 
-export sylvesterLM;
-export SylverLiningMethod;
-
 """
     Sylver Lininig Derivation Method
 
@@ -38,7 +35,7 @@ export SylverLiningMethod;
 struct SylverLiningMethod <: DerivationMethod end;
 
 function der(method::SylverLiningMethod,
-    Ω::AbstractGlobalOps, 
+    Ω::TransverseOps, 
     Ch::AbstractMatrix, 
     Γ::ITensor,
     nd::Integer=10, 
@@ -48,13 +45,23 @@ function der(method::SylverLiningMethod,
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
-    @assert val == size(ch, 2) "Incompatable Chisel"
-    if globalDim(Ω) < 10000
+    @assert val == size(Ch, 2) "Incompatable Chisel"
+    
+    # Compute reduced operators (matching what sylvesterLM does internally)
+    eng = engaged(Ch)
+    reducedΩ = reduceByEngaged(Ω, eng)
+    
+    if globalDim(reducedΩ) < 10000
         sylvester, ester = sylvesterLM(Ω, Ch, Γ)
         M = Matrix(sylvester)
         vals, vecs = eigen(M)
         vecs = vecs[:, findall(abs.(vals) .< tol)]
-        return [ unsafe_embeddingITensors(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
+        # give only nd many vectors, unles nd < 0
+        if nd > 0 && size(vecs,2) > nd
+            vecs = vecs[:, 1:nd]
+        end
+        # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
+        return [ unsafe_embedITensors(reducedΩ, vecs[:,i]) for i in 1:size(vecs,2) ]
     else
         @assert false "Dimenstion Too Large"
         return []
@@ -75,7 +82,7 @@ end
     - `derdensor_map`: the composed derivation-densor `LinearMap` (a real symmetric operator).
     - `densormap`: the densor operator with transpose---the derivation operator---included.
 """
-function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
+function sylvesterLM(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
 #temporary the function retunrs also the naked functions in addition to the linear maps
 #this is done for only for testing but needs to be fixed during the merge.
 #I am gettign stupid error is ch is and empty matrix!!!
@@ -108,7 +115,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::
     # Takes a vectorized representation of derivations
     # Returns a vectorized representation of the tensor
     function ester(Xvec)
-        Xs = unsafe_embeddingITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(reducedΩ, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
             Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
@@ -131,12 +138,12 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::
         #         for a in 1:engsize] 
         Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
-        return unsafe_transposeEmbedding(reducedΩ,Ys)
+        return unsafe_transposeEmbed(reducedΩ,Ys)
     end
 
     # Compose sylv and ester as in sylvester4
     function sylvester(Xvec)
-        Xs = unsafe_embeddingITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(reducedΩ, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
             Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
@@ -152,7 +159,7 @@ function sylvesterLM(Ω::AbstractGlobalOps, ch::AbstractMatrix, Γ::ITensor) #::
         #         for a in 1:engsize] 
         Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
-        return unsafe_transposeEmbedding(reducedΩ,Ys)
+        return unsafe_transposeEmbed(reducedΩ,Ys)
     end
 
     # Wrap ester and sylve as LinearMaps

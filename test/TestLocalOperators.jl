@@ -3,22 +3,22 @@
 # TODO add tests that the dimensions are OK; return nothing etc
 
 
-LΩs=[ LocalUniversalOps(), LocalDiagonalOps(), LocalSymmetricOps(), LocalAntiSymmetricOps(), LocalScalarOps(), LocalEmptyOps() ];
-# LΩs=[ LocalUniversalOps(), LocalDiagonalOps(), LocalSymmetricOps(), LocalAntiSymmetricOps() ];
+LΩs=[ UniversalOp(), DiagonalOp(), SymmetricOp(), AntiSymmetricOp(), ScalarOp(), EmptyOp() ];
+# LΩs=[ UniversalOp(), DiagonalOp(), SymmetricOp(), AntiSymmetricOp() ];
 
-function testInverse(Ω::LocalOps, dim::Integer, num::Integer)
+function testInverse(Ω::Operator, dim::Integer, num::Integer)
     localdim = localDim(Ω,dim)
     for i = 1:num
         a = rand(localdim)
         # @show Ω, a
-        M = embedding(Ω,dim,a)
+        M = embed(Ω,dim,a)
         mat = Matrix(M)
         # @show Ω, M, mat
         @assert isapprox(a, coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, mat)) "Failed Invertability\r\n $Ω $a $mat \r\n"
-        M = unsafe_embedding(Ω,dim,a)
+        M = unsafe_embed(Ω,dim,a)
         mat = Matrix(M)
         @assert isapprox(a, coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
         @assert isapprox(a, unsafe_coordinates(Ω, M)) "Failed Invertability\r\n $Ω $a $M \r\n"
@@ -28,24 +28,24 @@ function testInverse(Ω::LocalOps, dim::Integer, num::Integer)
     return true
 end;
 
-function testTranspose(Ω::LocalOps, dim::Integer, num::Integer)
+function testTranspose(Ω::Operator, dim::Integer, num::Integer)
     localdim = localDim(Ω,dim)
     for i = 1:num
         a = rand(localdim)
         BB = rand(dim,dim)
-        # A = unsafe_embedding(Ω,dim,a)
-        A = embedding(Ω,dim,a)
+        # A = unsafe_embed(Ω,dim,a)
+        A = embed(Ω,dim,a)
         AA = Matrix(A)
-        b = transposeEmbedding(Ω,BB)
+        b = transposeEmbed(Ω,BB)
         @assert isapprox(LinearAlgebra.dot(a,b), LinearAlgebra.dot(reshape(AA,dim*dim),reshape(BB,dim*dim))) "Failed Transpose\r\n $Ω $a $AA $BB $b\r\n"
-        b = unsafe_transposeEmbedding(Ω,BB)
+        b = unsafe_transposeEmbed(Ω,BB)
         @assert isapprox(LinearAlgebra.dot(a,b), LinearAlgebra.dot(reshape(AA,dim*dim),reshape(BB,dim*dim))) "Failed Transpose\r\n $Ω $a $AA $BB $b\r\n"
 
-        A = unsafe_embedding(Ω,dim,a)
+        A = unsafe_embed(Ω,dim,a)
         AA = Matrix(A)
-        b = transposeEmbedding(Ω,BB)
+        b = transposeEmbed(Ω,BB)
         @assert isapprox(LinearAlgebra.dot(a,b), LinearAlgebra.dot(reshape(AA,dim*dim),reshape(BB,dim*dim))) "Failed Transpose\r\n $Ω $a $AA $BB $b\r\n"
-        b = unsafe_transposeEmbedding(Ω,BB)
+        b = unsafe_transposeEmbed(Ω,BB)
         @assert isapprox(LinearAlgebra.dot(a,b), LinearAlgebra.dot(reshape(AA,dim*dim),reshape(BB,dim*dim))) "Failed Transpose\r\n $Ω $a $AA $BB $b\r\n"
     end
     return true

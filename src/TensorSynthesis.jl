@@ -116,11 +116,10 @@ randTensorDistFunct(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(
 
 
 randTensorChisel(deltas::Vector{Vector{<: Number}}, frames::Vector{Index{<:Any}}, cutoff::Number, ch::Matrix)::ITensor = 
-randTensorDistFunct(deltas,frames,cutoff, x -> EvaluateChisel(ch, x));
+randTensorDistFunct(deltas,frames,cutoff, x -> __dist(ch, x));
 
 randTensorChisel(deltas::Vector{Vector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
-randTensorDistFunct(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> EvaluateChisel(ch, x));
-
+randTensorDistFunct(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> __dist(ch, x));        
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
@@ -146,7 +145,7 @@ function ITensorNorm(Γ ::ITensor, deltas::Vector{Vector{<:Number}}, dist::Funct
 end;
 
 ITensorNormChisel(Γ ::ITensor, deltas::Vector{Vector{ <: Number}}, ch::Matrix)::Number=
-ITensorNorm(Γ,deltas, x -> EvaluateChisel(ch, x) );
+ITensorNorm(Γ,deltas, x -> __dist(ch, x) );
 
 
 

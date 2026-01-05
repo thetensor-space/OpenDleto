@@ -41,7 +41,7 @@ function testComposition(f::LinearMap, g::LinearMap, num::Integer)
     return true; 
 end;
 
-function testGlobalOpChisel(Ω ::AbstractGlobalOps, ch::Matrix, num::Integer)
+function testGlobalOpChisel(Ω ::TransverseOps, ch::Matrix, num::Integer)
     # @show ch
     @testset "Testing with $ch" begin
         for i = 1:num
@@ -50,7 +50,7 @@ function testGlobalOpChisel(Ω ::AbstractGlobalOps, ch::Matrix, num::Integer)
             derdensor_map, densor_map = sylvesterLM(Ω, ch, Γ)
             n = size(densor_map)[2]
             m = size(densor_map)[1]
-            if (n < 3) && isa(Ω, GlobalOpsSymmetries)
+            if (n < 3) && isa(Ω, TransverseOpsSymmetries)
                 # @show ch
                 @show engaged(ch)
                 @show Ω.syms
@@ -68,7 +68,7 @@ function testGlobalOpChisel(Ω ::AbstractGlobalOps, ch::Matrix, num::Integer)
     end
 end
 
-function testGlobalOp(Ω ::AbstractGlobalOps)
+function testGlobalOp(Ω ::TransverseOps)
     # @show Ω
     d= globalDim(Ω)
     ntimes=5
@@ -107,7 +107,7 @@ end
                 axisdim = rand(2:10, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
                 localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
-                Ω = GlobalOpsIndependant(frames,localops)
+                Ω = TransverseOpsIndependant(frames,localops)
                 testGlobalOp(Ω)
             end 
         end
@@ -121,7 +121,7 @@ end
                 axisdim = rand(2:10, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
                 localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
-                Ω = GlobalOpsSymmetries(frames,localops,[i for i=1:val] )
+                Ω = TransverseOpsSymmetries(frames,localops,[i for i=1:val] )
                 testGlobalOp(Ω)
             end 
         end
@@ -136,7 +136,7 @@ for sym in syms
             axisdim = rand(3:5, val)
             frames = axisdim .|>  (i-> Index(i,"dim $i"))
             localops = rand(1:length(LΩs), val) .|> (i-> LΩs[i] )
-            Ω = GlobalOpsSymmetries(
+            Ω = TransverseOpsSymmetries(
                 [ prime(frames[abs(sym[i])],i) for i=1:length(sym)],
                 [ localops[abs(sym[i])] for i=1:length(sym)],
                 sym)
