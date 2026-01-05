@@ -163,31 +163,31 @@ function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
 end
 
 """
-    plot_tensor(tensor::ITensor, threshold::Float64=1e-2; 
+    plot_tensor(tensor::ITensor, threshold::Float64=1e-2;
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::Symbol=:blue,
-                   mode::Symbol=:image)   
-                   
-    Visualize a 3D tensor, plotting only entries whose absolute value exceeds 
+                   mode::Symbol=:image)
+
+    Visualize a 3D tensor, plotting only entries whose absolute value exceeds
     the given threshold.
     - `tensor`: The input tensor to visualize
     - `threshold`: Minimum absolute value for entries to be plotted (default: 1e
     # Arguments
-    - `mode::Symbol=:image`: Use `:static` for static plot (Plots.jl) or 
+    - `mode::Symbol=:image`: Use `:static` for static plot (Plots.jl) or
       `:interactive` for interactive 3D viewer (PlotlyJS).
 """
-function plot_tensor(tensor, threshold::Float64=1e-6; 
+function plot_tensor(tensor, threshold::Float64=1e-6;
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::Symbol=:blue,
                    viewer::Symbol=:static)
 
     # Convert ITensor to array for processing
     arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor
-    
+
     # function for rounding to threshold decimal places
-    roundToThreshold = x -> round(x, digits=round(Int,-log10(threshold)))
+    roundToThreshold = x -> round(x, digits=Int(-log10(threshold)))
     arr = arr .|> roundToThreshold
-    
+
     # Get indices of non-zero values in the tensor
     indices = findall(x -> x != 0, arr)
     dims = size(arr)
@@ -197,7 +197,7 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
     values = [abs(arr[idx]) for idx in indices]
-    
+
     # Scale marker sizes proportional to values
     # Normalize values to a reasonable marker size range (2-10)
     if length(values) > 0
@@ -213,15 +213,15 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
     end
 
     @info "Plotting $(length(indices)) points with value-proportional sizes..."
-    
+
     if viewer == :interactive
         # Create interactive 3D scatter plot using PlotlyJS
         # Convert color symbol to a PlotlyJS-compatible color string
         color_str = string(color)
-        
+
         trace = PlotlyJS.scatter3d(;
-            x=x_coords, 
-            y=y_coords, 
+            x=x_coords,
+            y=y_coords,
             z=z_coords,
             mode="markers",
             marker=attr(
@@ -231,7 +231,7 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
             ),
             type="scatter3d"
         )
-        
+
         layout = PlotlyJS.Layout(;
             title=title,
             scene=attr(
@@ -241,7 +241,7 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
             ),
             showlegend=false
         )
-        
+
         p = PlotlyJS.plot([trace], layout)
         return p
     else
@@ -259,11 +259,114 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
             zlims=(1, dims[3]+1),
             legend=false
         )
-        
+
         # Return the plot object
         return p
     end
 end
+
+# """
+#     plot_tensor(tensor::ITensor, threshold::Float64=1e-2; 
+#                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+#                    title::String="3D Tensor Visualization", color::Symbol=:blue,
+#                    mode::Symbol=:image)   
+                   
+#     Visualize a 3D tensor, plotting only entries whose absolute value exceeds 
+#     the given threshold.
+#     - `tensor`: The input tensor to visualize
+#     - `threshold`: Minimum absolute value for entries to be plotted (default: 1e
+#     # Arguments
+#     - `mode::Symbol=:image`: Use `:static` for static plot (Plots.jl) or 
+#       `:interactive` for interactive 3D viewer (PlotlyJS).
+# """
+# function plot_tensor(tensor, threshold::Float64=1e-6; 
+#                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+#                    title::String="3D Tensor Visualization", color::Symbol=:blue,
+#                    viewer::Symbol=:static)
+
+#     # Convert ITensor to array for processing
+#     arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor
+    
+#     # function for rounding to threshold decimal places
+#     roundToThreshold = x -> round(x, digits=round(Int,-log10(threshold)))
+#     arr = arr .|> roundToThreshold
+    
+#     # Get indices of non-zero values in the tensor
+#     indices = findall(x -> x != 0, arr)
+#     dims = size(arr)
+
+#     # Extract x, y, z coordinates and values
+#     x_coords = [idx[1] for idx in indices]
+#     y_coords = [idx[2] for idx in indices]
+#     z_coords = [idx[3] for idx in indices]
+#     values = [abs(arr[idx]) for idx in indices]
+    
+#     # Scale marker sizes proportional to values
+#     # Normalize values to a reasonable marker size range (2-10)
+#     if length(values) > 0
+#         min_val, max_val = extrema(values)
+#         if min_val ≈ max_val
+#             marker_sizes = fill(5.0, length(values))  # All same size if all values equal
+#         else
+#             # Scale values to range [2, 10] for marker sizes
+#             marker_sizes = 2.0 .+ 8.0 .* (values .- min_val) ./ (max_val - min_val)
+#         end
+#     else
+#         marker_sizes = Float64[]
+#     end
+
+#     @info "Plotting $(length(indices)) points with value-proportional sizes..."
+    
+#     if viewer == :interactive
+#         # Create interactive 3D scatter plot using PlotlyJS
+#         # Convert color symbol to a PlotlyJS-compatible color string
+#         color_str = string(color)
+        
+#         trace = PlotlyJS.scatter3d(;
+#             x=x_coords, 
+#             y=y_coords, 
+#             z=z_coords,
+#             mode="markers",
+#             marker=attr(
+#                 size=marker_sizes,
+#                 opacity=0.6,
+#                 color=color_str
+#             ),
+#             type="scatter3d"
+#         )
+        
+#         layout = PlotlyJS.Layout(;
+#             title=title,
+#             scene=attr(
+#                 xaxis=attr(title=xlabel, range=[1, dims[1]+1]),
+#                 yaxis=attr(title=ylabel, range=[1, dims[2]+1]),
+#                 zaxis=attr(title=zlabel, range=[1, dims[3]+1])
+#             ),
+#             showlegend=false
+#         )
+        
+#         p = PlotlyJS.plot([trace], layout)
+#         return p
+#     else
+#         # Create static 3D scatter plot using Plots.jl (default :image mode)
+#         p = Plots.scatter3d(x_coords, y_coords, z_coords;
+#             markersize=marker_sizes,
+#             markeralpha=0.6,
+#             color=color,
+#             xlabel=xlabel,
+#             ylabel=ylabel,
+#             zlabel=zlabel,
+#             title=title,
+#             xlims=(1, dims[1]+1),
+#             ylims=(1, dims[2]+1),
+#             zlims=(1, dims[3]+1),
+#             legend=false
+#         )
+        
+#         # Return the plot object
+#         return p
+#     end
+# end
 
 
 # end # module TensorIO
