@@ -165,14 +165,21 @@ end
 """
     plot_tensor(tensor::ITensor, threshold::Float64=1e-2; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization", color::Symbol=:blue)   
+                   title::String="3D Tensor Visualization", color::Symbol=:blue,
+                   mode::Symbol=:image)   
                    
-    Visualize a 3D tensor using Plots.jl, plotting only entries
-    whose absolute value exceeds the given threshold.
+    Visualize a 3D tensor, plotting only entries whose absolute value exceeds 
+    the given threshold.
+    - `tensor`: The input tensor to visualize
+    - `threshold`: Minimum absolute value for entries to be plotted (default: 1e
+    # Arguments
+    - `mode::Symbol=:image`: Use `:static` for static plot (Plots.jl) or 
+      `:interactive` for interactive 3D viewer (PlotlyJS).
 """
 function plot_tensor(tensor, threshold::Float64=1e-6; 
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization", color::Symbol=:blue)
+                   title::String="3D Tensor Visualization", color::Symbol=:blue,
+                   viewer::Symbol=:static)
 
     # Convert ITensor to array for processing
     arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor
@@ -205,25 +212,57 @@ function plot_tensor(tensor, threshold::Float64=1e-6;
         marker_sizes = Float64[]
     end
 
-    println("Plotting $(length(indices)) points with value-proportional sizes...")
+    @info "Plotting $(length(indices)) points with value-proportional sizes..."
     
-    # Create 3D scatter plot using Plots.jl
-    p = Plots.scatter3d(x_coords, y_coords, z_coords;
-        markersize=marker_sizes,
-        markeralpha=0.6,
-        color=color,
-        xlabel=xlabel,
-        ylabel=ylabel,
-        zlabel=zlabel,
-        title=title,
-        xlims=(1, dims[1]+1),
-        ylims=(1, dims[2]+1),
-        zlims=(1, dims[3]+1),
-        legend=false
-    )
-    
-    # Return the plot object
-    return p
+    if viewer == :interactive
+        # Create interactive 3D scatter plot using PlotlyJS
+        # Convert color symbol to a PlotlyJS-compatible color string
+        color_str = string(color)
+        
+        trace = PlotlyJS.scatter3d(;
+            x=x_coords, 
+            y=y_coords, 
+            z=z_coords,
+            mode="markers",
+            marker=attr(
+                size=marker_sizes,
+                opacity=0.6,
+                color=color_str
+            ),
+            type="scatter3d"
+        )
+        
+        layout = PlotlyJS.Layout(;
+            title=title,
+            scene=attr(
+                xaxis=attr(title=xlabel, range=[1, dims[1]+1]),
+                yaxis=attr(title=ylabel, range=[1, dims[2]+1]),
+                zaxis=attr(title=zlabel, range=[1, dims[3]+1])
+            ),
+            showlegend=false
+        )
+        
+        p = PlotlyJS.plot([trace], layout)
+        return p
+    else
+        # Create static 3D scatter plot using Plots.jl (default :image mode)
+        p = Plots.scatter3d(x_coords, y_coords, z_coords;
+            markersize=marker_sizes,
+            markeralpha=0.6,
+            color=color,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            zlabel=zlabel,
+            title=title,
+            xlims=(1, dims[1]+1),
+            ylims=(1, dims[2]+1),
+            zlims=(1, dims[3]+1),
+            legend=false
+        )
+        
+        # Return the plot object
+        return p
+    end
 end
 
 
