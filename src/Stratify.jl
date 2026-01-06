@@ -28,6 +28,8 @@ function stratify(
 end
 
 function stratify(
+        Ω::TransverseOps, 
+        ch::AbstractMatrix,          
         Γ::ITensor;
         tol::Float64=1e-6,
         reduced=false
@@ -37,7 +39,7 @@ function stratify(
         Γ, Ps = nondeg(Γ; tol=tol, mode=:trunc)
         @info "Reduced tensor size: ", size(Γ)
     end
-    ders = der(Γ; tol=tol)
+    ders = der(Ω,ch,Γ; tol=tol)
     if isempty(ders)
         # should never happen as there are always trivial derivations
         # so this indicates an error
@@ -46,19 +48,23 @@ function stratify(
     @info "Found $(length(ders)) derivations for stratification."
     # Select a random linear combination of derivations
     # Each derivation is a Vector{ITensor} with one ITensor per axis
-    n_ders = length(ders)
-    n_axes = ndims(Γ)
-    coefs = [ randn(10) for _ in 1:n_ders ]
-    
-    # Initialize δ as zeros with same structure as ders[1]
-    δ = Vector{ITensor}(undef, n_axes)
-    for a in 1:n_axes
-        # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
-        δ[a] = coefs[1] * ders[1][a]
-        for d in 2:n_ders
-            δ[a] += coefs[d] * ders[d][a]
+    # if length(ders) >= length(inds(Γ))
+    #     δ = ders[length(inds(Γ))] 
+    # else
+        n_ders = length(ders)
+        n_axes = ndims(Γ)
+        coefs = [ randn() for _ in 1:n_ders ]
+        
+        # Initialize δ as zeros with same structure as ders[1]
+        δ = Vector{ITensor}(undef, n_axes)
+        for a in 1:n_axes
+            # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
+            δ[a] = coefs[1] * ders[1][a]
+            for d in 2:n_ders
+                δ[a] += coefs[d] * ders[d][a]
+            end
         end
-    end
+    # end 
 
     # Get the stratified nondegenerate tensor
     Δ, Xs = stratify(Γ, δ)
@@ -91,6 +97,17 @@ function stratify(
 end
 
 # ---- Convenience wrappers for stratify ---
+function stratify(
+        Γ::ITensor;
+        tol::Float64=1e-6,
+        reduced=false
+    )
+    # Use universal chisel and transverse ops
+    ch = UniversalChisel(length(inds(Γ)))
+    fr = collect(inds(Γ))
+    Ω = IndTransverseOps(fr, UniversalOp())    
+    return stratify(Ω, ch, Γ; tol=tol, reduced=reduced)
+end
 
 function stratify(
         Γ::AbstractArray,
