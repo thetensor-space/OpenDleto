@@ -202,10 +202,10 @@ function plot_tensor(tensor, threshold::Float64=1e-4;
     if length(indices) == 0
         @warn "No tensor entries exceed the threshold of $threshold. Nothing to plot."
         return nothing
-    elseif length(indices) > 5000
-        @warn "More than 5,000 viewable entries, plotting only the largest points."
-        # Keep only the top 5,000 entries by value
-        sorted_indices = sortperm(values, rev=true)[1:5000]
+    elseif length(indices) > 1000
+        @warn "More than 1,000 viewable entries, plotting only the largest points."
+        # Keep only the top 1,000 entries by value
+        sorted_indices = sortperm(values, rev=true)[1:1000]
         x_coords = x_coords[sorted_indices]
         y_coords = y_coords[sorted_indices]
         z_coords = z_coords[sorted_indices]
