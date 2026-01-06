@@ -25,9 +25,11 @@
 
 module Dleto
 
+import LinearAlgebra
+using LinearAlgebra: I
+
 import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
-using LinearAlgebra: I
 
 # ============================================================================
 # Exports
