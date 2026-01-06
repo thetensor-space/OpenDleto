@@ -106,10 +106,29 @@ include("DerivationMethodSylverLininig.jl")
 
 include("Stratify.jl")
 
-using PlotlyJS
+# using PlotlyJS
 import Plots
+import PlotlyBase
+import PlotlyKaleido
+
+# using Plots
+# plotly()
 
 include("TensorIO.jl")
 
+# Initialize Plotly backend at runtime only
+function __init__()
+    # Suppress WebIO warnings
+    ENV["WEBIO_WARN"] = "false"
+    
+    # Only set backend if we're not precompiling
+    if ccall(:jl_generating_output, Cint, ()) != 1
+        try
+            Plots.plotlyjs()
 
+        catch e
+            @warn "Failed to set Plotly backend" exception=e
+        end
+    end
+end
 end # module Dleto
