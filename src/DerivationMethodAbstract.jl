@@ -72,6 +72,16 @@ function der(method::DerivationMethod,
 end;
 # I think this should be renamed to compute derivations
 
+function der(
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::ITensor; 
+    tol::Float64=1e-6,
+    nd=10,
+    ) :: Vector{Vector{ITensor}} 
+    method = SylverLiningMethod()
+    return der(method, Ω, P, Γ; tol=tol, nd=nd)
+end;
 
 """
     den(method::DerivationMethod, 
