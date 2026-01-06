@@ -180,7 +180,39 @@ function Base.:*(X::Vector{T},Γ::ITensor ) where T<:Number
 end
 
 
+# Define ⊕ as a new operator (not extending Base since it doesn't exist there)
+⊕(Γ::ITensor, Δ::ITensor) = begin
+    first_frame = ITensors.inds(Γ)
+    second_frame = ITensors.inds(Δ)
+    Σ, fr = ITensors.directsum(Γ=>first_frame, Δ=>second_frame)
+    return Σ
+end
 
+⊕(Γ::AbstractArray, Δ::AbstractArray) = begin
+    iΓ = __ITensor(Γ)
+    iΔ = __ITensor(Δ)
+    return iΓ ⊕ iΔ
+end
+
+
+⊕(Γ::ITensor, Δ::AbstractArray) = begin
+    iΔ = __ITensor(Δ)
+    return Γ ⊕ iΔ
+end
+⊕(Γ::AbstractArray, Δ::ITensor) = begin
+    iΓ = __ITensor(Γ)
+    return iΓ ⊕ Δ
+end
+
+function Base.:+(Γ::ITensor, Δ::AbstractArray)
+    iΔ = ITensor(Δ, inds(Γ)...)
+    return Γ + iΔ
+end
+
+function Base.:+(Γ::AbstractArray, Δ::ITensor)
+    iΓ = ITensor(Γ, inds(Δ)...)
+    return iΓ + Δ
+end
 
 # --- Utiliity functions ---
 

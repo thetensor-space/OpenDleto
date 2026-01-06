@@ -35,6 +35,9 @@ using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
 # Random.jl
 export randomize_tensor, nondeg
 
+# DletoUtil.jl
+export ⊕
+
 # Chisels.jl
 export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 export normalize_chisel
