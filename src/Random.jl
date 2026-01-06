@@ -104,9 +104,9 @@ end;
 
 ### MDK potentially very unsafe! It is beter to add a suitable tag
 function __new_index_for_randomization(i::Index)::Index
-    return addtags(i, "Randomized," * string(rand(UInt16))) #i'
+    return addtags(i, "Randomized," ) #i'
 end;
 
 function __new_index_for_change_of_basis(i::Index)::Index
-    return addtags(i, "Basis," * string(rand(UInt16))) #i'
+    return addtags(i, "Basis," ) #i'
 end;
