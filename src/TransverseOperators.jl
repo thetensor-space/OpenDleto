@@ -191,5 +191,5 @@ end;
 
 # function to create temp index
 function __globalOpsMakeTempIndex(I::Index)::Index
-    return Index(ITensors.dim(I),"Temp index for $I")
+    return Index(ITensors.dim(I),"Site:Der,$I")
 end;

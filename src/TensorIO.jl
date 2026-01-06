@@ -25,6 +25,9 @@
 
 # module TensorIO
 
+import PlotlyBase
+import PlotlyKaleido
+import PlotlyJS
 
 using ITensors
 # using LinearAlgebra

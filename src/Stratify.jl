@@ -29,8 +29,14 @@ end
 
 function stratify(
         Γ::ITensor;
-        tol::Float64=1e-6
+        tol::Float64=1e-6,
+        reduced=false
     )
+    if reduced
+        # @info "Computing nondegenerate basis for stratification."
+        Γ, Ps = nondeg(Γ; tol=tol, mode=:trunc)
+        @info "Reduced tensor size: ", size(Γ)
+    end
     ders = der(Γ; tol=tol)
     if isempty(ders)
         # should never happen as there are always trivial derivations
@@ -53,7 +59,35 @@ function stratify(
             δ[a] += coefs[d] * ders[d][a]
         end
     end
-    return stratify(Γ, δ)
+
+    # Get the stratified nondegenerate tensor
+    Δ, Xs = stratify(Γ, δ)
+    Zs = similar(Xs)
+    if reduced
+        # Map back to original space
+        # match each Xs[i] with Ps[j]
+        count = 1
+        for X in Xs
+            for (i,P) in enumerate(Ps)
+                common = intersect(inds(X),inds(P))
+                if length(common) > 0
+                    # transpose P.
+                    # transpose_idx = findfirst(!=(common[1]), inds(P))
+                    # ci = addtag(tanspose_idx, "Transpose")
+                    # Pt = ITensor(P, ci, common[1])
+                    Zs[count] = P * X
+                    count += 1
+                    deleteat!(Ps, i)
+                    break
+                end
+            end
+        end
+        @info "Mapped stratification back to original space."
+        Δ = Δ * Zs
+    else
+        Zs = Xs
+    end
+    return (;Σ=Δ, Xs=Zs)
 end
 
 # ---- Convenience wrappers for stratify ---
