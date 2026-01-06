@@ -23,7 +23,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 #-----------------------------------------------------------------------------
-
+import LinearAlgebra
 """
     nondeg(Γ::ITensor, A::Vector{Index}; tol::Float64=1e-10)
 
@@ -45,7 +45,7 @@
     Law: `Δ = Γ * E` 
 """
 function nondeg(Γ::ITensor, 
-                A::Vector{Index{T}}, 
+                A::Vector{Index{T}}; 
                 mode::Symbol=:trunc,
                 tol::Float64=1e-10) where T
     fr = inds(Γ)
@@ -86,18 +86,18 @@ function nondeg(Γ::ITensor,
 end;
 
 function nondeg(Γ::ITensor; mode::Symbol=:trunc, tol::Float64=1e-10)
-    return nondeg(Γ, collect(inds(Γ)), mode, tol)
+    return nondeg(Γ, collect(inds(Γ)); mode=mode, tol=tol)
 end;
 
 function nondeg(Γ::AbstractArray, 
-                A::Vector{Integer}, 
+                A::Vector{<:Integer}; 
                 tol::Float64=1e-10)
     iΓ = __ITensor(Γ)
-    return nondeg(iΓ, [ ITensors.inds(iΓ)[a] for a in A ], tol)
+    return nondeg(iΓ, [ ITensors.inds(iΓ)[a] for a in A ]; tol=tol)
 end;
 
-function nondeg(Γ::AbstractArray)
-    return nondeg(Γ, collect(1:ndims(Γ)))
+function nondeg(Γ::AbstractArray; tol::Float64=1e-10)
+    return nondeg(Γ, collect(1:ndims(Γ)); tol=tol)
 end;
 
 """
