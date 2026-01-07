@@ -49,10 +49,12 @@ function der(method::SylverLiningMethod,
     
     # Compute reduced operators (matching what sylvesterLM does internally)
     eng = engaged(Ch)
-    reducedΩ = reduceByEngaged(Ω, eng)
-    
+    (reducedΩ,expand_map) = reduceByEngaged(Ω, eng)
+    reducedCh = Ch[:,eng]
+
     # if globalDim(reducedΩ) < 10000
-        sylvester, ester = sylvesterLM(Ω, Ch, Γ)
+        # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
+        sylvester, ester = sylvesterLM(reducedΩ, reducedCh, Γ)
         M = Matrix(sylvester)
         vals, vecs = eigen(M)
         vecs = vecs[:, findall(abs.(vals) .< tol)]
@@ -62,6 +64,7 @@ function der(method::SylverLiningMethod,
         end
         # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
         return [ unsafe_embedITensors(reducedΩ, vecs[:,i]) for i in 1:size(vecs,2) ]
+        # It is more precise to first use the expand map  and then use Ω but this will produce extra zero matrices 
     # else
     #     @assert false "Dimenstion Too Large"
     #     return []
@@ -82,44 +85,50 @@ end
     - `derdensor_map`: the composed derivation-densor `LinearMap` (a real symmetric operator).
     - `densormap`: the densor operator with transpose---the derivation operator---included.
 """
-function sylvesterLM(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
+function sylvesterLM(Ω::TransverseOps, Ch::AbstractMatrix, Γ::ITensor) #::Tuple{LinearMaps.LinearMap, LinearMaps.LinearMap}
 #temporary the function retunrs also the naked functions in addition to the linear maps
 #this is done for only for testing but needs to be fixed during the merge.
 #I am gettign stupid error is ch is and empty matrix!!!
+#both Ω and Ch are assumed to be reduced!
+
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     # @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     # @assert val == size(ch, 2) "Incompatable Chisel"
-    eng = engaged(ch)
-    engsize = sum(eng)
-    reducedch = ch[:,eng]
+    # eng = engaged(ch)
+    engsize = valency(Ω)
+    # reducedCh = Ch[:,eng]
     ch_axis = Index(size(ch, 1), "chisel")
     eng_axis = Index(engsize, "engaged")
     # Id=Matrix(1.0*LinearAlgebra.I,engsize,engsize)
     # eng_tensors = [ ITensor( Id[:,i],eng_axis) for i in 1:engsize]
     Cs = [ ITensor(ch[:,a],  ch_axis) for a in 1:val ]
-    reducedCs = Cs[eng]
+    # reducedCs = Cs[eng]
  
-    reducedCTensor=ITensor(reducedch,ch_axis, eng_axis) ## check order of indeces!
-    reducedΩ = reduceByEngaged(Ω, eng)
+    # reducedCTensor=ITensor(reducedch,ch_axis, eng_axis) ## check order of indeces!
+    CTensor=ITensor(ch,ch_axis, eng_axis) ## check order of indeces!
+    # (reducedΩ, expand_cor)  = reduceByEngaged(Ω, eng)
+
     Γ_frame_ch = (ch_axis, inds(Γ)...)
     Γ_frame_eng = (eng_axis, inds(Γ)...)
 
-    reducedΩframe=frames(reducedΩ)
-    reducedΩframeTemp=framesTemporary(reducedΩ)
+    # reducedΩframe=frames(reducedΩ)
+    # reducedΩframeTemp=framesTemporary(reducedΩ)
+    Ωframe=frames(Ω)
+    ΩframeTemp=framesTemporary(Ω)
 
     # Compute sizes for LinearMap
     densor_dim = prod([ITensors.dim(f) for f in Γ_frame_ch ])
-    op_dim = globalDim(reducedΩ)
+    op_dim = globalDim(Ω)
 
     # Takes a vectorized representation of derivations
     # Returns a vectorized representation of the tensor
     function ester(Xvec)
-        Xs = unsafe_embedITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(Ω, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
-            Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
-            replaceind!(Δ, reducedΩframeTemp[a], reducedΩframe[a])  # fix index
+            Δ = Cs[a]*Xs[a]*Γ  # this swiches index to a tmep one
+            replaceind!(Δ, ΩframeTemp[a], Ωframe[a])  # fix index
             # Σ += permute(Δ, ch_axis, Γ_frame...)
             Σ += Δ #Itensor is intelegent enough and there is no need to permute
         end
@@ -136,18 +145,18 @@ function sylvesterLM(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor) #::Tupl
         #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
         #             ) 
         #         for a in 1:engsize] 
-        Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
+        Ys = [ Γ * replaceind!(Cs[a]*Σ , Ωframe[a], dΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
-        return unsafe_transposeEmbed(reducedΩ,Ys)
+        return unsafe_transposeEmbed(Ω,Ys)
     end
 
     # Compose sylv and ester as in sylvester4
     function sylvester(Xvec)
-        Xs = unsafe_embedITensors(reducedΩ, Xvec)
+        Xs = unsafe_embedITensors(Ω, Xvec)
         Σ = ITensor(Γ_frame_ch)
         for a in 1:engsize
             Δ = reducedCs[a]*Xs[a]*Γ  # this swiches index to a tmep one
-            replaceind!(Δ, reducedΩframeTemp[a], reducedΩframe[a])  # fix index
+            replaceind!(Δ, ΩframeTemp[a], Ωframe[a])  # fix index
             # Σ += permute(Δ, ch_axis, Γ_frame...) 
             Σ += Δ 
         end
@@ -157,9 +166,9 @@ function sylvesterLM(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor) #::Tupl
         #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
         #             ) 
         #         for a in 1:engsize] 
-        Ys = [ Γ * replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a]) for a in 1:engsize] 
+        Ys = [ Γ * replaceind!(Cs[a]*Σ , Ωframe[a], ΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
-        return unsafe_transposeEmbed(reducedΩ,Ys)
+        return unsafe_transposeEmbed(Ω,Ys)
     end
 
     # Wrap ester and sylve as LinearMaps

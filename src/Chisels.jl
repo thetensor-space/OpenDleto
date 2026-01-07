@@ -79,10 +79,10 @@ end;
     Create a universal chisel with selected engaged axes.
 """
 function UniversalChisel(engaged::Vector{Bool})::Matrix
-    polynomials = zeros(1, length(engaged) )
-    for (i, is_engaged) in enumerate(engaged)
-        if is_engaged
-            polynomials[i] = 1
+    Ch = zeros(1, length(engaged) )
+    for i = 1:length(engaged)
+        if engaged[i]
+            Ch[1,i] = 1
         end
     end
     # s = sum(polynomials .^ 2)
@@ -91,16 +91,17 @@ function UniversalChisel(engaged::Vector{Bool})::Matrix
     # end
     # norm = 1/sqrt(sum(polynomials .^ 2))
     # polynomials .*= norm
-    return polynomials
+    return Ch
 end;
 
 """
     Create a universal chisel with all axes engaged.
 """
-function UniversalChisel(valence::Integer)::Matrix  
-    engaged = [ true for _ in 1:valence ]
-    return UniversalChisel(engaged)
-end;
+UniversalChisel(valence::Integer) = UniversalChisel([ true for _ in 1:valence ]); 
+# function UniversalChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return UniversalChisel(engaged)
+# end;
 
 
 """
@@ -109,33 +110,34 @@ end;
 function TuckerChisel(engaged::Vector{Bool})::Matrix  
     valence = length(engaged)
     e = sum(engaged)
-    polynomials = zeros( e, valence )
+    Ch = zeros( e, valence )
     row = 1
     for a in 1:valence
         if engaged[a]
-            polynomials[row,a] = 1.0
+            Ch[row,a] = 1.0
             row += 1
         end
     end
-    return polynomials
+    return Ch
 end
 
 """
     Create a Tucker chisel with all axes engaged.
 """
-function TuckerChisel(valence::Integer)::Matrix  
-    engaged = [ true for _ in 1:valence ]
-    return TuckerChisel(engaged)
-end;
+TuckerChisel(valence::Integer) = TuckerChisel([ true for _ in 1:valence ]);
+# function TuckerChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return TuckerChisel(engaged)
+# end;
 
 """
     Create a adjoint chisel with two axes engaged.
 """
 function AdjointChisel(valence::Integer, left::Integer, right::Integer)::Matrix  
-    polynomials = zeros(1, valence )
-    polynomials[1, left] = 1.0
-    polynomials[1, right] = -1.0
-    return polynomials
+    Ch = zeros(1, valence )
+    Ch[1, left] = 1.0
+    Ch[1, right] = -1.0
+    return Ch
 end;
 
 """
@@ -145,28 +147,28 @@ function CentroidChisel(engaged::Vector{Bool})::Matrix
     valence = length(engaged)
     is = [ i for i in 1:valence if engaged[i] ]
     e = length(is)
-    polynomials = zeros( e*(e-1) ÷ 2, valence )
+    Ch = zeros( e*(e-1) ÷ 2, valence )
     row = 1    
     for a in is 
         for b in is
             if a < b
-                polynomials[row, a] = 1.0
-                polynomials[row, b] = -1.0
+                Ch[row, a] = 1.0
+                Ch[row, b] = -1.0
                 row += 1
             end
         end
-    end
-    
-    return polynomials
+    end    
+    return Ch
 end;
 
 """
     Create a Centroid chisel with all axes engaged.
 """
-function CentroidChisel(valence::Integer)::Matrix  
-    engaged = [ true for _ in 1:valence ]
-    return CentroidChisel(engaged)
-end;
+CentroidChisel(valence::Integer) = CentroidChisel([ true for _ in 1:valence ])
+# function CentroidChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return CentroidChisel(engaged)
+# end;
 
 
 # end # module Chisels
