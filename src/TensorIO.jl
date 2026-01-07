@@ -36,6 +36,41 @@ using ITensors
 using Plots
 # plotly()  # Set PlotlyJS as the backend for interactive plotting
 
+# Global layout preference for compare function
+const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
+
+"""
+    set_compare_layout(layout::Symbol)
+
+Set the default layout for the `compare` function.
+
+- `:widescreen` - Display side-by-side (default)
+- `:vertical` - Display stacked vertically
+"""
+function set_compare_layout(layout::Symbol)
+    if layout ∉ (:widescreen, :vertical)
+        error("Layout must be either :widescreen or :vertical")
+    end
+    COMPARE_LAYOUT[] = layout
+    return nothing
+end
+
+"""
+    get_compare_layout()
+
+Get the current default layout for the `compare` function.
+"""
+get_compare_layout() = COMPARE_LAYOUT[]
+
+function plot_layout(type::Symbol)
+    if type == :vertical
+        Plots.default(size=(400,900))
+    else # default :widescreen
+        Plots.default(size=(900,400))
+        println("Using widescreen layout for plots.")
+    end
+end
+
 """
     normalize_tensor(t::ITensor)
 
@@ -62,14 +97,22 @@ end
 # end
 
 """
-        side_by_side(left, right; left_title="Left", right_title="Right")
+        compare(left, right; left_title="Left", right_title="Right", layout=nothing)
 
-Render two array-like values side-by-side in notebook output using HTML.
+Render two array-like values in notebook output using HTML.
 Works in Jupyter/VS Code notebooks. Titles are optional.
+
+- `layout=nothing`: Use global default (set via `set_compare_layout`)
+- `layout=:widescreen`: Display side-by-side
+- `layout=:vertical`: Display stacked vertically
 """
-function side_by_side(left, right;
+function compare(left, right;
     left_title::AbstractString="Left", 
-    right_title::AbstractString="Right")
+    right_title::AbstractString="Right",
+    layout::Union{Symbol,Nothing}=nothing)
+
+    # Use global default if layout not specified
+    actual_layout = isnothing(layout) ? get_compare_layout() : layout
 
     the_left = (typeof(left) <: ITensor) ? Array(left, inds(left)) : left
     left_txt = repr("text/plain", the_left)
@@ -77,21 +120,39 @@ function side_by_side(left, right;
     the_right = (typeof(right) <: ITensor) ? Array(right,inds(right)) : right
     right_txt = repr("text/plain", the_right)
     
-    html = """
-        <div style=\"display:flex; gap:16px; align-items:flex-start\">
-            <div style=\"flex:1\">
-                <h4>$(left_title)</h4>
-                <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(left_txt)</pre>
+    if actual_layout == :vertical
+        html = """
+            <div style=\"display:flex; flex-direction:column; gap:16px;\">
+                <div>
+                    <h4>$(left_title)</h4>
+                    <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(left_txt)</pre>
+                </div>
+                <div>
+                    <h4>$(right_title)</h4>
+                    <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(right_txt)</pre>
+                </div>
             </div>
-            <div style=\"flex:1\">
-                <h4>$(right_title)</h4>
-                <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(right_txt)</pre>
+        """
+    else  # :widescreen
+        html = """
+            <div style=\"display:flex; gap:16px; align-items:flex-start\">
+                <div style=\"flex:1\">
+                    <h4>$(left_title)</h4>
+                    <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(left_txt)</pre>
+                </div>
+                <div style=\"flex:1\">
+                    <h4>$(right_title)</h4>
+                    <pre style=\"font-family: SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;\">$(right_txt)</pre>
+                </div>
             </div>
-        </div>
-    """
+        """
+    end
     display(MIME("text/html"), html)
     return nothing
 end
+
+# Backwards compatibility alias
+side_by_side = compare
  
 """
     load_tensor(filename::String) -> ITensor

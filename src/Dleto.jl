@@ -25,9 +25,11 @@
 
 module Dleto
 
+import LinearAlgebra
+using LinearAlgebra: I
+
 import ITensors
 using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
-using LinearAlgebra: I
 
 # ============================================================================
 # Exports
@@ -78,7 +80,8 @@ export sylvesterLM, SylverLiningMethod
 export stratify
 
 # TensorIO.jl
-export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
+export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
+export set_compare_layout, get_compare_layout
 
 # TensorSynthesis.jl
 export rand_den
