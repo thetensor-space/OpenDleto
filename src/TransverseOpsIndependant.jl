@@ -109,7 +109,35 @@ function coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) ::
 end;
 
 
-function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::TransverseOps 
+function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{::TransverseOps, LinearMaps.LinearMap}
     @assert GΩ.val == length(engaged) "Incompatible data"
-    return IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
+    rΩ = IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
+    rindx = zeros(Int16, GΩ.val);
+    eindx = zeros(Int16, rΩ.val);
+    j=1 
+    for i = 1:GΩ.val
+        if engaged[i]
+            rindx[i] = j
+            eindx[j] = i 
+            j = j+1
+        else
+            rindx[i] = 0
+        end
+    end 
+
+    function expand(rdata::Vector{<:Number})::Vector{<:Number}
+        edata=zeros(eltype(rdata), rΩ.globalDim)
+        for i = 1: rΩ[val]
+            edata[GΩ.offsets[eindx[i]]:GΩ.offsets[eindx[i] +1]-1 ] = rdata[rΩ.offsets[i]:(rΩ.offset[i+1]-1)]
+        end;
+        return edata
+    end;
+    function contract(edata::Vector{<:Number})::Vector{<:Number}
+        rdata=zeros(eltype(edata), rΩ.globalDim)
+        for i = 1: rΩ[val]
+            rdata[rΩ.offsets[i]:(rΩ.offset[i+1]-1)] = edata[GΩ.offsets[eindx[i]]:GΩ.offsets[eindx[i] +1]-1 ]
+        end;
+        return rdata
+    end;
+    return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
 end;

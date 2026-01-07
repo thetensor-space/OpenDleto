@@ -38,7 +38,7 @@
 """
 abstract type DerivationMethod end;
 
-    """
+"""
     der(method::DerivationMethod, 
             Ω::TransverseOps, 
             P::LinearChisel, 
@@ -66,22 +66,14 @@ function der(method::DerivationMethod,
     P::AbstractMatrix, 
     Γ::ITensor; 
     tol::Float64=1e-6,
-    nd=10,
+    nd=10
     ) :: Vector{Vector{ITensor}} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 # I think this should be renamed to compute derivations
 
-function der(
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10,
-    ) :: Vector{Vector{ITensor}} 
-    method = SylverLiningMethod()
-    return der(method, Ω, P, Γ; tol=tol, nd=nd)
-end;
+der( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Vector{Vector{ITensor}} = 
+    der(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
 
 """
     den(method::DerivationMethod, 
@@ -125,12 +117,11 @@ end;
     - Universal transverse operators
     - SylverLiningMethod
 """
-function der(Γ::ITensor; nd=10, tol::Real=1e-6)
-    ch = UniversalChisel(length(inds(Γ)))
-    fr = collect(inds(Γ))
-    ops = IndTransverseOps(fr, UniversalOp())
-    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
-end
+der(Γ::ITensor; nd=10, tol::Real=1e-6) = 
+    der(SylverLiningMethod(), 
+        IndTransverseOps(collect(inds(Γ)), UniversalOp()), 
+        UniversalChisel(length(inds(Γ))), 
+        Γ; nd=nd, tol=tol);
 
 function der(Γ::AbstractArray; nd=10, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]

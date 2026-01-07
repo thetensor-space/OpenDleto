@@ -26,6 +26,33 @@
 
 # ----- Randomization of tensors -----
 """
+randomize_tensor(t::ITensor; f::Function)
+
+Picks random invertible matrices and use them to perform a random basis change of a tensor.
+
+Returns a named tuple with fields:
+- `Δ` the randomized tensor
+- `Xs` the list of random matrices used for the basis change
+
+f is a function with an argumen index and returns :invertible or :orthogonal
+""" 
+function randomize_tensor(
+    Γ::ITensor; 
+    f::Function,
+    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+    
+    fr = inds(Γ)
+    mats = Vector{ITensor}(undef, length(fr))
+    for a in 1:length(fr)        
+        mat = __generate_random_matrix(f(fr[a]))(ITensors.dim(fr[a]))
+        outer = __new_index_for_randomization(fr[a])
+        mats[a] = ITensor( mat, fr[a], outer )
+    end
+    return (;Δ=Γ*mats, Xs=mats)
+end
+
+
+"""
 randomize_tensor(t::ITensor; type::Symbol=:invertible)
 
 Picks random invertible matrices and use them to perform a random basis change of a tensor.
@@ -38,20 +65,25 @@ type can be:
 - `:invertible` (default) random invertible matrices
 - `:orthogonal` random orthogonal matrices
 """ 
-function randomize_tensor(
+randomize_tensor(
     Γ::ITensor; 
     type::Symbol=:invertible,
-    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}} = randomize_tensor(Γ, x -> type);
+
+# function randomize_tensor(
+#     Γ::ITensor; 
+#     type::Symbol=:invertible,
+#     ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
     
-    fr = inds(Γ)
-    mats = Vector{ITensor}(undef, length(fr))
-    for a in 1:length(fr)        
-        mat = __generate_random_matrix(type)(ITensors.dim(fr[a]))
-        outer = __new_index_for_randomization(fr[a])
-        mats[a] = ITensor( mat, fr[a], outer )
-    end
-    return (;Δ=Γ*mats, Xs=mats)
-end
+#     fr = inds(Γ)
+#     mats = Vector{ITensor}(undef, length(fr))
+#     for a in 1:length(fr)        
+#         mat = __generate_random_matrix(type)(ITensors.dim(fr[a]))
+#         outer = __new_index_for_randomization(fr[a])
+#         mats[a] = ITensor( mat, fr[a], outer )
+#     end
+#     return (;Δ=Γ*mats, Xs=mats)
+# end
 
 
 function randomize_tensor(Γ::AbstractArray; type::Symbol=:invertible)
@@ -76,18 +108,20 @@ end
 __random_invertible(i::Index) = __random_invertible(ITensors.dim(i));
 
 function __random_orthogonal(n::Integer)
-    mat = randn(n,n)
-    count = 0
-    while LinearAlgebra.rank(mat) < n && count < 100
-        count += 1
-        mat = randn(n,n)
-    end
-    if count > 99
-        throw(ErrorException("Could not generate random orthogonal matrix"))
-    end
-    Q,R = LinearAlgebra.qr(mat)
-    D = LinearAlgebra.Diagonal(sign.(LinearAlgebra.diag(R)))
-    return Q*D
+    S = randn(n,n)
+    return LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
+    # mat = randn(n,n)
+    # count = 0
+    # while LinearAlgebra.rank(mat) < n && count < 100
+    #     count += 1
+    #     mat = randn(n,n)
+    # end
+    # if count > 99
+    #     throw(ErrorException("Could not generate random orthogonal matrix"))
+    # end
+    # Q,R = LinearAlgebra.qr(mat)
+    # D = LinearAlgebra.Diagonal(sign.(LinearAlgebra.diag(R)))
+    # return Q*D
 end;
 __random_orthogonal(i::Index) = __random_orthogonal(ITensors.dim(i));
 
@@ -104,9 +138,9 @@ end;
 
 ### MDK potentially very unsafe! It is beter to add a suitable tag
 function __new_index_for_randomization(i::Index)::Index
-    return addtags(i, "Randomized," ) #i'
+    return addtags(i, "Randomized" ) #i'
 end;
 
 function __new_index_for_change_of_basis(i::Index)::Index
-    return addtags(i, "Basis," ) #i'
+    return addtags(i, "Basis" ) #i'
 end;

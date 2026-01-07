@@ -24,6 +24,8 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
+import LinearMaps
+
 """
     Abstract Global Operators
 
@@ -156,7 +158,7 @@ function framesTemporary(GΩ::TransverseOps)::Vector  #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::TransverseOps 
+function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::Tuple{::TransverseOps, LinearMaps.LinearMap} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 

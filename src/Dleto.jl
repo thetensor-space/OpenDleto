@@ -34,10 +34,14 @@ using LinearAlgebra: I
 # ============================================================================
 
 # Random.jl
-export randomize_tensor, nondeg
+export randomize_tensor 
+
+# NonDegenerate.jl
+export nondeg
 
 # DletoUtil.jl
 export ⊕
+# what is this? is this tensor product of tensors? why not \otimes?
 
 # Chisels.jl
 export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
@@ -76,7 +80,10 @@ export stratify
 # TensorIO.jl
 export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
 
+# TensorSynthesis.jl
 export rand_den
+
+# TensorSynthesis3D.jl
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 
