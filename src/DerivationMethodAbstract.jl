@@ -117,13 +117,14 @@ end;
     - Universal transverse operators
     - SylverLiningMethod
 """
-der(Γ::ITensor; nd=10, tol::Real=1e-6) = 
-    der(SylverLiningMethod(), 
-        IndTransverseOps(collect(inds(Γ)), UniversalOp()), 
-        UniversalChisel(length(inds(Γ))), 
-        Γ; nd=nd, tol=tol);
+function der(Γ::ITensor; nd=-1, tol::Real=1e-6)
+    ch = UniversalChisel(length(inds(Γ)))
+    fr = collect(inds(Γ))
+    ops = IndTransverseOps(fr, UniversalOp())
+    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+end
 
-function der(Γ::AbstractArray; nd=10, tol::Real=1e-6)
+function der(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
     return der(Σ; nd=nd, tol=tol)
@@ -135,7 +136,7 @@ function der(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)
     return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(ch::AbstractMatrix, Γ::AbstractArray; nd=10, tol::Real=1e-6)
+function der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
     return der(ch, Σ; nd=nd, tol=tol)

@@ -27,6 +27,9 @@
 import LinearMaps
 using ITensors
 
+import KrylovKit
+using KrylovKit: eigsolve
+
 """
     Sylver Lininig Derivation Method
 
@@ -39,11 +42,14 @@ function der(method::SylverLiningMethod,
     Ch::AbstractMatrix, 
     Γ::ITensor;
     tol::Float64=1e-6,
-    nd=10,  # Don't type as integer to allow Inf 
+    nd=-1,  # Don't type as integer to allow Inf 
     kwargs...,
     ) :: Vector{Vector{ITensor}}
     Γ_frame = inds(Γ)
     val = ndims(Γ)
+    if nd <= 0
+        nd = val
+    end
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(Ch, 2) "Incompatable Chisel"
     
@@ -53,22 +59,72 @@ function der(method::SylverLiningMethod,
     reducedCh = Ch[:,eng]
 
     # if globalDim(reducedΩ) < 10000
-        # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
-        sylvester, ester = sylvesterLM(reducedΩ, reducedCh, Γ)
+    # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
+    sylvester, ester = sylvesterLM(reducedΩ, reducedCh, Γ)
+
+    
+    # TBD: Call into a eigen solver library that handles LinearMaps directly
+    vecs = Vector{Float64}[]
+    λ = Float64[]
+    if globalDim(reducedΩ) < 1000
         M = Matrix(sylvester)
-        vals, vecs = eigen(M)
-        vecs = vecs[:, findall(abs.(vals) .< tol)]
-        # give only nd many vectors, unless nd < 0 or Inf
-        if nd > 0 && size(vecs,2) > nd
-            vecs = vecs[:, 1:floor(Int, nd)]
+        λ, vecs_matrix = eigen(M)
+        # Convert matrix columns to vector of vectors for consistency
+        vecs = [vecs_matrix[:, i] for i in 1:size(vecs_matrix, 2)]
+    else
+        nev = min(nd, size(sylvester, 1))  # Number of eigenvalues to compute
+        x0 = randn(size(sylvester, 2))     # Initial guess vector
+
+        # Retry logic for convergence
+        max_attempts = 5
+        maxiter = 100
+        krylovdim = max(10, 2*nev)
+        converged = false
+        
+        for attempt in 1:max_attempts
+            λ, vecs, info = eigsolve(sylvester, x0, nev, :SR;
+                maxiter=maxiter,
+                krylovdim=krylovdim,
+                tol=tol
+            )
+            
+            converged = info.converged >= nev
+            
+            if converged
+                # Success! Convert and continue
+                λ = real.(λ)
+                vecs = [real.(v) for v in vecs]
+                break
+            else
+                # Not enough converged, increase parameters and retry
+                @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
+                maxiter = Int(round(maxiter * 1.5))
+                krylovdim = min(Int(round(krylovdim * 1.5)), size(sylvester, 1))
+                x0 = randn(size(sylvester, 2))  # New random start
+                
+                if attempt == max_attempts
+                    # Last attempt failed, use what we have
+                    @warn "Final attempt: Using $(info.converged) converged eigenvalues out of $nev requested."
+                    λ = real.(λ)
+                    vecs = [real.(v) for v in vecs]
+                end
+            end
         end
-        # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
-        return [ unsafe_embedITensors(reducedΩ, vecs[:,i]) for i in 1:size(vecs,2) ]
-        # It is more precise to first use the expand map  and then use Ω but this will produce extra zero matrices 
-    # else
-    #     @assert false "Dimenstion Too Large"
-    #     return []
-    # end
+    end
+    
+    # Filter vectors by eigenvalue tolerance
+    valid_indices = findall(abs.(λ) .< tol)
+    @assert length(valid_indices) > 0 "Not enough eigenvalues computed; increase `tol` parameter."
+    λ = λ[valid_indices]
+    vecs = vecs[valid_indices]
+    
+    # Give only nd many vectors, unless nd < 0 or Inf
+    if nd > 0 && length(vecs) > nd
+        vecs = vecs[1:floor(Int, nd)]
+    end
+    
+    # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
+    return [ unsafe_embedITensors(reducedΩ, vecs[i]) for i in 1:length(vecs) ]
 end
 
 
