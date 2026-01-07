@@ -3,7 +3,7 @@
 # Strata Dleto: Sylvester Solvers
 #   Algorithms for solving Sylvester equations arising in chiseling.
 # -----------------------------------------------------------------------------
-# Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, Amaury Minino,J
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, Amaury Minino,J
 # James B. Wilson
 # 
 # Permission is hereby granted, free of charge, to any person obtaining

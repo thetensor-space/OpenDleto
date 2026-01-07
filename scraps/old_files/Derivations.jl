@@ -3,7 +3,7 @@
 # Strata Dleto: Sylvester Solvers
 #   Algorithms for solving Sylvester equations arising in chiseling.
 # -----------------------------------------------------------------------------
-# Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the “Software”), 
@@ -30,26 +30,22 @@
     Interface to methods for solving Sylvester equations arising in chiseling.
 
 """
-# module Derivations
 
-# include("TransverseOperators.jl")
-# using .TransverseOperators: TransverseOps, engaged, frame, transverse, contains
-
-# include("SylverLining.jl")
-# using .SylverLining: sylvesterLM
-
-# export der, den, stratify
-# using SylverLining as SL
-# using ITensors
-# using LinearMaps
-# using ..Chisels: LinearChisel
-# using ..TransverseOperators: TransverseOps
-
-
-# struct Derivation 
-#     C :: LinearChisel
-#     Ω :: TransverseOps
-#     op :: AbstractVector{AbstractMatrix}
+# TBD: after labeling chisel columns as dictionaries, implement isder
+# function isder(X::Vector{ITensor}, 
+#     Ω::TransverseOps, 
+#     P::AbstractMatrix, 
+#     Γ::ITensor; 
+#     tol::Real=1e-6,
+#     ) :: Bool
+#     Δ = ITensor(inds(Γ))
+#     for X in Xs
+#         Δ = PΓ*X
+#     end
+#     sylvester, ester = sylvesterLM(Ω, P, Γ)
+#     vecX = vectorize(Ω, X)
+#     res = sylvester * vecX
+#     return norm(res) < tol
 # end
 
 """
@@ -61,28 +57,28 @@
 abstract type DerivationMethod end
 
 #---- Convenience Functions -------------------------------------------------------
-function der(ops::TransverseOps, ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
-    return der(SylverLiningMethod(), ops, ch, Γ, nd, tol)
+function der(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
+    return der(SylverLiningMethod(), Ω, P, Γ, nd, tol)
 end
-function der(ops::TransverseOps, ch::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
+function der(Ω::TransverseOps, P::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    return der(ops, ch, Σ; nd=nd, tol=tol)
+    return der(Ω, P, Σ; nd=nd, tol=tol)
 end
-function der(ch::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
+function der(P::AbstractMatrix, Γ::AbstractArray; nd::Integer=10, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    ops = UniversalOps(fr)
-    return der(ops, ch, Σ; nd=nd, tol=tol)
+    Ω = UniversalOps(fr)
+    return der(Ω, P, Σ; nd=nd, tol=tol)
 end
-function der(ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
+function der(P::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
     fr = collect(inds(Γ))
-    ops = UniversalOps(fr)
-    return der(ops, ch, Γ; nd=nd, tol=tol)
+    Ω = UniversalOps(fr)
+    return der(Ω, P, Γ; nd=nd, tol=tol)
 end
 function der(Γ; nd::Integer=-1, tol::Real=1e-6)
-    ch = UniversalChisel(ndims(Γ))
-    return der(ch, Γ; nd=nd, tol=tol)
+    P = UniversalChisel(ndims(Γ))
+    return der(P, Γ; nd=nd, tol=tol)
 end
 
 
@@ -90,7 +86,7 @@ end
 """
     der(method::DerivationMethod, 
             Ω::TransverseOps, 
-            P::LinearChisel, 
+            P::AbstractMatrix,
             Γ::ITensor; 
             nd::Integer=-1,
             tol::Real=1e-6,
@@ -129,14 +125,17 @@ function der(method::SylverLiningMethod,
     ) :: Vector{Vector{ITensor}}
     sylvester, ester = sylvesterLM(Ω, P, Γ)
     # if size(sylvester, 1) < 10000
-        M = Matrix(sylvester)
-        vals, vecs = eigen(M)
-        vecs = vecs[:, findall(abs.(vals) .< tol)]
-        if nd > 0 && size(vecs, 2) > nd
-            vecs = vecs[:, 1:nd]
-        end
-        Xs = [ transverse(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
-        return Xs
+        
+    # M = Matrix(sylvester)
+    # vals, vecs = eigen(M)
+    vals, vecs = solve(sylvester, method.solver; nd=nd, tol=tol)
+
+    vecs = vecs[:, findall(abs.(vals) .< tol)]
+    if nd > 0 && size(vecs, 2) > nd
+        vecs = vecs[:, 1:nd]
+    end
+    Xs = [ transverse(Ω, vecs[:,i]) for i in 1:size(vecs,2) ]
+    return Xs
     # end
     # return nothing
 end

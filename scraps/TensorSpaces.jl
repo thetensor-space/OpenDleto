@@ -3,7 +3,7 @@
 # Strata Dleto: Tensor Space
 #   Methods for changing tensors and other categorical operations.
 #
-# Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the “Software”), 
