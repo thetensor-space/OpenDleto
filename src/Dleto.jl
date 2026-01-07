@@ -70,6 +70,8 @@ export IndTransverseOps
 # GlobalOperatorsSymmetries.jl
 export TransverseOpsSymmetries
 
+export NullSolver
+
 # DerivationMethodAbstract.jl
 export DerivationMethod, der, den
 
@@ -115,6 +117,8 @@ include("TransverseOpsIndependant.jl")
 include("TransverseOpsSymmetries.jl")
 
 include("DerivationMethodAbstract.jl")
+
+include("NullSolvers.jl")
 
 include("DerivationMethodSylverLininig.jl")
 

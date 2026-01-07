@@ -109,7 +109,7 @@ function coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) ::
 end;
 
 
-function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{::TransverseOps, LinearMaps.LinearMap}
+function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
     @assert GΩ.val == length(engaged) "Incompatible data"
     rΩ = IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
     rindx = zeros(Int16, GΩ.val);

@@ -158,7 +158,7 @@ function framesTemporary(GΩ::TransverseOps)::Vector  #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::Tuple{::TransverseOps, LinearMaps.LinearMap} 
+function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 

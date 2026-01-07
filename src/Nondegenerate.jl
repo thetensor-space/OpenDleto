@@ -96,12 +96,14 @@ nondeg(Γ::ITensor; mode::Symbol=:trunc, tol::Float64=1e-10) = nondeg(Γ, collec
 
 function nondeg(Γ::AbstractArray, 
                 A::Vector{<:Integer}; 
+                mode::Symbol=:trunc,
                 tol::Float64=1e-10)
     iΓ = __ITensor(Γ)
-    return nondeg(iΓ, [ ITensors.inds(iΓ)[a] for a in A ]; tol=tol)
+    return nondeg(iΓ, [ ITensors.inds(iΓ)[a] for a in A ]; mode=mode, tol=tol)
 end;
 
-nondeg(Γ::AbstractArray; tol::Float64=1e-10) = nondeg(Γ, collect(1:ndims(Γ)); tol=tol);
+nondeg(Γ::AbstractArray; mode::Symbol=:trunc, tol::Float64=1e-10) = 
+    nondeg(Γ, collect(1:ndims(Γ)); mode=mode, tol=tol);
 
 
 
