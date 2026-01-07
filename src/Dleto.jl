@@ -76,7 +76,8 @@ export sylvesterLM, SylverLiningMethod
 export stratify
 
 # TensorIO.jl
-export normalize_tensor, side_by_side, load_tensor, save, plot_tensor
+export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
+export set_compare_layout, get_compare_layout
 
 export rand_den
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
