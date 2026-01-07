@@ -101,6 +101,8 @@ include("DletoUtil.jl")
 
 include("Random.jl")
 
+include("Nondegenerate.jl")
+
 include("Chisels.jl")   
 
 include("TensorSynthesis.jl")
