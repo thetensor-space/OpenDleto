@@ -1,7 +1,34 @@
+#
+# Strata Dleto: Null Solvers
+#   Creation and adaptation of null space solvers for tensor decomposition.
+#
+# -----------------------------------------------------------------------------
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the “Software”), 
+# to deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# SOFTWARE.
+#-----------------------------------------------------------------------------
+
+
 """
     NullSolvers
 
-    An interface and options for solving the null spaces that arrise in Dleto.
+    An interface and options for solving the null spaces that arise in Dleto.
 
     [TBD: Surely in Julia there is a package or standard assembly of null space solvers?
     Until I find this, here are some basic options implemented directly.]
@@ -10,12 +37,6 @@
 
 using LinearMaps
 using LinearAlgebra
-import IterativeSolvers: lobpcg
-using IterativeSolvers
-using Arpack
-
-import KrylovKit
-using KrylovKit: eigsolve
 
 using LinearAlgebra
 
@@ -55,125 +76,4 @@ struct KrylovSolver <: NullSolver end
         error("Unknown solver symbol: $sym")
     return solve(solver, L; kwargs...)
 end
-
-function solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
-    println("Using KrylovSolver...")
-    nev = min(nd, size(L, 1))  # Number of eigenvalues to compute
-    x0 = randn(size(L, 2))     # Initial guess vector
-
-    # Retry logic for convergence
-    max_attempts = 5
-    maxiter = 100
-    krylovdim = max(10, 2*nev)
-    converged = false
     
-    # Initialize variables that will be set in the loop
-    λ = ComplexF64[]
-    vecs = Vector{ComplexF64}[]
-    
-    for attempt in 1:max_attempts
-        λ, vecs, info = eigsolve(L, x0, nev, :SR;
-            maxiter=maxiter,
-            krylovdim=krylovdim,
-            tol=tol
-        )
-        
-        converged = info.converged >= nev
-        
-        if converged
-            # Success! Convert and continue
-            λ = real.(λ)
-            vecs = [real.(v) for v in vecs]
-            break
-        else
-            # Not enough converged, increase parameters and retry
-            @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
-            maxiter = Int(round(maxiter * 1.5))
-            krylovdim = min(Int(round(krylovdim * 1.5)), size(L, 1))
-            x0 = randn(size(L, 2))  # New random start
-            
-            if attempt == max_attempts
-                # Last attempt failed, use what we have
-                @warn "Final attempt: Using $(info.converged) converged eigenvalues out of $nev requested."
-                λ = real.(λ)
-                vecs = [real.(v) for v in vecs]
-            end
-        end
-    end
-    return (;vals=λ, vecs=vecs)
-end
-    
-function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
-    println("Using SVDSolver...")
-    # Use LinearAlgebra to compute the null space of L.
-    println("Converting LinearMap to Matrix for SVD...")
-    M = Matrix(L)
-    svds = LinearAlgebra.svd(M)
-    nvals = min(nv, length(svds.S))
-    return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
-end
-
-function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = 1e-8)
-    println("Using LUSolver on Matrix...")
-    M = Matrix(L)
-    println("Performing LU Factorization...")
-    F = lu(M)
-    U = F.U
-    L = F.L
-    p = F.p  # permutation
-
-    # Determine rank and free variables
-    rank = sum(abs.(diag(U)) .> tol)
-    n = size(M, 2)
-    # free_vars = rank+1:n
-    free_vars = (n-nv+1):n
-println("Matrix rank: $rank, free variables: ", free_vars, " with tolerance $tol")
-    # Build null space basis
-    null_basis = []
-    for j in free_vars
-        v = zeros(n)
-        v[j] = 1
-        # Solve U * x = -U[:, free_vars]*v_free for pivot variables
-        rhs = -U[:, free_vars] * v[free_vars]
-        x = U[1:rank, 1:rank] \ rhs[1:rank]
-        v[1:rank] = x
-        push!(null_basis, v)
-    end
-
-    return null_basis #(;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
-end
-
-function solve(::LanczosSolver, L::LinearMap; nv::Integer = 10)
-    println("Using LanczosSolver...")
-    # Use IterativeSolvers to compute the null space of L.
-    # We only need the right singular vectors as we want a right null space.
-    # svdl does partial SVD via Lanczos bidiagonalization, so we need to 
-    # ask for a larger number of singular values `nsv` to reach the smallest ones.
-    vals = minimum(size(L))
-    S, V = IterativeSolvers.svdl(L; nsv=vals, vecs=:right)
-    println(S)
-    nvals = min(nv, length(S))
-    inds = length(S):-1:(length(S)-nvals+1)
-    return (;vals=S[inds], vecs=V[:, inds])
-end
-
-function solve(::ArpackSolver, L::LinearMap; nv::Integer = 20)
-    println("Using ArpackSolver...")
-    # Use Arpack to compute the null space of L.
-    vals, vecs = Arpack.eigs(L; nev=nv, which=:SM)
-    return (;vals=vals, vecs=vecs)
-end
-
-function solve(::ArpackDenseSolver, L::LinearMap; nv::Integer = 20)
-    println("Using ArpackDenseSolver...")
-    M = Matrix(L) # Convert LinearMap to dense Matrix to allow LU-Factorization
-    # Use Arpack to compute the null space of L.
-    vals, vecs = Arpack.eigs(M; nev=nv, which=:LM, sigma=0.0)
-    return (;vals=vals, vecs=vecs)
-end
-
-function solve(::CGSolver, L::LinearMap; nv::Integer = 10)
-    println("Using CGSolver...")
-    res = lobpcg(L, false, 10 ) #; maxiter=size(L,2) / 2, tol=1e-16)
-    return (;vals=res.λ, vecs=res.X)
-end
