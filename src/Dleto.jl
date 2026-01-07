@@ -61,7 +61,8 @@ export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
 
 # GlobalOperatorsAbstract.jl
 export TransverseOps
-export embedMatrices, unsafe_embedMatrices, embedITensors, unsafe_embedITensors
+export embedMatrices, unsafe_embedMatrices
+export embedITensorsSwapped, unsafe_embedITensorsSwapped
 export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
 
 # GlobalOperatorsIndependant.jl

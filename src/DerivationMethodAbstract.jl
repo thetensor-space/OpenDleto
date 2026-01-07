@@ -39,7 +39,7 @@
 abstract type DerivationMethod end;
 
 """
-    der(method::DerivationMethod, 
+    derITensor(method::DerivationMethod, 
             Ω::TransverseOps, 
             P::LinearChisel, 
             Γ::ITensor; 
@@ -61,7 +61,7 @@ abstract type DerivationMethod end;
 
     Returns a vector of derivations as `ITensor`s with `a` axis labelled by `(a,a')`.
 """
-function der(method::DerivationMethod,
+function derITensor(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor; 
@@ -69,11 +69,56 @@ function der(method::DerivationMethod,
     nd=10
     ) :: Vector{Vector{ITensor}} 
     @assert false "Calling Placeholder Abstract Function"
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
+    return [embedITensors(Ω,expand_map(reduced_der_cood[:,i])) for i= 1:size(reduced_der_cood,2) ]
 end;
-# I think this should be renamed to compute derivations
 
-der( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Vector{Vector{ITensor}} = 
-    der(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
+"""
+    Same as the previous one but might skip some of the matrices (careful if theyare are symmetries)
+"""
+function derITensorReduced(method::DerivationMethod,
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::ITensor; 
+    tol::Float64=1e-6,
+    nd=10
+    ) :: Vector{Vector{ITensor}} 
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
+    return [embedITensors(rΩ,reduced_der_cood[:,i]) for i= 1:size(reduced_der_cood,2)]
+end;
+
+"""
+    Retrun matrix whose columns can be expanded into ITensor via Ω
+"""
+function derTrOps(method::DerivationMethod,
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::ITensor; 
+    tol::Float64=1e-6,
+    nd=10
+    ) :: AbstractMatrix{<: Number} 
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
+    return hcat([expand_map(reduced_der_cood[:,i]) for i= 1:size(reduced_der_cood,2)]...)
+end;
+
+
+"""
+    Retrun tuple of rΩ, expand_map and matrix whose columns can be expanded into ITensor via Ω
+"""
+function derTrOpsReduced(method::DerivationMethod,
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::ITensor; 
+    tol::Float64=1e-6,
+    nd=10
+    ) :: Tuple{::TransverseOps, ::LinearMaps.LinearMap, ::AbstractMatrix{<: Number} }
+    @assert false "Calling Placeholder Abstract Function"
+end;
+
+
+# this should be  moved to DerivationMethodSylverLininig,jl  
+derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Vector{Vector{ITensor}} = 
+    derTrOpsReduced(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
 
 """
     den(method::DerivationMethod, 
@@ -117,28 +162,28 @@ end;
     - Universal transverse operators
     - SylverLiningMethod
 """
-function der(Γ::ITensor; nd=-1, tol::Real=1e-6)
+function derITensor(Γ::ITensor; nd=-1, tol::Real=1e-6):: Vector{Vector{ITensor}}
     ch = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
+function derITensor(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    return der(Σ; nd=nd, tol=tol)
+    return derITensor(Σ; nd=nd, tol=tol)
 end
 
-function der(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)
+function derITensor(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
+function derITensor(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    return der(ch, Σ; nd=nd, tol=tol)
+    return derITensor(ch, Σ; nd=nd, tol=tol)
 end
 

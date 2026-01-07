@@ -94,6 +94,16 @@ unsafe_embedITensors(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:
         for i=1:GΩ.val
     ];
 
+unsafe_embedITensorsSwapped(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+    [ ITensor(
+        Matrix(unsafe_embed(
+            GΩ.localOps[i],
+            GΩ.axisDims[i],
+            data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]])),
+        GΩ.framesTemp[i],GΩ.frames[i] ) 
+        for i=1:GΩ.val
+    ];
+
 unsafe_transposeEmbed(GΩ::IndTransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} =
     vcat([ unsafe_transposeEmbed(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
 

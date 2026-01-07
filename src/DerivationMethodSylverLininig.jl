@@ -41,14 +41,27 @@ struct SylverLiningMethod <: DerivationMethod
     end
 end;
 
-function der(method::SylverLiningMethod,
+function derTrOpsReduced(method::DerivationMethod,
+    Ω::TransverseOps, 
+    P::AbstractMatrix, 
+    Γ::ITensor; 
+    tol::Float64=1e-6,
+    nd=10
+    ) :: Tuple{::TransverseOps, ::LinearMaps.LinearMap, ::AbstractMatrix{<: Number} }
+    @assert false "Calling Placeholder Abstract Function"
+end;
+
+
+
+
+function derTrOpsReduced(method::SylverLiningMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor;
     tol::Float64=1e-6,
     nd=-1,  # Don't type as integer to allow Inf 
     kwargs...,
-    ) :: Vector{Vector{ITensor}}
+    ) :: :: Tuple{::TransverseOps, ::LinearMaps.LinearMap, ::AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     if nd <= 0
@@ -127,8 +140,9 @@ function der(method::SylverLiningMethod,
         vecs = vecs[1:floor(Int, nd)]
     end
     
+    return (reducedΩ, expand_map, hcat(vecs...) )
     # Use reducedΩ to embed (eigenvectors have dimension globalDim(reducedΩ))
-    return [ unsafe_embedITensors(Ω_reduced, vecs[i]) for i in 1:length(vecs) ]
+    # return [ unsafe_embedITensors(Ω_reduced, vecs[i]) for i in 1:length(vecs) ]
 end
 
 
@@ -153,29 +167,20 @@ function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) #::Tuple
 
     Γ_frame = inds(Γ)
     val = ndims(Γ)
-    # @assert Γ_frame == frames(Ω) "Incompatable Indexes"
-    # @assert val == size(ch, 2) "Incompatable Chisel"
-    # eng = engaged(ch)
     engsize = valency(Ω)
-    # reducedCh = Ch[:,eng]
+    @assert engsize == size(ch, 2) "Incompatable Chisel"
     ch_axis = Index(size(P, 1), "chisel")
     eng_axis = Index(engsize, "engaged")
-    # Id=Matrix(1.0*LinearAlgebra.I,engsize,engsize)
-    # eng_tensors = [ ITensor( Id[:,i],eng_axis) for i in 1:engsize]
-    Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:val ]
-    # reducedCs = Cs[eng]
- 
-    # reducedCTensor=ITensor(reducedch,ch_axis, eng_axis) ## check order of indeces!
-    CTensor=ITensor(P,ch_axis, eng_axis) ## check order of indeces!
-    # (reducedΩ, expand_cor)  = reduceByEngaged(Ω, eng)
+    Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:engsize ]
+    # CTensor=ITensor(P,ch_axis, eng_axis) ## check order of indeces!
 
     Γ_frame_ch = (ch_axis, inds(Γ)...)
-    Γ_frame_eng = (eng_axis, inds(Γ)...)
+    # Γ_frame_eng = (eng_axis, inds(Γ)...)
 
-    # reducedΩframe=frames(reducedΩ)
-    # reducedΩframeTemp=framesTemporary(reducedΩ)
     Ωframe=frames(Ω)
     ΩframeTemp=framesTemporary(Ω)
+    Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:engsize ]
+    Γs_relabled =  [ replaceind(Γ, Ωframe[a], ΩframeTemp[a]) for a in 1:engsize]
 
     # Compute sizes for LinearMap
     densor_dim = prod([ITensors.dim(f) for f in Γ_frame_ch ])
@@ -184,48 +189,23 @@ function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) #::Tuple
     # Takes a vectorized representation of derivations
     # Returns a vectorized representation of the tensor
     function ester(Xvec)
-        Xs = unsafe_embedITensors(Ω, Xvec)
-        Σ = ITensor(Γ_frame_ch)
-        for a in 1:engsize
-            Δ = Cs[a]*Xs[a]*Γ  # this swiches index to a tmep one
-            replaceind!(Δ, ΩframeTemp[a], Ωframe[a])  # fix index
-            # Σ += permute(Δ, ch_axis, Γ_frame...)
-            Σ += Δ #Itensor is intelegent enough and there is no need to permute
-        end
+        Xs = unsafe_embedITensorsSwapped(Ω, Xvec)
+        Σ = [ Cs[a]*Xs[a]*Γs_relabled[a] for a in 1:engsize ] |> sum 
         return vec(Array(Σ, Γ_frame_ch...))
     end
     
     # sylv: takes a vectorized tensor, returns a vector of matrices (one per axis)
     function sylve(y)
-        # y_array = Array(reshape(y, dims)) ## slow step?  Dense.  no need
         Σ = ITensor(y, Γ_frame_ch...)
-        # Ys = [ 
-        #         permute(
-        #             replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
-        #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
-        #             ) 
-        #         for a in 1:engsize] 
-        Ys = [ Γ * replaceind!(Cs[a]*Σ , Ωframe[a], dΩframeTemp[a]) for a in 1:engsize] 
+        Ys = [ Γ * replaceind!(Cs[a]*Σ , Ωframe[a], ΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
         return unsafe_transposeEmbed(Ω,Ys)
     end
 
     # Compose sylv and ester as in sylvester4
     function sylvester(Xvec)
-        Xs = unsafe_embedITensors(Ω, Xvec)
-        Σ = ITensor(Γ_frame_ch)
-        for a in 1:engsize
-            Δ = Cs[a]*Xs[a]*Γ  # this swiches index to a tmep one
-            replaceind!(Δ, ΩframeTemp[a], Ωframe[a])  # fix index
-            # Σ += permute(Δ, ch_axis, Γ_frame...) 
-            Σ += Δ 
-        end
-        # Ys = [ 
-        #         permute(
-        #             replaceind!(reducedCs[a]*Σ , reducedΩframe[a], reducedΩframeTemp[a])* Γ,
-        #             reducedΩframe[a], reducedΩframeTemp[a]; allow_alias = true
-        #             ) 
-        #         for a in 1:engsize] 
+        Xs = unsafe_embedITensorsSwapped(Ω, Xvec)
+        Σ = [ Cs[a]*Xs[a]*Γs_relabled[a] for a in 1:engsize ] |> sum 
         Ys = [ Γ * replaceind!(Cs[a]*Σ , Ωframe[a], ΩframeTemp[a]) for a in 1:engsize] 
                 # Permute can be avoided by swichting the order of the tensor multiplication
         return unsafe_transposeEmbed(Ω,Ys)
