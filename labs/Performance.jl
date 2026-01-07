@@ -71,6 +71,47 @@ function timing_sylverlining(d)
    
 end
 
+function isder(Ω::TransverseOps, 
+            P::AbstractMatrix,
+            Γ::ITensor; 
+            δ ::Vector{ITensor}
+            ) :: Bool where (N,K) 
+    frame = inds(Γ)
+    frames = Vector{ITensor}(undef, length(frame))
+    for i in 1:length(frame)
+        # inds(δ[i]) = (e, Der.e)
+        e_der = first(setdiff(inds(δ[i]), [frame[i]]))
+        frames[i] = replaceind(Γ, frame[i], e_der)
+    end
+    frames = [ ( a for a in frame if a != e) for e in frame]
+    Γs = [ replaceind(Γ, e, δ[e]) for e in keys(δ) ]
+    member = true; # (coordinates(Ω, δ) !== nothing) 
+    isder = mapreduce(a-> P[a]*δ[a]*Γs[a], +, engaged(Ω)) ≈ zero(Γ) 
+    return member && isder
+end
+
+
+"""
+    der(method::DerivationMethod, 
+            Ω::TransverseOps, 
+            P::LinearChisel, 
+            Γ ::ITensor;
+            tol::Float64=1e-6,
+            nd::Integer=10
+        ) :: Matrix{K} where K
+
+    Computes up to `nd` many `P`-derivations of `Γ` for the to the given chisel `P` and transverse operators `Ω`.
+    If `nd` is negative or exceeds the dimension of the derivation space
+    then the full derivation space is returned.
+    - `method`: An instance of a subtype of `DerivationMethod` defining the solving method.
+    - `Ω`: The transverse operators.
+    - `P`: a linear chisel
+    - `Γ`: The input tensor
+    - `nd`: (optional) Maximum number of singular vectors to compute (default: 10)
+    - `tol`: (optional) Tolerance for the solver (default: 1e-6).
+    
+    Returns a matrix whose columns are vectorized derivations.
+"""
 function time_der(dims)
     for d in dims
         ds = [0,0,0] 

@@ -24,12 +24,14 @@
 # SOFTWARE.
 # -----------------------------------------------------------------------------
 
-# """
-#     Derivations Methods
+function isder(Ω::TransverseOps, 
+            P::Dict{Index{N}, Vector{K}},
+            Γ::ITensor; 
+            δ ::Dict{Index{N},ITensor}
+            ) :: Bool where (N,K)
+    return member(Ω, δ) && mapreduce(e-> P[e]*δ[e]*Γ, +, engaged(Ω)) ≈ zero(Γ) 
+end
 
-#     Interface to methods for solving Sylvester equations arising in chiseling.
-
-# """
 """
     DerivationMethod
 
@@ -54,8 +56,8 @@ abstract type DerivationMethod end;
     - `Ω`: TransverseOps.
     - `P`: a linear chisel
     - `Γ`: The input tensor
-    - `nd`: (optional) Maximum number of singular vectors to compute (default: 10). 
-    If infinite `Inf` then return all, 
+    - `nd`: (optional) Maximum number of singular vectors to compute (default: -1). 
+    If infinite `Inf` then return all, if negative return the predicted engagement number +1.
     - `tol`: (optional) Tolerance for the solver (default: 1e-6).
     attempt to compute a basis for the derivation space.
 
@@ -67,7 +69,7 @@ function derITensor(method::DerivationMethod,
     Γ::ITensor; 
     tol::Float64=1e-6,
     nd=10
-    ) :: Vector{Vector{ITensor}} 
+    ) :: Matrix{K} where K
     @assert false "Calling Placeholder Abstract Function"
     (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
     return [embedITensors(Ω,expand_map(reduced_der_cood[:,i])) for i= 1:size(reduced_der_cood,2) ]
@@ -162,11 +164,11 @@ end;
     - Universal transverse operators
     - SylverLiningMethod
 """
-function derITensor(Γ::ITensor; nd=-1, tol::Real=1e-6):: Vector{Vector{ITensor}}
-    ch = UniversalChisel(length(inds(Γ)))
+function der(Γ::ITensor; nd=-1, tol::Real=1e-6)::Vector{Dict{Index,ITensor}}
+    P = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return der(SylverLiningMethod(), ops, P, Γ; nd=nd, tol=tol)
 end
 
 function derITensor(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
@@ -175,15 +177,15 @@ function derITensor(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     return derITensor(Σ; nd=nd, tol=tol)
 end
 
-function derITensor(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)
+function der(P::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return der(SylverLiningMethod(), ops, P, Γ; nd=nd, tol=tol)
 end
 
-function derITensor(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
+function der(P::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
-    return derITensor(ch, Σ; nd=nd, tol=tol)
+    return der(P, Σ; nd=nd, tol=tol)
 end
 
