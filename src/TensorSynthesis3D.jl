@@ -3,7 +3,7 @@
 # Strata Dleto: Tensor Synthesis 3D 
 #   tools to create 3D tensors for testing and demonstrations.
 #
-# Copyright 2022-2025 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
 # 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the “Software”), 
