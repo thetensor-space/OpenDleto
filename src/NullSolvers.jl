@@ -6,13 +6,16 @@
     [TBD: Surely in Julia there is a package or standard assembly of null space solvers?
     Until I find this, here are some basic options implemented directly.]
 """
-module NullSolvers
 
 
 using LinearMaps
 using LinearAlgebra
+import IterativeSolvers: lobpcg
 using IterativeSolvers
 using Arpack
+
+import KrylovKit
+using KrylovKit: eigsolve
 
 using LinearAlgebra
 
@@ -37,22 +40,70 @@ struct LanczosSolver <: NullSolver end
 struct ArpackSolver <: NullSolver end
 struct ArpackDenseSolver <: NullSolver end
 struct CGSolver <: NullSolver end
+struct KrylovSolver <: NullSolver end
 
-
-# Map Symbol to solver type and call solve, defaulting to SVDSolver
-function solve(L, sym::Symbol=:SVDSolver; kwargs...)
-    solver =
+    # Map Symbol to solver type and call solve, defaulting to SVDSolver
+    function solve(L, sym::Symbol=:SVDSolver; kwargs...)
+        solver =
         sym === :SVDSolver      ? SVDSolver() :
         sym === :LanczosSolver  ? LanczosSolver() :
         sym === :ArpackSolver   ? ArpackSolver() :
         sym === :ArpackDenseSolver ? ArpackDenseSolver() :
         sym === :CGSolver       ? CGSolver() :
         sym === :LUSolver       ? LUSolver() :
+        sym === :KrylovSolver    ? KrylovSolver() :
         error("Unknown solver symbol: $sym")
     return solve(solver, L; kwargs...)
 end
 
-function solve(::LUSolver, L::LinearMap; nv::Integer = 10)
+function solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
+    println("Using KrylovSolver...")
+    nev = min(nd, size(L, 1))  # Number of eigenvalues to compute
+    x0 = randn(size(L, 2))     # Initial guess vector
+
+    # Retry logic for convergence
+    max_attempts = 5
+    maxiter = 100
+    krylovdim = max(10, 2*nev)
+    converged = false
+    
+    # Initialize variables that will be set in the loop
+    λ = ComplexF64[]
+    vecs = Vector{ComplexF64}[]
+    
+    for attempt in 1:max_attempts
+        λ, vecs, info = eigsolve(L, x0, nev, :SR;
+            maxiter=maxiter,
+            krylovdim=krylovdim,
+            tol=tol
+        )
+        
+        converged = info.converged >= nev
+        
+        if converged
+            # Success! Convert and continue
+            λ = real.(λ)
+            vecs = [real.(v) for v in vecs]
+            break
+        else
+            # Not enough converged, increase parameters and retry
+            @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
+            maxiter = Int(round(maxiter * 1.5))
+            krylovdim = min(Int(round(krylovdim * 1.5)), size(L, 1))
+            x0 = randn(size(L, 2))  # New random start
+            
+            if attempt == max_attempts
+                # Last attempt failed, use what we have
+                @warn "Final attempt: Using $(info.converged) converged eigenvalues out of $nev requested."
+                λ = real.(λ)
+                vecs = [real.(v) for v in vecs]
+            end
+        end
+    end
+    return (;vals=λ, vecs=vecs)
+end
+    
+function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
     println("Using SVDSolver...")
     # Use LinearAlgebra to compute the null space of L.
     println("Converting LinearMap to Matrix for SVD...")
@@ -126,5 +177,3 @@ function solve(::CGSolver, L::LinearMap; nv::Integer = 10)
     res = lobpcg(L, false, 10 ) #; maxiter=size(L,2) / 2, tol=1e-16)
     return (;vals=res.λ, vecs=res.X)
 end
-
-end # module

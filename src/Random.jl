@@ -38,9 +38,9 @@ f is a function with an argumen index and returns :invertible or :orthogonal
 """ 
 function randomize_tensor(
     Γ::ITensor; 
-    f::Function,
+    type::Symbol =:invertible,
     ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    
+    f = (_) -> type
     fr = inds(Γ)
     mats = Vector{ITensor}(undef, length(fr))
     for a in 1:length(fr)        
@@ -52,23 +52,6 @@ function randomize_tensor(
 end
 
 
-"""
-randomize_tensor(t::ITensor; type::Symbol=:invertible)
-
-Picks random invertible matrices and use them to perform a random basis change of a tensor.
-
-Returns a named tuple with fields:
-- `Δ` the randomized tensor
-- `Xs` the list of random matrices used for the basis change
-
-type can be:
-- `:invertible` (default) random invertible matrices
-- `:orthogonal` random orthogonal matrices
-""" 
-randomize_tensor(
-    Γ::ITensor; 
-    type::Symbol=:invertible,
-    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}} = randomize_tensor(Γ, x -> type);
 
 # function randomize_tensor(
 #     Γ::ITensor; 

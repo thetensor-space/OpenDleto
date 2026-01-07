@@ -1,5 +1,6 @@
 using ITensors
 using Dleto
+using Dleto: ⊕
 using KrylovKit
 
 function timing_sylverlining(d)
@@ -72,18 +73,25 @@ end
 
 function time_der(dims)
     for d in dims
-        Γ = random_itensor(
-            Index(d, "x"), 
-            Index(d, "y"), 
-            Index(d, "z")
-        )
+        ds = [0,0,0] 
+        blocks = []
+        while sum(ds) < d
+            push!(blocks, [rand(3:7),rand(3:7),rand(3:7)])
+            ds .+= blocks[end]
+        end
+
+        Δ = zeros(Float64, 0,0,0)
+        for b in blocks
+            Δ = Δ ⊕ randn(b...)
+        end
+
         ch = UniversalChisel(3)
-        fr = collect(inds(Γ))
+        fr = collect(inds(Δ))
         Ω = IndTransverseOps(fr, UniversalOp())    
         
-        println("Timing der with d = $d")
-        @time ders = der(SylverLiningMethod(), Ω, ch, Γ; tol=1e-6, nd=-1)
-        println("Computed ", length(ders), " derivative tensors.")
+        println("Timing der with size $(size(Δ))")
+        @time ders = der(SylverLiningMethod(), Ω, ch, Δ; tol=1e-6, nd=-1)
+        println("Computed ", length(ders), " derivatons of tensor.")
     end
     return nothing
 end
