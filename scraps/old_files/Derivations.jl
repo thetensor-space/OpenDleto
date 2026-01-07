@@ -80,7 +80,7 @@ function der(ch::AbstractMatrix, Γ::ITensor; nd::Integer=10, tol::Real=1e-6)
     ops = UniversalOps(fr)
     return der(ops, ch, Γ; nd=nd, tol=tol)
 end
-function der(Γ; nd::Integer=10, tol::Real=1e-6)
+function der(Γ; nd::Integer=-1, tol::Real=1e-6)
     ch = UniversalChisel(ndims(Γ))
     return der(ch, Γ; nd=nd, tol=tol)
 end
@@ -92,7 +92,7 @@ end
             Ω::TransverseOps, 
             P::LinearChisel, 
             Γ::ITensor; 
-            nd::Integer=10,
+            nd::Integer=-1,
             tol::Real=1e-6,
         ) :: Vector{Vector{ITensor}}
 
@@ -113,7 +113,7 @@ function der(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor,
-    nd::Integer=10, 
+    nd::Integer=-1, 
     kwargs...,
     ) :: Vector{ITensor} end
 
@@ -123,7 +123,7 @@ function der(method::SylverLiningMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor,
-    nd::Integer=10, 
+    nd::Integer=-1, 
     tol=1e-6,
     kwargs...,
     ) :: Vector{Vector{ITensor}}
@@ -146,7 +146,7 @@ end
             Ω::TransverseOps, 
             P::LinearChisel, 
             Δ ::Vector{ITensor};
-            nd::Integer=10,
+            nd::Integer=-1,
             tol::Real=1e-6,
         ) :: Vector{Vector{ITensor}}
 
@@ -166,7 +166,7 @@ function den(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     der::Vector{ITensor}; 
-    nd::Integer=10,
+    nd::Integer=-1,
     tol::Real=1e-6,
     ) :: Vector{Vector{ITensor}} end
 
