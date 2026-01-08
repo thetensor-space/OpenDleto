@@ -8,7 +8,7 @@ LΩs=[ UniversalOp(), DiagonalOp(), SymmetricOp(), AntiSymmetricOp(), ScalarOp()
 
 function testInverse(Ω::Operator, dim::Integer, num::Integer)
     localdim = localDim(Ω,dim)
-    for i = 1:num
+    for _ = 1:num
         a = rand(localdim)
         # @show Ω, a
         M = embed(Ω,dim,a)
@@ -30,7 +30,7 @@ end;
 
 function testTranspose(Ω::Operator, dim::Integer, num::Integer)
     localdim = localDim(Ω,dim)
-    for i = 1:num
+    for _ = 1:num
         a = rand(localdim)
         BB = rand(dim,dim)
         # A = unsafe_embed(Ω,dim,a)
@@ -51,14 +51,46 @@ function testTranspose(Ω::Operator, dim::Integer, num::Integer)
     return true
 end;
 
+function testMembership(dim::Integer, num::Integer)
+    for _ = 1:num
+        M = rand(dim,dim)
+        @assert isapprox(M, embed(UniversalOp(), dim, coordinates(UniversalOp(), M))) 
+        N = M + M'
+        @assert isapprox(N, embed(SymmetricOp(), dim, coordinates(SymmetricOp(), N))) 
+        N = LinearAlgebra.Symmetric(M)
+        @assert isapprox(N, embed(SymmetricOp(), dim, coordinates(SymmetricOp(), N))) 
+        N = M - M'
+        @assert isapprox(N, embed(AntiSymmetricOp(), dim, coordinates(AntiSymmetricOp(), N))) 
+        D = LinearAlgebra.Diagonal(rand(dim))
+        @assert isapprox(D, embed(DiagonalOp(), dim, coordinates(DiagonalOp(), D))) 
+        D = zeros(dim,dim)
+        [D[i,i] = rand() for i=1:dim ]
+        @assert isapprox(D, embed(DiagonalOp(), dim, coordinates(DiagonalOp(), D))) 
 
-@testset "LocalOperators Tests" begin
+        D = rand()* LinearAlgebra.Diagonal([ 1.0 for _ =1:dim])
+        @assert isapprox(D, embed(ScalarOp(), dim, coordinates(ScalarOp(), D))) 
+        D = zeros(dim,dim)
+        d = rand()
+        [D[i,i] = d for i=1:dim ]
+        @assert isapprox(D, embed(ScalarOp(), dim, coordinates(ScalarOp(), D))) 
+        D = zeros(dim,dim)
+        @assert isapprox(D, embed(EmptyOp(), dim, coordinates(EmptyOp(), D))) 
+    end
+    return true;
+end
+
+@testset "Operators Tests" begin
     for dim = 1:10
-        @testset "Dimension $dim Tests" begin
+        @testset "Dimension $dim Invertability" begin
             for Ω in LΩs
                 @test testInverse(Ω, dim, 100)
-                @test testTranspose(Ω, dim, 100)
             end 
         end
+        @testset "Dimension $dim Transpose" begin
+            for Ω in LΩs
+                @test testInverse(Ω, dim, 100)
+            end 
+        end
+        @test testMembership(dim, 100)
     end
 end

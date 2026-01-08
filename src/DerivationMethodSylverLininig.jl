@@ -41,15 +41,15 @@ struct SylverLiningMethod <: DerivationMethod
     end
 end;
 
-function derTrOpsReduced(method::DerivationMethod,
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10
-    ) :: Tuple{::TransverseOps, ::LinearMaps.LinearMap, ::AbstractMatrix{<: Number} }
-    @assert false "Calling Placeholder Abstract Function"
-end;
+# function derTrOpsReduced(method::DerivationMethod,
+#     Ω::TransverseOps, 
+#     P::AbstractMatrix, 
+#     Γ::ITensor; 
+#     tol::Float64=1e-6,
+#     nd=10
+#     ) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
+#     @assert false "Calling Placeholder Abstract Function"
+# end;
 
 
 
@@ -61,7 +61,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
     tol::Float64=1e-6,
     nd=-1,  # Don't type as integer to allow Inf 
     kwargs...,
-    ) :: :: Tuple{::TransverseOps, ::LinearMaps.LinearMap, ::AbstractMatrix{<: Number} }
+    ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     if nd <= 0
