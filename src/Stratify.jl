@@ -17,114 +17,77 @@ function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
     ) :: NamedTuple{(:Σ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    # Convert ITensors to Matrices before calling blockdiag
-    Xs = Vector{ITensor}(undef, length(der))
-    for i in 1:length(der)
-        X = der[i]
-        D, T = blockdiag(Array(X, inds(X)...))
-        Xs[i] = ITensor(T, inds(X)...)
-    end
+    Xs = [ 
+        (
+            X = der[i]; 
+            D, T = realCanonicalForm(Array(X, inds(X)...)); 
+            ITensor(Matrix(T), inds(X)...) 
+        ) for i in 1:length(der) ]
     return (;Σ=Γ*Xs, Xs=Xs)
+    # retag the indexes
 end
 
+
+# doing reduced here is dangerous since it changes axis and we need to change Ω 
 function stratify(
         Ω::TransverseOps, 
         ch::AbstractMatrix,          
         Γ::ITensor;
-        tol::Float64=1e-6,
-        reduced=false
+        tol::Float64=1e-6
     )
-    if reduced
-        # @info "Computing nondegenerate basis for stratification."
-        Γ, Ps = nondeg(Γ; tol=tol, mode=:trunc)
-        @info "Reduced tensor size: ", size(Γ)
-    end
-    ders = der(Ω,ch,Γ; tol=tol)
-    if isempty(ders)
+    (rΩ, expand_map, ders) = derTrOpsReduced(Ω,ch,Γ; tol=tol)
+    if size(ders,2) ==0
         # should never happen as there are always trivial derivations
         # so this indicates an error
         error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
     end
-    @info "Found $(length(ders)) derivations for stratification."
+    @info "Found $(size(ders,2)) derivations for stratification."
     # Select a random linear combination of derivations
-    # Each derivation is a Vector{ITensor} with one ITensor per axis
-    # if length(ders) >= length(inds(Γ))
-    #     δ = ders[length(inds(Γ))] 
-    # else
-        n_ders = length(ders)
-        n_axes = ndims(Γ)
-        coefs = [ randn() for _ in 1:n_ders ]
-        
-        # Initialize δ as zeros with same structure as ders[1]
-        δ = Vector{ITensor}(undef, n_axes)
-        for a in 1:n_axes
-            # Sum: coefs[1]*ders[1][a] + coefs[2]*ders[2][a] + ...
-            δ[a] = coefs[1] * ders[1][a]
-            for d in 2:n_ders
-                δ[a] += coefs[d] * ders[d][a]
-            end
-        end
-    # end 
-
+    n_ders = size(ders,2)
+    # n_axes = ndims(Γ)
+    coefs = [ randn() for _ in 1:n_ders ]
+    der = ders*coefs
+    # expand into tensors
+    # δ = embedITensors(rΩ,der)
+    δ = embedITensors(Ω,expand_map(der))
     # Get the stratified nondegenerate tensor
     Δ, Xs = stratify(Γ, δ)
-    Zs = similar(Xs)
-    if reduced
-        # Map back to original space
-        # match each Xs[i] with Ps[j]
-        count = 1
-        for X in Xs
-            for (i,P) in enumerate(Ps)
-                common = intersect(inds(X),inds(P))
-                if length(common) > 0
-                    # transpose P.
-                    # transpose_idx = findfirst(!=(common[1]), inds(P))
-                    # ci = addtag(tanspose_idx, "Transpose")
-                    # Pt = ITensor(P, ci, common[1])
-                    Zs[count] = P * X
-                    count += 1
-                    deleteat!(Ps, i)
-                    break
-                end
-            end
-        end
-        @info "Mapped stratification back to original space."
-        Δ = Δ * Zs
-    else
-        Zs = Xs
-    end
-    return (;Σ=Δ, Xs=Zs)
+    return (;Σ=Δ, Xs=Xs)
 end
 
-# ---- Convenience wrappers for stratify ---
-function stratify(
-        Γ::ITensor;
-        tol::Float64=1e-6,
-        reduced=false
-    )
-    # Use universal chisel and transverse ops
-    ch = UniversalChisel(length(inds(Γ)))
-    fr = collect(inds(Γ))
-    Ω = IndTransverseOps(fr, UniversalOp())    
-    return stratify(Ω, ch, Γ; tol=tol, reduced=reduced)
-end
+# will deal with wrapers later
+# # ---- Convenience wrappers for stratify ---
+# function stratify(
+#         Γ::ITensor;
+#         tol::Float64=1e-6,
+#         reduced=false
+#     )
+#     # Use universal chisel and transverse ops
+#     ch = UniversalChisel(length(inds(Γ)))
+#     fr = collect(inds(Γ))
+#     Ω = IndTransverseOps(fr, UniversalOp())    
+#     return stratify(Ω, ch, Γ; tol=tol, reduced=reduced)
+# end
 
-function stratify(
-        Γ::AbstractArray,
-        der::Vector{ITensor}
-    )
-    # Convert array to ITensor and delegate
-    return stratify(__ITensor(Γ), der)
-end
+# function stratify(
+#         Γ::AbstractArray,
+#         der::Vector{ITensor}
+#     )
+#     # Convert array to ITensor and delegate
+#     return stratify(__ITensor(Γ), der)
+# end
 
-function stratify(
-        Γ::AbstractArray
-    )
-    return stratify(__ITensor(Γ))
-end
+# function stratify(
+#         Γ::AbstractArray
+#     )
+#     return stratify(__ITensor(Γ))
+# end
 
 
+
+# to be moved into Utils.jl
 """
+    Real canonical form of a matrix
     Group conjugate pairs of complex eigenvalues and eigenvectors into real blocks.
 
     Returns a named tuple with:
@@ -132,63 +95,39 @@ end
     - `T`: A matrix whose columns are the real eigenvectors or the real 
     and imaginary parts of complex conjugate pairs.
 
-    Law
+    LawA
     ```julia
-    res = blockdiag(M); isapprox(M * res.T, res.T * res.D)
+    res = realCanonicalForm(M); isapprox(M * res.T, res.T * res.D)
     ```
 """
-function blockdiag(M::Matrix; tol::Float64=1e-10)
-    res = LinearAlgebra.eigen(M)
-    eigenvals = res.values
-    eigenvecs = res.vectors
-    n = length(eigenvals)
-    real_diag = zeros(real(eltype(eigenvals)), n,n)
-    real_blocks = zeros(real(eltype(eigenvecs)), n, n)
-    
-    processed = falses(n)
-    warning = false
-    for i in 1:n
-        if processed[i]
-            continue
-        end
-        
-        λ = eigenvals[i]
-        # Check if eigenvalue is effectively real (imaginary part below tolerance)
-        if abs(imag(λ)) < tol
-            # Real eigenvalue
-            real_diag[i,i] = real(λ)
-            real_blocks[:, i] = real(eigenvecs[:, i])
-            processed[i] = true
-        else
-            # Find the conjugate pair in remaining eigenvalues
-            j = nothing
-            for k in (i+1):n
-                if !processed[k] && isapprox(eigenvals[k], conj(λ); atol=tol)
-                    j = k
-                    break
-                end
-            end
-            if j !== nothing
-                # Create real 2D subspace from conjugate pair
-                v = eigenvecs[:, i]
-                # Fill in the real block diagonal entries
-                real_diag[i,i] = real(λ);  real_diag[i,j] = imag(λ);
-                real_diag[j,i] = -imag(λ);  real_diag[j,j] = real(λ);
-                # Fill in the real block eigenvectors
-                real_blocks[:, i] = real(v)
-                real_blocks[:, j] = imag(v)
-                processed[i] = processed[j] = true
-            else
-                # No conjugate found - treat as real (shouldn't happen for real matrices)
-                warning = true
-                real_diag[i,i] = real(λ)
-                real_blocks[:, i] = real(eigenvecs[:, i])
-                processed[i] = true
-            end
+function realCanonicalForm( M ::AbstractMatrix; tol::Float64=1e-10):: NamedTuple{(:D, :T), Tuple{AbstractMatrix,AbstractMatrix}}
+    @assert size(M,1)==size(M,2) "Matrix must be square"
+    if all( M .|> (x -> abs(x) < tol) )
+        # M is zero matrix, return identityh transformation
+        return (;D=zeros(eltype(M),size(M)), T = LinearAlgebra.Diagonal([ 1.0 for i = 1:size(M,1)]) )
+    end
+    eig = LinearAlgebra.eigen(M)
+    evalues = eig.values
+    evec = eig.vectors
+    if isa(M, LinearAlgebra.Symmetric)              # no need to do anything if the matrix is symmetric
+        return (; D= LinearAlgebra.Diagonal(evalues), T=evec) 
+    end 
+    found_complex=false
+    n  = real.(evec)
+    nn = real.(evec)
+    D = zeros(eltype(n),size(M))
+    D[1,1] = real(evalues[1])
+    for i = 2: size(M,2)
+        if ((((n[:,i] - n[:,i-1]) .|> x -> x*x) |> sum) > tol)
+            # nn[:,i] =n[:,i]
+            D[i,i] = real(evalues[i])
+        else 
+            nn[:,i] = imag.(evec[:,i])
+            D[i,i] = real(evalues[i])
+            D[i,i-1] = -imag(evalues[i])
+            D[i-1,i] = imag(evalues[i])
+            found_complex=true
         end
     end
-    if warning
-        @warn "No conjugate pair found for some eigenvalues, treating as real"
-    end            
-    return (;D = real_diag, T = real_blocks)
+    return (;D = found_complex ? D : LinearAlgebra.Diaginal(real.(evalues)) , T = nn)
 end

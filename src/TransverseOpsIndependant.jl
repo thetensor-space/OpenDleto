@@ -138,14 +138,14 @@ function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{Tr
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
         edata=zeros(eltype(rdata), rΩ.globalDim)
         for i = 1: rΩ[val]
-            edata[GΩ.offsets[eindx[i]]:GΩ.offsets[eindx[i] +1]-1 ] = rdata[rΩ.offsets[i]:(rΩ.offset[i+1]-1)]
+            edata[(GΩ.offsets[eindx[i]]+1):GΩ.offsets[eindx[i] +1]] = rdata[(rΩ.offsets[i]+1):rΩ.offset[i+1]]
         end;
         return edata
     end;
     function contract(edata::Vector{<:Number})::Vector{<:Number}
         rdata=zeros(eltype(edata), rΩ.globalDim)
         for i = 1: rΩ[val]
-            rdata[rΩ.offsets[i]:(rΩ.offset[i+1]-1)] = edata[GΩ.offsets[eindx[i]]:GΩ.offsets[eindx[i] +1]-1 ]
+            rdata[(rΩ.offsets[i]+1):rΩ.offset[i+1]] = edata[(GΩ.offsets[eindx[i]]+1):GΩ.offsets[eindx[i] +1] ]
         end;
         return rdata
     end;
