@@ -46,6 +46,40 @@ function __ITensor(Γ::AbstractArray)::ITensor
 end
 
 
+"""
+    match_idx[!](A::ITensor, a::Index,
+               E::ITensor, e::Index, 
+               tag::String
+              )::NamedTuple{(:ae, :A, :E),Tuple{Index, ITensor, ITensor}}
+
+    Given an ITensor `A` with index `a` and another ITensor `E` with index `e`,
+    create a compound label `ae` and a shallow copy of both tensors with the index relabeled to `ae`.
+    The function with `!` modifies the tensors in place.
+""" 
+function match_idx(
+        A::ITensor, a::Index,
+        E::ITensor, e::Index,
+        tag::String="matched_idx"
+    )::NamedTuple{(:ae, :A, :E),Tuple{Index, ITensor, ITensor}}
+    @assert dim(a)==dim(e) "Indices must have the same dimension to be relabeled"
+
+    ae = Index( dim(a), tag, tags(a))
+    At = replaceind(A, a, ae )
+    Et = replaceind(E, e, ae )
+    return (;ae=ae,A= At, E= Et)
+end
+function match_idx!(
+        A::ITensor, a::Index,
+        E::ITensor, e::Index,
+        tag::String="matched_idx"
+    )::NamedTuple{(:ae, :A, :E),Tuple{Index, ITensor, ITensor}}
+    ae = Index( dim(a), tag, tags(a))
+    At = replaceind!(A, a, ae )
+    Et = replaceind!(E, e, ae )
+    return (;ae=ae,A= At, E= Et)
+end
+
+
 # -- Direct action by a vector of ITensors -----
 
 function Base.:*(Γ::ITensor, X::Vector{ITensor})  
