@@ -34,19 +34,24 @@ struct ChiselFramed
     ch ::AbstarctMatrix{<:Number},
     frames ::Vector{Index{K}} where K,
     idx:Dict{Index,Integer}
-    ch_axis ::Inex
-    ChiselFramed(ch::AbstarctMatrix{<:Number}, frames ::Vector{Index{K}} where K,ch_axis::Index) = (
+    ch_axis ::Index
+    function ChiselFramed(
+             ch::AbstractMatrix{<:Number}, 
+        frames ::Vector{Index{K}} where K,
+        ch_axis::Index
+        ) 
         val=length(frames);
-        @assert size(ch,2)== val "Incompatible sizes";
+        @assert size(ch_axis,2)== val "Incompatible sizes";
         # test that all elements of frame are different 
         idx=Dict{Index,Int16}();
         for i=1:val
             idx[frames[i]] = i;
         end;
         return new(ch,frames, idx, ch_axis)
-    )
-end;
-ChiselFramed(ch::AbstarctMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
+    end
+end
+
+ChiselFramed(ch::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
     ChiselFramed(ch,frames, Index(size(ch, 1), "chisel"));
 
 

@@ -111,9 +111,9 @@ function derTrOpsReduced(method::DerivationMethod,
     Γ::ITensor; 
     tol::Float64=1e-6,
     nd=10
-    ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
+    ) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     @assert false "Calling Placeholder Abstract Function"
-end;
+end
 
 
 # this should be  moved to DerivationMethodSylverLininig,jl  

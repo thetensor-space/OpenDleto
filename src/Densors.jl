@@ -17,13 +17,11 @@ function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
     ) :: NamedTuple{(:Σ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    Xs = [
-            ( 
-                X = der[i]; 
-                rcf = realCanonicalForm(Array(X, inds(X)...)); 
-                ITensor(Matrix(rcf.T), inds(X)...)
-            ) for i in 1:length(der) 
-        ]
+    Xs = [ 
+        let X = der[i]
+            D, T = realCanonicalForm(Array(X, inds(X)...))
+            ITensor(Matrix(T), inds(X)...)
+        end for i in 1:length(der) ]
     return (;Σ=Γ*Xs, Xs=Xs)
     # retag the indexes
 end

@@ -1,6 +1,6 @@
 #
 # Strata Dleto: Utils
-#   ?????.
+#   Extending ITensors multiplication to AbstractArrays for convenience
 #
 # -----------------------------------------------------------------------------
 # Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
@@ -23,7 +23,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 # SOFTWARE.
 #-----------------------------------------------------------------------------
-import LinearAlgebra
+using LinearAlgebra: I
+using ITensors: ITensor, Index, inds, replaceinds, addtags, store, norm
+
 """
     Make ITensor out of AbstractArray without indices, 
     don't export this function is dangerous and makes 
@@ -33,11 +35,15 @@ import LinearAlgebra
 """
 function __ITensor(Γ::AbstractArray)::ITensor 
     frame = [ Index(size(Γ,a), "a$a") for a in 1:ndims(Γ) ]
-    # a temporary fix for AbstractArray inputs like ReshapedArray which have a bug
-    # in ITensors (Bug #1691)
-    iΓ = typeof(Γ) <: Array ? ITensor(Γ, frame...) : ITensor( Array(Γ), frame...)
+    try 
+        iΓ = ITensor(Γ, frame...) 
+    catch e
+        # a temporary fix for AbstractArray inputs like ReshapedArray 
+        # which has a low-grade bug(?) in ITensors (Bug #1691)
+        iΓ = ITensor( Array(Γ), frame...)
+    end
     return iΓ
-end;
+end
 
 
 # -- Direct action by a vector of ITensors -----

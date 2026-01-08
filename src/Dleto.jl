@@ -25,120 +25,72 @@
 
 module Dleto
 
+# ============================================================================
+# Imports
+# ============================================================================
+
+# Linear Algebra libraries
 import LinearAlgebra
-using LinearAlgebra: I
-
 import ITensors
-using ITensors: ITensor, Index, inds, setprime!, noprime!, store, norm, addtags
+
+# Plotting libraries
+import Plots
+import PlotlyBase
+import PlotlyKaleido
 
 # ============================================================================
-# Exports
+# Exported Functions and Types
 # ============================================================================
 
-# Random.jl
-export randomize_tensor 
-
-# NonDegenerate.jl
-export nondeg
-
-# DletoUtil.jl
-export ⊕
-# what is this? is this tensor product of tensors? why not \otimes?
-
-# Chisels.jl
-export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
-export normalize_chisel
-
-# Operators.jl
-export Operator                             # abstract type
-export embed, unsafe_embed                  # Embed
-export coordinates, unsafe_coordinates      # Membership
-export transposeEmbed, unsafe_transposeEmbed  
-export localDim, containScalars
-
-# OperatorsImpl.jl
-export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
-
-# TransverseOperators.jl
-export TransverseOps
-export embedMatrices, unsafe_embedMatrices
-export embedITensors, unsafe_embedITensors
-export embedITensorsSwapped, unsafe_embedITensorsSwapped
-export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
-
-# TransverseOpsIndependant.jl
-export IndTransverseOps
-
-# GlobalOperatorsSymmetries.jl
-export TransverseOpsSymmetries
-
-export NullSolver
-
-# DerivationMethodAbstract.jl
-export DerivationMethod, der, den
-
-# DerivationMethodSylverLininig.jl
-export sylvesterLM, SylverLiningMethod
-
-# Stratify.jl
-export stratify
-
-# TensorIO.jl
-export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
-export set_compare_layout, get_compare_layout
-
-# TensorSynthesis.jl
-export rand_den
-
-# TensorSynthesis3D.jl
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
-
+include("DletoExports.jl")
 
 # ============================================================================
 # Includes
 # ============================================================================
 
-include("DletoUtil.jl")
+include("DletoBase.jl")
 
-include("Random.jl")
+# Fundamental Dleto Structures
+    # Chisels
+    include("Chisels.jl")   
+    # Operator
+    include("ops/Operators.jl")
+    # Transverse Operators
+    include("ops/Transverse.jl")
+    # Derivation Methods
+    include("Derivations.jl")
+    # Densors
+    include("Densors.jl")
 
-include("Nondegenerate.jl")
+# Implementations
+    # Chisel Implementations
+    include("ChiselImpls.jl")
+    # Operator Implementations 
+    include("ops/OperatorsImpl.jl")
+    # Transverse Operator Implementations
+    include("ops/TransverseOperators.jl")
+    include("ops/TransverseOpsIndependant.jl")
+    include("ops/TransverseOpsSymmetries.jl")
+    # Sylver Lining Derivation Method
+    include("SylverLininig.jl")
+    # [COMING SOON] QuickSylver
+    include("solvers/NullSolvers.jl")
 
-include("Chisels.jl")   
+# Supporting Utilities
+    # Tensor IO
+    include("util/TensorIO.jl")
+    # Randomization and Distance Functions
+    include("util/Random.jl")
+    # Tucker & HoSVD
+    include("util/Nondegenerate.jl")
+    # Tensor Synthesis
+    include("util/TensorSynthesis.jl")
+    include("util/TensorSynthesis3D.jl")
 
-include("TensorSynthesis.jl")
-include("TensorSynthesis3D.jl")
-# using .TensorSynthesis
-# Re-export from TensorSynthesis
-# TBD: Rethink these functions and their names for final users
+# ============================================================================
+# Module Initialization
+# ============================================================================
 
-include("Operators.jl")
-include("OperatorsImpl.jl")
-
-include("TransverseOperators.jl")
-include("TransverseOpsIndependant.jl")
-include("TransverseOpsSymmetries.jl")
-
-include("DerivationMethodAbstract.jl")
-
-include("NullSolvers.jl")
-
-include("DerivationMethodSylverLininig.jl")
-
-include("Stratify.jl")
-
-# using PlotlyJS
-import Plots
-import PlotlyBase
-import PlotlyKaleido
-
-# using Plots
-# plotly()
-
-include("TensorIO.jl")
-
-# Initialize Plotly backend at runtime only
 function __init__()
     # Suppress WebIO warnings
     ENV["WEBIO_WARN"] = "false"
@@ -147,10 +99,10 @@ function __init__()
     if ccall(:jl_generating_output, Cint, ()) != 1
         try
             Plots.plotlyjs()
-
         catch e
             @warn "Failed to set Plotly backend" exception=e
         end
     end
 end
+
 end # module Dleto
