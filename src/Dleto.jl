@@ -54,9 +54,9 @@ include("DletoBase.jl")
     # Chisels
     include("Chisels.jl")   
     # Operator
-    include("ops/Operators.jl")
+    include("Operators.jl")
     # Transverse Operators
-    include("ops/Transverse.jl")
+    include("TransverseOperators.jl")
     # Derivation Methods
     include("Derivations.jl")
     # Densors
@@ -64,15 +64,14 @@ include("DletoBase.jl")
 
 # Implementations
     # Chisel Implementations
-    include("ChiselImpls.jl")
+    include("chisels/ChiselImpls.jl")
     # Operator Implementations 
-    include("ops/OperatorsImpl.jl")
+    include("ops/OperatorImpls.jl")
     # Transverse Operator Implementations
-    include("ops/TransverseOperators.jl")
     include("ops/TransverseOpsIndependant.jl")
     include("ops/TransverseOpsSymmetries.jl")
     # Sylver Lining Derivation Method
-    include("SylverLininig.jl")
+    include("SylverLining/SylverLininig.jl")
     # [COMING SOON] QuickSylver
     include("solvers/NullSolvers.jl")
 

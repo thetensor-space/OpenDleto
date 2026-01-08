@@ -30,43 +30,43 @@
     Chisels with axis represented as ITensors.Index
 
 """
-struct ChiselFramed
-    ch ::AbstarctMatrix{<:Number},
-    frames ::Vector{Index{K}} where K,
-    idx:Dict{Index,Integer}
-    ch_axis ::Index
+struct ChiselFramed{N}
+    P ::AbstractMatrix
+    frames ::Vector{Index{N}}
+    idx::Dict{Index,Integer}
+    axis ::Index{N}
     function ChiselFramed(
-             ch::AbstractMatrix{<:Number}, 
-        frames ::Vector{Index{K}} where K,
-        ch_axis::Index
-        ) 
-        val=length(frames);
-        @assert size(ch_axis,2)== val "Incompatible sizes";
+             P::AbstractMatrix, 
+        frames ::Vector{Index{N}},
+        a::Index{N}
+        ) where N
+        val=length(frames)
+        @assert size(P,2)== val "Incompatible sizes"
         # test that all elements of frame are different 
-        idx=Dict{Index,Int16}();
+        idx=Dict{Index,Int16}()
         for i=1:val
-            idx[frames[i]] = i;
-        end;
-        return new(ch,frames, idx, ch_axis)
+            idx[frames[i]] = i
+        end
+        return new{N}(P,frames, idx, a)
     end
 end
 
-ChiselFramed(ch::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
-    ChiselFramed(ch,frames, Index(size(ch, 1), "chisel"));
+ChiselFramed(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
+    ChiselFramed(P,frames, Index(size(P, 1), "chisel"));
 
 
 function reduceByEngaged(FCh::ChiselFramed, engaged::Vector{Bool})::ChiselFramed
     @assert length(FCh.frames)==length(engaged) "Incompatable data"
     return ChiselFramed(FCh.ch[:,engaged],Fch.frames[engaged], FCh.ch_axis)
-end;
+end
 
 function reduceByEngaged(FCh::ChiselFramed, engaged::Dict{Index,Bool})::ChiselFramed
     @assert all(FCh.frames .|> (i -> haskey(enggaged,i)))== true  "Incompatable data"
     eng = [ engaged[FCh.frames[i]] for i=1:length(FCh.frames)]
     return reduceByEngaged(FCh, eng)
-end;
+end
 
-function applyDerivation(Γ::ITensor, Xes::Vector{Itensor}, FCh::ChiselFramed )::ITensor
+function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::ChiselFramed )::ITensor
     @assert all(Xes .|> (x ->ndims(x) == 2) ) == true "all Xes must have valancy 2"
     @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
     @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
@@ -80,4 +80,4 @@ function applyDerivation(Γ::ITensor, Xes::Vector{Itensor}, FCh::ChiselFramed ):
                     oi,ci) 
              ) 
              for i in 1:length(Xes) ] |> sum  
-end;
+end
