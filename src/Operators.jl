@@ -24,64 +24,100 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
-"""
-    LocalOperators
-
-    TO BE WRITTEN
-"""
 
 """
-    LocalOperators
+A Tensor Operator is any data type `Ω` that implement the functions 
+```Julia
+apply(ρ::Operator{Ω}, ω::Ω, Γ::ITensor)::ITensor where {Ω, N}
+unsafe_apply(ω::Ω, Γ_in::ITensor, Γ_out::ITensor, a::Index{N})::ITensor where {Ω, N}
+member(ω::Ω)::Bool where {Ω}   
+```
+We say that `ω` is an operator if `member(ω)==true`.
+The behavior of all safe functions is limited to operators and may throw exceptions for non-operators.
 
-    A subspace of operators acting on each axis
+The implementations should satisfy the following laws.
 
-    needs to prodive functions like coordinates, embed and theansposeEmbedding
+For each operator `ω`, scalar `s`, tensors `Γ, Δ` with equal indices, and index `a`:
+```Julia
+apply(ρ, ω, Γ + Δ) ≈ apply(ρ, ω, Γ) + apply(ρ, ω, Δ)
+apply(ρ, ω, Γ * s) ≈ apply(ρ, ω, Γ) * s
+apply(ρ, ω, Γ) == unsafe_apply(ρ, ω, Γ)  if ω in Ω == true
+inds(apply(ρ, ω, Γ)) == inds(Γ)             if ω in Ω == true
+```
+
+---
+
+A Linear Tensor Operator is a Tensor Operator `Ω` that 
+is both a vector space and implements the following additional functions
+```Julia
+coapply(Λ::ITensor, Δ::ITensor, a::Index{N})::Ω where {Ω, N}
+unsafe_apply(Λ::ITensor, Δ::ITensor, a::Index{N})::Ω where {Ω, N}
+```
+and such that these together with the operator functions satisfy the additional laws:
+```Julia
+apply(ρ, ω + λ, Γ) ≈ apply(ρ, ω, Γ) + apply(ρ, λ, Γ)
+apply(ρ, s * ω, Γ) ≈ s * apply(ρ, ω, Γ)
+
+coapply( ρ, Λ_1 + Λ_2, Δ) ≈ coapply(ρ, Λ_1, Δ) + coapply(ρ, Λ_2, Δ)
+coapply(ρ, s * Λ, Δ) ≈ s * coapply(ρ, Λ, Δ)
+coapply(ρ, Λ, Δ_1 + Δ_2) ≈ coapply(ρ, Λ, Δ_1) + coapply(ρ, Λ, Δ_2)
+coapply(ρ, Λ, Δ * s) ≈ coapply(ρ, Λ, Δ) * s
+
+coapply(ρ, Λ, s*Δ) ≈ s * coapply(ρ, Λ, Δ)
+coapply(ρ, Λ, Δ) == unsafe_coapply(ρ, Λ, Δ)  if (Λ) == true
+```
+furthermore, `L ↦ coapply(L)` is the dual map to `ω ↦ apply(ω)`.
+"""
+module Operators
+
+using ITensors
+using DocStringExtensions
+
+struct Operator{Ω} 
+    a ::Index
+end
 
 """
-abstract type Operator  end
-
-
+$(TYPEDSIGNATURES)
+Apply the operator ω on the tensor Γ along the representation's axis.
 """
-    Return the native encoding of an operator in the transverse set,
-    or `Nothing` if it is not a member.
-"""
-function coordinates(LΩ::Operator, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
+function apply(ρ::Operator{Ω}, ω::Ω, Γ::ITensor)::Union{ITensor, Nothing} where {Ω}
     @assert false "Calling Placeholder Abstract Function"
-end;
-function unsafe_coordinates(LΩ::Operator, M::AbstractMatrix) :: Vector{<: Number} 
+end
+"""
+$(TYPEDSIGNATURES)
+[`Dleto.apply`](@ref) without safety checks.
+"""
+function unsafe_apply(ρ::Operator{Ω}, ω::Ω, Γ::ITensor)::ITensor where {Ω}
     @assert false "Calling Placeholder Abstract Function"
-end;
-# this is the inverse of the embed map
-
-function transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number}
-    @assert size(M)[1]==size(M)[2] "Incompatable Data"
-    return unsafe_transposeEmbed(LΩ, M)  
-end;
-
-function unsafe_transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-# this is the transpose of the embed map
+end
 
 """
-    Convert the native encoding of an operator into matrix.
+$(TYPEDSIGNATURES)
+Return `true` if ω is a member of the operator space.
 """
-function embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
-    @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
-    unsafe_embed(LΩ,dim,data)
-end;
-function unsafe_embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function Base.in(ω::Ω, ρ::Operator{Ω})::Bool where {Ω}
     @assert false "Calling Placeholder Abstract Function"
-end;
+end
 
 
+"""
+$(TYPEDSIGNATURES)
+Given tensors Γ and Δ with the same indices and an index a,
+contract Γ with Δ on all axes except a and encode the corresponding 
+operator `ω::Ω` on index `a` that results.
 
-function localDim(LΩ::Operator, dim::Integer)::Integer 
+`unsafe_coapply` does the same without safety checks.
+"""
+function coapply(ρ::Operator{Ω}, Γ::ITensor, Δ::ITensor)::Ω where {Ω, N}
     @assert false "Calling Placeholder Abstract Function"
-end;
-
-function containScalars(LΩ::Operator)::Bool  
+end
+"""
+$(TYPEDSIGNATURES)
+[`Dleto.coapply`](@ref) without safety checks.
+"""
+function unsafe_coapply(ρ::Operator{Ω}, Γ::ITensor, Δ::ITensor)::Ω where {Ω, N}
     @assert false "Calling Placeholder Abstract Function"
-end;
+end
 
-
+end # module Operators

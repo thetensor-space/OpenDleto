@@ -1,0 +1,7 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
+
+[extras]
+Dleto = "e7db872f-2c5e-4d8f-9a1c-3b5e8f4a9c2d"
