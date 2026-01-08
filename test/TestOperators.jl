@@ -51,6 +51,27 @@ function testTranspose(Ω::Operator, dim::Integer, num::Integer)
     return true
 end;
 
+function testDualize(Ω::Operator, dim::Integer, num::Integer)
+    localdim = localDim(Ω,dim)
+    for _ = 1:num
+        a = rand(localdim)
+        adual = dualize(Ω,dim,a)
+        adualdual = dualize(Ω,dim,adual)
+        @assert isapprox(a, adualdual)
+
+        A = embed(Ω,dim,a)
+        Adual = embed(Ω,dim,adual)
+        @assert isapprox(A, LinearAlgebra.transpose(Adual))
+        @assert isapprox(Adual, LinearAlgebra.transpose(A))
+
+        BB = rand(dim,dim)
+        b = unsafe_transposeEmbed(Ω,BB)
+        bdual = unsafe_transposeEmbed(Ω,LinearAlgebra.transpose(BB))
+        @assert isapprox(dualize(Ω,dim,b), bdual)
+    end
+    return true
+end;
+
 function testMembership(dim::Integer, num::Integer)
     for _ = 1:num
         M = rand(dim,dim)
@@ -89,6 +110,11 @@ end
         @testset "Dimension $dim Transpose" begin
             for Ω in LΩs
                 @test testInverse(Ω, dim, 100)
+            end 
+        end
+        @testset "Dimension $dim Dualize" begin
+            for Ω in LΩs
+                @test testDualize(Ω, dim, 100)
             end 
         end
         @test testMembership(dim, 100)

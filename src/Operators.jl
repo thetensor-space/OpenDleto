@@ -70,10 +70,18 @@ function embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractM
     @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
     unsafe_embed(LΩ,dim,data)
 end;
+
 function unsafe_embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
+function dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
+    @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
+    unsafe_dualize(LΩ,dim,data)
+end;
+
+unsafe_dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number} = 
+    unsafe_coordinates(LΩ,Matrix(LinearAlgebra.transpose(unsafe_embed(LΩ,dim,data))));
 
 
 function localDim(LΩ::Operator, dim::Integer)::Integer 
