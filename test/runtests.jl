@@ -14,10 +14,10 @@ using ITensors
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
 
-include( "TestDletoUtils.jl" )
+include( "TestDletoBase.jl" )
 include( "TestChisels.jl" )
 include( "TestOperators.jl" )
-include( "TestTransverseOpsIndependent.jl" )
+include( "TestTransverseOps.jl" )
 # include( "TestSylverLining.jl" )
 #include( "TestDerivations.jl" )
 

@@ -124,7 +124,7 @@ end;
 
 #unsafe_coordinates
 
-unsafe_coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(M,length(M));
+unsafe_coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
 
 unsafe_coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
 
@@ -140,7 +140,7 @@ unsafe_coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} =  zeros
 
 #unsafe_transposeEmbed
 
-unsafe_transposeEmbed(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(M,length(M));
+unsafe_transposeEmbed(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
 
 unsafe_transposeEmbed(LΩ::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
 
@@ -184,6 +184,13 @@ end;
 unsafe_embed(LΩ::ScalarOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = Matrix(data[1]*LinearAlgebra.I,dim,dim); 
 
 unsafe_embed(LΩ::EmptyOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = Matrix(0.0*LinearAlgebra.I,dim,dim); 
+
+unsafe_dualize(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_dualize(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_dualize(::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) = -data 
+unsafe_dualize(::ScalarOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_dualize(::EmptyOp, dim::Integer, data::Vector{<:Number} ) = data 
+
 
 
 #local Dimension

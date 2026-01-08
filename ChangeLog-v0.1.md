@@ -27,3 +27,7 @@ Grouped things in the base if they are general top-level structures that a user 
  * chisel matrix ----> space of linear maps
  * implement $\Gamma*p(Xs)$
  * implement $\Gamma*P(Xs)$
+
+ ## Ops
+ added dualize/unsafe-dualize for operators
+ fixed TransverseOpSymetries

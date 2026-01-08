@@ -11,6 +11,7 @@ using ITensors
             for _ = 1:30
                 M = rand(n,n)
                 rcf = Dleto.realCanonicalForm(M)
+                @test !isapprox(LinearAlgebra.det(rcf.T), 0.0)
                 @test isapprox(M * rcf.T, rcf.T * rcf.D)
                 @test isapprox(M * Matrix(rcf.T), Matrix(rcf.T) * Matrix(rcf.D))
             end

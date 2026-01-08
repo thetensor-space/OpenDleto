@@ -46,6 +46,7 @@ export Operator                             # abstract type
 export embed, unsafe_embed                  # Embed
 export coordinates, unsafe_coordinates      # Membership
 export transposeEmbed, unsafe_transposeEmbed  
+export dualize, unsafe_dualize
 export localDim, containScalars
 
 # OperatorsImpls.jl
@@ -54,6 +55,7 @@ export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
 # Transverse.jl
 export TransverseOps
 export embedMatrices, unsafe_embedMatrices
+export embedITensors, unsafe_embedITensors
 export embedITensorsSwapped, unsafe_embedITensorsSwapped
 export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
 

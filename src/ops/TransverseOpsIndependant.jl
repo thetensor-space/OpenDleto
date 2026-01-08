@@ -46,7 +46,8 @@ struct IndTransverseOps <: TransverseOps
     framesTemp ::Vector{Index{KK}} where KK
     axisDims ::Vector{<:Integer}
     globalDim ::Integer
-    offsets ::Vector{<:Integer}
+    soffsets ::Vector{<:Integer}
+    eoffsets ::Vector{<:Integer}
     localOps ::Vector{<:Operator} 
     #inner constructor
     # we need ; after each line???
@@ -54,11 +55,14 @@ struct IndTransverseOps <: TransverseOps
         val =  length(fr);
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
+        @assert val > 0 "Do not accept Valency 0"; 
         axisDims = fr .|> ITensors.dim;
         localDims =[ localDim(localOps[i], axisDims[i]) for i=1:val];
         globalDim = sum(localDims);
-        offsets = [ sum(localDims[1:(i-1)]) for i=1:(val+1)]; 
-        new(val,fr,frTemp,axisDims,globalDim,offsets,localOps)
+        offsets = [ sum(localDims[1:(i-1)]) for i=1:(val+1)];
+        start_offset = [ offsets[i] + 1 for i=1:val];
+        end_offset = [ offsets[i + 1] for i=1:val];
+        new(val,fr,frTemp,axisDims,globalDim,start_offset,end_offset,localOps)
     )
 end; 
 #extra constructors
@@ -82,14 +86,15 @@ frames(GΩ::IndTransverseOps) = GΩ.frames
 framesTemporary(GΩ::IndTransverseOps) = GΩ.framesTemp
 
 unsafe_embedMatrices(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
-    [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]) for i=1:GΩ.val];
+    # [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]) for i=1:GΩ.val];
+    [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[GΩ.soffsets[i]:GΩ.eoffsets[i]]) for i=1:GΩ.val];
 
 unsafe_embedITensors(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         Matrix(unsafe_embed(
             GΩ.localOps[i],
             GΩ.axisDims[i],
-            data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]])),
+            data[GΩ.soffsets[i]:GΩ.eoffsets[i]])),
         GΩ.frames[i],GΩ.framesTemp[i] ) 
         for i=1:GΩ.val
     ];
@@ -99,7 +104,7 @@ unsafe_embedITensorsSwapped(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Ve
         Matrix(unsafe_embed(
             GΩ.localOps[i],
             GΩ.axisDims[i],
-            data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]])),
+            data[GΩ.soffsets[i]:GΩ.eoffsets[i]])),
         GΩ.framesTemp[i],GΩ.frames[i] ) 
         for i=1:GΩ.val
     ];
@@ -121,6 +126,7 @@ end;
 
 function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
     @assert GΩ.val == length(engaged) "Incompatible data"
+    @assert any(engaged) "Can not reduce to Nothing"
     rΩ = IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
     rindx = zeros(Int16, GΩ.val);
     eindx = zeros(Int16, rΩ.val);
@@ -138,16 +144,18 @@ function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{Tr
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
         edata=zeros(eltype(rdata), GΩ.globalDim)
         for i = 1: rΩ.val
-            edata[(GΩ.offsets[eindx[i]]+1):GΩ.offsets[eindx[i] + 1]] = rdata[(rΩ.offsets[i]+1):rΩ.offsets[i+1]]
+            edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]]] = rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]]
         end;
         return edata
     end;
-    function contract(edata::Vector{<:Number})::Vector{<:Number}
-        rdata=zeros(eltype(edata), rΩ.globalDim)
-        for i = 1: rΩ.val
-            rdata[(rΩ.offsets[i]+1):rΩ.offsets[i+1]] = edata[(GΩ.offsets[eindx[i]]+1):GΩ.offsets[eindx[i] + 1] ]
-        end;
-        return rdata
-    end;
+    contract(edata::Vector{<:Number})::Vector{<:Number} = 
+        vcat([ edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]] ] for i= 1: rΩ.val ]...); 
+    # function contract(edata::Vector{<:Number})::Vector{<:Number}
+    #     rdata=zeros(eltype(edata), rΩ.globalDim)
+    #     for i = 1: rΩ.val
+    #         rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]] = edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]] ]
+    #     end;
+    #     return rdata
+    # end;
     return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
 end;

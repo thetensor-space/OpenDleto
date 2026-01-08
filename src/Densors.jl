@@ -38,6 +38,7 @@ function stratify(
     if size(ders,2) ==0
         # should never happen as there are always trivial derivations
         # so this indicates an error
+        # it can happen if we use operators which do not contain scalars, or use full Tucker chisel
         error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
     end
     @info "Found $(size(ders,2)) derivations for stratification."
