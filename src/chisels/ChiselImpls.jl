@@ -30,26 +30,23 @@
     Chisels with axis represented as ITensors.Index
 
 """
-struct ChiselFramed{N}
-    P ::AbstractMatrix
-    frames ::Vector{Index{N}}
-    idx::Dict{Index,Integer}
-    axis ::Index{N}
-    function ChiselFramed(
-             P::AbstractMatrix, 
-        frames ::Vector{Index{N}},
-        a::Index{N}
-        ) where N
-        val=length(frames)
-        @assert size(P,2)== val "Incompatible sizes"
+struct ChiselFramed
+    ch ::AbstractMatrix{<:Number}
+    frames ::Vector{Index{K}} where K
+    idx ::Dict{Index,Integer}
+    ch_axis ::Index
+    ChiselFramed(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K, ch_axis::Index) = (
+        val=length(frames);
+        @assert size(P,2)== val "Incompatible sizes";
+        @assert size(P,1) == ITensors.dim(ch_axis) "Incompatable chisel axis";
         # test that all elements of frame are different 
-        idx=Dict{Index,Int16}()
+        idx=Dict{Index,Int16}();
         for i=1:val
-            idx[frames[i]] = i
-        end
-        return new{N}(P,frames, idx, a)
-    end
-end
+            idx[frames[i]] = i;
+        end;
+        return new(P, frames, idx, ch_axis)
+    )
+end;
 
 ChiselFramed(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
     ChiselFramed(P,frames, Index(size(P, 1), "chisel"));
@@ -72,12 +69,13 @@ function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::ChiselFramed ):
     @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
     @assert all(FCh.frames .|> i -> i in inds(Γ )) == true "Γ misses some indexes"
     Γ_frame_ch = (FCh.ch_axis, inds(Γ)...)
-    return [ ( 
-                haskey(FCh.idx,  ind(Xes[i],1) ) ? 
-                    (ci =ind(Xes[i],1) ; oi =ind(Xes[i],2) ) : (ci =ind(Xes[i],2) ; oi =ind(Xes[i],1) );
-                replaceind(
-                    ITensor(FCh.ch[:, FCh.idx[ci]],FCh.ch_axis) * Γ * Xes[i],
-                    oi,ci) 
-             ) 
-             for i in 1:length(Xes) ] |> sum  
+    return [ 
+                let 
+                    haskey(FCh.idx,  ind(Xes[i],1) ) ? 
+                        (ci =ind(Xes[i],1) ; oi =ind(Xes[i],2) ) : (ci =ind(Xes[i],2) ; oi =ind(Xes[i],1) )
+                    replaceind(
+                        ITensor(FCh.ch[:, FCh.idx[ci]],FCh.ch_axis) * Γ * Xes[i],
+                        oi,ci) 
+                end 
+            for i in 1:length(Xes) ] |> sum  
 end
