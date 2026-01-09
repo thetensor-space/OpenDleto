@@ -72,6 +72,7 @@ struct TransverseOpsSymmetries <: TransverseOps
         @assert val == length(duals) "Incompatable data";
         @assert all(  symmetries .|> x -> x>0 ) "Incompatable data";
         @assert all( [symmetries[i] <= i for i=1:val]) "Incompatable symmetries";
+        @assert all( [symmetries[symmetries[i]] == symmetries[i] for i=1:val]) "Incompatable symmetries";
         @assert all( [!duals[i] for i=1:val if i==symmetries[i]]) "Incompatable duals";
         blocks = [ Int8[j for j=1:val if  symmetries[j]==i] for i=1:val];
         @assert all([ axisDims[i] == axisDims[symmetries[i]]  for i=1:val if i==symmetries[i]]) "Incompatable local dimensions";

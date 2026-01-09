@@ -125,6 +125,10 @@ function testReducedbyEngaged(Ω::TransverseOps, num::Integer,testzeros::Bool=tr
             if testzeros
                 @assert all( [eng[i] || all(allMats[i] .|> Dleto.__isapproxzero)  for i=1:val]) "Matrices are not zero"
             end
+            allMats = embedMatrices(Ω,b )
+            allMatsR = allMats[eng]
+            aa = coordinates(rΩ,allMatsR)
+            @assert isapprox(aa,AA)
         end
     end
     return true;

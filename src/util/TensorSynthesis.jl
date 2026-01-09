@@ -133,25 +133,29 @@ rand_den(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cut
 function ITensorNorm(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, dist::Function)::Number
     frames=inds(Γ)
     val = length(deltas)
-    sizes = deltas .|> length
+    sizes = Tuple(deltas .|> length)
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
-    @assert all([frames[i].space == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
-
- 
-#    t = asarray(Γ) -- no need to make array we can use ccartesian indexes directly
-    mass = 0.0
-    distance = 0.0
-    product = 0.0
-    for ci in CartesianIndices(sizes)
-        mass += Γ[ci] * Γ[ci]
-        d= dist([deltas[i][ci[i]] for i =1:val] )
-        distance += abs( Γ[ci] * d ) 
-        product +=  d * d 
-    end
-    return distance*distance/(mass * product + 1e-15) 
+    @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas" 
+    res = [ 
+        let 
+            d= dist([deltas[i][ci[i]] for i =1:val] )
+            [Γ[ci] * Γ[ci], abs( Γ[ci] * d ), d * d ] 
+        end
+        for ci in CartesianIndices(sizes)] |> sum
+    return res[2]*res[2]/(res[1] * res[3] + 1e-15) 
+    # mass = 0.0
+    # distance = 0.0
+    # product = 0.0
+    # for ci in CartesianIndices(sizes)
+    #     mass += Γ[ci] * Γ[ci]
+    #     d= dist([deltas[i][ci[i]] for i =1:val] )
+    #     distance += abs( Γ[ci] * d ) 
+    #     product +=  d * d 
+    # end
+    # return distance*distance/(mass * product + 1e-15) 
 end;
 
-ITensorNormChisel(Γ ::ITensor, deltas::Vector{Vector{ <: Number}}, ch::Matrix)::Number=
+ITensorNormChisel(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, ch::Matrix)::Number=
 ITensorNorm(Γ,deltas, x -> __dist(ch, x) );
 
 

@@ -18,6 +18,9 @@ include( "TestDletoBase.jl" )
 include( "TestChisels.jl" )
 include( "TestOperators.jl" )
 include( "TestTransverseOps.jl" )
+include( "TestTensorSynthesis.jl" )
+
+
 # include( "TestSylverLining.jl" )
 #include( "TestDerivations.jl" )
 

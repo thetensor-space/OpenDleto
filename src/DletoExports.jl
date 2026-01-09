@@ -41,6 +41,9 @@ export ⊕
 export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 export normalize_chisel
 
+# ChiselImpls.jl
+export ChiselFramed, applyDerivation
+
 # Operators.jl
 export Operator                             # abstract type
 export embed, unsafe_embed                  # Embed
@@ -81,7 +84,8 @@ export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
 export set_compare_layout, get_compare_layout
 
 # TensorSynthesis.jl
-export rand_den
+export rand_den, randTensorChisel
+export ITensorNorm, ITensorNormChisel
 
 # TensorSynthesis3D.jl
 export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
