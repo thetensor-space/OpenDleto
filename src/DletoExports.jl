@@ -82,6 +82,7 @@ export stratify
 # TensorIO.jl
 export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
 export set_compare_layout, get_compare_layout
+export COMPARE_LAYOUT
 
 # TensorSynthesis.jl
 export rand_den, randTensorChisel
