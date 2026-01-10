@@ -49,7 +49,7 @@ function Dleto.set_compare_layout(layout::Symbol)
     if layout ∉ (:widescreen, :vertical)
         error("Layout must be either :widescreen or :vertical")
     end
-    COMPARE_LAYOUT[] = layout
+    Dleto.COMPARE_LAYOUT[] = layout
     return nothing
 end
 
@@ -58,7 +58,7 @@ end
 
 Get the current default layout for the `compare` function.
 """
-Dleto.get_compare_layout() = COMPARE_LAYOUT[]
+Dleto.get_compare_layout() = Dleto.COMPARE_LAYOUT[]
 
 function Dleto.plot_layout(type::Symbol)
     if type == :vertical
