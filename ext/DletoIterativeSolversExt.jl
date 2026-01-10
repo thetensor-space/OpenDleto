@@ -9,12 +9,12 @@ using IterativeSolvers
 
 export  LanczosSolver,  CGSolver
 
-struct LanczosSolver <: NullSolver end
-struct CGSolver <: NullSolver end
+struct LanczosSolver <: Dleto.NullSolver end
+struct CGSolver <: Dleto.NullSolver end
 
 
 
-function solve(::LanczosSolver, L::LinearMap; nv::Integer = 10)
+function Dleto.solve(::LanczosSolver, L::LinearMap; nv::Integer = 10)
     println("Using LanczosSolver...")
     # Use IterativeSolvers to compute the null space of L.
     # We only need the right singular vectors as we want a right null space.
@@ -29,7 +29,7 @@ function solve(::LanczosSolver, L::LinearMap; nv::Integer = 10)
 end
 
 
-function solve(::CGSolver, L::LinearMap; nv::Integer = 10)
+function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10)
     println("Using CGSolver...")
     res = lobpcg(L, false, 10 ) #; maxiter=size(L,2) / 2, tol=1e-16)
     return (;vals=res.λ, vecs=res.X)

@@ -9,9 +9,9 @@ using KrylovKit: eigsolve
 
 export KrylovSolver
 
-struct KrylovSolver <: NullSolver end
+struct KrylovSolver <: Dleto.NullSolver end
 
-function solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
+function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
     println("Using KrylovSolver...")
     nev = min(nd, size(L, 1))  # Number of eigenvalues to compute
     x0 = randn(size(L, 2))     # Initial guess vector

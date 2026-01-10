@@ -37,9 +37,6 @@ using ITensors
 using Plots
 
 
-# Global layout preference for compare function
-const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
-
 """
     set_compare_layout(layout::Symbol)
 
@@ -48,7 +45,7 @@ Set the default layout for the `compare` function.
 - `:widescreen` - Display side-by-side (default)
 - `:vertical` - Display stacked vertically
 """
-function set_compare_layout(layout::Symbol)
+function Dleto.set_compare_layout(layout::Symbol)
     if layout ∉ (:widescreen, :vertical)
         error("Layout must be either :widescreen or :vertical")
     end
@@ -61,9 +58,9 @@ end
 
 Get the current default layout for the `compare` function.
 """
-get_compare_layout() = COMPARE_LAYOUT[]
+Dleto.get_compare_layout() = COMPARE_LAYOUT[]
 
-function plot_layout(type::Symbol)
+function Dleto.plot_layout(type::Symbol)
     if type == :vertical
         Plots.default(size=(400,900))
     else # default :widescreen
@@ -78,7 +75,7 @@ end
     Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
     returns the tensor unchanged.
 """
-function normalize_tensor(t::ITensor)
+function Dleto.normalize_tensor(t::ITensor)
     norm_factor = norm(store(t))
     if norm_factor == 0
         return t
@@ -86,16 +83,6 @@ function normalize_tensor(t::ITensor)
         return t / norm_factor
     end
 end
-
-## DONT USE, use Array(Γ, inds(Γ)) instead!!
-# function asarray(Γ::ITensor)
-#     dims = size(Γ)
-#     arr = zeros(Float64, dims...)
-#     for idx in CartesianIndices(arr)
-#         arr[idx] = Γ[Tuple(idx)...]
-#     end
-#     return arr
-# end
 
 """
         compare(left, right; left_title="Left", right_title="Right", layout=nothing)
@@ -107,7 +94,7 @@ Works in Jupyter/VS Code notebooks. Titles are optional.
 - `layout=:widescreen`: Display side-by-side
 - `layout=:vertical`: Display stacked vertically
 """
-function compare(left, right;
+function Dleto.compare(left, right;
     left_title::AbstractString="Left", 
     right_title::AbstractString="Right",
     layout::Union{Symbol,Nothing}=nothing)
@@ -151,9 +138,6 @@ function compare(left, right;
     display(MIME("text/html"), html)
     return nothing
 end
-
-# Backwards compatibility alias
-side_by_side = compare
  
 """
     load_tensor(filename::String) -> ITensor
@@ -163,7 +147,7 @@ side_by_side = compare
     i j k value
     where i, j, k are the indices and value is the tensor entry at that position.
 """
-function load_tensor(filename::String)::ITensor
+function Dleto.load_tensor(filename::String)::ITensor
     # Read the file and parse entries
     entries = []
     max_dims = []
@@ -217,7 +201,7 @@ end
     - `filename`: The name of the output file
     - `threshold`: Minimum absolute value for entries to be saved (default: 1e-3)
 """
-function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
+function Dleto.save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
     open(filename, "w") do file
         dims = size(tensor)
         println(file, "# i j k value")
@@ -242,7 +226,7 @@ end
     - `threshold`: Minimum absolute value for entries to be plotted (default: 1e
     # Arguments
 """
-function plot_tensor(tensor, threshold::Float64=1e-4;
+function Dleto.plot_tensor(tensor, threshold::Float64=1e-4;
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::Symbol=:blue
     )
