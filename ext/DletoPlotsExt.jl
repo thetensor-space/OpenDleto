@@ -23,8 +23,9 @@
 # SOFTWARE.
 # 
 
-# module TensorIO
+module DletoPlotsExt
 
+using Dleto
 import PlotlyBase
 import PlotlyKaleido
 import PlotlyJS
@@ -34,7 +35,7 @@ using ITensors
 # using SparseArrays
 # using PlotlyJS
 using Plots
-# plotly()  # Set PlotlyJS as the backend for interactive plotting
+
 
 # Global layout preference for compare function
 const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
@@ -459,4 +460,18 @@ end
 # end
 
 
-# end # module TensorIO
+function __init__()
+    # Suppress WebIO warnings
+    ENV["WEBIO_WARN"] = "false"
+    println("Loading Dleto Plots Extension")
+    # Only set backend if we're not precompiling
+    if ccall(:jl_generating_output, Cint, ()) != 1
+        try
+            Plots.plotlyjs()
+        catch e
+            @warn "Failed to set Plotly backend" exception=e
+        end
+    end
+end
+
+end

@@ -33,10 +33,10 @@ module Dleto
 import LinearAlgebra
 import ITensors
 
-# Plotting libraries
-import Plots
-import PlotlyBase
-import PlotlyKaleido
+# # Plotting libraries
+# import Plots
+# import PlotlyBase
+# import PlotlyKaleido
 
 # ============================================================================
 # Exported Functions and Types
@@ -77,7 +77,7 @@ include("DletoBase.jl")
 
 # Supporting Utilities
     # Tensor IO
-    include("util/TensorIO.jl")
+#    include("util/TensorIO.jl")
     # Randomization and Distance Functions
     include("util/Random.jl")
     # Tucker & HoSVD
@@ -94,14 +94,14 @@ function __init__()
     # Suppress WebIO warnings
     ENV["WEBIO_WARN"] = "false"
     
-    # Only set backend if we're not precompiling
-    if ccall(:jl_generating_output, Cint, ()) != 1
-        try
-            Plots.plotlyjs()
-        catch e
-            @warn "Failed to set Plotly backend" exception=e
-        end
-    end
+    # # Only set backend if we're not precompiling
+    # if ccall(:jl_generating_output, Cint, ()) != 1
+    #     try
+    #         Plots.plotlyjs()
+    #     catch e
+    #         @warn "Failed to set Plotly backend" exception=e
+    #     end
+    # end
 end
 
 end # module Dleto
