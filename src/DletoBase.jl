@@ -35,12 +35,12 @@ using ITensors: ITensor, Index, inds, replaceinds, addtags, store, norm
 """
 function __ITensor(Γ::AbstractArray)::ITensor 
     frame = [ Index(size(Γ,a), "a$a") for a in 1:ndims(Γ) ]
-    try 
-        iΓ = ITensor(Γ, frame...) 
+    iΓ = try 
+        ITensor(Γ, frame...) 
     catch e
         # a temporary fix for AbstractArray inputs like ReshapedArray 
         # which has a low-grade bug(?) in ITensors (Bug #1691)
-        iΓ = ITensor( Array(Γ), frame...)
+        ITensor( Array(Γ), frame...)
     end
     return iΓ
 end
