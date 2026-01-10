@@ -4,10 +4,12 @@ using Arpack
 using LinearMaps
 using LinearAlgebra
 
-export ArpackDenseSolver, ArpackSolver
+# can not export from extension package
+#export ArpackDenseSolver, ArpackSolver
 
 struct ArpackSolver <: Dleto.NullSolver end
 struct ArpackDenseSolver <: Dleto.NullSolver end
+
 
 function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20)
     println("Using ArpackSolver...")
@@ -25,7 +27,9 @@ function Dleto.solve(::ArpackDenseSolver, L::LinearMap; nv::Integer = 20)
 end
 
 function __init__()
-    println("Loading Dleto Arpack Extension")
+    println("Loading Dleto Arpack Extension: Registering :ArpackSolver and :ArpackDenseSolver nullsolvers")
+    NullSolversDict[:ArpackSolver] = ArpackSolver()
+    NullSolversDict[:ArpackDenseSolver] = ArpackDenseSolver()
 end
 
 

@@ -7,9 +7,11 @@ using LinearAlgebra
 import KrylovKit
 using KrylovKit: eigsolve
 
-export KrylovSolver
+#export KrylovSolver
 
-struct KrylovSolver <: Dleto.NullSolver end
+struct KrylovSolver <: Dleto.NullSolver end;
+
+
 
 function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
     println("Using KrylovSolver...")
@@ -59,7 +61,9 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float6
 end
 
 function __init__()
-    println("Loading Dleto KrylovKit Extension")
+    println("Loading Dleto KrylovKit Extension: Registering :KrylovSolver nullsolver")
+    #register solvers
+    NullSolversDict[:KrylovSolver] = KrylovSolver();
 end
 
 end

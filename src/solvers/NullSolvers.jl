@@ -14,6 +14,7 @@ using LinearAlgebra
 
 
 export NullSolver, LUSolver, SVDSolver, solve
+export NullSolversDict
 
 abstract type NullSolver end 
         
@@ -31,21 +32,26 @@ function solve(method::NullSolver, L::LinearMap; nd::Integer=10) end
 struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
+"""
+    Dictionary of implemented/loaded solvers
+"""
+
+NullSolversDict = Dict{Symbol, NullSolver}(
+        :SVDSolver      => SVDSolver(),
+        :LUSolver       => LUSolver()
+)
+
+
 
 # Map Symbol to solver type and call solve, defaulting to SVDSolver
 function solve(L, sym::Symbol=:SVDSolver; kwargs...)
-    solver =
-        sym === :SVDSolver      ? SVDSolver() :
-        sym === :LanczosSolver  ? LanczosSolver() :
-        sym === :ArpackSolver   ? ArpackSolver() :
-        sym === :ArpackDenseSolver ? ArpackDenseSolver() :
-        sym === :CGSolver       ? CGSolver() :
-        sym === :LUSolver       ? LUSolver() :
-        sym === :KrylovSolver    ? KrylovSolver() :
+    if sym in keys(NullSolversDict)
+        solver = NullSolversDict[sym]
+        return solve(solver, L; kwargs...)
+    else
         error("Unknown solver symbol: $sym")
-    return solve(solver, L; kwargs...)
-end
-
+    end
+end;
     
 function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
     println("Using SVDSolver...")

@@ -40,25 +40,30 @@
 """
 abstract type Operator  end
 
+"""
+    Dictionary of implemented local operators
+"""
+OperatorsDict = Dict{Symbol, Operator}()
+
 
 """
     Return the native encoding of an operator in the transverse set,
     or `Nothing` if it is not a member.
 """
-function coordinates(LΩ::Operator, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(Op::Operator, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-function unsafe_coordinates(LΩ::Operator, M::AbstractMatrix) :: Vector{<: Number} 
+function unsafe_coordinates(Op::Operator, M::AbstractMatrix) :: Vector{<: Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 # this is the inverse of the embed map
 
-function transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number}
+function transposeEmbed(Op::Operator, M::AbstractMatrix) :: Vector{<:Number}
     @assert size(M)[1]==size(M)[2] "Incompatable Data"
-    return unsafe_transposeEmbed(LΩ, M)  
+    return unsafe_transposeEmbed(Op, M)  
 end;
 
-function unsafe_transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number} 
+function unsafe_transposeEmbed(Op::Operator, M::AbstractMatrix) :: Vector{<:Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 # this is the transpose of the embed map
@@ -66,30 +71,37 @@ end;
 """
     Convert the native encoding of an operator into matrix.
 """
-function embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
-    @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
-    unsafe_embed(LΩ,dim,data)
+function embed(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+    @assert length(data)== localDim(Op,dim) "Incompatable Data"
+    unsafe_embed(Op,dim,data)
 end;
 
-function unsafe_embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embed(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
-    @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
-    unsafe_dualize(LΩ,dim,data)
+function dualize(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
+    @assert length(data)== localDim(Op,dim) "Incompatable Data"
+    unsafe_dualize(Op,dim,data)
 end;
 
-unsafe_dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number} = 
-    unsafe_coordinates(LΩ,Matrix(LinearAlgebra.transpose(unsafe_embed(LΩ,dim,data))));
+function unsafe_dualize(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
+    if closedUnderDual(Op)  
+        unsafe_coordinates(Op,Matrix(LinearAlgebra.transpose(unsafe_embed(Op,dim,data))))
+    else 
+        @assert false "Calling Placeholder Abstract Function"
+    end
+end;
 
-
-function localDim(LΩ::Operator, dim::Integer)::Integer 
+function localDim(Op::Operator, dim::Integer)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function containScalars(LΩ::Operator)::Bool  
+function containScalars(Op::Operator)::Bool  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
+function closedUnderDual(Op::Operator)::Bool  
+    @assert false "Calling Placeholder Abstract Function"
+end;
 

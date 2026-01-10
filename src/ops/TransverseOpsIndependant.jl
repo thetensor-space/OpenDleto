@@ -76,62 +76,62 @@ IndTransverseOps(fr ::Vector{Index{K}} where K, localOp ::Operator) =
     IndTransverseOps(fr, fr .|> (x -> localOp) );
 
 
-globalDim(GΩ::IndTransverseOps)::Integer  = GΩ.globalDim;
+globalDim(TOp::IndTransverseOps)::Integer  = TOp.globalDim;
 
-axisDims(GΩ::IndTransverseOps)::Vector{<:Integer} = GΩ.axisDims;
+axisDims(TOp::IndTransverseOps)::Vector{<:Integer} = TOp.axisDims;
 
-valency(GΩ::IndTransverseOps)::Integer = GΩ.val
+valency(TOp::IndTransverseOps)::Integer = TOp.val
 
-frames(GΩ::IndTransverseOps) = GΩ.frames
-framesTemporary(GΩ::IndTransverseOps) = GΩ.framesTemp
+frames(TOp::IndTransverseOps) = TOp.frames
+framesTemporary(TOp::IndTransverseOps) = TOp.framesTemp
 
-unsafe_embedMatrices(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
-    # [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[(GΩ.offsets[i]+1):GΩ.offsets[i+1]]) for i=1:GΩ.val];
-    [ unsafe_embed(GΩ.localOps[i],GΩ.axisDims[i],data[GΩ.soffsets[i]:GΩ.eoffsets[i]]) for i=1:GΩ.val];
+unsafe_embedMatrices(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
+    # [ unsafe_embed(TOp.localOps[i],TOp.axisDims[i],data[(TOp.offsets[i]+1):TOp.offsets[i+1]]) for i=1:TOp.val];
+    [ unsafe_embed(TOp.localOps[i],TOp.axisDims[i],data[TOp.soffsets[i]:TOp.eoffsets[i]]) for i=1:TOp.val];
 
-unsafe_embedITensors(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensors(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         Matrix(unsafe_embed(
-            GΩ.localOps[i],
-            GΩ.axisDims[i],
-            data[GΩ.soffsets[i]:GΩ.eoffsets[i]])),
-        GΩ.frames[i],GΩ.framesTemp[i] ) 
-        for i=1:GΩ.val
+            TOp.localOps[i],
+            TOp.axisDims[i],
+            data[TOp.soffsets[i]:TOp.eoffsets[i]])),
+        TOp.frames[i],TOp.framesTemp[i] ) 
+        for i=1:TOp.val
     ];
 
-unsafe_embedITensorsSwapped(GΩ::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensorsSwapped(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         Matrix(unsafe_embed(
-            GΩ.localOps[i],
-            GΩ.axisDims[i],
-            data[GΩ.soffsets[i]:GΩ.eoffsets[i]])),
-        GΩ.framesTemp[i],GΩ.frames[i] ) 
-        for i=1:GΩ.val
+            TOp.localOps[i],
+            TOp.axisDims[i],
+            data[TOp.soffsets[i]:TOp.eoffsets[i]])),
+        TOp.framesTemp[i],TOp.frames[i] ) 
+        for i=1:TOp.val
     ];
 
-unsafe_transposeEmbed(GΩ::IndTransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} =
-    vcat([ unsafe_transposeEmbed(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
+unsafe_transposeEmbed(TOp::IndTransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} =
+    vcat([ unsafe_transposeEmbed(TOp.localOps[i], Mats[i]) for i=1:TOp.val ]...);
 
-unsafe_coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
-    vcat([ unsafe_coordinates(GΩ.localOps[i], Mats[i]) for i=1:GΩ.val ]...);
+unsafe_coordinates(TOp::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
+    vcat([ unsafe_coordinates(TOp.localOps[i], Mats[i]) for i=1:TOp.val ]...);
 
 
-function coordinates(GΩ::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
-    all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
-    res= [coordinates(GΩ.localOps[i],Mats[i]) for i=1:GΩ.val]
+function coordinates(TOp::IndTransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
+    all([size(Mats[i])[1] == TOp.axisDims[i] for i=1:TOp.val]) || return nothing
+    res= [coordinates(TOp.localOps[i],Mats[i]) for i=1:TOp.val]
     any(res .|> isnothing) && return nothing
     return vcat(res...)
 end;
 
 
-function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
-    @assert GΩ.val == length(engaged) "Incompatible data"
+function reduceByEngaged(TOp::IndTransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
+    @assert TOp.val == length(engaged) "Incompatible data"
     @assert any(engaged) "Can not reduce to Nothing"
-    rΩ = IndTransverseOps(GΩ.frames[engaged],GΩ.framesTemp[engaged],GΩ.localOps[engaged])
-    rindx = zeros(Int16, GΩ.val);
-    eindx = zeros(Int16, rΩ.val);
+    rOp = IndTransverseOps(TOp.frames[engaged],TOp.framesTemp[engaged],TOp.localOps[engaged])
+    rindx = zeros(Int16, TOp.val);
+    eindx = zeros(Int16, rOp.val);
     j=1 
-    for i = 1:GΩ.val
+    for i = 1:TOp.val
         if engaged[i]
             rindx[i] = j
             eindx[j] = i 
@@ -142,20 +142,20 @@ function reduceByEngaged(GΩ::IndTransverseOps, engaged::Vector{Bool})::Tuple{Tr
     end 
 
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
-        edata=zeros(eltype(rdata), GΩ.globalDim)
-        for i = 1: rΩ.val
-            edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]]] = rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]]
+        edata=zeros(eltype(rdata), TOp.globalDim)
+        for i = 1: rOp.val
+            edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
         end;
         return edata
     end;
     contract(edata::Vector{<:Number})::Vector{<:Number} = 
-        vcat([ edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]] ] for i= 1: rΩ.val ]...); 
+        vcat([ edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]] ] for i= 1: rOp.val ]...); 
     # function contract(edata::Vector{<:Number})::Vector{<:Number}
     #     rdata=zeros(eltype(edata), rΩ.globalDim)
     #     for i = 1: rΩ.val
-    #         rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]] = edata[GΩ.soffsets[eindx[i]]:GΩ.eoffsets[eindx[i]] ]
+    #         rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]] = edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]] ]
     #     end;
     #     return rdata
     # end;
-    return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
+    return (rOp, LinearMaps.LinearMap(expand, contract, TOp.globalDim, rOp.globalDim; ismutating=false) )
 end;

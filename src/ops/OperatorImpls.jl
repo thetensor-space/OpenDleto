@@ -64,6 +64,16 @@ struct ScalarOp <: Operator end;
 struct EmptyOp <: Operator end; 
 # this gives errors when combined with symmetries, no idea why
 
+#registe operators
+OperatorsDict[:UniversalOp] = UniversalOp()
+OperatorsDict[:DiagonalOp] = DiagonalOp()
+OperatorsDict[:SymmetricOp] = SymmetricOp()
+OperatorsDict[:AntiSymmetricOp] = AntiSymmetricOp()
+OperatorsDict[:ScalarOp] = ScalarOp()
+OperatorsDict[:EmptyOp] = EmptyOp()
+
+
+
 #coordinates
 
 coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} =
@@ -209,3 +219,11 @@ containScalars(::SymmetricOp) = true;
 containScalars(::AntiSymmetricOp) = false; 
 containScalars(::ScalarOp) = true; 
 containScalars(::EmptyOp) = false; 
+
+#closedUnderDual
+closedUnderDual(::UniversalOp)= true;
+closedUnderDual(::DiagonalOp) = true; 
+closedUnderDual(::SymmetricOp) = true; 
+closedUnderDual(::AntiSymmetricOp) = true; 
+closedUnderDual(::ScalarOp) = true; 
+closedUnderDual(::EmptyOp) = true; 

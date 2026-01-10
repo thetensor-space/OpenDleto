@@ -7,7 +7,7 @@ using LinearAlgebra
 import IterativeSolvers: lobpcg
 using IterativeSolvers
 
-export  LanczosSolver,  CGSolver
+#export  LanczosSolver,  CGSolver
 
 struct LanczosSolver <: Dleto.NullSolver end
 struct CGSolver <: Dleto.NullSolver end
@@ -36,7 +36,10 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10)
 end
 
 function __init__()
-    println("Loading Dleto IterativeSolvers Extension")
+    println("Loading Dleto IterativeSolvers Extension: Registering :CGSolver and :LanczosSolver  nullsolvers")
+    #register solvers
+    NullSolversDict[:LanczosSolver] = LanczosSolver()
+    NullSolversDict[:CGSolver] = CGSolver()
 end
 
 end
