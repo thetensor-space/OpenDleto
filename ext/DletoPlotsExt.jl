@@ -36,6 +36,8 @@ using ITensors
 # using PlotlyJS
 using Plots
 
+# Global variable to store the default compare layout
+const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
 
 """
     set_compare_layout(layout::Symbol)

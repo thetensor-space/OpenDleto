@@ -55,33 +55,33 @@ function stratify(
     return (;Σ=Δ, Xs=Xs)
 end
 
-# will deal with wrapers later
-# # ---- Convenience wrappers for stratify ---
-# function stratify(
-#         Γ::ITensor;
-#         tol::Float64=1e-6,
-#         reduced=false
-#     )
-#     # Use universal chisel and transverse ops
-#     ch = UniversalChisel(length(inds(Γ)))
-#     fr = collect(inds(Γ))
-#     Ω = IndTransverseOps(fr, UniversalOp())    
-#     return stratify(Ω, ch, Γ; tol=tol, reduced=reduced)
-# end
+# ---- Convenience wrappers for stratify ---
+function stratify(
+        Γ::ITensor;
+        tol::Float64=1e-6,
+        reduced=false
+    )
+    # Use universal chisel and transverse ops
+    ch = UniversalChisel(length(inds(Γ)))
+    fr = collect(inds(Γ))
+    Ω = IndTransverseOps(fr, UniversalOp())    
+    return stratify(Ω, ch, Γ; tol=tol)
+end
 
-# function stratify(
-#         Γ::AbstractArray,
-#         der::Vector{ITensor}
-#     )
-#     # Convert array to ITensor and delegate
-#     return stratify(__ITensor(Γ), der)
-# end
+function stratify(
+        Γ::AbstractArray,
+        der::Vector{ITensor}
+    )
+    # Convert array to ITensor and delegate
+    return stratify(__ITensor(Γ), der)
+end
 
-# function stratify(
-#         Γ::AbstractArray
-#     )
-#     return stratify(__ITensor(Γ))
-# end
+function stratify(
+        Γ::AbstractArray;
+        tol::Float64=1e-6
+    )
+    return stratify(__ITensor(Γ); tol=tol)
+end
 
 
 

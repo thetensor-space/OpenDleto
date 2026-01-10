@@ -75,7 +75,9 @@ function derTrOpsReduced(method::SylverLiningMethod,
         # Convert matrix columns to vector of vectors for consistency
         vecs = [vecs_matrix[:, i] for i in 1:size(vecs_matrix, 2)]
     else
-        λ, vecs = solve(sylvester, method.solver; nd=nd, tol=tol)
+        result = solve(sylvester, method.solver; nv=nd)
+        λ = result.vals
+        vecs = [result.vecs[:, i] for i in 1:size(result.vecs, 2)]
         # nev = min(nd, size(sylvester, 1))  # Number of eigenvalues to compute
         # x0 = randn(size(sylvester, 2))     # Initial guess vector
 
@@ -127,7 +129,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
         vecs = vecs[1:floor(Int, nd)]
     end
     
-    return (reducedΩ, expand_map, hcat(vecs...) )
+    return (Ω_reduced, expand_map, hcat(vecs...) )
 end
 
 
@@ -153,7 +155,7 @@ function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) #::Tuple
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     engsize = valency(Ω)
-    @assert engsize == size(ch, 2) "Incompatable Chisel"
+    @assert engsize == size(P, 2) "Incompatable Chisel"
     ch_axis = Index(size(P, 1), "chisel")
     eng_axis = Index(engsize, "engaged")
     Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:engsize ]
