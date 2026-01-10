@@ -77,7 +77,7 @@ include("DletoBase.jl")
 
 # Supporting Utilities
     # Tensor IO
-#    include("util/TensorIO.jl")
+    include("util/TensorIO.jl")
     # Randomization and Distance Functions
     include("util/Random.jl")
     # Tucker & HoSVD
