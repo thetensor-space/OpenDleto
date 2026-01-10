@@ -37,7 +37,8 @@ using ITensors
 struct SylverLiningMethod <: DerivationMethod 
     solver::Symbol
 end;
-SylverLiningMethod(; solver::Symbol=:KrylovSolver)= SylverLiningMethod(solver);
+# SylverLiningMethod(; solver::Symbol=:KrylovSolver)= SylverLiningMethod(solver);
+SylverLiningMethod(; solver::Symbol=:SVDSolver)= SylverLiningMethod(solver);
 
 
 function derTrOpsReduced(method::SylverLiningMethod,
