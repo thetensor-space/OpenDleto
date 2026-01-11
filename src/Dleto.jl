@@ -31,60 +31,68 @@ module Dleto
 
 # Linear Algebra libraries
 import LinearAlgebra
+import LinearMaps
 import ITensors
 
-# # Plotting libraries
-# import Plots
-# import PlotlyBase
-# import PlotlyKaleido
+__isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
-# ============================================================================
-# Exported Functions and Types
-# ============================================================================
+include("ops/OperatorAbstract.jl")
+include("ops/OperatorLinear.jl")
+include("ops/OperatorInvertible.jl")
+include("ops/OperatorSimplify.jl")
 
-include("DletoExports.jl")
+# # # Plotting libraries
+# # import Plots
+# # import PlotlyBase
+# # import PlotlyKaleido
 
-# ============================================================================
-# Includes
-# ============================================================================
+# # ============================================================================
+# # Exported Functions and Types
+# # ============================================================================
 
-include("DletoBase.jl")
+# include("DletoExports.jl")
 
-# Fundamental Dleto Structures
-    # Chisels
-    include("Chisels.jl")   
-    # Operator
-    include("Operators.jl")
-    # Transverse Operators
-    include("TransverseOperators.jl")
-    # Derivation Methods
-    include("Derivations.jl")
-    # Densors
-    include("Densors.jl")
+# # ============================================================================
+# # Includes
+# # ============================================================================
 
-# Implementations
-    # Chisel Implementations
-    include("chisels/ChiselImpls.jl")
-    # Operator Implementations 
-    include("ops/OperatorImpls.jl")
-    # Transverse Operator Implementations
-    include("ops/TransverseOpsIndependant.jl")
-    include("ops/TransverseOpsSymmetries.jl")
-    # Sylver Lining Derivation Method
-    include("SylverLining/SylverLininig.jl")
-    # [COMING SOON] QuickSylver
-    include("solvers/NullSolvers.jl")
+# include("DletoBase.jl")
 
-# Supporting Utilities
-    # Tensor IO
-    include("util/TensorIO.jl")
-    # Randomization and Distance Functions
-    include("util/Random.jl")
-    # Tucker & HoSVD
-    include("util/Nondegenerate.jl")
-    # Tensor Synthesis
-    include("util/TensorSynthesis.jl")
-    include("util/TensorSynthesis3D.jl")
+# # Fundamental Dleto Structures
+#     # Chisels
+#     include("Chisels.jl")   
+#     # Operator
+#     include("Operators.jl")
+#     # Transverse Operators
+#     include("TransverseOperators.jl")
+#     # Derivation Methods
+#     include("Derivations.jl")
+#     # Densors
+#     include("Densors.jl")
+
+# # Implementations
+#     # Chisel Implementations
+#     include("chisels/ChiselImpls.jl")
+#     # Operator Implementations 
+#     include("ops/OperatorImpls.jl")
+#     # Transverse Operator Implementations
+#     include("ops/TransverseOpsIndependant.jl")
+#     include("ops/TransverseOpsSymmetries.jl")
+#     # Sylver Lining Derivation Method
+#     include("SylverLining/SylverLininig.jl")
+#     # [COMING SOON] QuickSylver
+#     include("solvers/NullSolvers.jl")
+
+# # Supporting Utilities
+#     # Tensor IO
+#     include("util/TensorIO.jl")
+#     # Randomization and Distance Functions
+#     include("util/Random.jl")
+#     # Tucker & HoSVD
+#     include("util/Nondegenerate.jl")
+#     # Tensor Synthesis
+#     include("util/TensorSynthesis.jl")
+#     include("util/TensorSynthesis3D.jl")
 
 # ============================================================================
 # Module Initialization
@@ -92,16 +100,7 @@ include("DletoBase.jl")
 
 function __init__()
     # Suppress WebIO warnings
-    ENV["WEBIO_WARN"] = "false"
-    
-    # # Only set backend if we're not precompiling
-    # if ccall(:jl_generating_output, Cint, ()) != 1
-    #     try
-    #         Plots.plotlyjs()
-    #     catch e
-    #         @warn "Failed to set Plotly backend" exception=e
-    #     end
-    # end
+    ENV["WEBIO_WARN"] = "false"    
 end
 
 end # module Dleto

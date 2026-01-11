@@ -13,12 +13,13 @@ using ITensors
 # --- Select mode via environment variable ---
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
+include("ops/runtests.jl") 
 
-include( "TestDletoBase.jl" )
-include( "TestChisels.jl" )
-include( "TestOperators.jl" )
-include( "TestTransverseOps.jl" )
-include( "TestTensorSynthesis.jl" )
+# include( "TestDletoBase.jl" )
+# include( "TestChisels.jl" )
+# include( "TestOperators.jl" )
+# include( "TestTransverseOps.jl" )
+# include( "TestTensorSynthesis.jl" )
 
 
 # include( "TestSylverLining.jl" )

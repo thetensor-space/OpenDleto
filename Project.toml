@@ -20,11 +20,11 @@ IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
-[extensions]
-DletoArpackExt = "Arpack"
-DletoIterativeSolversExt = "IterativeSolvers"
-DletoKrylovKitExt = "KrylovKit"
-DletoPlotsExt = "Plots"
+#[extensions]
+#DletoArpackExt = "Arpack"
+#DletoIterativeSolversExt = "IterativeSolvers"
+#DletoKrylovKitExt = "KrylovKit"
+#DletoPlotsExt = "Plots"
 
 [compat]
 IterativeSolvers = "0.9.4"

@@ -55,7 +55,7 @@ struct OrthogonalOp <: InvertableOperator end;
 """
     OnlyIdenity Matrices
 """
-struct OnlyIdOp <: LinearOperator end; 
+struct OnlyIdOp <: InvertableOperator end; 
 
 #registe operators
 InvertableOperatorsDict[:InvertableOp] = InvertableOp(); 
@@ -68,13 +68,13 @@ InvertableOperatorsDict[:OnlyIdOp] = OnlyIdOp();
 #coordinates
 
 function coordinates(::InvertableOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
-    size(M)[1]==size(M)[2] && return nothing
+    size(M)[1]==size(M)[2] || return nothing
     isapprox(LinearAlgebra.det(M), 0.0) && return nothing
     return reshape(M,length(M))
 end;
 
 function coordinates(::OrthogonalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
-    size(M)[1]==size(M)[2] && return nothing
+    size(M)[1]==size(M)[2] || return nothing
     isapprox(LinearAlgebra.det(M), 0.0) && return nothing
     isapprox(inv(M), LinearAlgebra.transpose(M)) || return nothing
     return reshape(M,length(M))
@@ -82,7 +82,7 @@ end;
 
 #needs fixing
 function coordinates(::OnlyIdOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
-    size(M)[1]==size(M)[2] && return nothing
+    size(M)[1]==size(M)[2] || return nothing
     isapprox(LinearAlgebra.det(M), 0.0) && return nothing
     isapprox(inv(M), LinearAlgebra.transpose(M)) || return nothing
     return zeros(0)
@@ -103,7 +103,7 @@ unsafe_embed(::OrthogonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMa
 
 unsafe_embed(::OnlyIdOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = LinearAlgebra.Diagonal([1.0 for i=1:dim]);
 
-function embed(Op::InvertableOperator, dim::Integer, data::Vector{<:Number} ) ::Union{AbstractMatrix,Nothing}  
+function embed(Op::OrthogonalOp, dim::Integer, data::Vector{<:Number} ) ::Union{AbstractMatrix,Nothing}  
     @assert dim > 0 "Dimension needs to be positive"
     @assert length(data)== localDim(Op,dim) "Incompatable Data"
     M = unsafe_embed(Op,dim,data)
