@@ -131,3 +131,19 @@ localDim(::OnlyIdOp, dim::Integer) = 0;
 closedUnderStar(::InvertableOp)= true;
 closedUnderStar(::OrthogonalOp) = true; 
 closedUnderStar(::OnlyIdOp) = true; 
+
+function generate_random(::InvertableOp, dim::Integer)::Vector{<:Number}
+    M = randn(dim,dim)
+    while __isapproxzero(LinearAlgebra.det(M))
+        M = randn(dim,dim)
+    end
+    return reshape(M, dim*dim) 
+end;
+
+function generate_random(::OrthogonalOp, dim::Integer)::Vector{<:Number}
+    S= randn(dim,dim)
+    Q = LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
+    return reshape(Q, dim*dim)
+end;
+
+generate_random(::OnlyIdOp, dim::Integer) = zeros(0) 

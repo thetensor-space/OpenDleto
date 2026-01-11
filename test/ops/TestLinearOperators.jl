@@ -8,7 +8,8 @@ LinOps=[ Dleto.LinearOperatorsDict[k] for k in keys(Dleto.LinearOperatorsDict)]
 function testInverse(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
     localdim = Dleto.localDim(Op,dim)
     for _ = 1:num
-        a = rand(localdim)
+        a = Dleto.generate_random(Op,dim)
+#        a = rand(localdim)
         # @show Op, a
         M = Dleto.embed(Op,dim,a)
         mat = Matrix(M)
@@ -30,7 +31,8 @@ end;
 function testTranspose(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
     localdim = Dleto.localDim(Op,dim)
     for _ = 1:num
-        a = rand(localdim)
+        a = Dleto.generate_random(Op,dim)
+        # a = rand(localdim)
         BB = rand(dim,dim)
         # A = unsafe_embed(Op,dim,a)
         A = Dleto.embed(Op,dim,a)
@@ -51,9 +53,14 @@ function testTranspose(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
 end;
 
 function testStar(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
+    if !Dleto.closedUnderStar(Op)
+        println("Not closed under star $Op") 
+        return true
+    end
     localdim = Dleto.localDim(Op,dim)
     for _ = 1:num
-        a = rand(localdim)
+        a = Dleto.generate_random(Op,dim)
+        # a = rand(localdim)
         astar = Dleto.star(Op,dim,a)
         astarstar = Dleto.star(Op,dim,astar)
         @assert isapprox(a, astarstar)

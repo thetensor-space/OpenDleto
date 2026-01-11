@@ -34,6 +34,15 @@ function testSimplify(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
         @assert isapprox(M, T * D * inv(T))
         @assert isapprox(Matrix(M) * Matrix(T), Matrix(T) * Matrix(D) )
         @assert isapprox(Matrix(M), Matrix(T) * Matrix(D) * inv(Matrix(T)))
+        if dim > 2
+            n = norm([D[i,j] for i=1:dim, j=1:dim if abs(i-j) > 1])
+            @assert Dleto.__isapproxzero(n)
+        # else
+        #     @show dim, Op
+        #     r = [D[i,j] for i=1:dim, j=1:dim if abs(i-j) > 1]
+        #     n = norm([D[i,j] for i=1:dim, j=1:dim if abs(i-j) > 1])
+        #     @show r, n
+        end
     end
     return true
 end;

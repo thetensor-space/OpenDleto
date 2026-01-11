@@ -39,7 +39,9 @@
         closedUnderStar     -- is star defined
         coordinates : Matrix -> Vector or nothing
         embed       : Vector -> Matrix or Nothing
-    which are inverse to each other
+        generate_random     -- generates a random vector which is valid
+
+        most of these function have unsafe varaints which skip checks
 
     optionally can be closed under an some invloution star represented by a function
         star        : Vector -> Vector
@@ -109,6 +111,9 @@ function unsafe_star(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::Vect
     end
 end;
 
+function generate_random(Op::Operator, dim::Integer)::Vector{<:Number} 
+    @assert false "Calling Placeholder Abstract Function"
+end;
 
 
 
@@ -154,6 +159,8 @@ function unsafe_star(Op::LinearOperator, dim::Integer, data::Vector{<:Number} ) 
         @assert false "Not defined"
     end
 end;
+
+generate_random(Op::LinearOperator, dim::Integer)::Vector{<:Number} = randn(localDim(Op,dim)); 
 
 
 

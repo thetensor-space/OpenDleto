@@ -8,15 +8,17 @@ InvOps=[ Dleto.InvertableOperatorsDict[k] for k in keys(Dleto.InvertableOperator
 function testInverse(Op::Dleto.InvertableOperator, dim::Integer, num::Integer)
     localdim = Dleto.localDim(Op,dim)
     for _ = 1:num
-        a = rand(localdim)
-        if isa(Op, Dleto.OrthogonalOp)
-            S = randn(dim,dim)
-            Q = LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
-            a = Dleto.coordinates(Op, Q)
-        end
+        a = Dleto.generate_random(Op,dim)
+        # a = rand(localdim)
+        # if isa(Op, Dleto.OrthogonalOp)
+        #     S = randn(dim,dim)
+        #     Q = LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
+        #     a = Dleto.coordinates(Op, Q)
+        # end
         M = Dleto.embed(Op,dim,a)
         if isnothing(M) 
             @show Op, a, M
+            @assert false "Improper Generation"
             continue
         end
         mat = Matrix(M)
@@ -37,18 +39,24 @@ function testInverse(Op::Dleto.InvertableOperator, dim::Integer, num::Integer)
 end;
 
 function testStar(Op::Dleto.InvertableOperator, dim::Integer, num::Integer)
+    if !Dleto.closedUnderStar(Op)
+        println("Not closed under star $Op") 
+        return true
+    end
     localdim = Dleto.localDim(Op,dim)
     for _ = 1:num
-        a = rand(localdim)
-        M = Dleto.embed(Op,dim,a)
-        if isa(Op, Dleto.OrthogonalOp)
-            S = randn(dim,dim)
-            Q = LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
-            a = Dleto.coordinates(Op, Q)
-        end
+        a = Dleto.generate_random(Op,dim)
+        # a = rand(localdim)
+        # M = Dleto.embed(Op,dim,a)
+        # if isa(Op, Dleto.OrthogonalOp)
+        #     S = randn(dim,dim)
+        #     Q = LinearAlgebra.eigen(LinearAlgebra.Symmetric(S*S') + LinearAlgebra.I).vectors
+        #     a = Dleto.coordinates(Op, Q)
+        # end
         M = Dleto.embed(Op,dim,a)
         if isnothing(M) 
             @show Op, a, M
+            @assert false "Improper Generation"
             continue
         end
         astar = Dleto.star(Op,dim,a)
