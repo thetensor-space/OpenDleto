@@ -38,7 +38,8 @@ struct LUSolver <: NullSolver end
 
 NullSolversDict = Dict{Symbol, NullSolver}(
         :SVDSolver      => SVDSolver(),
-        :LUSolver       => LUSolver()
+        :LUSolver       => LUSolver(),
+        :default        => SVDSolver()
 )
 
 

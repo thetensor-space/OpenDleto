@@ -117,7 +117,7 @@ end
 
 
 # this should be  moved to DerivationMethodSylverLininig,jl  
-derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Vector{Vector{ITensor}} = 
+derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number}} = 
     derTrOpsReduced(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
 
 """

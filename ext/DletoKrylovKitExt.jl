@@ -64,6 +64,9 @@ function __init__()
     println("Loading Dleto KrylovKit Extension: Registering :KrylovSolver nullsolver")
     #register solvers
     NullSolversDict[:KrylovSolver] = KrylovSolver();
+    #set as default
+    NullSolversDict[:default] = KrylovSolver();
+
 end
 
 end

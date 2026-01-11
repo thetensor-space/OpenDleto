@@ -54,7 +54,8 @@ struct TransverseOpsSymmetries <: TransverseOps
     localOps ::Vector{<:Operator}
     syms ::Vector{<:Integer}
     blocks ::Vector{Vector{Int8}}
-    duals ::Vector{Bool} 
+    duals ::Vector{Bool}
+    block_first::Vector{<:Integer} 
     #inner constructor
     # we need ; after each line???
     TransverseOpsSymmetries(
@@ -74,16 +75,23 @@ struct TransverseOpsSymmetries <: TransverseOps
         @assert all( [symmetries[i] <= i for i=1:val]) "Incompatable symmetries";
         @assert all( [symmetries[symmetries[i]] == symmetries[i] for i=1:val]) "Incompatable symmetries";
         @assert all( [!duals[i] for i=1:val if i==symmetries[i]]) "Incompatable duals";
-        blocks = [ Int8[j for j=1:val if  symmetries[j]==i] for i=1:val];
+        @assert all( [closedUnderDual(localOps[i])   for i=1:val if duals[i] ]) "Incompatable duals";
         @assert all([ axisDims[i] == axisDims[symmetries[i]]  for i=1:val if i==symmetries[i]]) "Incompatable local dimensions";
         @assert all([ localOps[i] == localOps[symmetries[i]]  for i=1:val if i!=symmetries[i]]) "Incompatable local operators";
+
+        blocks = [ Int8[j for j=1:val if  symmetries[j]==i] for i=1:val];
+        block_first = [i for i=1:val if i==symmetries[i]];  
 
         localDims =[ symmetries[i] == i ? localDim(localOps[i], axisDims[i]) : 0 for i=1:val];
         globalDim = sum(localDims);
         offsets = [ sum(localDims[1:(i-1)]) for i=1:(val+1)]; 
         start_offsets = [ offsets[symmetries[i]] + 1 for i=1:val]; 
         end_offsets = [ offsets[symmetries[i] + 1]  for i=1:val]; 
-        new(val,fr,frTemp,axisDims,globalDim,start_offsets,end_offsets,localOps,symmetries,blocks,duals)
+        return new(
+            val,fr,frTemp,axisDims,globalDim,
+            start_offsets,end_offsets,
+            localOps,
+            symmetries,blocks,duals,block_first)
     )
 end; 
 #extra constructors need to add more
@@ -105,79 +113,79 @@ TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator) =
 
 ## #TO BE DONE
 
-globalDim(GΩ::TransverseOpsSymmetries)::Integer  = GΩ.globalDim;
+globalDim(TOp::TransverseOpsSymmetries)::Integer  = TOp.globalDim;
 
-axisDims(GΩ::TransverseOpsSymmetries)::Vector{<:Integer} = GΩ.axisDims;
+axisDims(TOp::TransverseOpsSymmetries)::Vector{<:Integer} = TOp.axisDims;
 
-valency(GΩ::TransverseOpsSymmetries)::Integer = GΩ.val
+valency(TOp::TransverseOpsSymmetries)::Integer = TOp.val
 
-frames(GΩ::TransverseOpsSymmetries) = GΩ.frames
+frames(TOp::TransverseOpsSymmetries) = TOp.frames
 
-framesTemporary(GΩ::TransverseOpsSymmetries) = GΩ.framesTemp
+framesTemporary(TOp::TransverseOpsSymmetries) = TOp.framesTemp
 
 
-unsafe_embedMatrices(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
-    [   GΩ.duals[i] ? 
+unsafe_embedMatrices(TOp::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
+    [   TOp.duals[i] ? 
             transpose(unsafe_embed(
-                GΩ.localOps[i],
-                GΩ.axisDims[i],
-                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]
+                TOp.localOps[i],
+                TOp.axisDims[i],
+                @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]]
             )) : 
             unsafe_embed(
-                GΩ.localOps[i],
-                GΩ.axisDims[i],
-                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]
+                TOp.localOps[i],
+                TOp.axisDims[i],
+                @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]]
             ) 
-        for i=1:GΩ.val
+        for i=1:TOp.val
     ];
 
-unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensors(TOp::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
-        GΩ.duals[i] ? 
+        TOp.duals[i] ? 
             # without matrix ITensor messes up the encoding
             Matrix(transpose(unsafe_embed(
-                GΩ.localOps[i],
-                GΩ.axisDims[i],
-                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]
+                TOp.localOps[i],
+                TOp.axisDims[i],
+                @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]]
             ))) : 
             unsafe_embed(
-                GΩ.localOps[i],
-                GΩ.axisDims[i],
-                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]),
-        GΩ.frames[i],GΩ.framesTemp[i] ) 
-    for i=1:GΩ.val
+                TOp.localOps[i],
+                TOp.axisDims[i],
+                @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]]),
+        TOp.frames[i],TOp.framesTemp[i] ) 
+    for i=1:TOp.val
     ];
 
     #rewrote to avoid loops
-unsafe_transposeEmbed(GΩ::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} = 
+unsafe_transposeEmbed(TOp::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} = 
     vcat( 
         [ 
             [ unsafe_transposeEmbed(
-                    GΩ.localOps[j], 
-                    GΩ.duals[j] ? Matrix(transpose(Mats[j])) : Matrix(Mats[j])
+                    TOp.localOps[j], 
+                    TOp.duals[j] ? Matrix(transpose(Mats[j])) : Matrix(Mats[j])
                 ) 
-            for j in GΩ.blocks[i] ] |> sum 
-        for i=1:GΩ.val if GΩ.syms[i]==i ] ...
+            for j in TOp.blocks[i] ] |> sum 
+        for i=1:TOp.val if TOp.syms[i]==i ] ...
     ); 
 
-unsafe_coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
-    vcat([ unsafe_coordinates(GΩ.localOps[i], Mats[i])  for i=1:GΩ.val if GΩ.syms[i]==i  ]...);
+unsafe_coordinates(TOp::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
+    vcat([ unsafe_coordinates(TOp.localOps[i], Mats[i])  for i=1:TOp.val if TOp.syms[i]==i  ]...);
 
 
-function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
-    all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
-    res= [coordinates(GΩ.localOps[i], GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])) for i=1:GΩ.val]
+function coordinates(TOp::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
+    all([size(Mats[i])[1] == TOp.axisDims[i] for i=1:TOp.val]) || return nothing
+    res= [coordinates(TOp.localOps[i], TOp.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])) for i=1:TOp.val]
     any(res .|> isnothing) && return nothing
-    all([ isapprox(res[i], res[GΩ.syms[i]]) for i=1:GΩ.val if GΩ.syms[i] < i ]) || return nothing
-    return vcat([res[i] for i=1:GΩ.val if GΩ.syms[i] == i ] ...)
+    all([ isapprox(res[i], res[TOp.syms[i]]) for i=1:TOp.val if TOp.syms[i] < i ]) || return nothing
+    return vcat([res[i] for i=1:TOp.val if TOp.syms[i] == i ] ...)
 end;
 
 #Not Finished
-function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
-    val=GΩ.val
-    syms=GΩ.syms
-    duals=GΩ.duals
-    blocks=GΩ.blocks
+function reduceByEngaged(TOp::TransverseOpsSymmetries, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
+    val=TOp.val
+    syms=TOp.syms
+    duals=TOp.duals
+    blocks=TOp.blocks
     @assert val == length(engaged) "Incompatible data"
     @assert any(engaged) "Can not reduce to Nothing"
     minblock = [ minimum(vcat(1000, [j for j in blocks[k] if engaged[j] ]...)) for k =1:val]
@@ -193,22 +201,22 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
     # @show c_idx, c_twist, c_renum
     ## generate new GlobalOps
     # if all( [i==rsyms[i]  for i=1:length(rsyms)])
-    #     rΩ = IndTransverseOps(GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged]) 
+    #     rTOp = IndTransverseOps(TOp.frames[engaged], TOp.framesTemp[engaged], TOp.localOps[engaged]) 
     # else
-        rΩ = TransverseOpsSymmetries(
-            GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], 
+        rTOp = TransverseOpsSymmetries(
+            TOp.frames[engaged], TOp.framesTemp[engaged], TOp.localOps[engaged], 
             rsyms,rduals) 
     # end 
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
-        edata=zeros(eltype(rdata), GΩ.globalDim)
+        edata=zeros(eltype(rdata), TOp.globalDim)
         for i= 1: length(c_idx)
-            edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ] = 
+            @inbounds edata[TOp.soffsets[c_idx[i]]:TOp.eoffsets[c_idx[i]] ] = 
                 c_twist[i] ?
                     unsafe_dualize(
-                            rΩ.localOps[c_renum[i]],
-                            rΩ.axisDims[c_renum[i]],
-                            rdata[rΩ.soffsets[c_renum[i]]:rΩ.eoffsets[c_renum[i]] ]) :
-                    rdata[rΩ.soffsets[c_renum[i]]:rΩ.eoffsets[c_renum[i]] ]
+                            rTOp.localOps[c_renum[i]],
+                            rTOp.axisDims[c_renum[i]],
+                            @inbounds rdata[rTOp.soffsets[c_renum[i]]:rTOp.eoffsets[c_renum[i]] ]) :
+                    @inbounds rdata[rTOp.soffsets[c_renum[i]]:rTOp.eoffsets[c_renum[i]] ]
         end;
         return edata
     end;
@@ -217,11 +225,11 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
                 [ 
                     c_twist[i] ? 
                         unsafe_dualize(
-                            GΩ.localOps[c_idx[i]],
-                            GΩ.axisDims[c_idx[i]],
-                            edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ]) : 
-                        edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ] 
+                            TOp.localOps[c_idx[i]],
+                            TOp.axisDims[c_idx[i]],
+                            @inbounds edata[TOp.soffsets[c_idx[i]]:TOp.eoffsets[c_idx[i]] ]) : 
+                        @inbounds edata[TOp.soffsets[c_idx[i]]:TOp.eoffsets[c_idx[i]] ] 
                 for i= 1: length(c_idx)]...
             ); 
-    return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
+    return (rTOp, LinearMaps.LinearMap(expand, contract, TOp.globalDim, rTOp.globalDim; ismutating=false) )
 end;

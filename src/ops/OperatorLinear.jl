@@ -1,0 +1,233 @@
+#
+# Strata Dleto: Local Linear Operators Implementations
+#   Creation and application of local operators for tensors.
+#
+# -----------------------------------------------------------------------------
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the “Software”), 
+# to deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# SOFTWARE.
+#-----------------------------------------------------------------------------
+
+"""
+    Local Linear Operators Implementations
+
+    Provides standard local operators like -- all_matrices, symmetric_matrices and diagonal_matrices
+"""
+
+# working with matrices of size zero does not work. Usually the result of the function is [] but this is of type Vector{Any} which is not Vector{<:Number}
+
+"""
+    All Matrices
+"""
+struct UniversalOp <: LinearOperator end; 
+
+"""
+    Diagonal Matrices
+"""
+struct DiagonalOp <: LinearOperator end;
+
+"""
+    Symmetric Matrices
+"""
+struct SymmetricOp <: LinearOperator end; 
+
+"""
+    Anti Symmetric Matrices
+"""
+struct AntiSymmetricOp <: LinearOperator end; 
+
+"""
+    Scalar Matrices
+"""
+struct ScalarOp <: LinearOperator end; 
+# this gives errors when combined with symmetries, no idea why
+
+"""
+    Empty Matrices
+"""
+struct EmptyOp <: LinearOperator end; 
+# this gives errors when combined with symmetries, no idea why
+
+#registe operators
+LinearOperatorsDict[:UniversalOp] = UniversalOp()
+LinearOperatorsDict[:DiagonalOp] = DiagonalOp()
+LinearOperatorsDict[:SymmetricOp] = SymmetricOp()
+LinearOperatorsDict[:AntiSymmetricOp] = AntiSymmetricOp()
+LinearOperatorsDict[:ScalarOp] = ScalarOp()
+LinearOperatorsDict[:EmptyOp] = EmptyOp()
+
+
+
+
+
+
+
+
+
+#coordinates
+
+coordinates(::UniversalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} =
+    size(M)[1]==size(M)[2] ? reshape(M,length(M)) : nothing;
+
+function coordinates(::DiagonalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    (sizes[1]==sizes[2]) || return nothing
+    if (all(__isapproxzero, vcat([M[1:(i-1),i] for i=1:sizes[1]]...)) && 
+        all(__isapproxzero, vcat([M[i,1:(i-1)] for i=1:sizes[1]]...) ))
+        return [M[i,i] for i=1:size(M)[1]]
+    else
+        return nothing
+    end
+end;
+
+
+function coordinates(::SymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    dim=sizes[1]
+    (sizes[1]==sizes[2]) || return nothing
+    if all(__isapproxzero ,vcat([M[1:i-1,i] - M[i,1:i-1] for i=1:dim]...))
+        return vcat([M[1:i,i] for i=1:dim]...)
+    else 
+        return nothing
+    end
+end;
+
+function coordinates(::AntiSymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    dim=sizes[1]
+    (sizes[1]==sizes[2]) || return nothing
+    if all(__isapproxzero ,vcat([M[1:i-1,i] + M[i,1:i-1] for i=1:dim]...))
+        return vcat([M[1:i-1,i] for i=1:dim]...)
+    else 
+        return nothing
+    end
+end;
+
+function coordinates(::ScalarOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    dim=sizes[1]
+    (sizes[1]==sizes[2]) || return nothing
+    # dim==0 && return zeros(0)
+    (all(__isapproxzero, vcat([M[1:i-1,i] for i=1:sizes[1]]...)) && all(__isapproxzero, vcat([M[i+1:dim,i] for i=1:sizes[1]]...))) || return nothing
+    all(__isapproxzero,[ M[i,i] - M[1,1] for i = 2:dim]) || return nothing
+    return [M[1,1]]
+end;
+
+function coordinates(::EmptyOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    dim=sizes[1]
+    (sizes[1]==sizes[2]) || return nothing
+    all(__isapproxzero, reshape(M,length(M)) ) || return nothing
+    return zeros(0)
+end;
+
+
+#unsafe_coordinates
+
+unsafe_coordinates(::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
+
+unsafe_coordinates(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+
+unsafe_coordinates(::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:i,i] for i=1:size(M)[1]]...);
+
+unsafe_coordinates(::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:(i-1),i] for i=1:size(M)[1]]...);
+
+unsafe_coordinates(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} =  [M[1,1]];
+
+unsafe_coordinates(::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} =  zeros(0);
+
+
+#unsafe_transposeEmbed
+
+unsafe_transposeEmbed(::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
+
+unsafe_transposeEmbed(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+
+unsafe_transposeEmbed(::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [vcat( M[1:(i-1),i] + M[i,1:(i-1)],M[i,i]) for i=1:size(M)[1]]...);
+
+unsafe_transposeEmbed(::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
+
+# unsafe_transposeEmbed(Op::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
+unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
+
+unsafe_transposeEmbed(::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} = zeros(0);
+
+#unsafe_embed
+unsafe_embed(::UniversalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = reshape(data,dim,dim);
+
+unsafe_embed(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =  LinearAlgebra.Diagonal(data);
+
+function unsafe_embed(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+    A=zeros(eltype(data),dim,dim)
+    k = 1
+    for i = 1:dim
+        A[1:i,i] = data[k:k+i-1]
+        A[i,1:i] = data[k:k+i-1]
+        k = k+i
+    end 
+    return LinearAlgebra.Symmetric(A)
+end;
+
+function unsafe_embed(::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+    A=zeros(eltype(data),dim,dim)
+    k = 1
+    for i = 1:dim
+        A[1:(i-1),i] = data[k:k+i-2]
+        A[i,1:(i-1)] = -data[k:k+i-2]
+        k = k+i-1
+    end 
+    return A
+end;
+
+# unsafe_embed(Op::ScalarOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = dim==0 ? Matrix(LinearAlgebra.I,0,0) : Matrix(data[1]*LinearAlgebra.I,dim,dim); 
+unsafe_embed(::ScalarOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = LinearAlgebra.Diagonal([data[1] for i=1:dim]);
+
+unsafe_embed(::EmptyOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = zeros(dim,dim)
+
+unsafe_star(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_star(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_star(::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) = -data 
+unsafe_star(::ScalarOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_star(::EmptyOp, dim::Integer, data::Vector{<:Number} ) = data 
+
+
+
+#local Dimension
+localDim(::UniversalOp, dim::Integer) = dim*dim; 
+localDim(::DiagonalOp, dim::Integer) = dim; 
+localDim(::SymmetricOp, dim::Integer) = dim*(dim+1) ÷ 2; 
+localDim(::AntiSymmetricOp, dim::Integer) = dim*(dim-1) ÷ 2; 
+localDim(::ScalarOp, dim::Integer) = 1; 
+localDim(::EmptyOp, dim::Integer) = 0; 
+
+#contains Scalars
+containScalars(::UniversalOp)= true;
+containScalars(::DiagonalOp) = true; 
+containScalars(::SymmetricOp) = true; 
+containScalars(::AntiSymmetricOp) = false; 
+containScalars(::ScalarOp) = true; 
+containScalars(::EmptyOp) = false; 
+
+#closedUnderDual
+closedUnderStar(::UniversalOp)= true;
+closedUnderStar(::DiagonalOp) = true; 
+closedUnderStar(::SymmetricOp) = true; 
+closedUnderStar(::AntiSymmetricOp) = true; 
+closedUnderStar(::ScalarOp) = true; 
+closedUnderStar(::EmptyOp) = true; 

@@ -87,15 +87,24 @@ framesTemporary(TOp::IndTransverseOps) = TOp.framesTemp
 
 unsafe_embedMatrices(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
     # [ unsafe_embed(TOp.localOps[i],TOp.axisDims[i],data[(TOp.offsets[i]+1):TOp.offsets[i+1]]) for i=1:TOp.val];
-    [ unsafe_embed(TOp.localOps[i],TOp.axisDims[i],data[TOp.soffsets[i]:TOp.eoffsets[i]]) for i=1:TOp.val];
+    [ 
+        unsafe_embed(
+            TOp.localOps[i],
+            TOp.axisDims[i],
+            @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]]
+        ) 
+        for i=1:TOp.val
+    ];
 
 unsafe_embedITensors(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         Matrix(unsafe_embed(
             TOp.localOps[i],
             TOp.axisDims[i],
-            data[TOp.soffsets[i]:TOp.eoffsets[i]])),
-        TOp.frames[i],TOp.framesTemp[i] ) 
+            @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]])), 
+            TOp.frames[i],
+            TOp.framesTemp[i]
+        ) 
         for i=1:TOp.val
     ];
 
@@ -104,8 +113,9 @@ unsafe_embedITensorsSwapped(TOp::IndTransverseOps, data::Vector{<:Number} ) ::Ve
         Matrix(unsafe_embed(
             TOp.localOps[i],
             TOp.axisDims[i],
-            data[TOp.soffsets[i]:TOp.eoffsets[i]])),
-        TOp.framesTemp[i],TOp.frames[i] ) 
+            @inbounds data[TOp.soffsets[i]:TOp.eoffsets[i]])),
+            TOp.framesTemp[i],TOp.frames[i]
+        ) 
         for i=1:TOp.val
     ];
 
@@ -144,18 +154,11 @@ function reduceByEngaged(TOp::IndTransverseOps, engaged::Vector{Bool})::Tuple{Tr
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
         edata=zeros(eltype(rdata), TOp.globalDim)
         for i = 1: rOp.val
-            edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
+            @inbounds edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
         end;
         return edata
     end;
     contract(edata::Vector{<:Number})::Vector{<:Number} = 
-        vcat([ edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]] ] for i= 1: rOp.val ]...); 
-    # function contract(edata::Vector{<:Number})::Vector{<:Number}
-    #     rdata=zeros(eltype(edata), rΩ.globalDim)
-    #     for i = 1: rΩ.val
-    #         rdata[rΩ.soffsets[i]:rΩ.eoffsets[i]] = edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]] ]
-    #     end;
-    #     return rdata
-    # end;
+        vcat([ @inbounds edata[TOp.soffsets[eindx[i]]:TOp.eoffsets[eindx[i]] ] for i= 1: rOp.val ]...); 
     return (rOp, LinearMaps.LinearMap(expand, contract, TOp.globalDim, rOp.globalDim; ismutating=false) )
 end;

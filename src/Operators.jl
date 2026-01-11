@@ -104,4 +104,3 @@ end;
 function closedUnderDual(Op::Operator)::Bool  
     @assert false "Calling Placeholder Abstract Function"
 end;
-

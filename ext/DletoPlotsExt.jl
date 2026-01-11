@@ -70,21 +70,6 @@ function Dleto.plot_layout(type::Symbol)
 end
 
 """
-    normalize_tensor(t::ITensor)
-
-    Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
-    returns the tensor unchanged.
-"""
-function Dleto.normalize_tensor(t::ITensor)
-    norm_factor = norm(store(t))
-    if norm_factor == 0
-        return t
-    else
-        return t / norm_factor
-    end
-end
-
-"""
         compare(left, right; left_title="Left", right_title="Right", layout=nothing)
 
 Render two array-like values in notebook output using HTML.
@@ -139,80 +124,6 @@ function Dleto.compare(left, right;
     return nothing
 end
  
-"""
-    load_tensor(filename::String) -> ITensor
-
-    [TBD: This should work with any valence!]
-    Load a tensor from a file in sparse format. The file should contain lines of the form:
-    i j k value
-    where i, j, k are the indices and value is the tensor entry at that position.
-"""
-function Dleto.load_tensor(filename::String)::ITensor
-    # Read the file and parse entries
-    entries = []
-    max_dims = []
-    
-    valence = -1
-    open(filename, "r") do file
-        for line in eachline(file)
-            # Skip comments and empty lines
-            if startswith(line, "#") || isempty(strip(line))
-                continue
-            end
-            
-            # Parse the line into values
-            parts = split(strip(line))
-            if valence == -1
-                valence = length(parts) - 1
-                max_dims = zeros(Int, valence)
-            end
-
-            if length(parts) != valence + 1
-                error("Inconsistent valence in tensor file: expected $valence indices, got $(length(parts)-1)")
-            end
-            is = [ parse(Int, parts[i]) for i in 1:(valence) ]
-            val = parse(Float64, parts[valence+1])
-                
-            push!(entries, (is, val))
-            for d in 1:valence
-                max_dims[d] = max(max_dims[d], is[d])
-            end
-        end
-    end
-    # create a sparse array to hold the tensor data
-    axes = [Index(max_dims[a], "x_$a") for a in 1:valence]
-    # Create ITensor from array
-    Γ = ITensor(axes...)
-    for (is, val) in entries
-        Γ[(axes[a] => is[a] for a in 1:valence)...] = val
-    end
-    return Γ
-end
-
-
-
-"""
-    save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
-
-    Save the tensor to a file in sparse format, writing only entries 
-    whose absolute value exceeds the given threshold.
-
-    - `tensor`: The input tensor to save
-    - `filename`: The name of the output file
-    - `threshold`: Minimum absolute value for entries to be saved (default: 1e-3)
-"""
-function Dleto.save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
-    open(filename, "w") do file
-        dims = size(tensor)
-        println(file, "# i j k value")
-        for i in 1:dims[1], j in 1:dims[2], k in 1:dims[3]
-            val = tensor[i, j, k]
-            if abs(val) > threshold
-                println(file, "$i $j $k $val")
-            end
-        end
-    end
-end
 
 """
     plot_tensor(tensor::ITensor, threshold::Float64=1e-2;
