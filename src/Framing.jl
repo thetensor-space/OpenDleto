@@ -24,91 +24,39 @@
 # SOFTWARE.
 #-----------------------------------------------------------------------------
 
-abstract type ArrayLike end;
-
-function A_sizes(::ArrayLike) ::Vector end;
-function A_reduceBy(::ArrayLike, engaged::Vector{Bool})::ArrayLike end;
-
-struct myVec <:ArrayLike
-    d:: Vector
-end;
-A_sizes(x::myVec) ::Vector=x.d;
-A_reduceBy(x::myVec, engaged::Vector{Bool})::myVec = myVec(x.d[engaged])
 
 """
-    Framed Array-like Object
+    Framing
+
+    Used to switch between Arrays and Dicts
 
 """
 
-struct FramedExtra{AL<:ArrayLike} 
-    a ::AL
-    extra :: Integer
+struct Framing{I <:Any} 
+    frame   :: Vector{<:I}
+    len     :: Integer
+    lookup  :: Dict{I, <:Integer}
     # compatible::Function
-    FramedExtra{AL}(a::AL) where AL = new{AL}(a,1)
-end;
-
-
-
-struct FramedExtra{AL<:ArrayLike, F,IF,E}
-    a ::AL
-    # f ::Vector{<:F} 
-    # fi ::Vector{<:IF}
-    # idx ::Dict{IF,Integer}
-    # extra :: E
-    # compatible::Function
-    FramedExtra(a::AL, f::Vector{<:F}, fi::Vector{<:FI}, compatible::Function, extra::E) = (
-    #     val=length(frames);
-    #     asizes = A_sizes(a);
-    #     @assert length(asizes) == val "lenghts must be the same";
-    #     @assert all( [ compatible(f[i], asizes[i]) for i =1:val ] )  "Incompatible data";
-    #     # test that all elements of frame are different 
-    #     idx=Dict{E,Int16}();
-    #     fi = f .|> get_index; 
-    #     for i=1:val
-    #         idx[ fi[i]] = i;
-    #     end;
-        # return new(a, f, fi, Dict{E,Int16}(), extra, compatible)
-        return new{AL, F,IF,E}(a)
+    Framing{I}(frame::Vector{<:I}) where  I = (
+        len = length(frame);
+        for i = 2:len 
+            for j = 1:(i-1)
+                @assert frame[i]!=frame[j] "indexes must be dsitinct";
+            end;
+        end;
+        lookup = Dict{I, Int}(zip(frame, [i for i=1:len]));
+        return new{I}(frame,len,lookup)
     )
 end;
 
-function reduceByEngaged(F::FramedExtra{AL<:ArrayLike, F,IF,E}, engaged::Vector{Bool})::FramedExtra{AL<:ArrayLike, F,IF,E}
-    @assert length(f.f)==length(engaged) "Incompatable data"
-    FramedExtra{AL,F,IF,E}(A_reduceBy(F,engaged), F.f[engaged], F.fi[engaged], F.compatible, F.e)
-end
 
+function toDict(F ::Framing{I}, V::Vector) where I
+    @assert length(V) >= F.len "vector too short"
+    return Dict{I,eltype(V)}(zip(F.frame, V[1:F.len]) )
+end;
 
-Framed{AL,F,IF} = FramedExtra{AL,F,IF,Nothing}
-Framed{AL,F,IF}(a::AL, f ::Vector{<:F}, compatible::Function, fi::Vector{<:FI}) = 
-    Framed{AL,F,IF}(a,f,compatible,fi, nothing);
+function toVector(F ::Framing{I}, D::Dict) where I
+    @assert all( F.frame .|> k -> haskey(D,k) ) "missing keys"
+    return [ D[F.frame[i]] for i=1:F.len]
+end;
 
-
-
-
-function reduceByEngaged(FCh::ChiselFramed, engaged::Vector{Bool})::ChiselFramed
-    @assert length(FCh.frames)==length(engaged) "Incompatable data"
-    return ChiselFramed(FCh.ch[:,engaged],Fch.frames[engaged], FCh.ch_axis)
-end
-
-function reduceByEngaged(FCh::ChiselFramed, engaged::Dict{Index,Bool})::ChiselFramed
-    @assert all(FCh.frames .|> (i -> haskey(enggaged,i)))== true  "Incompatable data"
-    eng = [ engaged[FCh.frames[i]] for i=1:length(FCh.frames)]
-    return reduceByEngaged(FCh, eng)
-end
-
-function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::ChiselFramed )::ITensor
-    @assert all(Xes .|> (x ->ndims(x) == 2) ) == true "all Xes must have valancy 2"
-    @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
-    @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
-    @assert all(FCh.frames .|> i -> i in inds(Γ )) == true "Γ misses some indexes"
-    Γ_frame_ch = (FCh.ch_axis, inds(Γ)...)
-    return [ 
-                let 
-                    haskey(FCh.idx,  ind(Xes[i],1) ) ? 
-                        (ci =ind(Xes[i],1) ; oi =ind(Xes[i],2) ) : (ci =ind(Xes[i],2) ; oi =ind(Xes[i],1) )
-                    replaceind(
-                        ITensor(FCh.ch[:, FCh.idx[ci]],FCh.ch_axis) * Γ * Xes[i],
-                        oi,ci) 
-                end 
-            for i in 1:length(Xes) ] |> sum  
-end

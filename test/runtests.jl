@@ -13,6 +13,8 @@ using ITensors
 # --- Select mode via environment variable ---
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
+include("chisels/runtests.jl") 
+
 include("ops/runtests.jl") 
 
 # include( "TestDletoBase.jl" )

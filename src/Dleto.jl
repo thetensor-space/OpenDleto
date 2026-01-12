@@ -36,6 +36,8 @@ import ITensors
 
 __isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
+include("Framing.jl")
+
 include("ops/OperatorAbstract.jl")
 include("ops/OperatorLinear.jl")
 include("ops/OperatorInvertible.jl")
@@ -43,6 +45,9 @@ include("ops/OperatorSimplify.jl")
 include("ops/ListOperatorsAbstract.jl")
 include("ops/ListOperatorsIndependant.jl")
 include("ops/ListOperatorsSymmetries.jl")
+
+include("chisels/Chisels.jl")
+include("chisels/ChiselsConcrete.jl")
 
 # # # Plotting libraries
 # # import Plots
