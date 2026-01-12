@@ -34,3 +34,10 @@ Manifest.toml
 *.dat100
 *.pvd
 *.vtu
+
+# Large data files
+data/icecat_data_train.json
+data/icecat_data_validate.json
+data/wdc_data_full.json
+data/FoodData/*.csv
+data/FoodData/food_combined*.csv
