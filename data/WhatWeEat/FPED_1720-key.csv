@@ -1,0 +1,40 @@
+﻿column,variable_name,variable_description,units
+A,FOODCODE,Food code,
+B,DESCRIPTION,Food description,
+C,F_TOTAL,Total intact or cut fruits and fruit juices,cup eq
+D,F_CITMLB,"Intact fruits (whole or cut) of citrus, melons, and berries",cup eq
+E,F_OTHER,"Intact fruits (whole or cut); excluding citrus, melons, and berries",cup eq
+F,F_JUICE,"Fruit juices, citrus and non citrus",cup eq
+G,V_TOTAL,"Total dark green, red and orange, starchy, and other vegetables; excludes legumes",cup eq
+H,V_DRKGR,Dark green vegetables,cup eq
+I,V_REDOR_TOTAL,Total red and orange vegetables (tomatoes + other red and orange),cup eq
+J,V_REDOR_TOMATO,Tomatoes and tomato products,cup eq
+K,V_REDOR_OTHER,"Other red and orange vegetables, excluding tomatoes and tomato products",cup eq
+L,V_STARCHY_TOTAL,Total starchy vegetables (white potatoes + other starchy),cup eq
+M,V_STARCHY_POTATO,White potatoes,cup eq
+N,V_STARCHY_OTHER,"Other starchy vegetables, excluding white potatoes",cup eq
+O,V_OTHER,Other vegetables not in the vegetable components listed above,cup eq
+P,V_LEGUMES,Legumes computed as vegetables,cup eq
+Q,G_TOTAL,Total whole and refined grains,oz eq
+R,G_WHOLE,Whole grains,oz eq
+S,G_REFINED,Refined or non-whole grains,oz eq
+T,PF_TOTAL,"Total meat, poultry, seafood, organ meats, cured meat, eggs, soy, and nuts and seeds; excludes legumes",oz eq
+U,PF_MPS_TOTAL,"Total meat, poultry, seafood, organ meats, and cured meat",oz eq
+V,PF_MEAT,"Beef, veal, pork, lamb, game meat; excludes organ meats and cured meat",oz eq
+W,PF_CUREDMEAT,"Cured/luncheon meat made from beef, pork, or poultry",oz eq
+X,PF_ORGAN,"Organ meat from beef, veal, pork, lamb, game, and poultry",oz eq
+Y,PF_POULT,"Chicken, turkey, Cornish hens, and game birds; excludes organ meats and cured meat",oz eq
+Z,PF_SEAFD_HI,"Seafood (finfish, shellfish and other seafood) high in n-3 fatty acids",oz eq
+AA,PF_SEAFD_LOW,"Seafood (finfish, shellfish and other seafood) low in n-3 fatty acids",oz eq
+AB,PF_EGGS,"Eggs (chicken, duck, goose, quail) and egg substitutes",oz eq
+AC,PF_SOY,"Soy products, excluding calcium fortified soy milk and immature soybeans",oz eq
+AD,PF_NUTSDS,"Peanuts, tree nuts, and seeds, excludes coconut",oz eq
+AE,PF_LEGUMES,Legumes computed as protein foods,oz eq
+AF,D_TOTAL,"Total milk, yogurt, cheese, and whey",cup eq
+AG,D_MILK,Fluid milk and calcium fortified soy milk,cup eq
+AH,D_YOGURT,Yogurt,cup eq
+AI,D_CHEESE,Cheese,cup eq
+AJ,OILS,Oils,grams
+AK,SOLID_FATS,Solid fats,grams
+AL,ADD_SUGARS,Foods defined as added sugars,tsp eq
+AM,A_DRINKS,Alcoholic beverages,no. of drinks
