@@ -7,6 +7,10 @@ InvOps=[ Dleto.InvertableOperatorsDict[k] for k in keys(Dleto.InvertableOperator
 
 function testInverse(Op::Dleto.InvertableOperator, dim::Integer, num::Integer)
     localdim = Dleto.localDim(Op,dim)
+    id = Dleto.trivial(Op,dim)
+    idM = Dleto.embed(Op,dim,id)
+    @assert isapprox(idM, LinearAlgebra.Diagonal([1.0 for i=1:dim])) "trivial is not identity matrix"
+
     for _ = 1:num
         a = Dleto.generate_random(Op,dim)
         # a = rand(localdim)
@@ -65,8 +69,8 @@ function testStar(Op::Dleto.InvertableOperator, dim::Integer, num::Integer)
 
         A = Dleto.embed(Op,dim,a)
         Astar = Dleto.embed(Op,dim,astar)
-        @assert isapprox(A, inv(Astar))
-        @assert isapprox(Astar, inv(A))
+        @assert isapprox(A, LinearAlgebra.transpose(inv(Astar)))
+        @assert isapprox(Astar, LinearAlgebra.transpose(inv(A)))
     end
     return true
 end;

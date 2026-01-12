@@ -70,14 +70,14 @@ InvertableOperatorsDict[:OnlyIdOp] = OnlyIdOp();
 function coordinates(::InvertableOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
     size(M)[1]==size(M)[2] || return nothing
     isapprox(LinearAlgebra.det(M), 0.0) && return nothing
-    return reshape(M,length(M))
+    return reshape(Matrix(M),length(M))
 end;
 
 function coordinates(::OrthogonalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
     size(M)[1]==size(M)[2] || return nothing
     isapprox(LinearAlgebra.det(M), 0.0) && return nothing
     isapprox(inv(M), LinearAlgebra.transpose(M)) || return nothing
-    return reshape(M,length(M))
+    return reshape(Matrix(M),length(M))
 end;
 
 #needs fixing
@@ -116,7 +116,7 @@ end;
 
 embed(::OnlyIdOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = LinearAlgebra.Diagonal([1.0 for i=1:dim]);
 
-
+unsafe_star(::OrthogonalOp, dim::Integer, data::Vector{<:Number} ) = data 
 unsafe_star(::OnlyIdOp, dim::Integer, data::Vector{<:Number} ) = data 
 
 
@@ -146,4 +146,5 @@ function generate_random(::OrthogonalOp, dim::Integer)::Vector{<:Number}
     return reshape(Q, dim*dim)
 end;
 
-generate_random(::OnlyIdOp, dim::Integer) = zeros(0) 
+generate_random(::OnlyIdOp, dim::Integer) = zeros(0); 
+trivial(::OnlyIdOp, dim::Integer) = zeros(0); 

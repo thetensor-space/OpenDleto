@@ -1,14 +1,14 @@
-simplifyTo(::UniversalOp)=(UniversalOp(),InvertableOp());
-simplifyTo(::DiagonalOp)=(DiagonalOp(),InvertableOp());
-simplifyTo(::SymmetricOp)=(DiagonalOp(),OrthogonalOp());
-simplifyTo(::AntiSymmetricOp)=(UniversalOp(),InvertableOp());
-simplifyTo(::ScalarOp)=(ScalarOp(),OnlyIdOp());
-simplifyTo(::EmptyOp)=(EmptyOp(),OnlyIdOp());
+simplifyTo(::UniversalOp)=(D=UniversalOp(),T=InvertableOp());
+simplifyTo(::DiagonalOp)=(D=DiagonalOp(),T=InvertableOp());
+simplifyTo(::SymmetricOp)=(D=DiagonalOp(),T=OrthogonalOp());
+simplifyTo(::AntiSymmetricOp)=(D=UniversalOp(),T=InvertableOp());
+simplifyTo(::ScalarOp)=(D=ScalarOp(),T=OnlyIdOp());
+simplifyTo(::EmptyOp)=(D=EmptyOp(),T=OnlyIdOp());
 
 
 
 # function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
-function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )  
+function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
     M = embed(Op, dim, data)
     res = realCanonicalForm(M) 
     # @show M, Op
@@ -17,28 +17,28 @@ function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vect
     # cT=unsafe_coordinates(InvertableOp(),res.T)
     # @show cD, cT
     return (
-        unsafe_coordinates(UniversalOp(),res.D),    
-        unsafe_coordinates(InvertableOp(),res.T)
+        d= unsafe_coordinates(UniversalOp(),res.D),    
+        t= unsafe_coordinates(InvertableOp(),res.T)
     )    
 end;
 
 
-function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} ) 
+function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
 # function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
     M = embed(Op, dim, data)
     eig = LinearAlgebra.eigen(M)
     # evalues = eig.values
     # evec = eig.vectors
-    cT = unsafe_coordinates(OrthogonalOp(),eig.vectors)
+    # cT = unsafe_coordinates(OrthogonalOp(),eig.vectors)
     # @show cT
-    return (eig.values, unsafe_coordinates(OrthogonalOp(),eig.vectors) )
+    return (d= eig.values, t= unsafe_coordinates(OrthogonalOp(), eig.vectors) )
 end;
 
 # function simplfy(Op::Union{ScalarOp,EmptyOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
 #     return (data, zeros(0) )
 # end;
-function simplfy(Op::Union{ScalarOp,EmptyOp},dim::Integer, data::Vector{<:Number} )  
-    return (data, zeros(0) )
+function simplfy(Op::Union{ScalarOp,EmptyOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} } 
+    return (d=data, t=zeros(0) )
 end;
 
 

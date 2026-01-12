@@ -40,6 +40,9 @@ include("ops/OperatorAbstract.jl")
 include("ops/OperatorLinear.jl")
 include("ops/OperatorInvertible.jl")
 include("ops/OperatorSimplify.jl")
+include("ops/ListOperatorsAbstract.jl")
+include("ops/ListOperatorsIndependant.jl")
+include("ops/ListOperatorsSymmetries.jl")
 
 # # # Plotting libraries
 # # import Plots

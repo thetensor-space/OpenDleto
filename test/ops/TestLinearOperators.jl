@@ -7,6 +7,9 @@ LinOps=[ Dleto.LinearOperatorsDict[k] for k in keys(Dleto.LinearOperatorsDict)]
 
 function testInverse(Op::Dleto.LinearOperator, dim::Integer, num::Integer)
     localdim = Dleto.localDim(Op,dim)
+    id = Dleto.trivial(Op,dim)
+    idM = Dleto.embed(Op,dim,id)
+    @assert isapprox(idM, zeros(dim,dim)) "trivial is not zero matrix"
     for _ = 1:num
         a = Dleto.generate_random(Op,dim)
 #        a = rand(localdim)
@@ -119,7 +122,7 @@ end
         end
         @testset "Dimension $dim Transpose" begin
             for Op in LinOps
-                @test testInverse(Op, dim, 100)
+                @test testTranspose(Op, dim, 100)
             end 
         end
         @testset "Dimension $dim Star" begin

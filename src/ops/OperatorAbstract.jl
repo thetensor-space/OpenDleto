@@ -40,6 +40,7 @@
         coordinates : Matrix -> Vector or nothing
         embed       : Vector -> Matrix or Nothing
         generate_random     -- generates a random vector which is valid
+        trivial             -- generates vactor which represents trivial element
 
         most of these function have unsafe varaints which skip checks
 
@@ -104,7 +105,7 @@ function star(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::Union{Vecto
 end;
 
 function unsafe_star(Op::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
-    if closedUnderDual(Op)  
+    if closedUnderStar(Op)  
         @assert false "Calling Placeholder Abstract Function"
     else 
         @assert false "Star is not defined"
@@ -115,6 +116,9 @@ function generate_random(Op::Operator, dim::Integer)::Vector{<:Number}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
+function trivial(Op::Operator, dim::Integer)::Vector{<:Number} 
+    @assert false "Calling Placeholder Abstract Function"
+end;
 
 
 """
@@ -162,6 +166,7 @@ end;
 
 generate_random(Op::LinearOperator, dim::Integer)::Vector{<:Number} = randn(localDim(Op,dim)); 
 
+trivial(Op::LinearOperator, dim::Integer)::Vector{<:Number} = zeros(localDim(Op,dim));
 
 
 """
@@ -191,12 +196,13 @@ function embed(Op::InvertableOperator, dim::Integer, data::Vector{<:Number} ) ::
     end
 end;
 
+trivial(Op::InvertableOperator, dim::Integer)::Vector{<:Number} = coordinates(Op, LinearAlgebra.Diagonal([1.0 for i=1:dim]));
 
-#generic Star for invertible operatros coming from inverse
+#generic Star for invertible operatros coming from inverse transpose (it must ne homomorphism!)
 #for each type it is faster to implement a separate method
 function unsafe_star(Op::InvertableOperator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
     if closedUnderStar(Op)  
-        return unsafe_coordinates(Op,inv(unsafe_embed(Op,dim,data)))
+        return unsafe_coordinates(Op,LinearAlgebra.transpose(inv(unsafe_embed(Op,dim,data))))
     else 
         @assert false "Not defined"
     end
@@ -215,14 +221,14 @@ for example SymmetricOp simplfy to DiagonalOp via OthogonalOp
 need to be compaitble with star like    
 
 """
-function simplifyTo(Op::LinearOperator)::Tuple(LinearOperator,InvertableOperator)  
+function simplifyTo(Op::LinearOperator)::NamedTuple{(:D, :T), Tuple(LinearOperator,InvertableOperator)}  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 """
 Function which does the simplification (ie diagonalization of symetric matrices)
 """
-function simplify(Op::LinearOperator,dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
+function simplify(Op::LinearOperator,dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple(Vector{<:Number},Vector{<:Number}) } 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
