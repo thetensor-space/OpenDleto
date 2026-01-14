@@ -1,6 +1,6 @@
 #
 # Strata Dleto: Framed Chisels
-#   Adding indexes to the matrix to make computation a bit more consisten 
+#   Adding indexes to the matrix to make computation a bit more consistent 
 #
 # -----------------------------------------------------------------------------
 # Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
