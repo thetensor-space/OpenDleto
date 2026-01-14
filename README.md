@@ -1,20 +1,29 @@
 # OpenDleto <!-- omit from toc -->
-Dleto, which means chisel, is a package of tools to sculpt information from tensor data. 
+Dleto, which means chisel, is a package of tools to detect and recover structure in tensor data. The allusion to chiseling comes from the control the package affords the user to choose the "shape" of the hidden structure they seek.
 Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
 
-You can open Jupyter notebooks in your browser without installing anything by clicking on the **launch binder** buttons. These notebooks allow you to explore the functionality of OpenDleto immediately, so long as you have some experience with Jupyter notebooks and a recent installation of Julia.
+In addition to giving access to the Julia source code for our implemetation, `OpenDleto` provides several Jupyter notebooks that showcase chiseling tools.
+You can open Jupyter notebooks in your browser without installing anything simply by clicking on the **launch binder** buttons below. These notebooks allow you to explore the functionality of `OpenDleto` immediately with just a recent installation of Julia.
 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) The [Sphere Lab](labs/geometry/SphereLab.ipynb) shows how to recover a surface pattern, arising from say a hidden fourier transform, underlying a seemingly random point cloud. If you want to just inspect the results of the experiment, you can look at [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf).
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FChiseling101.ipynb) The notebook [Chiseling101](labs/clusters/Chiseling101.ipynb) walks you through the basic functionality of the `OpenDleto` package. It shows how to set parameters to remove redunduncies, recover block decompositions, and detect continuous structures in tensor data.
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) The [Sphere Lab](labs/geometry/SphereLab.ipynb) shows how to recover a surface pattern&mdash;that could, say, be an artefact of a hidden fourier transform&mdash;underlying a seemingly random point cloud. To view just the results of the experiment, you can look at [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf).
+
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Fdata%2FWhatWeEatInAmerica.ipynb) The notebook [WhatWeEat](labs/geometry/WhatWeEatInAmerica.ipynb) shows how `OpenDleto` can be deployed on real data sets&mdash;in this case, nutrition data from a study called "What We Eat In America"&mdash;to extract 
+ substantive information. 
+ <!--
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) The [Cluster Lab](labs/clusters/ClusterLab.ipynb) shows how to recover clusters in high-dimensional tensor data. 
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fhypergraphs%2FHypergraphLab.ipynb) The [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) shows how you can also use the software to locate structure in hypergraphs.
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fdata%2FToyDataLab.ipynb) The [Toy Data Lab](labs/data/ToyDataLab.ipynb) uses the software on real data about toys to explore potential data science applications of Dleto.
-
+-->
 
 
 ## Contents
 
-- [Contents](#contents)
-- [What OpenDleto Does](#What-OpenDleto-Does)
+<!--- [Contents](#contents)-->
+- [What `OpenDleto` Does](#What-OpenDleto-Does)
 - [Installation Guide](#Installation-Guide)
 - [Our Team](#our-team)
 - [Acknowledgments](#acknowledgments)
@@ -24,15 +33,13 @@ You can open Jupyter notebooks in your browser without installing anything by cl
   - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
   - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
 
-## What OpenDleto Does
-Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal a lower valence support. For instance, given a 3-tensor represented as a point cloud 
+## What `OpenDleto` Does
+Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal hidden structure. This could manifest as a clustering of data into blocks, often revealing a lower valence support. For instance, given a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
 </center>
-
-this means to demonstrate that the data cluster near a block array of 2-tensors. 
-
-Here are some examples of what this can look like:
+`OpenDleto` can reveal that data clusters in 
+any of the following ways:
 
 | [Strata](#strata) | [Channels](#channels) |
 |---------------------|----------------|
@@ -130,12 +137,21 @@ We invite you explore the repository and join our team.  We welcome and encourag
 <img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
 <img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson, Ph.D.     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
 
+## Collaborators
+
+Several other researchers have used `OpenDleto` tools and ideas to develop their own projects, including:
+<ul>
+<li>Clara Chaplin (Bucknell University), currently with Dell Technologies.</li>
+<li>Gavin Moore (Bucknell University).</li>
+</ul>
+
+
 
 ## Acknowledgments
 
 The project has received partial support from the following granting organizations:
 
-**Portions of the project sponsored by:**
+<!-- **Portions of the project sponsored by:** -->
  * The National Science Foundation (USA) to Peter A. Brooksbank (DMS-1620454), to Martin Kassabov (DMS-1620454) to James B. Wilson (DMS-1620454).
  * The Simons Foundation to Peter A. Brooksbank (281435) to Martin Kassabov, and to James B. Wilson (636189).
  * The National Security Agency Math Sciences Program to Peter A. Brooksbank (Grant Number H98230-11-1-0146) to James B. Wilson (Grant Number H98230-19-1-00).
@@ -153,6 +169,8 @@ research on related projects over the years:
  
 
 ---
+
+<!--
 
 ---
 
@@ -191,3 +209,5 @@ We recommend that these functions are applied only to non-degenerate tensors (i.
 
 The functions have not been tested on abstract arrays. If the input is a sparse tensor represented as some `AbstractArray`, it might be necessary to 
 first convert it to a normal `Array`.   
+
+-->
