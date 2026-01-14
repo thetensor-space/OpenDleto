@@ -187,7 +187,7 @@ function coordinates(LOp::SymListOperators, Mats::Vector{<: AbstractMatrix} ) ::
     return vcat([res[i] for i in LOp.block_first  ] ...)
 end;
 
-function reduceByEngaged(LOp::SymListOperators, engaged::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
+function reduceBy(LOp::SymListOperators, engaged::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
     val=LOp.val
     syms=LOp.syms
     duals=LOp.duals
@@ -298,3 +298,22 @@ function simplify(LOp::SymListOperators, data::Vector{<:Number} )::NamedTuple{(:
     data_t = localres .|> x -> x.t
     return (d= vcat(data_d...), t= vcat(data_t...))
 end;
+
+function scalarsMatrix(LOp::SymListOperators)::Matrix{<:Number}
+    @assert isLinear(LOp) "Only defined for Linear Operators"
+    sc = [ containScalars(LOp.localOps[LOp.block_first[i]]) for i = 1:length(LOp.block_first)]
+    d = sum(sc)
+    A = zeros(d,LOp.val)
+    k=1
+    for i=1:length(LOp.block_first)
+        if sc[i]
+            for j in LOp.blocks[i]
+                A[k,j] = 1
+            end
+            k = k+1
+        end
+    end
+    # @show sc,d,LOp.val, size(A)
+    # @show A
+    return A
+end

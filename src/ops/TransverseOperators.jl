@@ -33,6 +33,7 @@ import LinearMaps
 """
 
 """
+    NEEDS UPDATING
     Abstract Global Operators
 
     Abstract Class for providing encoding and decoving data from list of matrices/ITensors to in internal vectors.
@@ -57,8 +58,10 @@ struct TransverseOps
     frames      ::Framing{ITensors.Index}
     framesTemp  ::Framing{ITensors.Index}
     TransverseOps(LOps::ListOperators,frames::Framing{ITensors.Index},framesTemp::Framing{ITensors.Index}) = (
-        #test consistency; add more verification
         @assert frames.len == framesTemp.len "Incompatible frames";
+        @assert all([ ITensors.dim(frames[i]) == ITensors.dim(framesTemp[i]) for i=1:frames.len]) "Incompatible frames";
+        @assert valency(LOps) == frames.len "Incompatible ListOps";
+        @assert all([ ITensors.dim(frames[i]) == axisDims(LOps)[i] for i=1:frames.len]) "Incompatible axisDims";
         return new(LOps,frames,framesTemp)
     )
 end; 
@@ -78,24 +81,32 @@ function unsafe_embedITensors(TOp::TransverseOps, data::Vector{<:Number}) ::Vect
     return [ ITensors.ITensor(Mats[i], TOp.frames[i], TOp.framesTemp[i]) for i =1:val]
 end;
 
-#ToDo
-function reduceByEngaged(TOp::TransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap} 
-    @assert false "Calling Placeholder Abstract Function"
+
+#no need it is better to flip the frames inthe trnasverse op
+function embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
+    val = TOp.frames.len
+    Mats = embedMatrices(TOp.LOps, data)
+    return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
+end
+
+function unsafe_embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
+    val = TOp.frames.len
+    Mats = unsafe_embedMatrices(TOp.LOps, data)
+    return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
+end
+
+function reduceBy(TOp::TransverseOps, eng::Vector{Bool})
+    rLOps=reduceBy(TOp.LOps,eng)
+    return ( 
+        rTOp=TransverseOps(
+            rLOps.rLOp,
+            reduceBy(TOp.frames, eng),
+            reduceBy(TOp.framesTemp, eng)
+            ),
+        reduce_map=rLOps.reduce_map,
+        expand_func=rLOps.expand_func
+    )
 end;
-
-
-# #no need it is better to flip the frames inthe trnasverse op
-# function embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
-#     val = TOp.frames.len
-#     Mats = embedMatrices(TOp.LOps, data)
-#     return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
-# end
-
-# function unsafe_embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
-#     val = TOp.frames.len
-#     Mats = unsafe_embedMatrices(TOp.LOps, data)
-#     return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
-# end
 
 
 function transposeEmbed(TOp::TransverseOps, ITs ::Vector{ITensors.ITensor})::Vector{<:Number}
@@ -122,77 +133,69 @@ function transposeEmbed(TOp::TransverseOps, ITs ::Vector{ITensors.ITensor})::Vec
     return transposeEmbed( TOp.LOps, Mats)
 end
 
-#public constructors
-function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol},tag::String="temp") ::TransverseOps
-    @assert length(axises)==length(s) "not compatible"
-    t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
-    axisDims = ITensors.dim.(axises) 
-    localOps = Operator.(s) 
-    frames = Framing{ITensors.Index}(axises)
-    t_frames = Framing{ITensors.Index}(t_axises)
-    return TransverseOps( IndListOperators(axisDims, localOps) ,frames,t_frames)
-end
 
-
-function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol}, symmetries ::Vector{<:Integer}, tag::String="temp")::TransverseOps
-    @assert length(axises)==length(s) "not compatible"
-    t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
-    axisDims = ITensors.dim.(axises) 
-    localOps = Operator.(s) 
-    frames = Framing{ITensors.Index}(axises)
-    t_frames = Framing{ITensors.Index}(t_axises)
-    return TransverseOps( SymListOperators(axisDims, localOps, symmetries) ,frames,t_frames)
-end
-    
-TransverseOps(axises::Vector{<:ITensors.Index}, s::Symbol,tag::String="temp")::TransverseOps = 
-    TransverseOps(axises, [s for a in axises], tag);
-    
-
-function TransverseOps(Γ::ITensors.ITensor, s::Symbol,tag::String="temp")::TransverseOps 
-    axises = vcat(ITensors.inds(Γ)...)
-    TransverseOps(axises, [s for a in axises], tag);
-end
-
-# assumes that the ITensors are in order
 unsafe_transposeEmbed(TOp::TransverseOps, ITs ::Vector{ITensors.ITensor})::Vector{<:Number} = 
     unsafe_transposeEmbed(
         TOp.LOps, 
-        [ Array(ITs[i], TOp.frames[i], TOp.framesTemp[i])  for i =1:val] 
+        [ Array(ITs[i], TOp.frames[i], TOp.framesTemp[i])  for i =1:length(ITs)] 
     );
 
 
 
 # May be we need coordinates???
 
-function changeBasis(Γ::ITensors.ITensor, TOp::TransverseOps, data::Vector{<:Number}, keep::Bool=false):: NamedTuple{(:Σ, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}}
+function changeBasis(T::ITensors.ITensor, TOp::TransverseOps, data::Vector{<:Number}; keep::Bool=false):: NamedTuple{(:T, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}}
     val = TOp.frames.len
-    inds = ITensors.inds(Γ)
+    inds = ITensors.inds(T)
     @assert isInvertible(TOp.LOps) "Only inverible Transverse Ops can change basis"
     @assert all([ TOp.frames[i] in inds  for i = 1:val ] ) "Incompatable itensors"   
     @assert all([ !(TOp.framesTemp[i] in inds)  for i = 1:val ] ) "Incompatable itensors"   
     Xs = embedITensors(TOp,data)
-    Δ = Γ
+    Delta = T
     for i in 1:val
-        Δ *= Xs[i]
+        Delta *= Xs[i]
         # Δ = Δ * Xs[i]
     end
     if keep 
         for i in 1:val
-            ITensors.replaceindex!(Δ,TOp.framesTemp[i],TOp.frames[i])
+            ITensors.replaceind!(Delta,TOp.framesTemp[i],TOp.frames[i])
         end
     end
-    return (;Σ=Δ, Xs=Xs)
+    return (;T=Delta, Xs=Xs)
 end
 
-changeBasisRandom(Γ::ITensors.ITensor, TOp::TransverseOps, keep::Bool=false):: NamedTuple{(:Σ, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}} = 
-    changeBasis(Γ, TOp, generate_random(TOp.LOps), keep)
-
-
+changeBasisRandom(T::ITensors.ITensor, TOp::TransverseOps; keep::Bool=false):: NamedTuple{(:T, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}} = 
+    changeBasis(T, TOp, generate_random(TOp.LOps); keep=keep)
 
 
 
 #simplfyTo
-function simplifyTo(TOp::TransverseOps)::NamedTuple{(:D, :T), Tuple(TransverseOps,TransverseOps)} 
+function simplifyTo(TOp::TransverseOps)::NamedTuple{(:D, :T), Tuple{TransverseOps,TransverseOps}} 
+    # @show TOp.LOps
     res =  simplifyTo(TOp.LOps)
-    return (D = TransverseOps(res.D, TOp.frames, TOp.framesTemp), T = TransverseOps(res.T, TOp.frames, TOp.framesTemp) ) 
+    # @show res
+    # @show res.D
+    # @show res.T
+    return (
+                D = TransverseOps(res.D, TOp.frames, TOp.framesTemp), 
+                T = TransverseOps(res.T, TOp.frames, TOp.framesTemp) 
+            ) 
+end;
+
+"""
+    Test if T has compatinle axis -- if the ones in the frames are axises of T and the others are not
+"""
+function testTensor(TOp::TransverseOps, T::ITensors.ITensor)::Bool
+    f = ITensors.inds(T)
+    # @show f
+    # @show TOp.frames.len
+    # @show TOp.frames
+    # r = [ (TOp.frames[x] in f) for x=1:TOp.frames.len]
+    # @show r
+    # r = [ !(TOp.framesTemp[x] in f) for x=1:TOp.frames.len]
+    # @show r
+    return (
+                all([ (TOp.frames[x] in f) for x=1:TOp.frames.len]) &&
+                all([ !(TOp.framesTemp[x] in f) for x=1:TOp.frames.len])
+            )
 end;

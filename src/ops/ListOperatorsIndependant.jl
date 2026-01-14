@@ -121,7 +121,7 @@ function coordinates(LOp::IndListOperators, Mats::Vector{<: AbstractMatrix} ) ::
 end;
 
 
-function reduceByEngaged(LOp::IndListOperators, engaged::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
+function reduceBy(LOp::IndListOperators, engaged::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
     @assert LOp.val == length(engaged) "Incompatible data"
     @assert any(engaged) "Can not reduce to Nothing"
     rOp = IndListOperators(LOp.axisDims[engaged],LOp.localOps[engaged])
@@ -141,7 +141,8 @@ function reduceByEngaged(LOp::IndListOperators, engaged::Vector{Bool})::NamedTup
     function expand(rdata::Vector{<:Number})::Vector{<:Number}
         edata=zeros(eltype(rdata), LOp.globalDim)
         for i = 1: rOp.val
-            @inbounds edata[LOp.soffsets[eindx[i]]:LOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
+            # @inbounds edata[LOp.soffsets[eindx[i]]:LOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
+            edata[LOp.soffsets[eindx[i]]:LOp.eoffsets[eindx[i]]] = rdata[rOp.soffsets[i]:rOp.eoffsets[i]]
         end;
         return edata
     end;
@@ -187,3 +188,20 @@ function simplify(LOp::IndListOperators, data::Vector{<:Number} )::NamedTuple{(:
     data_t = localres .|> x -> x.t
     return (d= vcat(data_d...), t= vcat(data_t...))
 end;
+
+function scalarsMatrix(LOp::IndListOperators)::Matrix{<:Number}
+    @assert isLinear(LOp) "Only defined for Linear Operators"
+    sc = [ containScalars(LOp.localOps[i]) for i = 1:LOp.val]
+    d = sum(sc)
+    A = zeros(d,LOp.val)
+    k=1
+    for i=1:LOp.val
+        if sc[i]
+            A[k,i] = 1
+            k = k+1
+        end
+    end
+    # @show sc,d,LOp.val, size(A)
+    # @show A
+    return A
+end

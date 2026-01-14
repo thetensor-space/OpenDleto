@@ -57,12 +57,14 @@ include("ops/ListOperatorsSymmetries.jl")
 
 include("ops/TransverseOperators.jl")
 
+include("derivation/DerivationProblems.jl")
 include("derivation/Derivations.jl")
-#include("derivation/SylverLinning.jl")
+include("derivation/Stratify.jl")
+include("derivation/SylverLinning.jl")
 
 include("plotly/Plotly.jl")
 
-# include("Convenience.jl")
+include("Convenience.jl")
 
 
 

@@ -35,7 +35,7 @@ function testReducedbyEngaged(LOp::Dleto.ListOperators, num::Integer,testzeros::
         if reducedval==0
             continue
         end
-        res = Dleto.reduceByEngaged(LOp, eng)
+        res = Dleto.reduceBy(LOp, eng)
         rLOp=res.rLOp
         reduce_map=res.reduce_map
         expand_func=res.expand_func

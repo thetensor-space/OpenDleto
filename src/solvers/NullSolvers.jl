@@ -23,7 +23,12 @@ abstract type NullSolver end
 
     - method: An instance of a subtype of `NullSolver` defining the solving method.
     - L: A `LinearMap` defining the dual-primal A'A transform
-    - nv: Number of approximate null vectors to compute (default: 10).
+    - nd: Number of approximate null vectors to compute (default: 10).
+
+    MDK: it is not clear to me if the solver can assume that L is symmetric?
+    
+    If `nd` is negative or exceeds the dimension of the null space
+    then the a basis for the null space is returned.
 
     Returns a named tuple with the singular-type values and right approximate null vectors
 """

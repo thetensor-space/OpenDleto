@@ -51,32 +51,22 @@ end;
 """
     derivations(
         method  ::DerivationMethod, 
-        TOp     ::TransverseOps, 
-        Ch      ::Chisel, 
+        DP      ::DerivaionProblem, 
         T       ::ITensor; 
         nd      ::Integer=10,
         tol     ::Float64=1e-6,
         ) :: Matrix{<:Number}
 
-    Computes up to `nd` many derivations of `T` for the to the given chisel `Ch` and transverse operators `TOp`.
+    Computes up to `nd` many derivations of `T` for the to the given chisel `Ch` and transverse operators `TOp` from the derivation problem.
     If `nd` is negative or exceeds the dimension of the derivation space
     then the a basis for the derivation space is returned.
-    - `method`: An instance of a subtype of `DerivationMethod` defining the solving method.
-    - `Ω`: TransverseOps.
-    - `P`: a linear chisel
-    - `Γ`: The input tensor
-    - `nd`: (optional) Maximum number of singular vectors to compute (default: 10). 
-    If infinite `Inf` then return all, 
-    - `tol`: (optional) Tolerance for the solver (default: 1e-6).
-    attempt to compute a basis for the derivation space.
 
     Returns a matrix where columns represent basis of the space of derivations and 
-    can be transformed into IThensors using methods of TOp.
+    can be transformed into ITensors using methods of TOp which is part of the Derivation Problem 
 """
 function derivations(
         method  ::DerivationMethod, 
-        TOp     ::TransverseOps, 
-        Ch      ::Chisel, 
+        DP      ::DerivationProblem, 
         T       ::ITensors.ITensor; 
         nd      ::Integer=10,
         tol     ::Float64=1e-6,

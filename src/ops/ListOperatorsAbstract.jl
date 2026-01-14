@@ -111,7 +111,7 @@ end;
 ### using expand map when all oeprators are linear should be OK
 ### similarly using the reduce_map = expand_map'  should be OK always
 
-function reduceByEngaged(LOp::ListOperators, engaged::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
+function reduceBy(LOp::ListOperators, eng::Vector{Bool})::NamedTuple{(:rLOp, :expand_func, :reduce_map), Tuple{ListOperators, Function, LinearMaps.LinearMap}}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
@@ -132,42 +132,24 @@ end;
 
 ###next two functions are only defined for List of operators which are linear
 ###otherwise will throw exception
-function simplifyTo(Op::ListOperators)::NamedTuple{(:D, :T), Tuple(ListOperators,ListOperators)}  
+function simplifyTo(LOp::ListOperators)::NamedTuple{(:D, :T), Tuple(ListOperators,ListOperators)}  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 """
 Function which does the simplification (ie diagonalization of symetric matrices)
 """
-function simplify(Op::ListOperators, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple(Vector{<:Number},Vector{<:Number}) } 
+function simplify(LOp::ListOperators, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple(Vector{<:Number},Vector{<:Number}) } 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
+"""
+    construct a matrix related to the scalars in list of op
+    # rows is the dimension of the scalars in the space
+    # columnts is the valancy (number of operators)
+    and the matrix represents the emebedding
 
-# #probably needs to be moved somewhere else
-# function __asMatrix(T::ITensor)::AbstractMatrix
-#     fr = inds(T)
-#     n = ITensors.dim(fr[1])
-#     m = ITensors.dim(fr[2])
-#     A = zeros(eltype(T),n,m)
-#     for ci in CartesianIndices(A)
-#         A[ci] = T[ci]
-#     end
-#     return A
-# end;
-
-# function __asMatrixTranspose(T::ITensor)::AbstractMatrix
-#     fr = inds(T)
-#     n = ITensors.dim(fr[1])
-#     m = ITensors.dim(fr[2])
-#     A = zeros(eltype(T),m,n)
-#     for ci in CartesianIndices(A)
-#         A[ci] = T[ci[2],ci[1]]
-#     end
-#     return A
-# end;
-
-# # function to create temp index
-# function __globalOpsMakeTempIndex(I::Index)::Index
-#     return Index(ITensors.dim(I),"Site:Der,$I")
-# end;
+"""
+function scalarsMatrix(LOp::ListOperators)::Matrix{<:Number}
+    @assert false "Calling Placeholder Abstract Function"
+end

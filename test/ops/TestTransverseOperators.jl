@@ -6,7 +6,7 @@ function testNormispreserved(T::ITensor, num::Integer)
     TOp = Dleto.TransverseOps(T,:OrthogonalOp)
     for _ = 1:num
         rT = Dleto.changeBasisRandom(T,TOp)
-        rn = norm(rT.Σ)
+        rn = norm(rT.T)
         @assert isapprox(n,rn) "Norm has changed"
     end
     return true

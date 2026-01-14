@@ -19,13 +19,16 @@
                 linlocalops = rand(1:length(LinOps), val) .|> (i-> LinOps[i] )
                 linLOp = Dleto.IndListOperators(axisdim,linlocalops)
                 @test testTranspose(linLOp, 100)
+                M = Dleto.scalarsMatrix(linLOp)
+                # @show linlocalops
+                # @show M                
             end 
         end
     end
 end
 
 
-
+## add some tests for the matrix
 
 
 

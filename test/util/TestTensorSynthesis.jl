@@ -40,6 +40,7 @@ end;
         @testset "Valency $val Tests" begin
             for _ = 1:5
                 axisdim = rand(5:10, val)
+                axisdim = rand(3:7, val)
                 frames = (axisdim .|> x -> ITensors.Index(x) ) 
                 F = Dleto.Framing{Index}(frames) 
                 deltas = randn.(axisdim) 

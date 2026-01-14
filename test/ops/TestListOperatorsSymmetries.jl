@@ -41,6 +41,7 @@ syms = [ [1,1,1,1], [1,1,3,3,5,5], [1,2,1,2,2,1], [1,2,3,-1,2,3], [1,2,-2,-2,5,-
                 linLOp = Dleto.SymListOperators(raxisdim, rlinlocalops, sym)
                 @test testTranspose(linLOp, 100)
                 @test testSymmetry(linLOp, 100, rlinlocalops, sym)
+                M = Dleto.scalarsMatrix(linLOp)
             end
         end 
     end
