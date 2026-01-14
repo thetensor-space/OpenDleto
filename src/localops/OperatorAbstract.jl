@@ -120,6 +120,18 @@ function trivial(Op::Operator, dim::Integer)::Vector{<:Number}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
+# create operator from symbol -- used to avoid exporting all types of operators
+function Operator(s::Symbol)::Operator
+    if haskey(LinearOperatorsDict, s)
+        return LinearOperatorsDict[s]
+    elseif haskey(InvertableOperatorsDict, s)
+        return InvertableOperatorsDict[s]
+    else
+        @assert false "Unkown operator"
+    end
+end
+
+
 
 """
     Linear Operators(local)
@@ -168,6 +180,16 @@ generate_random(Op::LinearOperator, dim::Integer)::Vector{<:Number} = randn(loca
 
 trivial(Op::LinearOperator, dim::Integer)::Vector{<:Number} = zeros(localDim(Op,dim));
 
+# create linear operator from symbol -- used to avoid exporting all types of operators
+function LinearOperator(s::Symbol)::Operator
+    if haskey(LinearOperatorsDict, s)
+        return LinearOperatorsDict[s]
+    else
+        @assert false "Unkown operator"
+    end
+end
+
+
 
 """
     Dictionary of implemented local linear operators
@@ -209,6 +231,18 @@ function unsafe_star(Op::InvertableOperator, dim::Integer, data::Vector{<:Number
 end;
 
 
+# create invertible operator from symbol -- used to avoid exporting all types of operators
+function InvertableOperator(s::Symbol)::Operator
+    if haskey(InvertableOperatorsDict, s)
+        return InvertableOperatorsDict[s]
+    else
+        @assert false "Unkown operator"
+    end
+end
+
+
+
+
 """
     Dictionary of implemented local linear operators
 """
@@ -216,10 +250,13 @@ InvertableOperatorsDict = Dict{Symbol, Operator}()
 
 
 """
-Tell us how to simplfy generic linear operator
-for example SymmetricOp simplfy to DiagonalOp via OthogonalOp
-need to be compaitble with star like    
+    Tell us how to simplfy generic linear operator
+    for example SymmetricOp simplfy to DiagonalOp via OthogonalOp
+        It takes a matrix M into pair of matrices T D such that
+        M = T D T^{-1} 
 
+        need to be compaitble with star like 
+        if M -> (D,T)  then M* -> (D*,T*)  
 """
 function simplifyTo(Op::LinearOperator)::NamedTuple{(:D, :T), Tuple(LinearOperator,InvertableOperator)}  
     @assert false "Calling Placeholder Abstract Function"

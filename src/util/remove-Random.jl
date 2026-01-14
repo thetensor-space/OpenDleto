@@ -69,10 +69,6 @@ end
 # end
 
 
-function randomize_tensor(Γ::AbstractArray; type::Symbol=:invertible)
-    iΓ = __ITensor(Γ)
-    return randomize_tensor(iΓ; type=type)
-end;
 
 # --- Utiliity functions ---
 function __random_invertible(n::Integer) 

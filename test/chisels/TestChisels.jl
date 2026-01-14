@@ -91,7 +91,7 @@ end;
 
 
 @testset "Chisel Tests" begin
-    for valence = 3:4
+    for valence = 3:10
         @testset "Valance $valence" begin
             eng = [ true for i in 1:valence ]
             @test testUnivesalChiselEngaged(eng)
@@ -109,3 +109,4 @@ end;
     end
 end;
 
+## TODO add tests for reduce_chisel!!!

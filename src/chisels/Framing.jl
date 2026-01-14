@@ -28,7 +28,12 @@
 """
     Framing
 
-    Used to switch between Arrays and Dicts
+    Used to switch between Arrays and Dicts. Allows object to be indexed both as Arrays and as Dicts
+    Provides to fuctions 
+        doDict      which makes a vector into a dict
+        toVector    which makes a dict into a vector
+        reduceBy    makes smaller framing using Vector{Bool}
+        reduceBy_v  as above but returns vector
 
 """
 
@@ -50,13 +55,58 @@ struct Framing{I <:Any}
 end;
 
 
-function toDict(F ::Framing{I}, V::Vector) where I
+function toDict(F ::Framing{I}, V::Vector)::Dict where I
     @assert length(V) >= F.len "vector too short"
     return Dict{I,eltype(V)}(zip(F.frame, V[1:F.len]) )
 end;
 
-function toVector(F ::Framing{I}, D::Dict) where I
+function toVector(F ::Framing{I}, D::Dict)::Vector where I 
     @assert all( F.frame .|> k -> haskey(D,k) ) "missing keys"
     return [ D[F.frame[i]] for i=1:F.len]
 end;
+
+function reduceBy_v(F ::Framing{I}, eng::Vector{Bool})::Vector{I} where I 
+    return F.frame[eng]
+end; 
+
+function reduceBy_v(F ::Framing{I}, eng::BitVector)::Vector{I} where I 
+    return F.frame[eng]
+end;
+
+function reduceBy(F ::Framing{I}, eng::Vector{Bool}) ::Framing{I} where I
+    return  Framing{I}(F.frame[eng])
+end;
+
+function reduceBy(F ::Framing{I}, eng::BitVector) ::Framing{I} where I
+    return Framing{I}(F.frame[eng])
+end;
+
+#can cause problems is I is an integer, but we will use it for I-ITensrs.Index
+function Base.getindex(F ::Framing{I}, i::Integer)::I where I 
+    return F.frame[i]
+end;
+
+function Base.getindex(F ::Framing{I}, i::I)::Integer where I 
+    return F.lookup[i]
+end;
+
+# can be used instead of reduce
+function Base.getindex(F ::Framing{I}, eng::BitVector)::Vector{<:I} where I 
+    return F.frame[eng]
+end;
+
+function Base.getindex(F ::Framing{I}, eng::Vector{Bool})::Vector{<:I} where I 
+    return F.frame[eng]
+end;
+
+
+function Base.getproperty(F ::Framing{I}, s ::Symbol) where I
+    if s === :keys
+        return keys(F.lookup)
+    elseif s === :haskey
+        return x -> haskey(F.lookup, x)
+    else
+        return getfield(F,s)
+    end
+end
 

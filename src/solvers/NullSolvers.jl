@@ -8,12 +8,12 @@
 """
 
 
-using LinearMaps
-using LinearAlgebra
+import LinearMaps
+import LinearAlgebra
 
 
 
-export NullSolver, LUSolver, SVDSolver, solve
+# export NullSolver, LUSolver, SVDSolver, solve
 export NullSolversDict
 
 abstract type NullSolver end 
@@ -27,70 +27,37 @@ abstract type NullSolver end
 
     Returns a named tuple with the singular-type values and right approximate null vectors
 """
-function solve(method::NullSolver, L::LinearMap; nd::Integer=10) end
+function solve(method::NullSolver, L::LinearMaps.LinearMap; nd::Integer=10, kwargs...) end
 
-struct SVDSolver <: NullSolver end
-struct LUSolver <: NullSolver end
-
-"""
-    Dictionary of implemented/loaded solvers
-"""
-
-NullSolversDict = Dict{Symbol, NullSolver}(
-        :SVDSolver      => SVDSolver(),
-        :LUSolver       => LUSolver(),
-        :default        => SVDSolver()
-)
-
-
-
-# Map Symbol to solver type and call solve, defaulting to SVDSolver
-function solve(L, sym::Symbol=:SVDSolver; kwargs...)
+#generate NullSolver from symbol
+function NullSolver(sym::Symbol=:default) 
     if sym in keys(NullSolversDict)
-        solver = NullSolversDict[sym]
-        return solve(solver, L; kwargs...)
+        return NullSolversDict[sym]
     else
         error("Unknown solver symbol: $sym")
     end
 end;
-    
-function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
-    println("Using SVDSolver...")
-    # Use LinearAlgebra to compute the null space of L.
-    println("Converting LinearMap to Matrix for SVD...")
-    M = Matrix(L)
-    svds = LinearAlgebra.svd(M)
-    nvals = min(nv, length(svds.S))
-    return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
-end
 
-function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = 1e-8)
-    println("Using LUSolver on Matrix...")
-    M = Matrix(L)
-    println("Performing LU Factorization...")
-    F = lu(M)
-    U = F.U
-    L = F.L
-    p = F.p  # permutation
-
-    # Determine rank and free variables
-    rank = sum(abs.(diag(U)) .> tol)
-    n = size(M, 2)
-    # free_vars = rank+1:n
-    free_vars = (n-nv+1):n
-println("Matrix rank: $rank, free variables: ", free_vars, " with tolerance $tol")
-    # Build null space basis
-    null_basis = []
-    for j in free_vars
-        v = zeros(n)
-        v[j] = 1
-        # Solve U * x = -U[:, free_vars]*v_free for pivot variables
-        rhs = -U[:, free_vars] * v[free_vars]
-        x = U[1:rank, 1:rank] \ rhs[1:rank]
-        v[1:rank] = x
-        push!(null_basis, v)
+#I think we should drop this function
+# Map Symbol to solver type and call solve, defaulting to SVDSolver
+function solve(L::LinearMaps.LinearMap, sym::Symbol=:default; kwargs...)
+    if sym in keys(NullSolversDict)
+        return solve(NullSolversDict[sym], L; kwargs...)
+    else
+        error("Unknown solver symbol: $sym")
     end
+end;
 
-    return null_basis #(;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
-end
+
+
+"""
+    Dictionary of implemented/loaded solvers
+"""
+NullSolversDict = Dict{Symbol, NullSolver}()
+
+
+
+
+
+
 

@@ -36,18 +36,35 @@ import ITensors
 
 __isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
-include("Framing.jl")
+include("chisels/Framing.jl")
+include("chisels/Chisels.jl")
+include("chisels/ChiselsConcrete.jl")
 
-include("ops/OperatorAbstract.jl")
-include("ops/OperatorLinear.jl")
-include("ops/OperatorInvertible.jl")
-include("ops/OperatorSimplify.jl")
+include("solvers/NullSolvers.jl")
+include("solvers/LinearAlgebraSolvers.jl")
+
+include("util/TensorIO.jl")
+include("util/TensorSynthesis.jl")
+
+include("localops/OperatorAbstract.jl")
+include("localops/OperatorLinear.jl")
+include("localops/OperatorInvertible.jl")
+include("localops/OperatorSimplify.jl")
+
 include("ops/ListOperatorsAbstract.jl")
 include("ops/ListOperatorsIndependant.jl")
 include("ops/ListOperatorsSymmetries.jl")
 
-include("chisels/Chisels.jl")
-include("chisels/ChiselsConcrete.jl")
+include("ops/TransverseOperators.jl")
+
+include("derivation/Derivations.jl")
+#include("derivation/SylverLinning.jl")
+
+include("plotly/Plotly.jl")
+
+# include("Convenience.jl")
+
+
 
 # # # Plotting libraries
 # # import Plots

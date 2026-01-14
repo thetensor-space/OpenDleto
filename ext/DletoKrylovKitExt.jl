@@ -14,14 +14,15 @@ struct KrylovSolver <: Dleto.NullSolver end;
 
 
 function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float64 = 1e-8)
-    println("Using KrylovSolver...")
-    nev = min(nd, size(L, 1))  # Number of eigenvalues to compute
+    # println("Using KrylovSolver...")
+    nev = min(2*nd, size(L, 1))  # Number of eigenvalues to compute
     x0 = randn(size(L, 2))     # Initial guess vector
 
     # Retry logic for convergence
     max_attempts = 5
     maxiter = 100
-    krylovdim = max(10, 2*nev)
+    # krylovdim = max(10, 2*nev)
+    krylovdim = min(10*nev, size(L, 1))
     converged = false
     
     # Initialize variables that will be set in the loop
@@ -44,7 +45,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float6
             break
         else
             # Not enough converged, increase parameters and retry
-            @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
+            # @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
             maxiter = Int(round(maxiter * 1.5))
             krylovdim = min(Int(round(krylovdim * 1.5)), size(L, 1))
             x0 = randn(size(L, 2))  # New random start
@@ -57,7 +58,15 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nd::Integer = 10, tol::Float6
             end
         end
     end
-    return (;vals=λ, vecs=vecs)
+    @show λ
+    reduced = [ λ[i] < tol for i = 1:length(λ)]
+    λ_reduced = λ[reduced]
+    vecs_reduced = vecs[reduced]
+    if length(λ_reduced) > nd
+        λ_reduced = λ_reduced[1:nd]
+        vecs_reduced = vecs_reduced[1:nd]
+    end
+    return (;vals=λ_reduced, vecs=hcat(vecs_reduced...))
 end
 
 function __init__()
@@ -65,7 +74,7 @@ function __init__()
     #register solvers
     NullSolversDict[:KrylovSolver] = KrylovSolver();
     #set as default
-    NullSolversDict[:default] = KrylovSolver();
+    # NullSolversDict[:default] = KrylovSolver();
 
 end
 

@@ -27,66 +27,70 @@
 # Exports
 # ============================================================================
 
-# Random.jl
-export randomize_tensor 
 
-# NonDegenerate.jl
-export nondeg
+# from loclaops/
 
-# DletoUtil.jl
-export ⊕
-# what is this? is this tensor product of tensors? why not \otimes?
+export Operator, LinearOperator, InvertableOperator
+# # Random.jl
+# export randomize_tensor 
 
-# Chisels.jl
-export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
-export normalize_chisel
+# # NonDegenerate.jl
+# export nondeg
 
-# ChiselImpls.jl
-export ChiselFramed, applyDerivation
+# # DletoUtil.jl
+# export ⊕
+# # what is this? is this tensor product of tensors? why not \otimes?
 
-# Operators.jl
-export Operator                             # abstract type
-export embed, unsafe_embed                  # Embed
-export coordinates, unsafe_coordinates      # Membership
-export transposeEmbed, unsafe_transposeEmbed  
-export dualize, unsafe_dualize
-export localDim, containScalars
+# # Chisels.jl
+# export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
+# export normalize_chisel
 
-# OperatorsImpls.jl
-export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
+# # ChiselImpls.jl
+# export ChiselFramed, applyDerivation
 
-# Transverse.jl
-export TransverseOps
-export embedMatrices, unsafe_embedMatrices
-export embedITensors, unsafe_embedITensors
-export embedITensorsSwapped, unsafe_embedITensorsSwapped
-export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
+# # Operators.jl
+# export Operator                             # abstract type
+# export embed, unsafe_embed                  # Embed
+# export coordinates, unsafe_coordinates      # Membership
+# export transposeEmbed, unsafe_transposeEmbed  
+# export dualize, unsafe_dualize
+# export localDim, containScalars
 
-# GlobalOperatorsIndependant.jl
-export IndTransverseOps
+# # OperatorsImpls.jl
+# export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
 
-# GlobalOperatorsSymmetries.jl
-export TransverseOpsSymmetries
+# # Transverse.jl
+# export TransverseOps
+# export embedMatrices, unsafe_embedMatrices
+# export embedITensors, unsafe_embedITensors
+# export embedITensorsSwapped, unsafe_embedITensorsSwapped
+# export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
 
-export NullSolver
+# # GlobalOperatorsIndependant.jl
+# export IndTransverseOps
 
-# DerivationMethodAbstract.jl
-export DerivationMethod, der, den
+# # GlobalOperatorsSymmetries.jl
+# export TransverseOpsSymmetries
 
-# DerivationMethodSylverLininig.jl
-export sylvesterLM, SylverLiningMethod
+# export NullSolver
 
-# Stratify.jl
-export stratify
+# # DerivationMethodAbstract.jl
+# export DerivationMethod, der, den
 
-# TensorIO.jl
-export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
-export set_compare_layout, get_compare_layout
+# # DerivationMethodSylverLininig.jl
+# export sylvesterLM, SylverLiningMethod
 
-# TensorSynthesis.jl
-export rand_den, randTensorChisel
-export ITensorNorm, ITensorNormChisel
+# # Stratify.jl
+# export stratify
 
-# TensorSynthesis3D.jl
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
-export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
+# # TensorIO.jl
+# export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
+# export set_compare_layout, get_compare_layout
+
+# # TensorSynthesis.jl
+# export rand_den, randTensorChisel
+# export ITensorNorm, ITensorNormChisel
+
+# # TensorSynthesis3D.jl
+# export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+# export distSurfaceTensor, distFaceCurveTensor, distCurveTensor

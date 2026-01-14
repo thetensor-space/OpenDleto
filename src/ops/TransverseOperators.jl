@@ -54,166 +54,145 @@ import LinearMaps
 """
 struct TransverseOps
     LOps        ::ListOperators
-    frames      ::Framing{Index}
-    framesTemp  ::Framing{Index}
-    TransverseOps(LOps::ListOperators,frames::Framing{Index},framesTemp::Framing{Index}) = (
-        #test consistency;
+    frames      ::Framing{ITensors.Index}
+    framesTemp  ::Framing{ITensors.Index}
+    TransverseOps(LOps::ListOperators,frames::Framing{ITensors.Index},framesTemp::Framing{ITensors.Index}) = (
+        #test consistency; add more verification
         @assert frames.len == framesTemp.len "Incompatible frames";
         return new(LOps,frames,framesTemp)
     )
 end; 
 
 
+swapFrames(TOp ::TransverseOps)::TransverseOps = TransverseOps(TOp.LOps, TOp.framesTemp, TOp.frames);
 
-
-
-"""
-    Return the native encoding of an operator in the transverse set,
-    or `nothing` if it is not a member.
-"""
-function coordinates(TOp::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-function coordinates(TOp::TransverseOps, ITs::Vector{ITensor} ) :: Union{Vector{<:Number}, Nothing} 
-    val = valency(TOp)
-    @assert length(ITs) == val "Incompatable Data"
-    fr = frames(TOp)
-    frT = framesTemporary(TOp) 
-    @assert all([ length(inds(ITs[i])) == 2  for i =1:val ])  "Incompatable Data"
-    @assert all([ 
-            ((inds(ITs[i])[1] == fr[i]) || (inds(ITs[i])[1] == frT[i])) && 
-            ((inds(ITs[i])[2] == fr[i]) || (inds(ITs[i])[2] == frT[i])) && 
-            (inds(ITs[i])[1] != inds(ITs[i])[2]) 
-        for i =1:val ])  "Incompatable Data"
-    return coordinates(TOp, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
+function embedITensors(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensors.ITensor}
+    val = TOp.frames.len
+    Mats = embedMatrices(TOp.LOps, data)
+    return [ ITensors.ITensor(Mats[i], TOp.frames[i], TOp.framesTemp[i]) for i =1:val]
 end;
 
-function unsafe_coordinates(TOp::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-unsafe_coordinates(TOp::TransverseOps, ITs::Vector{ITensor} ) :: Vector{<: Number} = 
-    unsafe_coordinates(TOp, ITs.|> __asMatrix);
-# this is the inverse of the embed map
-
-function transposeEmbed(TOp::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number}
-    val = valency(TOp)
-    @assert length(Mats) == val "Incompatable Data"
-    localdims= axisDims(TOp) 
-    @assert all([ size(Mats[i])[1] == localdims[i]  for i =1:val ])  "Incompatable Data"
-    @assert all([ size(Mats[i])[2] == localdims[i]  for i =1:val ])  "Incompatable Data"
-    return unsafe_transposeEmbed(TOp, Mats)  
+function unsafe_embedITensors(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensors.ITensor}
+    val = TOp.frames.len
+    Mats = unsafe_embedMatrices(TOp.LOps, data)
+    return [ ITensors.ITensor(Mats[i], TOp.frames[i], TOp.framesTemp[i]) for i =1:val]
 end;
 
-function transposeEmbed(TOp::TransverseOps, ITs::Vector{ITensor}) :: Vector{<:Number}
-    val = valency(TOp)
-    @assert length(ITs) == val "Incompatable Data"
-    fr = frames(TOp)
-    frT = framesTemporary(TOp) 
-    @assert all([ length(inds(ITs[i])) == 2  for i =1:val ])  "Incompatable Data"
-    @assert all([ 
-            ((inds(ITs[i])[1] == fr[i]) || (inds(ITs[i])[1] == frT[i])) && 
-            ((inds(ITs[i])[2] == fr[i]) || (inds(ITs[i])[2] == frT[i])) && 
-            (inds(ITs[i])[1] != inds(ITs[i])[2]) 
-        for i =1:val ])  "Incompatable Data"
-    return unsafe_transposeEmbed(TOp, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
-end;
-
-function unsafe_transposeEmbed(TOp::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-unsafe_transposeEmbed(TOp::TransverseOps, ITs::Vector{<:ITensor}) :: Vector{<:Number} =
-    unsafe_transposeEmbed(TOp, ITs.|> __asMatrix);
-# this is the transpose of the embed map
-
-"""
-    Convert the native encoding of an operator into matrices.
-"""
-function embedMatrices(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}  
-    @assert length(data) == globalDim(TOp) "Incompatable Data"
-    unsafe_embedMatrices(TOp,data)
-end;
-
-function unsafe_embedMatrices(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-function embedITensors(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
-    @assert length(data) == globalDim(TOp) "Incompatable Data"
-    unsafe_embedITensors(TOp,data)
-end;
-
-function unsafe_embedITensors(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-function embedITensorsSwaped(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
-    @assert length(data) == globalDim(TOp) "Incompatable Data"
-    unsafe_embedITensorsSwapped(TOp,data)
-end;
-
-function unsafe_embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-"""
-    dimension of the vectors in the encoding
-"""
-function globalDim(TOp::TransverseOps)::Integer 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-function axisDims(TOp::TransverseOps)::Vector{<:Integer} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-
-function valency(TOp::TransverseOps)::Integer 
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-function frames(TOp::TransverseOps)::Vector   #should be Vector{Index}
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
-function framesTemporary(TOp::TransverseOps)::Vector  #should be Vector{Index}
-    @assert false "Calling Placeholder Abstract Function"
-end;
-
+#ToDo
 function reduceByEngaged(TOp::TransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 
-# no needed
-# function engaged(TOp::TransverseOps)::Vector{Bool} 
-#     @assert false "Calling Placeholder Abstract Function"
-# end;
+# #no need it is better to flip the frames inthe trnasverse op
+# function embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
+#     val = TOp.frames.len
+#     Mats = embedMatrices(TOp.LOps, data)
+#     return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
+# end
 
-#probably needs to be moved somewhere else
-function __asMatrix(T::ITensor)::AbstractMatrix
-    fr = inds(T)
-    n = ITensors.dim(fr[1])
-    m = ITensors.dim(fr[2])
-    A = zeros(eltype(T),n,m)
-    for ci in CartesianIndices(A)
-        A[ci] = T[ci]
+# function unsafe_embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
+#     val = TOp.frames.len
+#     Mats = unsafe_embedMatrices(TOp.LOps, data)
+#     return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
+# end
+
+
+function transposeEmbed(TOp::TransverseOps, ITs ::Vector{ITensors.ITensor})::Vector{<:Number}
+    # reorder the tensors 
+    @assert isLinear(TOp.LOps) "The transverse Op must be linear"
+    D = Dict{ITensors.Index, Matrix}()
+    for i in 1:length(ITs)   
+        axises = ITensor.inds(ITs[i])
+        @assert length(axises) == 2 "Incompatable Data"
+        j=0
+        if TOp.frames.haskey(axises[1])
+            j =  TOp.frames[axises[1]]
+            @assert TOp.frames[j] == axises[1] "Incompatable Data"
+            @assert TOp.framesTemp[j] == axises[2] "Incompatable Data"
+        else
+            @assert TOp.frames.haskey(axises[2])
+            j =  TOp.frames[axises[2]]
+            @assert TOp.frames[j] == axises[2] "Incompatable Data"
+            @assert TOp.framesTemp[j] == axises[1] "Incompatable Data"
+        end
+        D[TOp.frames[j]] = Array(ITs[i], TOp.frames[j], TOp.framesTemp[j])
     end
-    return A
-end;
+    Mats = toVector(TOp.frames, D)
+    return transposeEmbed( TOp.LOps, Mats)
+end
 
-function __asMatrixTranspose(T::ITensor)::AbstractMatrix
-    fr = inds(T)
-    n = ITensors.dim(fr[1])
-    m = ITensors.dim(fr[2])
-    A = zeros(eltype(T),m,n)
-    for ci in CartesianIndices(A)
-        A[ci] = T[ci[2],ci[1]]
+#public constructors
+function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol},tag::String="temp") ::TransverseOps
+    @assert length(axises)==length(s) "not compatible"
+    t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
+    axisDims = ITensors.dim.(axises) 
+    localOps = Operator.(s) 
+    frames = Framing{ITensors.Index}(axises)
+    t_frames = Framing{ITensors.Index}(t_axises)
+    return TransverseOps( IndListOperators(axisDims, localOps) ,frames,t_frames)
+end
+
+
+function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol}, symmetries ::Vector{<:Integer}, tag::String="temp")::TransverseOps
+    @assert length(axises)==length(s) "not compatible"
+    t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
+    axisDims = ITensors.dim.(axises) 
+    localOps = Operator.(s) 
+    frames = Framing{ITensors.Index}(axises)
+    t_frames = Framing{ITensors.Index}(t_axises)
+    return TransverseOps( SymListOperators(axisDims, localOps, symmetries) ,frames,t_frames)
+end
+    
+TransverseOps(axises::Vector{<:ITensors.Index}, s::Symbol,tag::String="temp")::TransverseOps = 
+    TransverseOps(axises, [s for a in axises], tag);
+    
+
+function TransverseOps(Γ::ITensors.ITensor, s::Symbol,tag::String="temp")::TransverseOps 
+    axises = vcat(ITensors.inds(Γ)...)
+    TransverseOps(axises, [s for a in axises], tag);
+end
+
+# assumes that the ITensors are in order
+unsafe_transposeEmbed(TOp::TransverseOps, ITs ::Vector{ITensors.ITensor})::Vector{<:Number} = 
+    unsafe_transposeEmbed(
+        TOp.LOps, 
+        [ Array(ITs[i], TOp.frames[i], TOp.framesTemp[i])  for i =1:val] 
+    );
+
+
+
+# May be we need coordinates???
+
+function changeBasis(Γ::ITensors.ITensor, TOp::TransverseOps, data::Vector{<:Number}, keep::Bool=false):: NamedTuple{(:Σ, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}}
+    val = TOp.frames.len
+    inds = ITensors.inds(Γ)
+    @assert isInvertible(TOp.LOps) "Only inverible Transverse Ops can change basis"
+    @assert all([ TOp.frames[i] in inds  for i = 1:val ] ) "Incompatable itensors"   
+    @assert all([ !(TOp.framesTemp[i] in inds)  for i = 1:val ] ) "Incompatable itensors"   
+    Xs = embedITensors(TOp,data)
+    Δ = Γ
+    for i in 1:val
+        Δ *= Xs[i]
+        # Δ = Δ * Xs[i]
     end
-    return A
-end;
+    if keep 
+        for i in 1:val
+            ITensors.replaceindex!(Δ,TOp.framesTemp[i],TOp.frames[i])
+        end
+    end
+    return (;Σ=Δ, Xs=Xs)
+end
 
-# function to create temp index
-function __globalOpsMakeTempIndex(I::Index)::Index
-    return Index(ITensors.dim(I),"Site:Der,$I")
+changeBasisRandom(Γ::ITensors.ITensor, TOp::TransverseOps, keep::Bool=false):: NamedTuple{(:Σ, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}} = 
+    changeBasis(Γ, TOp, generate_random(TOp.LOps), keep)
+
+
+
+
+
+#simplfyTo
+function simplifyTo(TOp::TransverseOps)::NamedTuple{(:D, :T), Tuple(TransverseOps,TransverseOps)} 
+    res =  simplifyTo(TOp.LOps)
+    return (D = TransverseOps(res.D, TOp.frames, TOp.framesTemp), T = TransverseOps(res.T, TOp.frames, TOp.framesTemp) ) 
 end;

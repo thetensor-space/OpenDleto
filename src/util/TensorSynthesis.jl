@@ -24,57 +24,6 @@
 # SOFTWARE.
 # 
 
-using ITensors
-
-
-"""
-__randomize_tensor(t::ITensor,f::Function, extratags)
-
-Randomize ITensor by generating random transformations for each axis using the function f
-add extra tags to the axis 
-""" 
-function __randomize_tensor(Γ::ITensor,f::Function,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}}
-    frame = inds(Γ)
-    matrices = f(frame)
-    X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
-    return (;Γ=(Γ*X), X)
-end
-# I am applying f to the list of axis, 
-# because I want to be able to make transformations to be the same if the axis are the same
-# this is an internal function
-
-"""
-randomizeITensorSimilar(t::ITensor,f::Function)
-
-Randomize ITensor by generating random transformations for each axis using the function f
-""" 
-randomizeITensorSimilar(
-    Γ::ITensor,
-    f::Function,
-    extratags="randomized"
-    )::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = __randomize_tensor(Γ, x-> x.|>f ,extratags);
-
-# __randomize_tensor(Γ, x-> x.|>f ,extratags);
-
-
-randomizeITensorOthorgonal(Γ::ITensor,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(Γ, randomOrthogonalMatrix);
-
-randomizeITensorOthorgonal(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(ArrayToITensor(t), randomOrthogonalMatrix);
-
-randomizeArrayOthorgonal(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(ArrayToITensor(t), randomOrthogonalMatrix);
-
-randomizeITensorInvertible(Γ::ITensor,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(Γ, randomInvertibleMatrix);
-
-randomizeITensorInvertible(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(ArrayToITensor(t), randomInvertibleMatrix);
-
-randomizeArrayInvertible(t::AbstractArray,extratags="randomized")::NamedTuple{(:Γ, :X),Tuple{ITensor, Vector{ITensor}}} = 
-randomizeITensorSimilar(ArrayToITensor(t), randomInvertibleMatrix);
-
 
 #-------------------------------
 # generate a tensor with support restricted by a distace function
@@ -84,54 +33,48 @@ randTensorSupport(deltas::Vector{Vector}, frames::Vector{Index}, cutoff::Number,
 
 Generate a random tensor with supported on the constarint  dist(...) < cutoff
 """
-function rand_den(
+function randomTensorSupport(
         # deltas::Vector{Vector{K}} where K <: Number,
         # frames::Vector{Index{L}} where L,
         deltas::Vector{<:Vector{<:Number}},
-        frames::Vector{<:Index},
-        cutoff::Number,
-        dist::Function
-    )::ITensor
-    
+        frames::Vector{<:ITensors.Index},
+        dist::Function;
+        cutoff::Float64=1e-6
+    )::ITensors.ITensor
     val = length(deltas)
+    # @show val
     sizes = Tuple(length.(deltas))
+    # @show sizes
+    # @show frames
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
     @assert all([ITensors.dim(frames[i]) == length(deltas[i])  for i=1:val])  "Ambiguous frame matching: length of list of frames must match array of deltas"
-
-# MDK: add option to change the type of the entries
-# it should be more efficient to generate it as zero ITensor and then add entries
-    A = ITensor(frames...)
+    A = ITensors.ITensor(frames...)
     for ci in CartesianIndices(sizes)
         if dist([deltas[i][ci[i]] for i =1:val] ) < cutoff
             A[ci] = randn()
         end
     end
     return A
-    # res = zeros(Float64,sizes... )
-    # for ci in CartesianIndices(res)
-    #     if dist([deltas[i][ci[i]] for i =1:val] ) < cutoff
-    #         res[ci] = randn()
-    #     end
-    # end
-    # return ITensor(res, frames...)
 end
 
-
-
-rand_den(deltas::Vector{<:Vector{<:Number}},cutoff::Number,dist::Function)::ITensor =
-rand_den(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
-
-
-randTensorChisel(deltas::Vector{<:Vector{<:Number}}, frames::Vector{<:Index}, cutoff::Number, ch::Matrix)::ITensor = 
-rand_den(deltas,frames,cutoff, x -> __dist(ch, x));
-
-randTensorChisel(deltas::Vector{<:Vector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
-rand_den(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> __dist(ch, x));        
+function randomTensorChisel(deltas::Vector{<:Vector{<:Number}}, frames::Vector{<:ITensors.Index}, ch::Chisel; cutoff::Float64=1e-6 )::ITensors.ITensor  
+    newchisel = extend_chisel(ch, frames)
+    return randomTensorSupport(deltas, frames, x -> LinearAlgebra.norm(evaluate_chisel(newchisel,x)) ;cutoff=cutoff)
+end
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
-function ITensorNorm(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, dist::Function)::Number
-    frames=inds(Γ)
+"""
+    measures how colse the suport of T is to the zero set of function dsit
+    returns a named tuple is 
+        norm    -- number between 0,1 where 0 means that the suport of T is inside the zero set of dist
+        Tmass   -- L2 norm of the T squared
+        dmass   -- L2 norm of tensor with entries dist function, squared
+        dot     -- dot product of the above two vectors
+                    norm is cosine of the angle between the vectors 
+""" 
+function normTensorSupport(T ::ITensors.ITensor, deltas::Vector{<:Vector{<:Number}}, dist::Function)
+    frames=ITensors.inds(T)
     val = length(deltas)
     sizes = Tuple(deltas .|> length)
     @assert length(frames) == val "Ambiguous frame matching: length of list of frames must match array of deltas"
@@ -139,24 +82,17 @@ function ITensorNorm(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, dist::Fun
     res = [ 
         let 
             d= dist([deltas[i][ci[i]] for i =1:val] )
-            [Γ[ci] * Γ[ci], abs( Γ[ci] * d ), d * d ] 
+            [T[ci] * T[ci], abs( T[ci] * d ), d * d ] 
         end
         for ci in CartesianIndices(sizes)] |> sum
-    return res[2]*res[2]/(res[1] * res[3] + 1e-15) 
-    # mass = 0.0
-    # distance = 0.0
-    # product = 0.0
-    # for ci in CartesianIndices(sizes)
-    #     mass += Γ[ci] * Γ[ci]
-    #     d= dist([deltas[i][ci[i]] for i =1:val] )
-    #     distance += abs( Γ[ci] * d ) 
-    #     product +=  d * d 
-    # end
-    # return distance*distance/(mass * product + 1e-15) 
+    return ( norm = res[2]*res[2]/(res[1] * res[3] + 1e-15), Tmass= res[1], dmass=res[3], dot=res[2] )
 end;
 
-ITensorNormChisel(Γ ::ITensor, deltas::Vector{<:Vector{<:Number}}, ch::Matrix)::Number=
-ITensorNorm(Γ,deltas, x -> __dist(ch, x) );
-
+function normTensorChisel(T ::ITensors.ITensor, deltas::Vector{<:Vector{<:Number}}, ch::Chisel)
+    frames=ITensors.inds(T)
+    newchisel = extend_chisel(ch, vcat(frames...) )
+    return normTensorSupport( T, deltas, x -> LinearAlgebra.norm(evaluate_chisel(newchisel,x)))
+end;
+# TODO add type of the result as named tuple
 
 

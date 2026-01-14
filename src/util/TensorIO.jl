@@ -25,34 +25,17 @@
 
 # module TensorIO
 
-const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
-
-function set_compare_layout end
-
-function get_compare_layout end 
-
-function plot_layout end 
-
 """
     normalize_tensor(t::ITensor)
 
     Normalize the tensor `t` so that its Frobenius norm is 1. If the norm is zero, 
     returns the tensor unchanged.
 """
-function normalize_tensor(t::ITensor)
-    norm_factor = norm(store(t))
-    if norm_factor == 0
-        return t
-    else
-        return t / norm_factor
-    end
-end
+function normalize_tensor(T::ITensors.ITensor)
+    norm_factor = norm(T)
+    return isapprox(norm_factor, 0.0) ? T : T / norm_factor
+end;
 
-
-
-function compare end
-
-side_by_side = compare
  
 """
     load_tensor(filename::String) -> ITensor
@@ -62,7 +45,7 @@ side_by_side = compare
     i j k value
     where i, j, k are the indices and value is the tensor entry at that position.
 """
-function load_tensor(filename::String)::ITensor
+function load_tensor(filename::String)::ITensors.ITensor
     # Read the file and parse entries
     entries = []
     max_dims = []
@@ -97,7 +80,7 @@ function load_tensor(filename::String)::ITensor
     # create a sparse array to hold the tensor data
     axes = [Index(max_dims[a], "x_$a") for a in 1:valence]
     # Create ITensor from array
-    Γ = ITensor(axes...)
+    Γ = ITensors.ITensor(axes...)
     for (is, val) in entries
         Γ[(axes[a] => is[a] for a in 1:valence)...] = val
     end
@@ -107,7 +90,7 @@ end
 
 
 """
-    save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
+    save(tensor::ITensor, filename::String; threshold::Float64=1e-3)
 
     Save the tensor to a file in sparse format, writing only entries 
     whose absolute value exceeds the given threshold.
@@ -116,7 +99,7 @@ end
     - `filename`: The name of the output file
     - `threshold`: Minimum absolute value for entries to be saved (default: 1e-3)
 """
-function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
+function save(tensor::ITensors.ITensor, filename::String; threshold::Float64=1e-3)
     open(filename, "w") do file
         dims = size(tensor)
         println(file, "# i j k value")
@@ -128,6 +111,4 @@ function save(tensor::ITensor, filename::String, threshold::Float64=1e-3)
         end
     end
 end
-
-function plot_tensor end
 

@@ -58,6 +58,7 @@ struct OrthogonalOp <: InvertableOperator end;
 struct OnlyIdOp <: InvertableOperator end; 
 
 #registe operators
+InvertableOperatorsDict[:default] = InvertableOp(); 
 InvertableOperatorsDict[:InvertableOp] = InvertableOp(); 
 InvertableOperatorsDict[:OrthogonalOp] = OrthogonalOp(); 
 InvertableOperatorsDict[:OnlyIdOp] = OnlyIdOp(); 

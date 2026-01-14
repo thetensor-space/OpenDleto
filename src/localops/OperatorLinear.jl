@@ -62,9 +62,16 @@ struct ScalarOp <: LinearOperator end;
     Empty Matrices
 """
 struct EmptyOp <: LinearOperator end; 
-# this gives errors when combined with symmetries, no idea why
+
+# implement later
+# """
+#     Circulant Matrices
+# """
+# struct CirculantOp <: LinearOperator end; 
+
 
 #registe operators
+LinearOperatorsDict[:default] = UniversalOp()
 LinearOperatorsDict[:UniversalOp] = UniversalOp()
 LinearOperatorsDict[:DiagonalOp] = DiagonalOp()
 LinearOperatorsDict[:SymmetricOp] = SymmetricOp()
