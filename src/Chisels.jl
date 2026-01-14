@@ -1,0 +1,179 @@
+#
+# Strata Dleto: Chisels
+#   Creation and adaptation of chisels for tensor decomposition.
+#
+# -----------------------------------------------------------------------------
+# Copyright 2022-2026 Peter A. Brooksbank, Martin D. Kassabov, James B. Wilson
+# 
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the “Software”), 
+# to deal in the Software without restriction, including without limitation the 
+# rights to use, copy, modify, merge, publish, distribute, sublicense, and/or 
+# sell copies of the Software, and to permit persons to whom the Software is 
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in 
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+# SOFTWARE.
+#-----------------------------------------------------------------------------
+
+
+#TODO replace Matrix with AbstractMatrix
+
+"""
+    Chisels
+
+    Data types and constructors for the constraint equations of derivations
+    for specified chisels and operators.  The selection of operators is done
+    through the `TransverseOperators.jl` module.
+        
+    This module exports:
+    - `UniversalChisel`: fully engaged universal operators
+    - `TuckerChisel`: tucker-type operators
+    - `AdjointChisel`: adjoint-type operators
+    - `CentroidChisel`: centroid-type operators
+    - `NormalizeChisel`: replace a chisel with equivalent one to improve numerical stability
+
+"""
+
+
+"""
+     Create a universal chisel with selected engaged axes.
+"""
+function engaged(P::Matrix, cutoff::Float64=1e-6)::Vector{Bool}
+    valence = size(P, 2)
+    engaged = [ any(P[:,a] .|> ( x -> abs(x) >cutoff )) for a in 1:valence ]
+    return engaged
+end
+
+
+"""
+    Replace chisel with equivalent one to improve stability.
+"""
+function normalize_chisel(P::Matrix, cutoff::Float64=1e-6)::Matrix
+    E=engaged(P)
+    TE = TuckerChisel(E)
+    svddecom = LinearAlgebra.svd(P*TE')
+    num = sum( svddecom.S .|> ( x -> abs(x) > cutoff))
+    RC =  svddecom.Vt[1:num,:]
+    return RC * TE
+end
+# MDK: I think it might be better to normalize using dimensions of the tensor, 
+# but I do not know what is the best way to do that 
+
+
+"""
+    Evaluate chisel on a vector, used to estimate the distance between the point and the surface.
+"""
+function __dist(P::Matrix, delta::Vector)::Number
+    return P*delta .|> (x -> x*x) |> sum |> sqrt 
+end;
+
+
+
+#-------------------------------Chisel Constructors-------------------------------------
+
+"""
+    Create a universal chisel with selected engaged axes.
+"""
+function UniversalChisel(engaged::Vector{Bool})::Matrix
+    P = zeros(1, length(engaged) )
+    for i = 1:length(engaged)
+        if engaged[i]
+            P[1,i] = 1
+        end
+    end
+    # s = sum(polynomials .^ 2)
+    # if s == 0
+    #     return polynomials
+    # end
+    # norm = 1/sqrt(sum(polynomials .^ 2))
+    # polynomials .*= norm
+    return P
+end;
+
+"""
+    Create a universal chisel with all axes engaged.
+"""
+UniversalChisel(valence::Integer) = UniversalChisel([ true for _ in 1:valence ]); 
+# function UniversalChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return UniversalChisel(engaged)
+# end;
+
+
+"""
+    Create a Tucker chisel with selected engaged axes.
+"""
+function TuckerChisel(engaged::Vector{Bool})::Matrix  
+    valence = length(engaged)
+    e = sum(engaged)
+    P = zeros( e, valence )
+    row = 1
+    for a in 1:valence
+        if engaged[a]
+            P[row,a] = 1.0
+            row += 1
+        end
+    end
+    return P
+end
+
+"""
+    Create a Tucker chisel with all axes engaged.
+"""
+TuckerChisel(valence::Integer) = TuckerChisel([ true for _ in 1:valence ]);
+# function TuckerChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return TuckerChisel(engaged)
+# end;
+
+"""
+    Create a adjoint chisel with two axes engaged.
+"""
+function AdjointChisel(valence::Integer, left::Integer, right::Integer)::Matrix  
+    P = zeros(1, valence )
+    P[1, left] = 1.0
+    P[1, right] = -1.0
+    return P
+end;
+
+"""
+    Create a Centroid chisel with selected engaged axes.
+"""
+function CentroidChisel(engaged::Vector{Bool})::Matrix  
+    valence = length(engaged)
+    is = [ i for i in 1:valence if engaged[i] ]
+    e = length(is)
+    P = zeros( e*(e-1) ÷ 2, valence )
+    row = 1    
+    for a in is 
+        for b in is
+            if a < b
+                P[row, a] = 1.0
+                P[row, b] = -1.0
+                row += 1
+            end
+        end
+    end    
+    return P
+end;
+
+"""
+    Create a Centroid chisel with all axes engaged.
+"""
+CentroidChisel(valence::Integer) = CentroidChisel([ true for _ in 1:valence ])
+# function CentroidChisel(valence::Integer)::Matrix  
+#     engaged = [ true for _ in 1:valence ]
+#     return CentroidChisel(engaged)
+# end;
+
+
+# end # module Chisels

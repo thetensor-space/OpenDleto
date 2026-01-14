@@ -1,22 +1,24 @@
 # OpenDleto <!-- omit from toc -->
-Dleto, which means chisel, is a package of tools to carve information out of tensor data. 
-
-If you want to try the notebooks in your browser without installing anything, click on the **launch binder** buttons. If you have a background in using Jupyter notebooks and have a recent installation of Julia you can get started.
-
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fgeometry%2FSphereLab.ipynb) [Sphere Lab](labs/geometry/SphereLab.ipynb) recovering an underlying pattern of a surface from a random point cloud, like a hidden Fourier Transform.  If you want to just read the results instead, try: [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf)
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fclusters%2FClusterLab.ipynb) [Cluster Lab](labs/clusters/ClusterLab.ipynb) recovering clusters in high-dimensional data. 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fhypergraphs%2FHypergraphLab.ipynb) [Hypergraph Lab](labs/hypergraphs/HypergraphLab.ipynb) locating structure in hypergraphs.
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2Fdata%2FToyDataLab.ipynb) [Toy data lab](labs/data/ToyDataLab.ipynb) use real data about toys to explore potential data science applications of Dleto.
-
-
+Dleto, which means chisel, is a package of tools to detect and recover structure in tensor data. The allusion to chiseling comes from the control the package affords the user to choose the "shape" of the hidden structure they seek.
 Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
 
+In addition to giving access to the Julia source code for our implemetation, `OpenDleto` provides several Jupyter notebooks that showcase chiseling tools.
+You can open Jupyter notebooks in your browser without installing anything simply by clicking on the **launch binder** buttons below. These notebooks allow you to explore the functionality of `OpenDleto` immediately with just a recent installation of Julia.
+
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FChiseling101.ipynb) The notebook [Chiseling101](labs/Chiseling101.ipynb) walks you through the basic functionality of the `OpenDleto` package. It shows how to set parameters to remove redunduncies, recover block decompositions, and detect continuous structures in tensor data.
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FSphereLab.ipynb) The [Sphere Lab](labs/SphereLab.ipynb) shows how to recover a surface pattern&mdash;that could, say, be an artefact of a hidden fourier transform&mdash;underlying a seemingly random point cloud. To view just the results of the experiment, you can look at [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf).
+
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2FWhatWeEatInAmerica.ipynb) The notebook [WhatWeEat](labs/WhatWeEatInAmerica.ipynb) shows how `OpenDleto` can be deployed on real data sets&mdash;in this case, nutrition data from a study called "What We Eat In America"&mdash;to extract 
+ substantive information. 
 
 ## Contents
 
-- [Contents](#contents)
-- [What can we find?](#what-can-we-find)
-- [Install](#install)
+<!--- [Contents](#contents)-->
+- [What `OpenDleto` Does](#What-OpenDleto-Does)
+- [Installation Guide](#Installation-Guide)
 - [Our Team](#our-team)
 - [Acknowledgments](#acknowledgments)
 - [Samples](#samples)
@@ -25,17 +27,13 @@ Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about th
   - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
   - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
 
-## What can we find?
-Using the algebra of operators on tensors, Dleto methods determine change of coordinates relative to which tensor data is supported on a smaller valence.  
-
-For a 3-tensor represented as a point cloud 
+## What `OpenDleto` Does
+Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal hidden structure. This could manifest as a clustering of data into blocks, often revealing a lower valence support. For instance, given a 3-tensor represented as a point cloud 
 <center>
 <img src="docs/images/colossus-X-random.png" style="width:65%">
 </center>
-
-this means a to cluster the data near a block array of 2-tensors. 
-
-Here are some examples of what this can look like:
+`OpenDleto` can reveal that data clusters in 
+any of the following ways:
 
 | [Strata](#strata) | [Channels](#channels) |
 |---------------------|----------------|
@@ -47,33 +45,47 @@ Here are some examples of what this can look like:
 |------------------|----------------|
 | <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
 
+## Installation Guide
 
+Dleto is now a Julia package! You can install it in several ways:
 
-## Install
+### Option 1: From Local Directory (Development)
 
-We have packaged the essentials into a single file `Delto.jl` having rudimentary but stand-alone implementations of some of the chiseling methods.  You may download that file alone, but you may also benefit from using the examples in `examples/..`.  Start with `examples/Demo.jl`.
-
- - A recent installation of the Julia Language is needed (ver. 1.7.0 or later seems to be compatible with the features required for `OpenDleto`).  If you do not have an installation of Julia, follow the installation instructions for the Julia system available [here](https://julialang.org/).
- - Clone or Download the `OpenDleto` release from github [here](https://github.com/thetensor-space/OpenDleto).  Make sure `julia` can be run from whatever folder contains your `OpenDleto` download, typically by ensuring that `julia` is in the path of your operating system shell.
- - From the command line start julia and load the `OpenDleto` package by using `include("$path$/OpenDleto/Dleto.jl")`
----
-The functions mostly require standard Julia packages like `Random` and `LinearAlgebra`. The only other requirement is the package `Arpack` which will be installed automatically by the include command above. It is recommended that this package is manually installed; the following are commented out of `Dleto.jl` (lines 5 & 6):
+First clone or download this repository and then run:
 
 ```julia
-julia> import Pkg
-julia> Pkg.add("Arpack")
+using Pkg
+Pkg.develop(path="/path/to/OpenDleto")
+using Dleto
 ```
 
-The code can be used without `Arpack` but it will run significantly 
-more slowly. To do so, one must comment out the function `ArpackEigen` (lines 274-282) and change the default function from `ArpackEigen` to `LinearAlgebraEigen` in the function `toSurfaceTensor`, `toFaceCurveTensor` and `ToCurveTensor` (lines 358, 396  and 436)
+### Option 2: Direct from GitHub
 
+```julia
+using Pkg
+Pkg.add(url="https://github.com/thetensor-space/OpenDleto")
+using Dleto
+```
 
-Our algorithms are provided in a number of platforms.   
-  * The bleeding edge algorithms are developed for, and tested in the [Magma] Computer Algebra System (http://magma.maths.usyd.edu.au/magma/).  Core tensor algorithms are distributed with that system. Further information about extensions and experimental additions can be found at [TheTensor.Space](https://TheTensor.Space/).
-  * Python access is available to core algorithms through [SageTensorSpace](https://github.com/thetensor-space/SageTensorSpace) for the [Sage Math](https://www.sagemath.org/) (in Python).
-  * [Julia](https://julialang.org/) language port is being developed as [OpenDelto](https://github.com/thetensor-space/OpenDleto).
+### Option 3: For Development/Testing
 
-The algorithms presented in this tutorial are for instructional purposes.  For detailed treatments and improved performance follow the attached references.
+To work on the package:
+
+```julia
+using Pkg
+Pkg.activate(".")  # From OpenDleto directory
+Pkg.instantiate()  # Install dependencies
+using Dleto
+```
+
+### Requirements
+
+ - Julia 1.12 or later
+ - Dependencies (installed automatically):
+   - `Arpack` - for fast SVD computations
+   - `ITensors` - for tensor backedn
+   - `PlotlyJS` - for visualization
+
 
 ---
 
@@ -83,18 +95,27 @@ We invite you explore the repository and join our team.  We welcome and encourag
 
 |                                                                              | Name                | Username                         | Affiliation                |
 -------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
-<img src="https://avatars.githubusercontent.com/galois60" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
+<img src="https://avatars.githubusercontent.com/brooksbankpa" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
 <img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov, Ph.D.     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
 <img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>      | Joshua Maglione, Ph.D. | [`@joshmaglione`](https://github.com/joshmaglione)                | University of Galway |
 <img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
 <img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson, Ph.D.     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+
+## Collaborators
+
+Several other researchers have used `OpenDleto` tools and ideas to develop their own projects, including:
+<ul>
+<li>Clara Chaplin (Bucknell University), currently with Dell Technologies.</li>
+<li>Gavin Moore (Bucknell University).</li>
+</ul>
+
 
 
 ## Acknowledgments
 
 The project has received partial support from the following granting organizations:
 
-**Portions of the project sponsored by:**
+<!-- **Portions of the project sponsored by:** -->
  * The National Science Foundation (USA) to Peter A. Brooksbank (DMS-1620454), to Martin Kassabov (DMS-1620454) to James B. Wilson (DMS-1620454).
  * The Simons Foundation to Peter A. Brooksbank (281435) to Martin Kassabov, and to James B. Wilson (636189).
  * The National Security Agency Math Sciences Program to Peter A. Brooksbank (Grant Number H98230-11-1-0146) to James B. Wilson (Grant Number H98230-19-1-00).
@@ -112,6 +133,8 @@ research on related projects over the years:
  
 
 ---
+
+<!--
 
 ---
 
@@ -150,3 +173,5 @@ We recommend that these functions are applied only to non-degenerate tensors (i.
 
 The functions have not been tested on abstract arrays. If the input is a sparse tensor represented as some `AbstractArray`, it might be necessary to 
 first convert it to a normal `Array`.   
+
+-->
