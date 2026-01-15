@@ -66,7 +66,7 @@ syms = [ [1,1,1,1], [1,1,3,3,5,5], [1,2,1,2,2,1], [1,2,3,-1,2,3], [1,2,-2,-2,5,-
                     if reducedval==0
                         continue
                     end
-                    res = Dleto.reduceByEngaged(LOp, eng)
+                    res = Dleto.reduceBy(LOp, eng)
                     rLOp=res.rLOp
                     @test testSimplify(rLOp, 100)
                 end

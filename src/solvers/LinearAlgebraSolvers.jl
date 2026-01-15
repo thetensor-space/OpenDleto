@@ -28,7 +28,7 @@ function solve(::EigenSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Fl
     if (length(vals)) < nd || (nd < 0)
         return (; vals=vals, vecs=vecs )
     else
-        return (; vals=vals[1:nv], vecs=vecs[:,1:nv] )
+        return (; vals=vals[1:nd], vecs=vecs[:,1:nd] )
     end
 end
 

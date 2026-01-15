@@ -45,6 +45,7 @@ include("solvers/LinearAlgebraSolvers.jl")
 
 include("util/TensorIO.jl")
 include("util/TensorSynthesis.jl")
+include("util/Nondegenerate.jl")
 
 include("localops/OperatorAbstract.jl")
 include("localops/OperatorLinear.jl")
@@ -73,53 +74,6 @@ include("Convenience.jl")
 # # import PlotlyBase
 # # import PlotlyKaleido
 
-# # ============================================================================
-# # Exported Functions and Types
-# # ============================================================================
-
-# include("DletoExports.jl")
-
-# # ============================================================================
-# # Includes
-# # ============================================================================
-
-# include("DletoBase.jl")
-
-# # Fundamental Dleto Structures
-#     # Chisels
-#     include("Chisels.jl")   
-#     # Operator
-#     include("Operators.jl")
-#     # Transverse Operators
-#     include("TransverseOperators.jl")
-#     # Derivation Methods
-#     include("Derivations.jl")
-#     # Densors
-#     include("Densors.jl")
-
-# # Implementations
-#     # Chisel Implementations
-#     include("chisels/ChiselImpls.jl")
-#     # Operator Implementations 
-#     include("ops/OperatorImpls.jl")
-#     # Transverse Operator Implementations
-#     include("ops/TransverseOpsIndependant.jl")
-#     include("ops/TransverseOpsSymmetries.jl")
-#     # Sylver Lining Derivation Method
-#     include("SylverLining/SylverLininig.jl")
-#     # [COMING SOON] QuickSylver
-#     include("solvers/NullSolvers.jl")
-
-# # Supporting Utilities
-#     # Tensor IO
-#     include("util/TensorIO.jl")
-#     # Randomization and Distance Functions
-#     include("util/Random.jl")
-#     # Tucker & HoSVD
-#     include("util/Nondegenerate.jl")
-#     # Tensor Synthesis
-#     include("util/TensorSynthesis.jl")
-#     include("util/TensorSynthesis3D.jl")
 
 # ============================================================================
 # Module Initialization
@@ -127,7 +81,8 @@ include("Convenience.jl")
 
 function __init__()
     # Suppress WebIO warnings
-    ENV["WEBIO_WARN"] = "false"    
+    ENV["WEBIO_WARN"] = "false"   
+    println("Loading Dleto Package") 
 end
 
 end # module Dleto

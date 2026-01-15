@@ -43,7 +43,8 @@ function simplifyUsingDerivation(T::ITensors.ITensor, DP::DerivationProblem, der
     chTensor = changeBasis(T, TTOp, tder; keep=true)
     Ds = embedITensors(DTOp,dder)
     DMats = embedMatrices(DTOp.LOps,dder)
-    deltas = DMats .|> (M -> [M[i,i] for i=1:size(M,1)])
+    # deltas = DMats .|> (M -> [M[i,i] for i=1:size(M,1)])
+    deltas = diag.(DMats)
     # return output
     return (
             T= chTensor.T, 

@@ -45,70 +45,44 @@
 
     Law: `Δ = Γ * E` 
 """
-function nondeg(Γ::ITensor, 
-                A::Vector{Index{T}} where T; 
+
+
+
+function nondeg(T::ITensors.ITensor,
+                A::Vector{<:ITensors.Index}; 
                 mode::Symbol=:trunc,
-                tol::Float64=1e-10):: NamedTuple{(:Δ, :Es), Tuple{ITensor, Vector{ITensor}}} 
+                tol::Float64=1e-10):: NamedTuple{(:T, :Es), Tuple{ITensor, Vector{ITensor}}} 
 #MDK, I think what you call :ful is actually HoSVD, and calling it Tucker might upset someone...
+    fr = ITensors.inds(T)
+    activeind = [A[a] for a = 1:length(A) if (A[a] in fr)]
+    Es = activeind .|> (i -> __makeE(T,i,mode,tol))
+    newT = T 
+    for E in Es
+        newT *= E
+    end 
+    return (;T = newT, Es=Es)
+end;
 
-    fr = inds(Γ)
-    # Sort fr from largest size to smallest 
-    # MDK, what is the point of sorting?
-    fr = sort(collect(fr); by=ITensors.dim, rev=true)
-    Es = Vector{ITensor}(undef, length(A))
-    Δ = Γ
-    i=1;
-    for a in filter(x -> x in A, fr)
-        a_comp = filter(e -> e != a, fr)
-        U, S, V = ITensors.svd(Γ, a_comp)
-        if mode == :full
-            Es[i] = V
-            Δ = Δ * Es[i]
-            # continue
-        else
-            # Extract diagonal singular values from S as a regular array
-            S_vals = diag(Array(S, inds(S)...))
-            nondeg_idx = findall(s -> s >= tol, S_vals)
-            in_dim = ITensors.dim(a)
-            if isempty(nondeg_idx)
-                # Fully degenerate - return identity (edge case)
-                e = __new_index_for_nondegenerate(a,in_dim)
-                Es[i] = ITensor(Matrix{Float64}(I, in_dim, in_dim), a, e)
-                # MDK we should trow an error since we are given practially the zero tensor.
-            else
-                # V is an ITensor with indices for the input space
-                # Convert V to array and extract the nondegenerate columns
-                r = inds(V, tags="Link,v" )
-                V_arr = Array(V, r,a)  # a is original index, second is SVD index
-                nondeg_basis = V_arr[:, nondeg_idx]  # Shape: in_dim × length(nondeg_idx)
-                # Create index for the nondegenerate subspace
-                a_nondeg = __new_index_for_nondegenerate(a,length(nondeg_idx))
-                Es[i] = ITensor(nondeg_basis, a, a_nondeg)
-                Δ = Δ * Es[i]
-            end
-        end
-        i = i + 1
+
+function __makeE(T::ITensors.ITensor, i::ITensors.Index,mode::Symbol,tol::Float64)::ITensors.ITensor
+    res = ITensors.svd(T,i)
+    r = ITensors.inds(res.U, tags="Link,u" )[1]
+    if mode ==:full
+        newi = __new_index_for_nondegenerate(i, ITensors.dim(r))  
+        return ITensors.replaceind!(res.U,r,newi)
+    else
+        S_vals = diag(Array(res.S, ITensors.inds(res.S)...))
+        nondeg_idx = findall(s -> s >= tol, S_vals)
+        U_arr = Array(res.U, i,r) 
+        U_reduced = U_arr[:, nondeg_idx]  # Shape: in_dim × length(nondeg_idx)
+        newi = __new_index_for_nondegenerate(i, length(nondeg_idx))
+        return ITensors.ITensor(U_reduced,i,newi)
     end
-    return (;Δ = Δ, Es=Es[1:(i-1)])
 end;
 
-nondeg(Γ::ITensor; mode::Symbol=:trunc, tol::Float64=1e-10) = nondeg(Γ, collect(inds(Γ)); mode=mode, tol=tol);
 
-function nondeg(Γ::AbstractArray, 
-                A::Vector{<:Integer}; 
-                mode::Symbol=:trunc,
-                tol::Float64=1e-10)
-    iΓ = __ITensor(Γ)
-    return nondeg(iΓ, [ ITensors.inds(iΓ)[a] for a in A ]; mode=mode, tol=tol)
-end;
-
-nondeg(Γ::AbstractArray; mode::Symbol=:trunc, tol::Float64=1e-10) = 
-    nondeg(Γ, collect(1:ndims(Γ)); mode=mode, tol=tol);
-
-
-
-function __new_index_for_nondegenerate(i::Index, size::Number)::Index
-    i_nondeg = Index(size, tags(i))
+function __new_index_for_nondegenerate(i::ITensors.Index, size::Number)::ITensors.Index
+    i_nondeg = ITensors.Index(size, tags(i))
     i_nondeg = addtags(i_nondeg, "nondeg")
     return i_nondeg
 end;
