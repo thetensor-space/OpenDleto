@@ -59,15 +59,13 @@ function derivations(
     rders = solve(method.solver,lmaps.mapsquared; nd=nd, tol=tol, kwargs...)
 
     # expand solution 
-    # @show rders.vecs
-    # @show size(rders.vecs)
-    ders = hcat([ (rDP.reduce_map)'*rders.vecs[:,1] for i =1:size(rders.vecs,2) ]... )
-
-    # @show ders
-    # @show size(ders)
-    # ders = Matrix((rDP.reduce_map)'*rders.vecs)
-
-    return ders
+    if size(rders.vecs,2) > 0
+        ders = hcat([ (rDP.reduce_map)'*rders.vecs[:,i] for i =1:size(rders.vecs,2) ]... )
+        return ders
+    else 
+        # no derivations found
+        return zeros(globalDim(DP.TOp.LOps),0)
+    end
 end;
 
 

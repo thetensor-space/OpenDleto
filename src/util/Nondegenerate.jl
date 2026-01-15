@@ -51,7 +51,7 @@
 function nondeg(T::ITensors.ITensor,
                 A::Vector{<:ITensors.Index}; 
                 mode::Symbol=:trunc,
-                tol::Float64=1e-10):: NamedTuple{(:T, :Es), Tuple{ITensor, Vector{ITensor}}} 
+                tol::Float64=1e-8):: NamedTuple{(:T, :Es), Tuple{ITensor, Vector{ITensor}}} 
 #MDK, I think what you call :ful is actually HoSVD, and calling it Tucker might upset someone...
     fr = ITensors.inds(T)
     activeind = [A[a] for a = 1:length(A) if (A[a] in fr)]

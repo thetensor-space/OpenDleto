@@ -20,13 +20,22 @@ function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol}, symm
     return TransverseOps( SymListOperators(axisDims, localOps, symmetries) ,frames,t_frames)
 end
     
-TransverseOps(axises::Vector{<:ITensors.Index}, s::Symbol; tag::String="temp")::TransverseOps = 
-    TransverseOps(axises, [s for a in axises]; tag=tag);
+function TransverseOps(axises::Vector{<:ITensors.Index}, s::Symbol; tag::String="temp",sym::Vector{<:Integer}=Int64[])::TransverseOps 
+    if sym==[]
+        return TransverseOps(axises, [s for a in axises]; tag=tag)
+    else
+        return TransverseOps(axises, [s for a in axises], sym; tag=tag)
+    end
+end;
     
 
-function TransverseOps(T::ITensors.ITensor, s::Symbol; tag::String="temp")::TransverseOps 
+function TransverseOps(T::ITensors.ITensor, s::Symbol; tag::String="temp",sym::Vector{<:Integer}=Int64[])::TransverseOps 
     axises = vcat(ITensors.inds(T)...)
-    TransverseOps(axises, [s for a in axises]; tag=tag);
+    if sym==[]
+        return TransverseOps(axises, [s for a in axises]; tag=tag)
+    else
+        return TransverseOps(axises, [s for a in axises],sym; tag=tag)
+    end
 end
 
 

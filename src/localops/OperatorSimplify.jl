@@ -1,14 +1,16 @@
-simplifyTo(::UniversalOp)=(D=UniversalOp(),T=InvertableOp());
+simplifyTo(::UniversalOp)=(D=TriDiagonalOp(),T=InvertableOp());
+# simplifyTo(::UniversalOp)=(D=UniversalOp(),T=InvertableOp());
 simplifyTo(::DiagonalOp)=(D=DiagonalOp(),T=InvertableOp());
+simplifyTo(::TriDiagonalOp)=(D=TriDiagonalOp(),T=InvertableOp());
 simplifyTo(::SymmetricOp)=(D=DiagonalOp(),T=OrthogonalOp());
-simplifyTo(::AntiSymmetricOp)=(D=UniversalOp(),T=InvertableOp());
+simplifyTo(::AntiSymmetricOp)=(D=TriDiagonalOp(),T=InvertableOp());
 simplifyTo(::ScalarOp)=(D=ScalarOp(),T=OnlyIdOp());
 simplifyTo(::EmptyOp)=(D=EmptyOp(),T=OnlyIdOp());
 
 
 
 # function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
-function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
+function simplfy(Op::Union{UniversalOp,AntiSymmetricOp,TriDiagonalOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
     M = embed(Op, dim, data)
     res = realCanonicalForm(M) 
     # @show M, Op
@@ -17,7 +19,8 @@ function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vect
     # cT=unsafe_coordinates(InvertableOp(),res.T)
     # @show cD, cT
     return (
-        d= unsafe_coordinates(UniversalOp(),res.D),    
+        d= unsafe_coordinates(TriDiagonalOp(),res.D),    
+        # d= unsafe_coordinates(UniversalOp(),res.D),    
         t= unsafe_coordinates(InvertableOp(),res.T)
     )    
 end;
