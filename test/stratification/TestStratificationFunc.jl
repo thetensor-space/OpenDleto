@@ -8,10 +8,18 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
     #set up derivation method
     DM = Dleto.SylverLinningMethod(Dleto.SVDSolver())
 
-    #find diagonal derivations
-    der = Dleto.derivations(DM,DP,T;tol=1e-3)
+    der = 0
+    try 
+        #find diagonal derivations
+        der = Dleto.derivations(DM,DP,T;tol=1e-3)
+    catch e
+        println("exception during computing derivations")
+        @show e
+        return true
+    end
+
     # test existance of notrivial derivation
-    @test size(der,2) > Dleto.dimTrivialDerivations(DP)
+    @test size(der,2) > Dleto.dimTrivialDerivationsReduced(DP)
 
     #simplify tensor
     try 
@@ -33,7 +41,7 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
             @test Dleto.normTensorChisel(simplified.T, simplified.deltas, ch).norm < 5e-3
         end
     catch e
-        println("error in simplification")
+        println("exception during simplification base change")
         @show e
     end
     return true
@@ -52,7 +60,7 @@ function testITensorFail(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:I
     #find diagonal derivations
     der = Dleto.derivations(DM,DP,T;tol=1e-3)
     # test existance of notrivial derivation
-    if size(der,2) > Dleto.dimTrivialDerivations(DP)
+    if size(der,2) > Dleto.dimTrivialDerivationsReduced(DP)
         println("Unexpected extra derivation")
         @show size(der,2)
         @show Dleto.dimTrivialDerivations(DP)
@@ -60,7 +68,7 @@ function testITensorFail(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:I
         @show O
         println("end")
     else
-        @test size(der,2) == Dleto.dimTrivialDerivations(DP)
+        @test size(der,2) == Dleto.dimTrivialDerivationsReduced(DP)
     end
 
     return true

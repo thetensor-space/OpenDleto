@@ -48,15 +48,15 @@ function randomize_tensor(
     T::ITensors.ITensor; 
     type::Symbol =:invertible,
     ):: NamedTuple{(:T, :Xs), Tuple{ITensors.ITensor, Vector{ITensors.ITensor}}}
-    optype = (type== :invertible) ? :InvertableOp : :OrthogonalOp
-    TOp = TransverseOps(T,optype)
-    rT = changeBasisRandom(T,TOp)
-    return (T=rT.T, Xs=rT.Xs)
+    TOp = TransverseOps(T, (type== :invertible) ? :InvertableOp : :OrthogonalOp )
+    return  changeBasisRandom(T,TOp)
+    # rT = changeBasisRandom(T,TOp)
+    # return (T=rT.T, Xs=rT.Xs)
 end
 
-function randomize_tensor(A::AbstractArray; type::Symbol=:invertible)
+function randomize_tensor(A::AbstractArray; kwargs...)
     T = __ITensor(A)
-    return randomize_tensor(A; type=type)
+    return randomize_tensor(T; kwargs...)
 end;
 
 """

@@ -69,3 +69,7 @@ function dimTrivialDerivations(DP::DerivationProblem)::Integer
     small = [ eigens.values[i] < 1e-4 for i = 1:size(M,1)]
     return sum(small)
 end;
+
+
+dimTrivialDerivationsReduced(DP::DerivationProblem)::Integer =
+    dimTrivialDerivations(reduce(DP).DP);
