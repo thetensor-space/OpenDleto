@@ -39,8 +39,8 @@
 struct DerivationProblem 
     ch          ::Chisel
     TOp         ::TransverseOps
-    frames      ::Framing{ITensors.Index}
-    framesTemp  ::Framing{ITensors.Index}
+    frames      ::Framed
+    framesTemp  ::Framed
     DerivationProblem(TOp:: TransverseOps, ch::Chisel) =(
         @assert isLinear(TOp.LOps) "Only linear constraints";
         # needs to throw warning if some of the columns of the chise get removed

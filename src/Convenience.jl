@@ -1,42 +1,29 @@
 #public constructors
-function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol};tag::String="temp") ::TransverseOps
+function TransverseOps(f::Framed, s::Vector{Symbol};tag::String="temp",sym::Vector{<:Integer}=Int64[])::TransverseOps
+    axises = f.frame
     @assert length(axises)==length(s) "not compatible"
     t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
     axisDims = ITensors.dim.(axises) 
     localOps = Operator.(s) 
-    frames = Framing{ITensors.Index}(axises)
-    t_frames = Framing{ITensors.Index}(t_axises)
-    return TransverseOps( IndListOperators(axisDims, localOps) ,frames,t_frames)
-end
-
-
-function TransverseOps(axises::Vector{<:ITensors.Index}, s::Vector{Symbol}, symmetries ::Vector{<:Integer}; tag::String="temp")::TransverseOps
-    @assert length(axises)==length(s) "not compatible"
-    t_axises = axises .|> (x -> ITensors.addtags(x,tag)) 
-    axisDims = ITensors.dim.(axises) 
-    localOps = Operator.(s) 
-    frames = Framing{ITensors.Index}(axises)
-    t_frames = Framing{ITensors.Index}(t_axises)
-    return TransverseOps( SymListOperators(axisDims, localOps, symmetries) ,frames,t_frames)
-end
-    
-function TransverseOps(axises::Vector{<:ITensors.Index}, s::Symbol; tag::String="temp",sym::Vector{<:Integer}=Int64[])::TransverseOps 
+    t_f = Framed(t_axises)
     if sym==[]
-        return TransverseOps(axises, [s for a in axises]; tag=tag)
-    else
-        return TransverseOps(axises, [s for a in axises], sym; tag=tag)
+        return TransverseOps( IndListOperators(axisDims, localOps), f, t_f)
+    else 
+        return TransverseOps( SymListOperators(axisDims, localOps, sym), f, t_f)
     end
 end;
-    
 
-function TransverseOps(T::ITensors.ITensor, s::Symbol; tag::String="temp",sym::Vector{<:Integer}=Int64[])::TransverseOps 
-    axises = vcat(ITensors.inds(T)...)
-    if sym==[]
-        return TransverseOps(axises, [s for a in axises]; tag=tag)
-    else
-        return TransverseOps(axises, [s for a in axises],sym; tag=tag)
-    end
-end
+# expand a single symbol to List if applicalble
+TransverseOps(f::Framed, s::Symbol, more...; kwargs...)::TransverseOps = 
+    TransverseOps(f, [s for a in f.frame], more...; kwargs...);
+
+#next two transform the first argument from ITensor/Array of Index to Framing
+TransverseOps(axises::Vector{<:ITensors.Index}, more...; kwargs...)::TransverseOps = 
+    TransverseOps( Framed(axises), more...; kwargs...);
+
+
+TransverseOps(T::ITensors.ITensor, more...; kwargs...)::TransverseOps =
+    TransverseOps(getFraming(T), more...; kwargs...);
 
 
 ### convenience function useful for front end and exports 
@@ -46,6 +33,7 @@ end
 # backward compatible
 
 """
+
 randomize_tensor(t::ITensor; type::Symbol)
 
 Picks random invertible matrices and use them to perform a random basis change of a tensor.

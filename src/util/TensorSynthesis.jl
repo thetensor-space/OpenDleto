@@ -62,6 +62,9 @@ function randomTensorChisel(deltas::Vector{<:Vector{<:Number}}, frames::Vector{<
     return randomTensorSupport(deltas, frames, x -> LinearAlgebra.norm(evaluate_chisel(newchisel,x)) ;cutoff=cutoff)
 end
 
+randomTensorChisel(deltas::Vector{<:Vector{<:Number}}, f::Framed, ch::Chisel; kwargs...)::ITensors.ITensor = 
+    randomTensorChisel(deltas, f.frames, ch; kwargs...);
+
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function
 """

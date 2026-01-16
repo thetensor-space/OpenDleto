@@ -44,6 +44,7 @@ struct Framing{I <:Any}
     # compatible::Function
     Framing{I}(frame::Vector{<:I}) where  I = (
         len = length(frame);
+        #test that elements are distinct
         for i = 2:len 
             for j = 1:(i-1)
                 @assert frame[i]!=frame[j] "indexes must be dsitinct";
@@ -110,3 +111,6 @@ function Base.getproperty(F ::Framing{I}, s ::Symbol) where I
     end
 end
 
+Framed=Framing{ITensors.Index}
+
+getFraming(T::ITensors.ITensor)::Framed = Framed(vcat(ITensors.inds(T)...));

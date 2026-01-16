@@ -67,9 +67,6 @@ function testITensorFail(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:I
 end
 
 function testChiselDelta(ch::Dleto.Chisel, deltas::Vector{<:Vector{<:Number}};sym::Vector{<:Integer}=Int64[])
-    # @show deltas
-    # @show ch.ch_m
-
     F = ch.frames
     frames = F.frame
     #generate tensor

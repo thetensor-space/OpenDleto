@@ -55,9 +55,9 @@ import LinearMaps
 """
 struct TransverseOps
     LOps        ::ListOperators
-    frames      ::Framing{ITensors.Index}
-    framesTemp  ::Framing{ITensors.Index}
-    TransverseOps(LOps::ListOperators,frames::Framing{ITensors.Index},framesTemp::Framing{ITensors.Index}) = (
+    frames      ::Framed
+    framesTemp  ::Framed
+    TransverseOps(LOps::ListOperators,frames::Framed,framesTemp::Framed) = (
         @assert frames.len == framesTemp.len "Incompatible frames";
         @assert all([ ITensors.dim(frames[i]) == ITensors.dim(framesTemp[i]) for i=1:frames.len]) "Incompatible frames";
         @assert valency(LOps) == frames.len "Incompatible ListOps";

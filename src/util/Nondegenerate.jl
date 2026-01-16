@@ -63,6 +63,7 @@ function nondeg(T::ITensors.ITensor,
     return (;T = newT, Es=Es)
 end;
 
+nondeg(T::ITensors.ITensor, f::Framed; kwargs...) = nondeg(T, f.frame; kwargs...); 
 
 function __makeE(T::ITensors.ITensor, i::ITensors.Index,mode::Symbol,tol::Float64)::ITensors.ITensor
     res = ITensors.svd(T,i)

@@ -37,8 +37,8 @@ struct Chisel
     # ch_d    ::Dict{ITensors.Index,Vector{<:Number}}
     # ch_d_it ::Dict{ITensors.Index, <:ITensors.ITensor}
     ch_axis ::ITensors.Index
-    frames  ::Framing{ITensors.Index}
-    Chisel(ch::AbstractMatrix{<:Number}, frames ::Framing{ITensors.Index}, ch_axis::ITensors.Index) = (
+    frames  ::Framed
+    Chisel(ch::AbstractMatrix{<:Number}, frames ::Framed, ch_axis::ITensors.Index) = (
         val=frames.len;
         @assert size(ch,2) == val "Incompatible number columns";
         @assert size(ch,1) == ITensors.ITensors.dim(ch_axis) "Incompatable chisel axis";
@@ -53,14 +53,11 @@ struct Chisel
 end;
 
 # extra constructors -- auto generate framing from an array and creat a new index of the corect dim
-Chisel(ch::AbstractMatrix{<:Number}, frames ::Vector{<:ITensors.Index}, ch_axis::ITensors.Index)=
-    Chisel(ch, Framing{ITensors.Index}(frames), ch_axis::ITensors.Index);
+Chisel(ch::AbstractMatrix{<:Number}, frames ::Vector{<:ITensors.Index}, more...)=
+    Chisel(ch, Framed(frames), more...);
 
-Chisel(ch::AbstractMatrix{<:Number}, frames ::Framing{ITensors.Index})::Chisel =
+Chisel(ch::AbstractMatrix{<:Number}, frames ::Framed)::Chisel =
     Chisel(ch, frames, ITensors.Index( size(ch,1), "chisel"));
-
-Chisel(ch::AbstractMatrix{<:Number}, frames ::Vector{<:ITensors.Index})::Chisel =
-    Chisel(ch, Framing{ITensors.Index}(frames), ITensors.Index( size(ch,1), "chisel"));
 
 """
     evaluate chisel on vector of dictionary
@@ -93,7 +90,7 @@ reduceBy(ch::Chisel, eng::Dict)::Chisel = reduce_chisel(ch,toVector(ch.frames, D
     this can also be used to reduce chisels...
     keeps the common columns and add zero column to the newly added one
 """
-function extend_chisel(ch::Chisel, newframes::Framing{ITensors.Index})::Chisel 
+function extend_chisel(ch::Chisel, newframes::Framed)::Chisel 
     m = zeros( size(ch.ch_m,1), newframes.len)
     for i = 1:newframes.len
         if ch.frames.haskey(newframes[i])
@@ -103,7 +100,7 @@ function extend_chisel(ch::Chisel, newframes::Framing{ITensors.Index})::Chisel
     return Chisel(m, newframes, ch.ch_axis)
 end
 
-extend_chisel(ch::Chisel, newframes::Vector{<:ITensors.Index})::Chisel =extend_chisel(ch,Framing{ITensors.Index}(newframes)); 
+extend_chisel(ch::Chisel, newframes::Vector{<:ITensors.Index})::Chisel =extend_chisel(ch,Framed(newframes)); 
 
 """
     find columns where the entires are nmostly zeros
@@ -132,5 +129,5 @@ function normalize_chisel(ch::Chisel; cutoff::Float64=1e-6)::Chisel
     return extend_chisel(nch, ch.frames)
 end
 
-replaceFrame(ch::Chisel, newframe::Framing{ITensors.Index})::Chisel = Chisel(ch.ch_m,newframe,ch.ch_axis);
+replaceFrame(ch::Chisel, newframe::Framed)::Chisel = Chisel(ch.ch_m,newframe,ch.ch_axis);
 replaceAxis(ch::Chisel, newaxis::ITensors.Index)::Chisel = Chisel(ch.ch_m,ch.frames, newaxis);

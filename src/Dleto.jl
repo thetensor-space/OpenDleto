@@ -80,8 +80,6 @@ include("Convenience.jl")
 # ============================================================================
 
 function __init__()
-    # Suppress WebIO warnings
-    ENV["WEBIO_WARN"] = "false"   
     println("Loading Dleto Package") 
 end
 
