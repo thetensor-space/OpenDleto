@@ -45,7 +45,7 @@ function derivations(
         nd      ::Integer=10,
         tol     ::Float64=1e-6,
         kwargs... 
-        ) :: Matrix{<:Number}
+        ) ::NamedTuple{(:ders, :vals), Tuple{Matrix{<:Number},Vector{<:Number}}}
     # test that the Tesnor is OK
     @assert testTensor(DP.TOp, T) "Tensor is not compatible"
 
@@ -61,10 +61,10 @@ function derivations(
     # expand solution 
     if size(rders.vecs,2) > 0
         ders = hcat([ (rDP.reduce_map)'*rders.vecs[:,i] for i =1:size(rders.vecs,2) ]... )
-        return ders
+        return (;ders=ders,vals=rders.vals)
     else 
         # no derivations found
-        return zeros(globalDim(DP.TOp.LOps),0)
+        return (;ders=zeros(globalDim(DP.TOp.LOps),0), vals=zeros(0))
     end
 end;
 

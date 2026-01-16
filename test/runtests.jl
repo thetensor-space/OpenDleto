@@ -15,7 +15,7 @@ const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
 const test_stratification = true
 
-const only_stratification = false
+const only_stratification = true
 
 if test_stratification
     include("stratification/runtests.jl")

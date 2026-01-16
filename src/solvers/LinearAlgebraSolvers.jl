@@ -1,16 +1,9 @@
 struct SVDSolver <: NullSolver end
     
-function solve(::SVDSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
-    # println("Using SVDSolver...")
-    # Use LinearAlgebra to compute the null space of L.
-    # println("Converting LinearMap to Matrix for SVD...")
+function solve_extra(::SVDSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
     M = Matrix(L)
     svds = LinearAlgebra.svd(M;full=true, kwargs...)
-    # @show svds.S
-    nvals = sum( svds.S .|> x -> (abs(x) < tol) ) 
-    if nd >= 0
-        nvals =min(nd,nvals)
-    end 
+    nvals = nd > 0 ? min(nd, size(M,1)) : size(M,1) 
     return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
 end
 
@@ -19,20 +12,25 @@ NullSolversDict[:default ] = SVDSolver();
 
 struct EigenSolver <: NullSolver end;
 #assumes that the matrix is symmetric    
-function solve(::EigenSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
+
+function solve_extra(::EigenSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
     M = Matrix(L)
     eigens = LinearAlgebra.eigen( LinearAlgebra.Symmetric(M) )
-    small = [ eigens.values[i] < tol for i = 1:size(M,1)]
-    vals=eigens.values[small] 
-    vecs=eigens.vectors[:,small]
-    if (length(vals)) < nd || (nd < 0)
-        return (; vals=vals, vecs=vecs )
-    else
-        return (; vals=vals[1:nd], vecs=vecs[:,1:nd] )
-    end
+    return (;vals = eigens.values, vecs=eigens.vectors) 
 end
 
 NullSolversDict[:EigenSolver] = EigenSolver();
+
+struct PartialEigenSolver <: NullSolver end;
+#assumes that the matrix is symmetric    
+
+function solve_extra(::PartialEigenSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
+    M = Matrix(L)
+    eigens = LinearAlgebra.eigen( LinearAlgebra.Symmetric(M), 1:min(nd,size(M,1)) )
+    return (;vals = eigens.values, vecs=eigens.vectors) 
+end
+
+NullSolversDict[:PartialEigenSolver] = PartialEigenSolver();
 
 
 ## LU solver might not be wokring!!!
