@@ -32,7 +32,23 @@ abstract type NullSolver end
 
     Returns a named tuple with the singular-type values and right approximate null vectors
 """
-function solve(method::NullSolver, L::LinearMaps.LinearMap; nd::Integer=10, kwargs...) end
+function solve(solver::NullSolver, L::LinearMaps.LinearMap; nd::Integer=10,  tol::Float64 = 1e-8,kwargs...) 
+    res = solve_extra(solver,L; nd=nd, tol=tol, kwargs...)
+    small = [ res.vals[i] < tol for i = 1:length(res.vals)]
+    vals=res.vals[small] 
+    vecs=res.vecs[:,small]
+    if (length(vals)) < nd || (nd < 0)
+        return (; vals=vals, vecs=vecs )
+    else
+        return (; vals=vals[1:nd], vecs=vecs[:,1:nd] )
+    end
+end
+
+
+function solve_extra(solver::NullSolver, L::LinearMaps.LinearMap; nd::Integer=10,  tol::Float64 = 1e-8, kwargs...) 
+    @assert false "Calling placeholder function"
+end
+
 
 #generate NullSolver from symbol
 function NullSolver(sym::Symbol=:default) 

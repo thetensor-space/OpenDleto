@@ -71,7 +71,7 @@ function derivations(
         nd      ::Integer=10,
         tol     ::Float64=1e-6,
         kwargs... 
-        ) :: Matrix{<:Number}
+        ) :: NamedTuple{(:ders, :vals), Tuple{Matrix{<:Number},Vector{<:Number}}}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
@@ -85,7 +85,7 @@ function derivationsIT(
         tol     ::Float64=1e-6,
         kwargs... 
         ) :: Vector{<:Vector{<:ITensors.ITensor}} 
-    der = derivations(method, TOp,Ch,T;nd=nd,tol=tol,kwargs...) 
+    der = derivations(method, TOp,Ch,T;nd=nd,tol=tol,kwargs...).ders 
     return [ embedITensors(TOp,der[:,i]) for i= 1:size(der,2) ]
 end;
 
