@@ -35,36 +35,42 @@ NullSolversDict[:PartialEigenSolver] = PartialEigenSolver();
 
 ## LU solver might not be wokring!!!
 
-# struct LUSolver <: NullSolver end
+struct LUSolver <: NullSolver end
 
-# function solve(::LUSolver, L::LinearMaps.LinearMap; nv::Integer = 10, tol::Float64 = 1e-8,kwargs...)
-#     println("Using LUSolver on Matrix...")
-#     M = Matrix(L)
-#     println("Performing LU Factorization...")
-#     F = LinearAlgebra.lu(M;kwargs...)
-#     U = F.U
-#     L = F.L
-#     p = F.p  # permutation
 
-#     # Determine rank and free variables
-#     rank = sum(abs.(diag(F.U)) .> tol)
-#     n = size(M, 2)
-#     # free_vars = rank+1:n
-#     free_vars = (n-nv+1):n
+function solve_extra(::LUSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol = 1e-8, kwargs...)
+#function lusolve(L::AbstractMatrix; nd::Integer = 10, tol = 1e-8, kwargs...)
+    # println("Using LUSolver on Matrix...")
+    M = Matrix(L)
+    # println("Performing LU Factorization...")
+    F = LinearAlgebra.lu(M;kwargs...)
+    U = F.U
+    # L = F.L
+    # p = F.p  # permutation
+
+    # Determine rank and free variables
+    rank = sum(abs.(diag(U)) .> tol)
+    # dimkernel = sum(abs.(diag(U)) .< tol)
+    n = size(M, 2)
+    output = min(nd, n-rank)
+    # free_vars = rank+1:n
+    free_vars = (n-output+1):n
 # println("Matrix rank: $rank, free variables: ", free_vars, " with tolerance $tol")
-#     # Build null space basis
-#     null_basis = []
-#     for j in free_vars
-#         v = zeros(n)
-#         v[j] = 1
-#         # Solve U * x = -U[:, free_vars]*v_free for pivot variables
-#         rhs = -U[:, free_vars] * v[free_vars]
-#         x = U[1:rank, 1:rank] \ rhs[1:rank]
-#         v[1:rank] = x
-#         push!(null_basis, v)
-#     end
+    # Build null space basis
+    vecs = zeros(n,output)
+    vals = zeros(output)
+    for i = 1:output
+        v = zeros(output)
+        v[i] = 1.0
+        # Solve U * x = -U[:, free_vars]*v_free for pivot variables
+        rhs = -U[1:rank, free_vars] * v
+        x = U[1:rank, 1:rank] \ rhs
+        vecs[1:rank,i] = x
+        vecs[n-output + i,i] = 1.0
+        vals[i] = U[n-output+i,n-output+i]
+    end
+    return (;vals = vals, vecs=vecs) 
+end;
 
-#     return null_basis #(;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
-# end;
 
-# NullSolversDict[:LUSolver] = LUSolver();
+NullSolversDict[:LUSolver] = LUSolver();

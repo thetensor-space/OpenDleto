@@ -172,7 +172,8 @@ end;
 
 unsafe_coordinates(::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
 
-unsafe_coordinates(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+# unsafe_coordinates(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+unsafe_coordinates(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = diag(M);
 
 unsafe_coordinates(::TriDiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = vcat(
                 [M[i,i] for i=1:size(M)[1]],
@@ -193,7 +194,8 @@ unsafe_coordinates(::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} =  zeros(0)
 
 unsafe_transposeEmbed(::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
 
-unsafe_transposeEmbed(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+# unsafe_transposeEmbed(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+unsafe_transposeEmbed(::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = diag(M);
 
 unsafe_transposeEmbed(::TriDiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = vcat(
                 [M[i,i] for i=1:size(M)[1]],
@@ -206,7 +208,8 @@ unsafe_transposeEmbed(::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vc
 unsafe_transposeEmbed(::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
 
 # unsafe_transposeEmbed(Op::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
-unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
+# unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
+unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [tr(M) ];
 
 unsafe_transposeEmbed(::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} = zeros(0);
 
@@ -215,16 +218,18 @@ unsafe_embed(::UniversalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMat
 
 unsafe_embed(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =  LinearAlgebra.Diagonal(data);
 
-function unsafe_embed(::TriDiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix 
-    A=zeros(eltype(data),dim,dim)
-    A[1,1] = data[1]
-    for i = 2:dim
-        A[i,i] = data[i]
-        A[i,i-1] = data[i+dim-1]
-        A[i-1,i] = data[i+2*dim-2]
-    end 
-    return A
-end;    
+# function unsafe_embed(::TriDiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix 
+#     A=zeros(eltype(data),dim,dim)
+#     A[1,1] = data[1]
+#     for i = 2:dim
+#         A[i,i] = data[i]
+#         A[i,i-1] = data[i+dim-1]
+#         A[i-1,i] = data[i+2*dim-2]
+#     end 
+#     return A
+# end;    
+unsafe_embed(::TriDiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =
+    LinearAlgebra.Tridiagonal(data[dim+1:2*dim-1],data[1:dim], data[2*dim:3*dim-2]);
 
 function unsafe_embed(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     A=zeros(eltype(data),dim,dim)

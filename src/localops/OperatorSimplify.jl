@@ -13,11 +13,6 @@ simplifyTo(::EmptyOp)=(D=EmptyOp(),T=OnlyIdOp());
 function simplfy(Op::Union{UniversalOp,AntiSymmetricOp,TriDiagonalOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
     M = embed(Op, dim, data)
     res = realCanonicalForm(M) 
-    # @show M, Op
-    # @show res.D, res.T
-    # cD=unsafe_coordinates(UniversalOp(),res.D),    
-    # cT=unsafe_coordinates(InvertableOp(),res.T)
-    # @show cD, cT
     return (
         d= unsafe_coordinates(TriDiagonalOp(),res.D),    
         # d= unsafe_coordinates(UniversalOp(),res.D),    
@@ -30,10 +25,6 @@ function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:
 # function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
     M = embed(Op, dim, data)
     eig = LinearAlgebra.eigen(M)
-    # evalues = eig.values
-    # evec = eig.vectors
-    # cT = unsafe_coordinates(OrthogonalOp(),eig.vectors)
-    # @show cT
     return (d= eig.values, t= unsafe_coordinates(OrthogonalOp(), eig.vectors) )
 end;
 
