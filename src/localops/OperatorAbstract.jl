@@ -258,14 +258,14 @@ InvertableOperatorsDict = Dict{Symbol, Operator}()
         need to be compaitble with star like 
         if M -> (D,T)  then M* -> (D*,T*)  
 """
-function simplifyTo(Op::LinearOperator)::NamedTuple{(:D, :T), Tuple(LinearOperator,InvertableOperator)}  
+function simplifyTo(Op::LinearOperator)::NamedTuple{(:D, :T), Tuple{LinearOperator,InvertableOperator}}  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
 """
 Function which does the simplification (ie diagonalization of symetric matrices)
 """
-function simplify(Op::LinearOperator,dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple(Vector{<:Number},Vector{<:Number}) } 
+function simplify(Op::LinearOperator,dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} } 
     @assert false "Calling Placeholder Abstract Function"
 end;
 

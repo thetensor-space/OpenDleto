@@ -4,13 +4,18 @@ simplifyTo(::DiagonalOp)=(D=DiagonalOp(),T=InvertableOp());
 simplifyTo(::TriDiagonalOp)=(D=TriDiagonalOp(),T=InvertableOp());
 simplifyTo(::SymmetricOp)=(D=DiagonalOp(),T=OrthogonalOp());
 simplifyTo(::AntiSymmetricOp)=(D=TriDiagonalOp(),T=InvertableOp());
+simplifyTo(::CirculantOp)=(D=TriDiagonalOp(),T=InvertableOp());
 simplifyTo(::ScalarOp)=(D=ScalarOp(),T=OnlyIdOp());
 simplifyTo(::EmptyOp)=(D=EmptyOp(),T=OnlyIdOp());
 
 
 
 # function simplfy(Op::Union{UniversalOp,AntiSymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
-function simplfy(Op::Union{UniversalOp,AntiSymmetricOp,TriDiagonalOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
+function simplfy(
+        Op::Union{UniversalOp,TriDiagonalOp,AntiSymmetricOp,CirculantOp},
+        dim::Integer, 
+        data::Vector{<:Number} 
+    )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
     M = embed(Op, dim, data)
     res = realCanonicalForm(M) 
     return (
@@ -21,7 +26,10 @@ function simplfy(Op::Union{UniversalOp,AntiSymmetricOp,TriDiagonalOp},dim::Integ
 end;
 
 
-function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
+function simplfy(
+        Op::Union{DiagonalOp,SymmetricOp},
+        dim::Integer, data::Vector{<:Number} 
+    )::NamedTuple{(:d, :t), Tuple{Vector{<:Number},Vector{<:Number}} }  
 # function simplfy(Op::Union{DiagonalOp,SymmetricOp},dim::Integer, data::Vector{<:Number} )::Tuple(Vector{<:Number},Vector{<:Number})  
     M = embed(Op, dim, data)
     eig = LinearAlgebra.eigen(M)

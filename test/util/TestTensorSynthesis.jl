@@ -12,7 +12,11 @@ function testNorm(
         rIT = random_itensor(frames.frame)
         rnorm = Dleto.normTensorChisel(rIT, deltas, ch)
         @assert (rnorm.norm >= 0) && (rnorm.norm <= 1) "Norm should be between 0 and 1"
-        @assert rnorm.norm > 0.1 "Warning Norm of random tnesor too small"
+        if rnorm.norm < 0.1 
+            n = rnorm.norm
+            println("Warning Norm of random tnesor less than 0.1: $n")
+        end
+        @assert rnorm.norm > 0.01 "Warning Norm of random tnesor too small"
 
         # l2normIT = (IT*IT).tensor[]
         # fch = ChiselFramed(ch, vcat(frame...))

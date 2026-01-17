@@ -58,23 +58,21 @@ struct SymmetricOp <: LinearOperator end;
 struct AntiSymmetricOp <: LinearOperator end; 
 
 """
+    Circulant Matrices
+"""
+
+struct CirculantOp <: LinearOperator end; 
+"""
     Scalar Matrices
 """
 struct ScalarOp <: LinearOperator end; 
 
-
-    # this gives errors when combined with symmetries, no idea why
 
 """
     Empty Matrices
 """
 struct EmptyOp <: LinearOperator end; 
 
-# implement later
-# """
-#     Circulant Matrices
-# """
-# struct CirculantOp <: LinearOperator end; 
 
 
 #registe operators
@@ -84,6 +82,7 @@ LinearOperatorsDict[:DiagonalOp] = DiagonalOp()
 LinearOperatorsDict[:TriDiagonalOp] = TriDiagonalOp()
 LinearOperatorsDict[:SymmetricOp] = SymmetricOp()
 LinearOperatorsDict[:AntiSymmetricOp] = AntiSymmetricOp()
+LinearOperatorsDict[:CirculantOp] = CirculantOp()
 LinearOperatorsDict[:ScalarOp] = ScalarOp()
 LinearOperatorsDict[:EmptyOp] = EmptyOp()
 
@@ -149,6 +148,18 @@ function coordinates(::AntiSymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Num
     end
 end;
 
+function coordinates(::CirculantOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+    sizes=size(M)
+    dim=sizes[1]
+    (sizes[1]==sizes[2]) || return nothing
+    for j = 2:dim
+        isapprox( M[1:dim-j+1,1],  M[j:dim,j]) || return nothing
+        isapprox( M[dim-j+2:dim,1],  M[1:(j-1),j] ) || return nothing
+    end
+    return M[:,1]
+end;
+
+
 function coordinates(::ScalarOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
@@ -185,6 +196,8 @@ unsafe_coordinates(::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat(
 
 unsafe_coordinates(::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:(i-1),i] for i=1:size(M)[1]]...);
 
+unsafe_coordinates(::CirculantOp, M::AbstractMatrix) :: Vector{<:Number} = M[:,1];
+
 unsafe_coordinates(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} =  [M[1,1]];
 
 unsafe_coordinates(::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} =  zeros(0);
@@ -207,6 +220,16 @@ unsafe_transposeEmbed(::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vc
 
 unsafe_transposeEmbed(::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
 
+function unsafe_transposeEmbed(::CirculantOp, M::AbstractMatrix) :: Vector{<:Number}
+    n = size(M,1)
+    v = M[:,1]
+    for j = 2:n
+        v[1: n-j+1] += M[j:n,j]
+        v[n-j+2:n] += M[1:(j-1),j]
+    end
+    return v
+end;
+
 # unsafe_transposeEmbed(Op::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
 # unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
 unsafe_transposeEmbed(::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [tr(M) ];
@@ -228,8 +251,9 @@ unsafe_embed(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatr
 #     end 
 #     return A
 # end;    
+### Tridiagonal breaks ITensors....
 unsafe_embed(::TriDiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =
-    LinearAlgebra.Tridiagonal(data[dim+1:2*dim-1],data[1:dim], data[2*dim:3*dim-2]);
+    Matrix(LinearAlgebra.Tridiagonal(data[dim+1:2*dim-1],data[1:dim], data[2*dim:3*dim-2]));
 
 function unsafe_embed(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
     A=zeros(eltype(data),dim,dim)
@@ -249,6 +273,15 @@ function unsafe_embed(::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) 
         A[1:(i-1),i] = data[k:k+i-2]
         A[i,1:(i-1)] = -data[k:k+i-2]
         k = k+i-1
+    end 
+    return A
+end;
+
+function unsafe_embed(::CirculantOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+    A=zeros(eltype(data),dim,dim)
+    for i = 1:dim
+        A[i:dim,i] = data[1:dim-i+1]
+        A[1:(i-1),i] = data[dim-i+2:dim]
     end 
     return A
 end;
@@ -274,6 +307,7 @@ localDim(::DiagonalOp, dim::Integer) = dim;
 localDim(::TriDiagonalOp, dim::Integer) = 3*dim -2; 
 localDim(::SymmetricOp, dim::Integer) = dim*(dim+1) ÷ 2; 
 localDim(::AntiSymmetricOp, dim::Integer) = dim*(dim-1) ÷ 2; 
+localDim(::CirculantOp, dim::Integer) = dim; 
 localDim(::ScalarOp, dim::Integer) = 1; 
 localDim(::EmptyOp, dim::Integer) = 0; 
 
@@ -283,6 +317,7 @@ containScalars(::DiagonalOp) = true;
 containScalars(::TriDiagonalOp) = true; 
 containScalars(::SymmetricOp) = true; 
 containScalars(::AntiSymmetricOp) = false; 
+containScalars(::CirculantOp) = true; 
 containScalars(::ScalarOp) = true; 
 containScalars(::EmptyOp) = false; 
 
@@ -292,5 +327,6 @@ closedUnderStar(::DiagonalOp) = true;
 closedUnderStar(::TriDiagonalOp) = true; 
 closedUnderStar(::SymmetricOp) = true; 
 closedUnderStar(::AntiSymmetricOp) = true; 
+closedUnderStar(::CirculantOp) = true; 
 closedUnderStar(::ScalarOp) = true; 
 closedUnderStar(::EmptyOp) = true; 
