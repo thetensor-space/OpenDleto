@@ -6,7 +6,7 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
     DP = Dleto.DerivationProblem(TO,ch)
 
     #set up derivation method
-    DM = Dleto.SylverLinningMethod(Dleto.PartialEigenSolver())
+    DM = Dleto.SylverLinningMethod(Dleto.SVDSolver())
 
     der = 0
     try 
@@ -19,11 +19,11 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
     end
 
     # test existance of notrivial derivation
-    @test size(der.ders,2) > Dleto.dimTrivialDerivationsReduced(DP)
+    @test size(der,2) > Dleto.dimTrivialDerivationsReduced(DP)
 
     #simplify tensor
     try 
-        simplified = Dleto.simplifyUsingDerivation(T,DP,der.ders)
+        simplified = Dleto.simplifyUsingDerivation(T,DP,der)
         # @show diag_s.T
         # @show diag_s.deltas
         #test that the result is OK
@@ -32,8 +32,7 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
             @show ch
             @show O
             @show sym
-            @show size(der.ders)
-            @show ders.vals
+            @show size(der)
             @show Dleto.dimTrivialDerivations(DP)
             @show simplified.deltas
             @show Dleto.normTensorChisel(simplified.T, simplified.deltas, ch).norm
@@ -61,18 +60,15 @@ function testITensorFail(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:I
     #find diagonal derivations
     der = Dleto.derivations(DM,DP,T;tol=1e-3)
     # test existance of notrivial derivation
-    if size(der.ders,2) > Dleto.dimTrivialDerivationsReduced(DP)
-        if (size(der.ders,2) - Dleto.dimTrivialDerivationsReduced(DP) > 1) || (O != :SymmetricOp)
-            println("Unexpected extra derivation")
-            @show size(der.ders,2)
-            @show size(der.vals)
-            @show Dleto.dimTrivialDerivations(DP)
-            @show ch 
-            @show O
-            println("end")
-        end
+    if size(der,2) > Dleto.dimTrivialDerivationsReduced(DP)
+        println("Unexpected extra derivation")
+        @show size(der,2)
+        @show Dleto.dimTrivialDerivations(DP)
+        @show ch 
+        @show O
+        println("end")
     else
-        @test size(der.ders,2) == Dleto.dimTrivialDerivationsReduced(DP)
+        @test size(der,2) == Dleto.dimTrivialDerivationsReduced(DP)
     end
 
     return true

@@ -26,6 +26,7 @@ end
     for val=3:4
         for _ = 1:5
             numblock = rand(3:5)
+            sizes = [ dim for i=1:val ]
             testBlockDiagonalTensors(numblock,val)
         end        
     end
