@@ -13,6 +13,8 @@ using ITensors
 # --- Select mode via environment variable ---
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
+const show_timing = false
+
 const test_stratification = false
 
 const only_stratification = false

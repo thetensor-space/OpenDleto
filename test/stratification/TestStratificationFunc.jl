@@ -7,6 +7,8 @@ function testITensor(T::ITensor, O::Symbol, ch::Dleto.Chisel;sym::Vector{<:Integ
 
     #set up derivation method
     DM = Dleto.SylverLinningMethod(Dleto.PartialEigenSolver())
+    # no idea which one is faster
+    DMH = Dleto.SylverLinningMethod(Dleto.HouseHolderEigenSolver())
 
     der = 0
     try 
@@ -85,30 +87,51 @@ function testChiselDelta(ch::Dleto.Chisel, deltas::Vector{<:Vector{<:Number}};sy
     T = Dleto.randomTensorChisel(deltas, frames, ch)
 
     # tests in the original basis
-    testITensor(T, :DiagonalOp, ch; sym=sym)
-    testITensor(T, :TriDiagonalOp, ch; sym=sym)
-    testITensor(T, :SymmetricOp, ch; sym=sym)
-    testITensor(T, :UniversalOp, ch; sym=sym)
-
+    if show_timing
+        @show length.(deltas)
+        println("original tensor")
+        @time testITensor(T, :DiagonalOp, ch; sym=sym)
+        @time testITensor(T, :TriDiagonalOp, ch; sym=sym)
+        @time testITensor(T, :SymmetricOp, ch; sym=sym)
+        @time testITensor(T, :UniversalOp, ch; sym=sym)
+    else
+        testITensor(T, :DiagonalOp, ch; sym=sym)
+        testITensor(T, :TriDiagonalOp, ch; sym=sym)
+        testITensor(T, :SymmetricOp, ch; sym=sym)
+        testITensor(T, :UniversalOp, ch; sym=sym)
+    end
     #chnage basis of T using orhtogonal matrices
     OrthTO = Dleto.TransverseOps(T,:OrthogonalOp; sym=sym)
     roT_extra = Dleto.changeBasisRandom(T,OrthTO; keep=true)
     roT = roT_extra.T
 
     #test randomized tensor 
-    testITensorFail(roT, :DiagonalOp, ch; sym=sym)
-    testITensor(roT, :SymmetricOp, ch; sym=sym)
-    testITensor(roT, :UniversalOp, ch; sym=sym)
-
+    if show_timing
+        println("scrambled orthogonal tensor")
+        @time testITensorFail(roT, :DiagonalOp, ch; sym=sym)
+        @time testITensor(roT, :SymmetricOp, ch; sym=sym)
+        @time testITensor(roT, :UniversalOp, ch; sym=sym)
+    else
+        testITensorFail(roT, :DiagonalOp, ch; sym=sym)
+        testITensor(roT, :SymmetricOp, ch; sym=sym)
+        testITensor(roT, :UniversalOp, ch; sym=sym)
+    end
     #chnage basis of T using invertible matrices
     InvTO = Dleto.TransverseOps(T,:InvertableOp; sym=sym)
     rT_extra = Dleto.changeBasisRandom(T,InvTO; keep=true)
     rT = rT_extra.T
 
     #test randomized tensor 
-    testITensorFail(rT, :DiagonalOp, ch; sym=sym)
-    testITensorFail(rT, :SymmetricOp, ch; sym=sym)
-    testITensor(rT, :UniversalOp, ch; sym=sym)
+    if show_timing
+        println("scrambled general tensor")
+        @time testITensorFail(rT, :DiagonalOp, ch; sym=sym)
+        @time testITensorFail(rT, :SymmetricOp, ch; sym=sym)
+        @time testITensor(rT, :UniversalOp, ch; sym=sym)
+    else
+        testITensorFail(rT, :DiagonalOp, ch; sym=sym)
+        testITensorFail(rT, :SymmetricOp, ch; sym=sym)
+        testITensor(rT, :UniversalOp, ch; sym=sym)
+    end
 end;
 
 

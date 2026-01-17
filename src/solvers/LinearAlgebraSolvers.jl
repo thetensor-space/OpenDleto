@@ -1,3 +1,6 @@
+"""
+    Solver based on LinearAlgebra SVD
+"""
 struct SVDSolver <: NullSolver end
     
 function solve_extra(::SVDSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
@@ -10,6 +13,9 @@ end
 NullSolversDict[:SVDSolver] = SVDSolver();
 NullSolversDict[:default ] = SVDSolver();
 
+"""
+    Solver based on LinearAlgebra Complete Eigen 
+"""
 struct EigenSolver <: NullSolver end;
 #assumes that the matrix is symmetric    
 
@@ -21,6 +27,9 @@ end
 
 NullSolversDict[:EigenSolver] = EigenSolver();
 
+"""
+    Solver based on LinearAlgebra Patrial Eigen 
+"""
 struct PartialEigenSolver <: NullSolver end;
 #assumes that the matrix is symmetric    
 
@@ -33,8 +42,26 @@ end
 NullSolversDict[:PartialEigenSolver] = PartialEigenSolver();
 
 
+
+"""
+    Solver based on HouseHolder tridiagonalization Followed by Eigen 
+"""
+struct HouseHolderEigenSolver <: NullSolver end;
+
+function solve_extra(::HouseHolderEigenSolver, L::LinearMaps.LinearMap; nd::Integer = 10, tol::Float64 = 1e-8, kwargs...)
+    M = Matrix(L)    
+    HD = LinearAlgebra.hessenberg(LinearAlgebra.Symmetric(M))
+    eigens = LinearAlgebra.eigen( HD.H, 1:min(nd,size(M,1)) )
+    return (;vals = eigens.values, vecs=HD.Q*eigens.vectors) 
+end
+
+NullSolversDict[:HouseHolderEigenSolver] = HouseHolderEigenSolver();
+
 ## LU solver might not be wokring!!!
 
+"""
+    Solver based on LU factorization of matrices 
+"""
 struct LUSolver <: NullSolver end
 
 

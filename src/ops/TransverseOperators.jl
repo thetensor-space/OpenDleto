@@ -92,7 +92,7 @@ end
 function unsafe_embedITensorsSwapped(TOp::TransverseOps, data::Vector{<:Number}) ::Vector{ITensor}
     val = TOp.frames.len
     Mats = unsafe_embedMatrices(TOp.LOps, data)
-    return [ ITensor(Mats[i], TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
+    return [ ITensor(Matrix(Mats[i]), TOp.framesTemp.frame[i], TOp.frames.frame[i]) for i =1:val]
 end
 
 function reduceBy(TOp::TransverseOps, eng::Vector{Bool})
