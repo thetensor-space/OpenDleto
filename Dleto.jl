@@ -12,6 +12,12 @@ import Random
 
 import Arpack
 
+
+# import Pkg
+# Pkg.add("PlotlyJS")
+ENV["WEBIO_JUPYTER_DETECTED"] = "true"
+using PlotlyJS
+
 #import Base
 
 #-------------------------------
@@ -234,6 +240,22 @@ end;
 #-------------------------------
 # combine some coordinatres of a vector into a symmetric matrix
 # use with caution -- the function does not perform any checks!
+function expandToMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
+    M = zeros(Float64,n,n)
+    k = 1 + offset
+    for i = 1:n
+        for j = i:n
+            M[i,j] = u[k]
+            # M[j,i] = u[k]
+            k = k + 1
+        end
+    end 
+    return LinearAlgebra.Matrix(M)
+end;
+
+#-------------------------------
+# combine some coordinatres of a vector into a symmetric matrix
+# use with caution -- the function does not perform any checks!
 function expandToSymetricMatrix(u::Vector, n:: Integer, offset::Integer )::AbstractMatrix
     M = zeros(Float64,n,n)
     k = 1 + offset
@@ -295,17 +317,20 @@ SurfaceMatrix = [1.0 1.0 1.0]
 FaceCurveMatrix = [1.0 -1.0]
 # Curve Equation Matrix
 CurveMatrix = [1.0 -1.0 0.0; 1.0 0.0 -1.0; 0.0 1.0 -1.0]
+# Tucker Equation Matrix
+TuckerMatrix = [1.0 0.0 0.0 ; 0.0 1.0 0.0 ; 0.0 0.0 1.0]
 
 #-------------------------------
 # technical function for building the linear system 
 # use with caution, there are no checks for consistency
-function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+function buildFullLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
     sizes = [size(t)...]
     Msize = size(eqMatrix)
-    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+    blocks = sizes .|> (n -> n*n)
     numvars =  sum(i -> blocks[i], 1: Msize[2])
     M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
     k=0
+    println("\tSizes: ", size(M))
     R = CartesianIndices(t)
     for ci in R                            #  loop over entries of tensor
         li = LinearIndices(t)[ci]
@@ -323,6 +348,107 @@ function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
             k += 1
         end
     end
+    return M
+end
+
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+function buildFullLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+    sizes = [size(t)...]
+    Msize = size(eqMatrix)
+    blocks = sizes .|> (n -> n*n)
+    numvars =  sum(i -> blocks[i], 1: Msize[2])
+    M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
+    k=0
+    println("\tSizes: ", size(M))
+    R = CartesianIndices(t)
+    for ci in R                            #  loop over entries of tensor
+        li = LinearIndices(t)[ci]
+        for i = 1:Msize[1] 
+            s=0
+            for j = 1:Msize[2]                
+                # extract 1 dimensional slice of the tensor
+                first = li - (ci[j] - 1)*stride(t,j)
+                last = first + (sizes[j]- 1)*stride(t,j)
+                slice = t[first:stride(t,j):last]
+                # add it to the condition
+                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
+                s += blocks[j]
+            end
+            k += 1
+        end
+    end
+    return M
+end
+
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+function buildLinearSystem(t::AbstractArray, eqMatrix::AbstractMatrix)::Matrix
+    sizes = [size(t)...]
+    Msize = size(eqMatrix)
+    blocks = sizes  .|> (n -> n*(n+1)÷ 2) 
+    numvars =  sum(i -> blocks[i], 1: Msize[2])
+    M = zeros( Float64, ( numvars, Msize[1] * length(t) )  )
+    println("\tNumber of blocks: ", Msize)
+    println("\tNumber of variables: ", numvars)
+    k=0
+    println("\tSizes: ", size(M))
+    R = CartesianIndices(t)
+    println("Number of coordinates: ", length(R))
+    println("loops to do: ", Msize[1] * Msize[2] * length(R))
+    for ci in R                            #  loop over entries of tensor
+        li = LinearIndices(t)[ci]
+        for i = 1:Msize[1] 
+            s=0
+            for j = 1:Msize[2]                
+                # extract 1 dimensional slice of the tensor
+                first = li - (ci[j] - 1)*stride(t,j)
+                last = first + (sizes[j]- 1)*stride(t,j)
+                slice = t[first:stride(t,j):last]
+                # add it to the condition
+                modifyRow!( M, numvars*k + s, sizes[j], ci[j], slice, eqMatrix[i,j] )
+                s += blocks[j]
+            end
+            k += 1
+        end
+    end
+    return M
+end
+#-------------------------------
+# technical function for building the linear system 
+# use with caution, there are no checks for consistency
+# t[i,j,k]*(X[i,i] + Y[j,j] + Z[k,k]) =0
+function buildDiagonalSystem(t::AbstractArray)::Matrix
+    sizes = [size(t)...]
+    println("Sizes: ", sizes)
+    numvars = sum(sizes)  # Total number of diagonal entries across X, Y, Z
+    
+    # Count non-zero entries to determine number of equations
+    # non_zero_indices = findall(x -> abs(x) > 1e-12, t)
+    num_equations = length(t)
+    
+    M = zeros(Float64, (numvars, num_equations))
+    println("Numvars: ", numvars)
+    println("Matrix size: ", size(M))
+    
+    eq_idx = 1
+    for ci in CartesianIndices(t)
+        t_val = t[ci]
+        
+        # X[i,i] coefficient (first sizes[1] variables)
+        M[ci[1], eq_idx] = t_val
+        
+        # Y[j,j] coefficient (next sizes[2] variables)
+        M[sizes[1] + ci[2], eq_idx] = t_val
+        
+        # Z[k,k] coefficient (last sizes[3] variables)
+        M[sizes[1] + sizes[2] + ci[3], eq_idx] = t_val
+        
+        eq_idx += 1
+    end
+    
     return M
 end
 
@@ -385,6 +511,95 @@ function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     @time XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
     @time YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
     @time ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function stratify(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n ) 
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, SurfaceMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,3]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function faceBlocks(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n ) 
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, FaceCurveMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    # @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+    ZMatrix = LinearAlgebra.Diagonal([(1:sizes[3])...])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+function blocks(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n ) 
+
+    # set up system of lin equation
+    println("\r\n\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, CurveMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\r\n\tComputing singular vectors for ", size(M), "...\n\t")
+        # @time lastsvds = svd(M)
+    @time lastsvds = svdfunc(M)
+
+    println("\r\n\tExtracting matrices...")
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    @time XMatrix = expandToMatrix(maineigenvector, sizes[1], 0)
+    @time YMatrix = expandToMatrix(maineigenvector, sizes[2], blocks[1])
+    # @time ZMatrix = expandToMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+    ZMatrix = LinearAlgebra.Diagonal([(1:sizes[3])...])
 
     return changeTensor(t, XMatrix, YMatrix, ZMatrix)
 end;
@@ -458,6 +673,44 @@ function toCurveTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
     
     # exctract the correct vector
     maineigenvector = lastsvds[:,2]
+
+    # expand to matrices
+    XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
+    YMatrix = expandToSymetricMatrix(maineigenvector, sizes[2], blocks[1])
+    ZMatrix = expandToSymetricMatrix(maineigenvector, sizes[3], blocks[1] + blocks[2])
+
+    return changeTensor(t, XMatrix, YMatrix, ZMatrix)
+end;
+
+"""
+function toSurfaceTensor(t::AbstractArray, svdfunc::Function=ArpackEigen)
+
+Change a basis of a tensor to make it supported on a surface. 
+The output is a named tuple with coordinates .tensor, .Xchange, .Ychange, .Zchange, .Xes, .Yes, .Zes
+consiting of the transformed tensor, the 3 change of basis matrices, and the vectors defining the surface.
+
+The second ardument is a function which performs the svd of some relatively large matrix and rerurns the smallesr singular vectors.
+The defalut value (ArpackEigen) uses the Arpack library, the two other possible functions area LinearAlgebraSVD and LinearAlgebraEigen.
+Sometimes Arpack crashes, so there is a build in fall back to LinearAlgebra function
+"""
+function TuckerDecomposition(t::AbstractArray, svdfunc::Function=ArpackEigen)
+    # test valancy
+    if ndims(t) != 3
+        throw(DimensionMismatch("wrong arity of tensor"))
+    end
+    sizes = [size(t)...]
+    blocks = sizes  .|> (n -> n*n) 
+
+    # set up system of lin equation
+    println("\tBuilding linear system...")
+    @time M = buildFullLinearSystem(t, TuckerMatrix)
+
+    # do SVD and pick the smallest vectors 
+    println("\tCalculuating SVD of matrix of dimensions: ", size(M))
+    @time lastsvds= svdfunc(M)
+    
+    # exctract the correct vector
+    maineigenvector = lastsvds[:,1]
 
     # expand to matrices
     XMatrix = expandToSymetricMatrix(maineigenvector, sizes[1], 0)
@@ -602,8 +855,216 @@ function createTensorFromIncidence(M::AbstractMatrix{T}, m::Integer; field::Type
     return t
 end
 
+function concatIncidenceMatrices(mats::AbstractMatrix...) 
+    if length(mats) == 0
+        throw(ArgumentError("At least one incidence matrix is required"))
+    end
+    ncols = size(mats[1], 2)
+    for M in mats
+        if ndims(M) != 2
+            throw(ArgumentError("All inputs must be 2D matrices"))
+        end
+        if size(M, 2) != ncols
+            throw(ArgumentError("All incidence matrices must have the same number of columns (vertices)"))
+        end
+        if !all(x -> x == 0 || x == 1, M)
+            throw(ArgumentError("Incidence matrices must be 0-1 matrices"))
+        end
+    end
+    return vcat(mats...)
+end
+
+# Convenience method accepting a vector/collection of matrices
+function concatIncidenceMatrices(coll::AbstractVector{<:AbstractMatrix})
+    return concatIncidenceMatrices(coll...)
+end
+
+
+
+
+
+"""
+generateHypergraph(kind::Symbol, d::Integer, k::Integer; kwargs...)
+
+Generate standard hypergraph incidence matrices (rows = edges, columns = vertices).
+
+Supported kinds:
+- :complete  -> complete k-uniform hypergraph (all k-subsets)
+- :random    -> random k-uniform hypergraph; provide either p (probability) or m (number of edges)
+- :cycle     -> cyclic k-uniform hypergraph (edges are k consecutive vertices modulo d)
+- :chain     -> chain of k-uniform hyperedges connected by single vertices (consecutive edges share exactly one vertex); use num_edges kwarg to specify exact count
+- :star      -> star centered at `center` (default 1): all edges contain the center plus any k-1 others
+- :fano      -> Fano plane (only valid for d==7, k==3)
+
+Returns a 0-1 Matrix{Int} with one row per edge and d columns.
+"""
+function generateHypergraph(kind::Symbol, d::Integer, k::Integer; kwargs...)
+    if d < 1 || k < 1 || k > d
+        throw(ArgumentError("Invalid d,k: require 1 ≤ k ≤ d"))
+    end
+
+    # build incidence matrix from list of edges (each edge is a Vector{Int}). There are E edges and d vertices.
+    function incidence_from_edges(edges::Vector{Vector{Int}}, d::Integer)
+        E = length(edges)
+        M = zeros(Int, E, d)
+        for (r, edge) in enumerate(edges)
+            for v in edge
+                if v < 1 || v > d
+                    throw(ArgumentError("vertex index out of range: $v"))
+                end
+                M[r, v] = 1
+            end
+        end
+        return M
+    end
+
+    # generate all k-combinations of 1:d
+    function combinations_vec(n::Integer, k::Integer)
+        res = Vector{Vector{Int}}()
+        if k == 0
+            push!(res, Int[])
+            return res
+        end
+        buf = Vector{Int}(undef, k)
+        function rec(start::Int, depth::Int)
+            if depth > k
+                push!(res, copy(buf))
+                return
+            end
+            remaining = k - depth + 1
+            last = n - remaining + 1
+            for i in start:last
+                buf[depth] = i
+                rec(i + 1, depth + 1)
+            end
+        end
+        rec(1, 1)
+        return res
+    end
+
+    kind = Symbol(kind)
+
+    if kind === :complete
+        edges = combinations_vec(d, k)
+        return incidence_from_edges(edges, d)
+    elseif kind === :random
+        p = get(kwargs, :p, nothing)
+        m = get(kwargs, :m, nothing)
+        # generate all combinations then sample according to p or m
+        all_edges = combinations_vec(d, k)
+        if p !== nothing
+            if !(0.0 <= p <= 1.0)
+                throw(ArgumentError(":p must be in [0,1]"))
+            end
+            chosen = Vector{Vector{Int}}()
+            for e in all_edges
+                if rand() < p
+                    push!(chosen, e)
+                end
+            end
+            return incidence_from_edges(chosen, d)
+        elseif m !== nothing
+            if m < 0
+                throw(ArgumentError(":m must be non-negative"))
+            end
+            E = length(all_edges)
+            msel = min(Int(m), E)
+            idx = randperm(E)[1:msel]
+            chosen = all_edges[idx]
+            return incidence_from_edges(chosen, d)
+        else
+            throw(ArgumentError("For :random provide either p=Probability or m=NumEdges"))
+        end
+    elseif kind === :cycle
+        edges = Vector{Vector{Int}}()
+        for i in 1:d
+            edge = [( (i - 1 + j) % d ) + 1 for j in 0:k-1]
+            push!(edges, edge)
+        end
+        return incidence_from_edges(edges, d)
+    elseif kind === :star
+        center = get(kwargs, :center, 1)
+        if center < 1 || center > d
+            throw(ArgumentError("center must be between 1 and d"))
+        end
+        others = [v for v in 1:d if v != center]
+        # all (k-1)-subsets of others
+        sub = combinations_vec(d - 1, k - 1)
+        # map subsets of positions 1..(d-1) to actual vertex labels in `others`
+        edges = Vector{Vector{Int}}()
+        for s in sub
+            edge = [center]
+            for pos in s
+                push!(edge, others[pos])
+            end
+            push!(edges, sort(edge))
+        end
+        return incidence_from_edges(edges, d)
+    elseif kind === :chain
+        # Create a chain of k-uniform hyperedges connected by single vertices
+        # Each edge shares exactly one vertex with the next edge
+        if k < 2
+            throw(ArgumentError("chain requires k >= 2"))
+        end
+        edges = Vector{Vector{Int}}()
+        
+        # Determine the number of edges to create
+        num_edges_kwarg = get(kwargs, :num_edges, nothing)
+        if num_edges_kwarg !== nothing
+            num_edges = Int(num_edges_kwarg)
+            if num_edges < 1
+                throw(ArgumentError(":num_edges must be >= 1"))
+            end
+            # Check if we have enough vertices for the requested number of edges
+            # Total vertices needed: k + (num_edges - 1) * (k - 1)
+            vertices_needed = k + (num_edges - 1) * (k - 1)
+            if vertices_needed > d
+                throw(ArgumentError("Not enough vertices for :num_edges=$num_edges with k=$k; need at least $vertices_needed vertices"))
+            end
+        else
+            # Calculate how many edges we can create with d vertices
+            # Each edge uses k vertices; each new edge shares 1 with previous, so adds k-1 new vertices
+            # Total vertices needed: k + (num_edges - 1) * (k - 1)
+            num_edges = div(d - k, k - 1) + 1
+        end
+        
+        if num_edges < 1
+            throw(ArgumentError("Not enough vertices to form even one edge; require d >= k"))
+        end
+        
+        vertex_idx = 1
+        for edge_num in 1:num_edges
+            edge = collect(vertex_idx:(vertex_idx + k - 1))
+            push!(edges, edge)
+            # Next edge shares the last vertex, so advance by k-1
+            vertex_idx += k - 1
+        end
+        
+        return incidence_from_edges(edges, d)
+    elseif kind === :fano
+        if d != 7 || k != 3
+            throw(ArgumentError(":fano only valid for d==7, k==3"))
+        end
+        blocks = [
+            [1,2,3],
+            [1,5,6],
+            [1,4,7],
+            [2,4,6],
+            [2,5,7],
+            [3,4,5],
+            [3,6,7]
+        ]
+        return incidence_from_edges(blocks, d)
+    else
+        throw(ArgumentError("Unknown hypergraph kind: $kind"))
+    end
+end
+
 using PlotlyJS
-function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
+
+function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2; 
+                   xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+                   title::String="3D Tensor Visualization", color::String="blue")
 
     # function for removing small entries
     dropSmall = x -> abs(x)< threshold ? 0 : x
@@ -613,25 +1074,47 @@ function plotTensor(tensor::AbstractArray, threshold::Float64=1e-2)
     indices = findall(x -> x != 0, tensor)
     dims = size(tensor)
 
-    # Extract x, y, z coordinates
+    # Extract x, y, z coordinates and values
     x_coords = [idx[1] for idx in indices]
     y_coords = [idx[2] for idx in indices]
     z_coords = [idx[3] for idx in indices]
+    values = [abs(tensor[idx]) for idx in indices]
+    
+    # Scale marker sizes proportional to values
+    # Normalize values to a reasonable marker size range (2-20)
+    if length(values) > 0
+        min_val, max_val = extrema(values)
+        if min_val ≈ max_val
+            marker_sizes = fill(5.0, length(values))  # All same size if all values equal
+        else
+            # Scale values to range [2, 20] for marker sizes
+            marker_sizes = 2.0 .+ 18.0 .* (values .- min_val) ./ (max_val - min_val)
+        end
+    else
+        marker_sizes = Float64[]
+    end
 
+    println("Plotting $(length(indices)) points with value-proportional sizes...")
+    
     # Create 3D scatter plot with bounding box based on tensor dimensions
-    plot(scatter3d(
+    p = PlotlyJS.Plot(scatter3d(
         x=x_coords, 
         y=y_coords, 
         z=z_coords,
         mode="markers",
-        marker=attr(size=2, opacity=0.6)
+        marker=attr(size=marker_sizes, opacity=0.6, color=color)
     ), Layout(
         scene=attr(
-            xaxis=attr(range=[1, dims[1]+1], title="X"),
-            yaxis=attr(range=[1, dims[2]+1], title="Y"),
-            zaxis=attr(range=[1, dims[3]+1], title="Z"),
+            xaxis=attr(range=[1, dims[1]+1], title=xlabel),
+            yaxis=attr(range=[1, dims[2]+1], title=ylabel),
+            zaxis=attr(range=[1, dims[3]+1], title=zlabel),
             aspectmode="cube"
         ),
-        title="3D Tensor Visualization"
+        title=title
     ))
+    
+    # Return the plot object to let notebook handle rendering
+    return p
 end
+
+println("Dleto.jl loaded successfully.")
