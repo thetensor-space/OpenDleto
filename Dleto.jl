@@ -821,10 +821,11 @@ function createTensorFromIncidence(M::AbstractMatrix{T}, m::Integer; field::Type
         throw(ArgumentError("m must be >= 1"))
     end
 
-    d = size(M, 2)  # number of columns
-    e = size(M, 1)  # number of rows
-    if m > d
-        throw(ArgumentError("m cannot exceed number of columns"))
+    d = size(M, 2)  # number of columns i.e. the number of vertices
+    e = size(M, 1)  # number of rows i.e. the number of (hyper) edges
+    if m > d #m is looking for a sub m-uniform hypergraph, you need at least m vertices to make 
+        #a hyperedge with exactly m vertices.
+        throw(ArgumentError("m cannot exceed number of columns")) 
     end
 
     # Create an m-way tensor of size d x d x ... x d with specified element type
