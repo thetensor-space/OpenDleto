@@ -812,6 +812,9 @@ function createTensorFromIncidence3(M::AbstractMatrix{T}) where T
 end
 
 
+
+
+
 function createTensorFromIncidence(M::AbstractMatrix{T}, m::Integer; field::Type=Float16) where T
     # Check that M is a 0-1 matrix
     if !all(x -> x == 0 || x == 1, M)
