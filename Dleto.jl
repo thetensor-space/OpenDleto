@@ -859,6 +859,37 @@ function createTensorFromIncidence(M::AbstractMatrix{T}, m::Integer; field::Type
     return t
 end
 
+
+
+function barycentric_tensor(A::AbstractArray)
+    # For a tensor A, compute B (of the same shape), where 
+    # $B_{i_1i_2\dots i_l} =\sum_{j=1}^n A_{i_1 i_2 \dots j} A_{i_1 \dots i_{l-2} j i_l }\cdots A_{j i_2 \dots i_l}$
+    shape = size(A)
+    l = length(shape)
+    n = shape[1]
+    if any(x -> x != n, shape)
+        throw(ArgumentError("Input tensor must be symmetric (all dimensions equal), got shape $shape"))
+    end
+    B = similar(A)
+
+    for idx in CartesianIndices(shape)
+        inds = Tuple(idx)
+        s = zero(eltype(A))
+        for j in 1:n
+            prod = one(eltype(A))
+            for k in 1:l
+                inds_k = ntuple(m -> m == k ? j : inds[m], l)
+                prod *= A[inds_k...]
+            end
+            s += prod
+        end
+        B[idx] = s
+    end
+    return B
+end
+
+
+
 function concatIncidenceMatrices(mats::AbstractMatrix...) 
     if length(mats) == 0
         throw(ArgumentError("At least one incidence matrix is required"))
