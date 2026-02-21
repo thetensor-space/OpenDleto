@@ -1,0 +1,224 @@
+160	Peru
+78	Gabon
+110	Kosovo (under UNSC res. 1244)
+152	North Macedonia
+16	Bangladesh
+167	Russian Federation
+59	Dominican Republic
+118	Libya
+184	Solomon Islands
+146	New Caledonia
+180	Sierra Leone
+171	Saint Pierre and Miquelon
+178	Serbia
+54	Côte d'Ivoire
+125	Malaysia
+156	Palestine
+127	Mali
+134	Mongolia
+204	Tunisia
+176	Saudi Arabia, Kingdom of
+79	Georgia
+49	Costa Rica
+145	Netherlands, Kingdom of, with respect to Aruba
+211	United Arab Emirates
+48	Cook Islands
+121	Luxembourg
+50	Croatia
+6	Angola
+196	Syrian Arab Republic
+220	Wallis and Futuna Islands
+175	Sao Tomé and Principe
+24	Bolivia, Plurinational State of
+218	Viet Nam
+128	Malta
+195	Switzerland
+131	Mexico
+108	Korea, Democratic People's Republic of
+9	Argentina
+52	Cyprus
+89	Guyana
+111	Kuwait, the State of
+87	Guinea-Bissau
+95	India
+73	Fiji
+130	Mauritius
+182	Slovak Republic
+200	The Gambia
+114	Latvia
+192	Sudan
+28	British Indian Ocean Territory
+142	Nepal
+56	Denmark
+88	Gulf Cooperation Council (GCC)
+153	Norway
+155	Pakistan
+98	Iraq
+188	Southern African Customs Union (SACU)
+194	Sweden
+35	Cambodia
+103	Japan
+201	Togo
+37	Canada
+191	Sri Lanka
+92	Hong Kong, China
+177	Senegal
+215	Uzbekistan
+157	Panama
+174	San Marino
+19	Belgium
+168	Rwanda
+39	Central African Republic
+187	South Georgia and the South Sandwich Islands
+99	Ireland
+112	Kyrgyz Republic
+7	Anguilla
+214	Uruguay
+206	Turks and Caicos Islands
+199	Thailand
+202	Tonga
+104	Jordan
+193	Suriname
+14	Bahamas
+124	Malawi
+158	Papua New Guinea
+189	Southern Common Market (MERCOSUR)
+69	European Free Trade Association (EFTA)
+41	Chad
+75	France
+212	United Kingdom
+27	Brazil
+23	Bhutan
+84	Grenada
+219	Virgin Islands, British
+11	Australia
+81	Ghana
+36	Cameroon
+102	Jamaica
+107	Kiribati
+32	Burkina Faso
+207	Tuvalu
+198	Tanzania
+173	Samoa
+93	Hungary
+34	Cabo Verde
+183	Slovenia
+82	Greece
+94	Iceland
+42	Chile
+162	Pitcairn
+45	Colombia
+46	Comoros
+33	Burundi
+132	Micronesia, Federated States of
+185	Somalia
+2	Afghanistan
+224	Zimbabwe
+97	Iran
+161	Philippines
+3	Albania
+126	Maldives
+186	South Africa
+30	Brunei Darussalam
+154	Oman
+43	China
+213	United States of America
+122	Macao, China
+96	Indonesia
+55	Democratic Republic of the Congo
+197	Tajikistan
+67	Ethiopia
+151	Niue
+1	ASEAN Free Trade Area (AFTA)
+137	Morocco
+47	Congo
+221	Western Sahara
+66	Eswatini
+51	Cuba
+76	French Polynesia
+222	Yemen
+209	Uganda
+139	Myanmar
+68	Eurasian Economic Union (EAEU)
+64	Eritrea
+138	Mozambique
+119	Liechtenstein
+135	Montenegro
+169	Saint Kitts and Nevis
+80	Germany
+5	Andorra
+91	Honduras
+72	Faroe Islands
+141	Nauru
+144	Netherlands Antilles
+12	Austria
+210	Ukraine
+129	Mauritania
+105	Kazakhstan
+77	French Southern Territories
+15	Bahrain, Kingdom of
+149	Niger
+21	Benin
+17	Barbados
+203	Trinidad and Tobago
+60	Ecuador
+140	Namibia
+190	Spain
+18	Belarus
+115	Lebanese Republic
+58	Dominica
+53	Czech Republic
+10	Armenia
+86	Guinea
+217	Venezuela, Bolivarian Republic of
+150	Nigeria
+165	Qatar
+83	Greenland
+181	Singapore
+74	Finland
+116	Lesotho
+133	Moldova, Republic of
+147	New Zealand
+170	Saint Lucia
+31	Bulgaria
+62	El Salvador
+208	Türkiye
+205	Turkmenistan
+109	Korea, Republic of
+13	Azerbaijan
+25	Bosnia and Herzegovina
+166	Romania
+120	Lithuania
+163	Poland
+101	Italy
+20	Belize
+172	Saint Vincent and the Grenadines
+65	Estonia
+90	Haiti
+143	Netherlands
+85	Guatemala
+123	Madagascar
+71	Falkland Islands (Islas Malvinas)
+113	Lao People's Democratic Republic
+70	European Union
+57	Djibouti
+26	Botswana
+223	Zambia
+22	Bermuda
+179	Seychelles
+63	Equatorial Guinea
+136	Montserrat
+4	Algeria
+216	Vanuatu
+159	Paraguay
+29	British Overseas Territory of Saint Helena, Ascension and Tristan da Cunha
+61	Egypt
+100	Israel
+117	Liberia
+106	Kenya
+8	Antigua and Barbuda
+44	Chinese Taipei
+164	Portugal
+40	Central American Common Market (CACM)
+148	Nicaragua
+38	Cayman Islands
