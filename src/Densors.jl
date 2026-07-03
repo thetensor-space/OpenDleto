@@ -32,7 +32,8 @@ function stratify(
         Ω::TransverseOps, 
         ch::AbstractMatrix,          
         Γ::ITensor;
-        tol::Float64=1e-6
+        tol::Float64=1e-6,
+        ivec::Int=0
     )
     (rΩ, expand_map, ders) = derTrOpsReduced(Ω,ch,Γ; tol=tol)
     if size(ders,2) ==0
@@ -45,8 +46,17 @@ function stratify(
     # Select a random linear combination of derivations
     n_ders = size(ders,2)
     # n_axes = ndims(Γ)
-    coefs = [ randn() for _ in 1:n_ders ]
-    der = ders*coefs
+    ## Randomization?
+    if ivec == -1
+        coefs = [ randn() for _ in 1:n_ders ]
+        der = ders*coefs
+    elseif ivec == 0
+        val = length(inds(Γ))  
+        der = ders[:,val]  # just take the first nontrivial derivation
+    else
+        val = min(max(ivec, 1), n_ders)
+        der = ders[:,val]  # just take the first nontrivial derivation
+    end
     # expand into tensors
     # δ = embedITensors(rΩ,der)
     δ = embedITensors(Ω,expand_map(der))
@@ -59,13 +69,14 @@ end
 function stratify(
         Γ::ITensor;
         tol::Float64=1e-6,
-        reduced=false
+    reduced=false,
+    ivec::Int=0
     )
     # Use universal chisel and transverse ops
     ch = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
     Ω = IndTransverseOps(fr, UniversalOp())    
-    return stratify(Ω, ch, Γ; tol=tol)
+    return stratify(Ω, ch, Γ; tol=tol, ivec=ivec)
 end
 
 function stratify(
