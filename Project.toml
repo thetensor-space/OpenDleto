@@ -6,6 +6,7 @@ authors = ["Peter A. Brooksbank", "Martin D. Kassabov", "James B. Wilson"]
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 ITensors = "9136182c-28ba-11e9-034c-db9fb085ebd5"
 IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
@@ -19,7 +20,6 @@ Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 
 [weakdeps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
-IJulia = "7073ff75-c697-5162-941a-fcdaad2a7d2a"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
@@ -32,10 +32,12 @@ DletoPlotsExt = "Plots"
 [compat]
 CSV = "0.10.15"
 DataFrames = "1.8.1"
+IJulia = "1.34.4"
 ITensors = "0.9.15"
 IterativeSolvers = "0.9.4"
 JSON = "0.21.4"
 LinearAlgebra = "1.12.0"
+PlotlyJS = "0.18.18"
 Plots = "1.41.4"
 
 [extras]

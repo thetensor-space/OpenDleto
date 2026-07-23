@@ -51,11 +51,11 @@ function stratify(
         coefs = [ randn() for _ in 1:n_ders ]
         der = ders*coefs
     elseif ivec == 0
-        val = length(inds(Γ))  
-        der = ders[:,val]  # just take the first nontrivial derivation
+        val = min(length(inds(Γ)), n_ders)
+        der = ders[:,val]
     else
         val = min(max(ivec, 1), n_ders)
-        der = ders[:,val]  # just take the first nontrivial derivation
+        der = ders[:,val]
     end
     # expand into tensors
     # δ = embedITensors(rΩ,der)
