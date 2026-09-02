@@ -50,21 +50,8 @@ const LAW_TOL = 1e-6
 
 # Solvers and the settings they support.  FastDer3Valent is restricted to
 # valence 3 with a one-row, fully engaged chisel and universal operators.
-#
-# FastDer3Valent is marked broken: on a generic 4x5x3 tensor with the universal
-# chisel it returns a 1-dimensional basis whose single element has relative
-# residual 0.54, where SylverLining returns the correct 2-dimensional space at
-# 2e-15.  dim >= 2 is forced for *any* tensor, since null([1,1,1]) is
-# 2-dimensional and those scalar tuples are always derivations, so the port is
-# both incomplete and wrong.  Checked and ruled out: all eight transpose
-# combinations of the (X,Y,Z) slots give residuals in 0.44..0.56, so it is not
-# an orientation problem; the third-slot sign mismatch against the reference
-# was fixed separately and is necessary but not sufficient.  The reference
-# guards exactly this case with check_derivation_solution ("Retry with larger
-# a',b',c'!"), which the port did not carry over -- so the likely cause is the
-# restriction sizes or the lift, with the missing verification hiding it.
 const SOLVERS = [:SylverLining, :FastDer3Valent]
-const BROKEN_SOLVERS = [:FastDer3Valent]
+const BROKEN_SOLVERS = Symbol[]
 
 @testset "Z-law: applyDerivation of any der result is approximately 0" begin
     Random.seed!(20260902)
@@ -107,6 +94,36 @@ const BROKEN_SOLVERS = [:FastDer3Valent]
                 end
             end
         end
+    end
+
+    # QuickSylver handles adjoint-type chisels -- one row, exactly two engaged
+    # axes -- so it is compared against SylverLining on those, for both axis
+    # pairs, since the kernel fixes X on axis 1 and the tensor is permuted.
+    @testset "QuickSylver on adjoint chisels" begin
+        dims = (6, 6, 6)
+        frame = [Index(dims[i], "a_$i") for i in 1:3]
+        Γ = ITensor(randn(dims...), frame...)
+
+        for (a, b) in ((1, 2), (2, 3), (1, 3))
+            @testset "adjoint($a,$b)" begin
+                P = AdjointChisel(3, a, b)
+                base = der(:SylverLining, P, Γ; tol=1e-6)
+                quick = der(:QuickSylver, P, Γ; tol=1e-6)
+
+                # Oracle: scl(C_adj) = {(λI, λI, 0)} is 1-dimensional
+                # (null_patterns section 7.2, eq. 18), so a generic tensor has
+                # exactly one adjoint derivation.
+                @test length(base) == 1
+                @test length(quick) == 1
+
+                for D in quick
+                    @test der_residual(Γ, D, P) < LAW_TOL
+                end
+            end
+        end
+
+        # Three engaged axes must be refused, not silently mishandled.
+        @test_throws ErrorException der(:QuickSylver, UniversalChisel(3), Γ; tol=1e-6)
     end
 
     # The general solver must satisfy the law for the other chisels too.

@@ -76,7 +76,8 @@ include("DletoBase.jl")
     include("SylverLining/SylverLining.jl")
     # Fast derivation strategy (3-valent, universal setup)
     include("solvers/FastDer3Valent.jl")
-    # [COMING SOON] QuickSylver
+    # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels
+    include("solvers/QuickSylver.jl")
     include("solvers/NullSolvers.jl")
 
 # Supporting Utilities

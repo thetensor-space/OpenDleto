@@ -51,6 +51,8 @@ function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
         return SylverLiningMethod(; kwargs...)
     elseif method === :FastDer3Valent
         return FastDer3ValentMethod(; kwargs...)
+    elseif method === :QuickSylver
+        return QuickSylverMethod(; kwargs...)
     end
     error("Unknown derivation method symbol: $method")
 end

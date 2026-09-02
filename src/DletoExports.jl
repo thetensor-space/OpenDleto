@@ -79,7 +79,7 @@ export der, derReduced, derTrOps, derTrOpsReduced, den
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
-export FastDer3ValentMethod
+export FastDer3ValentMethod, QuickSylverMethod
 
 # Densors.jl
 export stratify, denLM

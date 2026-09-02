@@ -28,6 +28,12 @@ using Random
 using Printf
 using Plots
 
+# Loading the trigger packages activates Dleto's solver extensions.  Both are
+# in [deps]; Arpack is only a weakdep and is skipped when absent, which is why
+# ArpackSolver / ArpackDenseSolver are not in the roster below.
+using KrylovKit
+using IterativeSolvers
+
 # ---------------------------------------------------------------- tensor family
 
 """
@@ -86,11 +92,37 @@ globalDim(Ω) >= 1000, i.e. 3n^2 >= 1000, i.e. n >= 19 for this family; below
 that it uses a dense `eigen` and the solver choice is inert.  The size grid
 therefore has to cross n = 19 for the solver axis to mean anything.
 """
+const UNIVERSAL = UniversalChisel(3)
+const ADJOINT = AdjointChisel(3, 1, 2)
+
+# (label, chisel, solve) -- the chisel is carried per case because QuickSylver
+# handles adjoint-type chisels (two engaged axes) while the others take the
+# universal chisel, so they are not solving the same system.  Residuals are
+# always measured against the chisel that was actually used.
 const SOLVER_CASES = [
-    ("SylverLining/SVD", (Γ; tol) -> der(:SylverLining, Γ; tol = tol, solver = :SVDSolver)),
-    ("SylverLining/LU",  (Γ; tol) -> der(:SylverLining, Γ; tol = tol, solver = :LUSolver)),
-    ("FastDer3Valent",   (Γ; tol) -> der(:FastDer3Valent, Γ; tol = tol)),
+    ("SylverLining/SVD  [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:SylverLining, UNIVERSAL, Γ; tol = tol, solver = :SVDSolver)),
+    ("SylverLining/LU   [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:SylverLining, UNIVERSAL, Γ; tol = tol, solver = :LUSolver)),
+    ("FastDer3Valent    [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:FastDer3Valent, UNIVERSAL, Γ; tol = tol)),
+    ("SylverLining/Krylov  [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:SylverLining, UNIVERSAL, Γ; tol = tol, solver = :KrylovSolver)),
+    ("SylverLining/Lanczos [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:SylverLining, UNIVERSAL, Γ; tol = tol, solver = :LanczosSolver)),
+    ("SylverLining/CG      [1,1,1]", UNIVERSAL,
+        (Γ; tol) -> der(:SylverLining, UNIVERSAL, Γ; tol = tol, solver = :CGSolver)),
+    ("SylverLining/SVD  [1,-1,0]", ADJOINT,
+        (Γ; tol) -> der(:SylverLining, ADJOINT, Γ; tol = tol, solver = :SVDSolver)),
+    ("QuickSylver       [1,-1,0]", ADJOINT,
+        (Γ; tol) -> der(:QuickSylver, ADJOINT, Γ; tol = tol)),
 ]
+
+# NOTE: the solver name only bites for SylverLining, and only when
+# globalDim(Ω) = 3n^2 >= 1000, i.e. n >= 19 for this family; below that
+# SylverLining uses a dense `eigen` and every /solver variant is the same
+# code path.  FastDer3Valent and QuickSylver call `nullspace` directly, as
+# their reference implementations do, and ignore the setting entirely.
 
 struct Row
     solver::String
@@ -103,11 +135,10 @@ struct Row
     status::String
 end
 
-function run_case(label, f, n, trial; tol = 1e-6)
+function run_case(label, P, f, n, trial; tol = 1e-6)
     A = K_M_field_tensor(n)
     frame = [Index(size(A, i), "a_$i") for i in 1:3]
     Γ = ITensor(A, frame...)
-    P = UniversalChisel(3)
 
     GC.gc()
     basis = Vector{Vector{ITensor}}()
@@ -130,8 +161,8 @@ end
 
 function bench(; sizes, trials, tol = 1e-6)
     rows = Row[]
-    for n in sizes, (label, f) in SOLVER_CASES, trial in 1:trials
-        r = run_case(label, f, n, trial; tol = tol)
+    for n in sizes, (label, P, f) in SOLVER_CASES, trial in 1:trials
+        r = run_case(label, P, f, n, trial; tol = tol)
         push!(rows, r)
         @printf("%-20s n=%-4d trial=%d  %8.3fs  dim=%-4d  resid=%.2e  %s\n",
                 r.solver, r.n, r.trial, r.seconds, r.dim, r.residual_max, r.status)
