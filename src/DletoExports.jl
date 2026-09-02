@@ -42,7 +42,7 @@ export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 export normalize_chisel
 
 # ChiselImpls.jl
-export ChiselFramed, applyDerivation
+export Chisel, applyDerivation
 
 # Operators.jl
 export Operator                             # abstract type
@@ -71,7 +71,11 @@ export TransverseOpsSymmetries
 export NullSolver
 
 # DerivationMethodAbstract.jl
-export DerivationMethod, der, den, get_derivation_method
+# NOTE: `der` was exported here but never defined anywhere in the package;
+# removed.  `den` is currently only an abstract placeholder (it asserts
+# false for every method) and is kept exported because the T-set work in
+# Phase 3 implements it against that name.
+export DerivationMethod, den, get_derivation_method
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
