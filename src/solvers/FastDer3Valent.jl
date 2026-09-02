@@ -6,6 +6,22 @@
 #   This integration adapts the fast-der solve-and-lift strategy developed in
 #   companion work by Chris Liu, Joshua Maglione, and James B. Wilson.
 #   Please retain this attribution when reusing this implementation.
+#
+# The numerical core below is a faithful transcription of the reference
+# implementation in ../fast-der-solver/quick-der-lib.jl (with lin_solve and
+# linear_equals_affine from linear-algebra-lib.jl), operating on plain Arrays.
+# ITensors appear only at the boundary.
+#
+# It is a transcription on purpose.  The previous port re-derived the linear
+# system in ITensor contractions and got all three blocks wrong: the reference
+# builds `kron(I_a, R_flat)` with rows striding c then b, a *vertical stack*
+# over i of `kron(I_b, Sᵢ)`, and `kron(T_flat, I_c)` with the identity on the
+# right; the port used a single `kron(I, ·)` for each, and kron does not
+# commute.  The system therefore had no nullspace where the reference's has
+# one, which the Z-law in test/TestDerivationLaws.jl caught.  Reimplementing
+# verified numerics in a different data structure is what introduced that, so
+# the reference is followed line for line here.
+#
 
 using LinearAlgebra
 using LinearMaps
@@ -14,7 +30,7 @@ using LinearMaps
     FastDer3ValentMethod
 
 Derivation method using the solve-and-lift strategy from fast-der-solver.
-Current implementation is intentionally limited to 3-valent tensors with:
+Intentionally limited to 3-valent tensors with:
 - `IndTransverseOps`
 - `UniversalOp()` on each axis
 - a single-row, fully engaged chisel
@@ -28,88 +44,139 @@ end
 FastDer3ValentMethod(; triple_restriction_size_override=nothing, solver::Symbol=:SVDSolver, faster_randomized_check::Bool=false) =
     FastDer3ValentMethod(triple_restriction_size_override, solver, faster_randomized_check)
 
-function _selector_tensor(i::Index, kept::Vector{Int}; tag::String="rstr")
-    j = Index(length(kept), "$(tag),$(i)")
-    E = ITensor(i, j)
-    for (jj, ii) in enumerate(kept)
-        E[i => ii, j => jj] = 1.0
+# ---------------------------------------------------------------------------
+# linear-algebra-lib.jl
+# ---------------------------------------------------------------------------
+
+_qd_nullspace(M; atol::Float64=1e-6) = nullspace(Matrix{Float64}(M); atol=atol, rtol=atol)
+
+"""
+    _qd_linear_equals_affine(M, N_0, N_directions; atol) -> (U_0, U_directions)
+
+Transcription of `linear_equals_affine`.  Assumes `M` has full column rank and
+that every parameter is feasible, both of which the reference checks.
+"""
+function _qd_linear_equals_affine(M, N_0, N_directions; atol::Float64=1e-6)
+    M_matrix = Matrix{Float64}(M)
+    N_0_matrix = Matrix{Float64}(N_0)
+
+    if rank(M_matrix; atol=atol, rtol=atol) < size(M_matrix, 2)
+        error("LinearEqualsAffine assumes the linear system matrix has full column rank.")
     end
-    return E, j
+
+    rhs_rows, rhs_cols = size(M_matrix, 1), size(N_0_matrix, 2)
+    size(N_0_matrix, 1) == rhs_rows ||
+        throw(DimensionMismatch("N_0 has incompatible row dimension."))
+
+    N_direction_matrices = [Matrix{Float64}(N_i) for N_i in N_directions]
+    for N_i in N_direction_matrices
+        size(N_i) == (rhs_rows, rhs_cols) ||
+            throw(DimensionMismatch("All direction matrices must have the same size as N_0."))
+    end
+
+    left_kernel = _qd_nullspace(M_matrix'; atol=atol)
+    blocks = Matrix{Float64}[left_kernel' * N_0_matrix]
+    append!(blocks, [left_kernel' * N_i for N_i in N_direction_matrices])
+    if any(!isapprox(B, zeros(size(B)); atol=atol, rtol=atol) for B in blocks)
+        error("LinearEqualsAffine assumes every parameter is feasible, but Theta_feas != Theta.")
+    end
+
+    left_inverse = pinv(M_matrix)
+    return left_inverse * N_0_matrix, [left_inverse * N_i for N_i in N_direction_matrices]
 end
 
-function _restrict_index(Γ::ITensor, i::Index, kept::Vector{Int}; tag::String="rstr")
-    E, j = _selector_tensor(i, kept; tag=tag)
-    return Γ * E, j
+# ---------------------------------------------------------------------------
+# quick-der-lib.jl
+# ---------------------------------------------------------------------------
+
+"""
+    _qd_derivation_system_matrix(R, S, T)
+
+Transcription of `derivation_system_matrix`.  The row order is (a, b, c) with
+rows striding c fastest, then b, then a; the columns are the unknowns of X, Y
+and Z in that order.  Every block below must agree on that row order, which is
+why the kron factors sit where they do.
+"""
+function _qd_derivation_system_matrix(R, S, T)
+    r_dim, b, c = size(R)
+    a, s_dim, _ = size(S)
+    _, _, t_dim = size(T)
+
+    # rows first stride by c then b
+    R_flat = reshape(permutedims(R, (3, 2, 1)), (c * b, r_dim))
+    I_a = Matrix(LinearAlgebra.I, a, a)
+    # rows stride c, b, a; columns stride r_dim then a
+    R_mat = kron(I_a, R_flat)
+
+    I_b = Matrix(LinearAlgebra.I, b, b)
+    S_slices = [transpose(S[i, :, :]) for i in 1:a]   # each (c x s_dim)
+    # a vertical stack of per-slice krons -- NOT a single kron
+    S_mat = vcat([kron(I_b, M) for M in S_slices]...)
+
+    T_flat = reshape(permutedims(T, (2, 1, 3)), (b * a, t_dim))
+    I_c = Matrix(LinearAlgebra.I, c, c)
+    # identity on the right
+    T_mat = kron(T_flat, I_c)
+
+    return hcat(R_mat, S_mat, -T_mat)
 end
 
-function _matrix_from_tensor3(Γ::ITensor, r::Index, c1::Index, c2::Index)
-    A = Array(Γ, r, c1, c2)
-    M = Matrix{Float64}(undef, dim(c1) * dim(c2), dim(r))
-    row = 1
-    for j in 1:dim(c1), k in 1:dim(c2)
-        for i in 1:dim(r)
-            M[row, i] = A[i, j, k]
+"""Transcription of `solve_dense_derivation_system`."""
+function _qd_solve_dense(R, S, T; atol::Float64=1e-6)
+    _, b, c = size(R)
+    a, _, c_S = size(S)
+    a_T, b_T, _ = size(T)
+    ((a_T, b_T) == (a, b) && c_S == c) ||
+        throw(DimensionMismatch("R, S, and T must have compatible derivation dimensions."))
+
+    M = _qd_derivation_system_matrix(R, S, T)
+    return _qd_nullspace(M; atol=atol)
+end
+
+"""Transcription of `outer_action`: apply Z along the third axis."""
+function _qd_outer_action(T, Z)
+    a, b, c = size(T)
+    return reshape(reshape(T, (a * b, c)) * Z, (a, b, size(Z, 2)))
+end
+
+"""
+    _qd_check_solution(R, S, T, basis; faster_randomized_check) -> Bool
+
+Transcription of `check_derivation_solution`.  The reference always runs this,
+because solve-and-lift is only *generically* correct at a given (a',b',c').
+The previous port dropped it, which turned a detectable failure into a silent
+wrong answer.
+"""
+function _qd_check_solution(R, S, T, basis; faster_randomized_check::Bool=false, atol::Float64=1e-6)
+    isempty(basis) && return true
+
+    ok_on_slice(X, Y, Z, k) = begin
+        TZ = _qd_outer_action(T, Z)
+        isapprox(X * R[:, :, k] + S[:, :, k] * Y - TZ[:, :, k],
+                 zeros(size(TZ[:, :, k])); rtol=atol, atol=atol)
+    end
+
+    if faster_randomized_check
+        k = rand(axes(R, 3))
+        X, Y, Z = basis[rand(eachindex(basis))]
+        return ok_on_slice(X, Y, Z, k)
+    end
+
+    for (X, Y, Z) in basis
+        TZ = _qd_outer_action(T, Z)
+        for k in axes(R, 3)
+            isapprox(X * R[:, :, k] + S[:, :, k] * Y - TZ[:, :, k],
+                     zeros(size(TZ[:, :, k])); rtol=atol, atol=atol) || return false
         end
-        row += 1
     end
-    return M
+    return true
 end
 
-function _rhs_tensor_to_matrix(Γ::ITensor, row1::Index, row2::Index, col::Index)
-    A = Array(Γ, row1, row2, col)
-    M = Matrix{Float64}(undef, dim(row1) * dim(row2), dim(col))
-    row = 1
-    for i in 1:dim(row1), j in 1:dim(row2)
-        for c in 1:dim(col)
-            M[row, c] = A[i, j, c]
-        end
-        row += 1
-    end
-    return M
-end
-
-function _encode_basis_vector(X::AbstractMatrix, Y::AbstractMatrix, Z::AbstractMatrix)
-    v = Float64[]
-    append!(v, vec(Matrix(X)))
-    append!(v, vec(Matrix(Y)))
-    append!(v, vec(Matrix(Z)))
-    return v
-end
-
-function _fastder_dertr_basis_to_xyz(
-    DerTR_basis_vector::AbstractVector,
-    a_prime::Int,
-    b_prime::Int,
-    c_prime::Int,
-    r_dim::Int,
-    s_dim::Int,
-    t_dim::Int,
-)
-    X_I = zeros(Float64, a_prime, r_dim)
-    Y_J = zeros(Float64, s_dim, b_prime)
-    Z_K = zeros(Float64, t_dim, c_prime)
-
-    offset = 0
-    for i in 1:a_prime, j in 1:r_dim
-        offset += 1
-        X_I[i, j] = DerTR_basis_vector[offset]
-    end
-    for i in 1:s_dim, j in 1:b_prime
-        offset += 1
-        Y_J[i, j] = DerTR_basis_vector[offset]
-    end
-    for i in 1:c_prime, j in 1:t_dim
-        offset += 1
-        Z_K[j, i] = DerTR_basis_vector[offset]
-    end
-
-    return X_I, Y_J, Z_K
-end
-
-function _fastder_select_restriction_sizes(R::ITensor, S::ITensor, T::ITensor)
-    r_dim, b, c = (dim(i) for i in inds(R))
-    a, s_dim, _ = (dim(i) for i in inds(S))
-    _, _, t_dim = (dim(i) for i in inds(T))
+"""Transcription of `select_restriction_sizes`."""
+function _qd_select_restriction_sizes(R, S, T)
+    r_dim, b, c = size(R)
+    a, s_dim, _ = size(S)
+    _, _, t_dim = size(T)
     rst_max = max(r_dim, s_dim, t_dim)
 
     balanced_block_size = ceil(Int, sqrt(3.0 * rst_max^3))
@@ -120,210 +187,137 @@ function _fastder_select_restriction_sizes(R::ITensor, S::ITensor, T::ITensor)
 
     num_equations = a_prime * b_prime * c_prime
     num_unknowns = a_prime * r_dim + b_prime * s_dim + c_prime * t_dim
-    num_equations >= num_unknowns || error("Restriction sizes are underconstrained for solve-and-lift.")
+    if num_equations < num_unknowns
+        error("The restriction sizes do not make TripleRestrictedDer generically full column rank.")
+    end
 
     return a_prime, b_prime, c_prime
 end
 
-"""
-    _fastder_restricted_basis(M; tol, nv, solver) -> Matrix
+"""Transcription of `solve_and_lift_derivation_system`."""
+function _qd_solve_and_lift(R, S, T; a_prime::Int, b_prime::Int, c_prime::Int, atol::Float64=1e-6)
+    r_dim, b, c = size(R)
+    a, s_dim, _ = size(S)
+    _, _, t_dim = size(T)
 
-    Basis of the nullspace of the restricted derivation system.
+    Ir = 1:a_prime;  I_hat = (a_prime + 1):a;  I_hat_dim = a - a_prime
+    Jr = 1:b_prime;  J_hat = (b_prime + 1):b;  J_hat_dim = b - b_prime
+    Kr = 1:c_prime;  K_hat = (c_prime + 1):c;  K_hat_dim = c - c_prime
 
-    This is `lin_solve` of the reference (quick-der-lib.jl): a plain
-    nullspace, nothing more.  The port had replaced it with a heuristic that,
-    when *no* singular value fell below `tol`, searched the spectrum for a
-    "5x jump" and returned up to three vectors anyway -- fabricating a basis
-    out of vectors that are not null vectors.  With no jump found it kept
-    exactly one, which is precisely the dim-1, relative-residual-0.54 answer
-    the Z-law caught.  A restricted system with no nullspace means the
-    restriction sizes were insufficient, which is a condition to report, not
-    to paper over.
-"""
-function _fastder_restricted_basis(M::AbstractMatrix; tol::Float64=1e-6, nv::Int=8, solver::Symbol=:SVDSolver)
-    return nullspace(Matrix{Float64}(M); atol=tol, rtol=tol)
+    R_JK = R[:, Jr, Kr];  S_IK = S[Ir, :, Kr];  T_IJ = T[Ir, Jr, :]
+
+    DerTR_basis = _qd_solve_dense(R_JK, S_IK, T_IJ; atol=atol)
+    n_basis = size(DerTR_basis, 2)
+    n_basis == 0 && return NTuple{3, Matrix{Float64}}[]
+
+    M_C = Matrix(transpose(reshape(R[:, Jr, Kr], (r_dim, b_prime * c_prime))))
+    T_I_hat_J = T[I_hat, Jr, :];  S_I_hat_K = S[I_hat, :, Kr]
+
+    M_R = reshape(permutedims(S[Ir, :, Kr], (1, 3, 2)), (a_prime * c_prime, s_dim))
+    T_I_J_hat = T[Ir, J_hat, :];  R_J_hat_K = R[:, J_hat, Kr]
+
+    M_D = reshape(T[Ir, Jr, :], (a_prime * b_prime, t_dim))
+    R_J_K_hat = R[:, Jr, K_hat];  S_I_K_hat = S[Ir, :, K_hat]
+
+    function unpack(v)
+        x_stop = a_prime * r_dim
+        y_stop = x_stop + b_prime * s_dim
+        X_I = permutedims(reshape(v[1:x_stop], (r_dim, a_prime)), (2, 1))
+        Y_J = reshape(v[(x_stop + 1):y_stop], (s_dim, b_prime))
+        Z_K = permutedims(reshape(v[(y_stop + 1):end], (c_prime, t_dim)), (2, 1))
+        return X_I, Y_J, Z_K
+    end
+
+    function N_C(Y_J, Z_K)
+        S_Y = Matrix(transpose(hcat([S_I_hat_K[:, :, k] * Y_J for k in 1:c_prime]...)))
+        TZ_matrix = reshape(T_I_hat_J, (I_hat_dim * b_prime, t_dim)) * Z_K
+        TZ = reshape(permutedims(reshape(TZ_matrix, (I_hat_dim, b_prime, c_prime)), (2, 3, 1)),
+                     (b_prime * c_prime, I_hat_dim))
+        return TZ - S_Y
+    end
+
+    function N_R(X_I, Z_K)
+        X_R = vcat([X_I * R_J_hat_K[:, :, k] for k in 1:c_prime]...)
+        TZ_matrix = reshape(T_I_J_hat, (a_prime * J_hat_dim, t_dim)) * Z_K
+        TZ = reshape(permutedims(reshape(TZ_matrix, (a_prime, J_hat_dim, c_prime)), (1, 3, 2)),
+                     (a_prime * c_prime, J_hat_dim))
+        return TZ - X_R
+    end
+
+    function N_D(X_I, Y_J)
+        X_R = vcat([X_I * R_J_K_hat[:, j, :] for j in 1:b_prime]...)
+        S_Y_slices = [transpose(Y_J) * S_I_K_hat[i, :, :] for i in 1:a_prime]
+        S_Y = reshape(permutedims(reshape(vcat(S_Y_slices...), b_prime, a_prime, K_hat_dim), (2, 1, 3)),
+                      (a_prime * b_prime, K_hat_dim))
+        return X_R + S_Y
+    end
+
+    vectors = [unpack(DerTR_basis[:, i]) for i in 1:n_basis]
+
+    col_rhs = [N_C(Y_J, Z_K) for (_, Y_J, Z_K) in vectors]
+    row_rhs = [N_R(X_I, Z_K) for (X_I, _, Z_K) in vectors]
+    dep_rhs = [N_D(X_I, Y_J) for (X_I, Y_J, _) in vectors]
+
+    _, X_hat = _qd_linear_equals_affine(M_C, zeros(b_prime * c_prime, I_hat_dim), col_rhs; atol=atol)
+    _, Y_hat = _qd_linear_equals_affine(M_R, zeros(a_prime * c_prime, J_hat_dim), row_rhs; atol=atol)
+    _, Z_hat = _qd_linear_equals_affine(M_D, zeros(a_prime * b_prime, K_hat_dim), dep_rhs; atol=atol)
+
+    basis = NTuple{3, Matrix{Float64}}[]
+    for (i, (X_I, Y_J, Z_K)) in enumerate(vectors)
+        push!(basis, (Matrix(vcat(X_I, transpose(X_hat[i]))),
+                      Matrix(hcat(Y_J, Y_hat[i])),
+                      Matrix(hcat(Z_K, Z_hat[i]))))
+    end
+    return basis
 end
 
-function _fastder_solve_and_lift(
-    R::ITensor,
-    S::ITensor,
-    T::ITensor;
-    a_prime::Int,
-    b_prime::Int,
-    c_prime::Int,
-    tol::Float64=1e-6,
-    solver::Symbol=:SVDSolver,
-)
-    r_idx, b_idx, c_idx = inds(R)
-    a_idx, s_idx, cS_idx = inds(S)
-    aT_idx, bT_idx, t_idx = inds(T)
-
-    cS_idx == c_idx || error("Incompatible c-index between R and S.")
-    aT_idx == a_idx || error("Incompatible a-index between S and T.")
-    bT_idx == b_idx || error("Incompatible b-index between R and T.")
-
-    r_dim = dim(r_idx)
-    a = dim(a_idx)
-    b = dim(b_idx)
-    c = dim(c_idx)
-    s_dim = dim(s_idx)
-    t_dim = dim(t_idx)
-
-    Ipos = collect(1:a_prime)
-    I_hat_pos = collect(a_prime + 1:a)
-    I_hat_dim = length(I_hat_pos)
-
-    Jpos = collect(1:b_prime)
-    J_hat_pos = collect(b_prime + 1:b)
-    J_hat_dim = length(J_hat_pos)
-
-    Kpos = collect(1:c_prime)
-    K_hat_pos = collect(c_prime + 1:c)
-    K_hat_dim = length(K_hat_pos)
-
-    R_JK, j_idx = _restrict_index(R, b_idx, Jpos; tag="J")
-    R_JK, k_idx = _restrict_index(R_JK, c_idx, Kpos; tag="K")
-
-    S_IK, i_idx = _restrict_index(S, a_idx, Ipos; tag="I")
-    S_IK, kS_idx = _restrict_index(S_IK, cS_idx, Kpos; tag="K")
-
-    T_IJ, iT_idx = _restrict_index(T, aT_idx, Ipos; tag="I")
-    T_IJ, jT_idx = _restrict_index(T_IJ, bT_idx, Jpos; tag="J")
-
-    # Align restricted index identities for safe contractions.
-    S_IK = replaceind(S_IK, kS_idx, k_idx)
-    T_IJ = replaceind(T_IJ, iT_idx, i_idx)
-    T_IJ = replaceind(T_IJ, jT_idx, j_idx)
-
-    M_R = _matrix_from_tensor3(R_JK, r_idx, j_idx, k_idx)
-    M_S = _matrix_from_tensor3(S_IK, s_idx, i_idx, k_idx)
-    M_T = _matrix_from_tensor3(T_IJ, t_idx, i_idx, j_idx)
-    M = hcat(
-        kron(Matrix(LinearAlgebra.I, dim(i_idx), dim(i_idx)), M_R),
-        kron(Matrix(LinearAlgebra.I, dim(j_idx), dim(j_idx)), M_S),
-        -kron(Matrix(LinearAlgebra.I, dim(k_idx), dim(k_idx)), M_T),
-    )
-
-    DerTR_basis = _fastder_restricted_basis(M; tol=tol, nv=max(8, a_prime + b_prime + c_prime), solver=solver)
-
-    DerTR_basis_size = size(DerTR_basis, 2)
-    DerTR_basis_size == 0 && return NTuple{3, Matrix{Float64}}[]
-
-    M_C = _matrix_from_tensor3(R_JK, r_idx, j_idx, k_idx)
-
-    T_I_hat_J, ihatT_idx = _restrict_index(T, aT_idx, I_hat_pos; tag="Ihat")
-    T_I_hat_J, jhatT_idx = _restrict_index(T_I_hat_J, bT_idx, Jpos; tag="J")
-    T_I_hat_J = replaceind(T_I_hat_J, jhatT_idx, j_idx)
-
-    S_I_hat_K, ihatS_idx = _restrict_index(S, a_idx, I_hat_pos; tag="Ihat")
-    S_I_hat_K, khatS_idx = _restrict_index(S_I_hat_K, cS_idx, Kpos; tag="K")
-    S_I_hat_K = replaceind(S_I_hat_K, ihatS_idx, ihatT_idx)
-    S_I_hat_K = replaceind(S_I_hat_K, khatS_idx, k_idx)
-
-    M_R_lift = _matrix_from_tensor3(S_IK, s_idx, i_idx, k_idx)
-
-    T_I_J_hat, i2_idx = _restrict_index(T, aT_idx, Ipos; tag="I")
-    T_I_J_hat, jhat_idx = _restrict_index(T_I_J_hat, bT_idx, J_hat_pos; tag="Jhat")
-    T_I_J_hat = replaceind(T_I_J_hat, i2_idx, i_idx)
-
-    R_J_hat_K, j2hat_idx = _restrict_index(R, b_idx, J_hat_pos; tag="Jhat")
-    R_J_hat_K, k2_idx = _restrict_index(R_J_hat_K, c_idx, Kpos; tag="K")
-    R_J_hat_K = replaceind(R_J_hat_K, j2hat_idx, jhat_idx)
-    R_J_hat_K = replaceind(R_J_hat_K, k2_idx, k_idx)
-
-    M_D = _matrix_from_tensor3(T_IJ, t_idx, i_idx, j_idx)
-
-    R_J_K_hat, j3_idx = _restrict_index(R, b_idx, Jpos; tag="J")
-    R_J_K_hat, khat_idx = _restrict_index(R_J_K_hat, c_idx, K_hat_pos; tag="Khat")
-    R_J_K_hat = replaceind(R_J_K_hat, j3_idx, j_idx)
-
-    S_I_K_hat, i3_idx = _restrict_index(S, a_idx, Ipos; tag="I")
-    S_I_K_hat, khatS2_idx = _restrict_index(S_I_K_hat, cS_idx, K_hat_pos; tag="Khat")
-    S_I_K_hat = replaceind(S_I_K_hat, i3_idx, i_idx)
-    S_I_K_hat = replaceind(S_I_K_hat, khatS2_idx, khat_idx)
-
-    function N_C(Y_J::AbstractMatrix, Z_K::AbstractMatrix)
-        Yten = ITensor(Matrix(Y_J), s_idx, j_idx)
-        Zten = ITensor(Matrix(Z_K), t_idx, k_idx)
-        NC = (T_I_hat_J * Zten) - (S_I_hat_K * Yten)
-        return _rhs_tensor_to_matrix(NC, j_idx, k_idx, ihatT_idx)
-    end
-
-    function N_R(X_I::AbstractMatrix, Z_K::AbstractMatrix)
-        Xten = ITensor(Matrix(X_I), i_idx, r_idx)
-        Zten = ITensor(Matrix(Z_K), t_idx, k_idx)
-        NR = (T_I_J_hat * Zten) - (Xten * R_J_hat_K)
-        return _rhs_tensor_to_matrix(NR, i_idx, k_idx, jhat_idx)
-    end
-
-    function N_D(X_I::AbstractMatrix, Y_J::AbstractMatrix)
-        Xten = ITensor(Matrix(X_I), i_idx, r_idx)
-        Yten = ITensor(Matrix(Y_J), s_idx, j_idx)
-        ND = (Xten * R_J_K_hat) + (S_I_K_hat * Yten)
-        return _rhs_tensor_to_matrix(ND, i_idx, j_idx, khat_idx)
-    end
-
-    function _linear_equals_affine(Msys::AbstractMatrix, N0::AbstractMatrix, Ndirections::Vector{<:AbstractMatrix})
-        rank(Msys; atol=tol, rtol=tol) >= size(Msys, 2) || error("Solve-and-lift requires full-column-rank lift systems.")
-        M_left_inverse = pinv(Msys)
-        U0 = M_left_inverse * N0
-        Udirections = [M_left_inverse * N for N in Ndirections]
-        return U0, Udirections
-    end
-
-    der_vectors = [_fastder_dertr_basis_to_xyz(DerTR_basis[:, i], a_prime, b_prime, c_prime, r_dim, s_dim, t_dim) for i in 1:DerTR_basis_size]
-
-    col_rhs_directions = [N_C(Y_J, Z_K) for (_, Y_J, Z_K) in der_vectors]
-    row_rhs_directions = [N_R(X_I, Z_K) for (X_I, _, Z_K) in der_vectors]
-    depth_rhs_directions = [N_D(X_I, Y_J) for (X_I, Y_J, _) in der_vectors]
-
-    _, X_hat_directions = _linear_equals_affine(M_C, zeros(b_prime * c_prime, I_hat_dim), col_rhs_directions)
-    _, Y_hat_directions = _linear_equals_affine(M_R_lift, zeros(a_prime * c_prime, J_hat_dim), row_rhs_directions)
-    _, Z_hat_directions = _linear_equals_affine(M_D, zeros(a_prime * b_prime, K_hat_dim), depth_rhs_directions)
-
-    solution_basis = NTuple{3, Matrix{Float64}}[]
-    for (i, (X_I, Y_J, Z_K)) in enumerate(der_vectors)
-        X = vcat(X_I, Transpose(X_hat_directions[i]))
-        Y = hcat(Y_J, Y_hat_directions[i])
-        Z = hcat(Z_K, Z_hat_directions[i])
-        push!(solution_basis, (X, Y, Z))
-    end
-
-    return solution_basis
-end
-
-function _fastder_solve_basis(
-    R::ITensor,
-    S::ITensor,
-    T::ITensor;
-    triple_restriction_size_override::Union{Nothing, NTuple{3, Int}}=nothing,
-    faster_randomized_check::Bool=false,
-    tol::Float64=1e-6,
-    solver::Symbol=:SVDSolver,
-)
-    r_dim, b, c = (dim(i) for i in inds(R))
-    a, s_dim, cS = (dim(i) for i in inds(S))
-    aT, bT, _ = (dim(i) for i in inds(T))
-    (aT == a && bT == b && cS == c) || throw(DimensionMismatch("R, S, and T must have compatible dimensions."))
-
-    if triple_restriction_size_override === nothing
-        a_prime, b_prime, c_prime = _fastder_select_restriction_sizes(R, S, T)
-    else
+"""Transcription of `derivation_solver`, including the verification step."""
+function _qd_derivation_solver(R, S, T;
+                               triple_restriction_size_override=nothing,
+                               faster_randomized_check::Bool=false,
+                               atol::Float64=1e-6)
+    if triple_restriction_size_override !== nothing
         a_prime, b_prime, c_prime = triple_restriction_size_override
+        a, b, c = size(T)
+        (1 <= a_prime <= a && 1 <= b_prime <= b && 1 <= c_prime <= c) ||
+            error("The TripleRestrictedDer override must satisfy 1 <= a' <= a, 1 <= b' <= b, and 1 <= c' <= c.")
+    else
+        a_prime, b_prime, c_prime = _qd_select_restriction_sizes(R, S, T)
     end
 
-    solution_basis = _fastder_solve_and_lift(
-        R,
-        S,
-        T;
-        a_prime=a_prime,
-        b_prime=b_prime,
-        c_prime=c_prime,
-        tol=tol,
-        solver=solver,
-    )
+    basis = _qd_solve_and_lift(R, S, T; a_prime=a_prime, b_prime=b_prime, c_prime=c_prime, atol=atol)
+    isempty(basis) && return basis
 
-    return solution_basis
+    _qd_check_solution(R, S, T, basis; faster_randomized_check=faster_randomized_check, atol=atol) ||
+        error("FastDer3Valent did not find a correct solution triple at " *
+              "(a',b',c') = ($a_prime,$b_prime,$c_prime). Retry with larger sizes via " *
+              "triple_restriction_size_override.")
+
+    return basis
+end
+
+# ---------------------------------------------------------------------------
+# ITensor boundary
+# ---------------------------------------------------------------------------
+
+"""
+    _encode_basis_vector(X, Y, Z) -> Vector{Float64}
+
+Pack a solution triple into `Ω` coordinates.
+
+`X` is transposed on the way in.  In the kernel `X` acts by left
+multiplication, `(X·Γ)[i,j,k] = Σ_p X[i,p]·Γ[p,j,k]`, so it is `X`'s *second*
+index that meets the tensor; `Y` and `Z` act on the right and so meet the
+tensor with their *first*.  `embedITensors` puts the frame index first, i.e.
+the contracted one first, which is the convention `applyDerivation` reads --
+so only `X` needs flipping to agree.
+"""
+function _encode_basis_vector(X::AbstractMatrix, Y::AbstractMatrix, Z::AbstractMatrix)
+    v = Float64[]
+    append!(v, vec(Matrix(transpose(X))))
+    append!(v, vec(Matrix(Y)))
+    append!(v, vec(Matrix(Z)))
+    return v
 end
 
 function _fastder_validate_compatibility(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
@@ -350,37 +344,27 @@ function derTrOpsReduced(
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
     _fastder_validate_compatibility(Ω, P, Γ)
 
-    # The solve-and-lift kernel solves  X*R + S*Y - T*Z = 0  (note the minus on
-    # the third slot; see quick-der-lib.jl check_derivation_solution).  The
-    # derivation condition we want is  c1*XΓ + c2*ΓY + c3*ΓZ = 0, so the third
-    # coefficient has to be negated on the way in.  Without this, a chisel
-    # [c1,c2,c3] was silently solved as [c1,c2,-c3] -- with the default
-    # UniversalChisel(3) = [1,1,1] that meant computing the [1,1,-1]
-    # derivations, a different Z-set.  Caught by the Z-law in
-    # test/TestDerivationLaws.jl.
-    coeffs = vec(P[1, :])
-    R = coeffs[1] * Γ
-    S = coeffs[2] * Γ
-    T = -coeffs[3] * Γ
+    fr = collect(inds(Γ))
+    G = Array(Γ, fr...)
 
-    basis = _fastder_solve_basis(
-        R,
-        S,
-        T;
+    # The kernel solves  X*R + S*Y - T*Z = 0, so the third slot enters negated:
+    # the derivation condition c1*XΓ + c2*ΓY + c3*ΓZ = 0 needs T = -c3*Γ.
+    coeffs = vec(P[1, :])
+    R = coeffs[1] * G
+    S = coeffs[2] * G
+    T = -coeffs[3] * G
+
+    basis = _qd_derivation_solver(
+        R, S, T;
         triple_restriction_size_override=method.triple_restriction_size_override,
         faster_randomized_check=method.faster_randomized_check,
-        solver=method.solver,
-        tol=tol,
+        atol=tol,
     )
 
-    cols = Vector{Vector{Float64}}()
-    for (X, Y, Z) in basis
-        push!(cols, _encode_basis_vector(X, Y, Z))
-    end
-
+    cols = [_encode_basis_vector(X, Y, Z) for (X, Y, Z) in basis]
     ders = isempty(cols) ? zeros(Float64, globalDim(Ω), 0) : hcat(cols...)
     if nd > 0 && size(ders, 2) > nd
-        ders = ders[:, 1:nd]
+        ders = ders[:, 1:floor(Int, nd)]
     end
 
     id_map = LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω); ismutating=false)
