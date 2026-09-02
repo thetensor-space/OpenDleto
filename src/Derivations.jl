@@ -42,19 +42,38 @@ abstract type DerivationMethod end;
     get_derivation_method(method::Symbol; kwargs...)
 
 Factory for selecting a derivation strategy by name.
+
 Supported symbols:
-- `:SylverLining`
-- `:FastDer3Valent`
+
+- `:SylverLining` -- the general method: build the derivation--densor operator
+  as a `LinearMap` and hand it to a null solver.  Any chisel, any valency, any
+  operator space.
+- `:QuickDer` -- Liu's *derivation* solve-and-lift (`quick-der-lib.jl`):
+  restrict all three axes to a block that is generically full column rank,
+  solve that small dense system, then lift each restricted basis vector to the
+  full axes by three least-squares solves.  Valency 3, one-row fully engaged
+  chisel, universal operators.  Alias: `:FastDer3Valent`.
+- `:QuickSylver` -- Liu's *Sylvester* solve-and-lift (`quicksylver-lib.jl`):
+  the same idea for `XR + SY = T`, restricting two axes and lifting an affine
+  frame.  Chisels with exactly two engaged axes, e.g. `AdjointChisel`.
+
+Both lift solvers come from the same repository and both are "solve-and-lift";
+they differ in how many axes get restricted (three vs two) and therefore in
+which chisels they can handle.  `:QuickDer` is the name for the derivation one,
+matching Liu's own `quick-der` / `quicksylver` split, because `:FastDer3Valent`
+made it sound like a different family from `:QuickSylver` when it is the
+flagship derivation member of the same one.
 """
 function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
     if method === :SylverLining
         return SylverLiningMethod(; kwargs...)
-    elseif method === :FastDer3Valent
+    elseif method === :QuickDer || method === :FastDer3Valent
         return FastDer3ValentMethod(; kwargs...)
     elseif method === :QuickSylver
         return QuickSylverMethod(; kwargs...)
     end
-    error("Unknown derivation method symbol: $method")
+    error("Unknown derivation method symbol: $method. " *
+          "Known: :SylverLining, :QuickDer (alias :FastDer3Valent), :QuickSylver.")
 end
 
 """
@@ -222,4 +241,20 @@ function der(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
     return der(m, Ω, ch, Γ; nd=nd, tol=tol)
 end
+
+"""
+    der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor; ...)
+
+Name the method by symbol while giving the full setting (Ω, ch, Γ) explicitly.
+
+This overload was missing.  Every *partial* setting had a symbol form --
+`der(:QuickDer, Γ)`, `der(:QuickDer, ch, Γ)` -- and the full setting had only
+the instance form `der(SylverLiningMethod(), Ω, ch, Γ)` plus a `method=`
+keyword on the argument-order-swapped `der(Ω, ch, Γ)`.  So the one call a
+caller comparing methods on a fixed operator space would naturally write,
+`der(:QuickDer, Ω, ch, Γ)`, was a `MethodError`.
+"""
+der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
+    nd=-1, tol::Real=1e-6, kwargs...) =
+    der(get_derivation_method(method; kwargs...), Ω, ch, Γ; nd=nd, tol=tol)
 

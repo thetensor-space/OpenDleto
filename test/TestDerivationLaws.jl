@@ -249,6 +249,59 @@ end
     end
 end
 
+# --- stratify: a change of frame, so it must behave like one ----------------
+#
+# There is no residual oracle for stratification yet -- the σ_{e+1} verdict of
+# null_patterns.pdf Algorithm 2, which decides whether a pattern is genuinely
+# present, is not implemented.  But two laws hold for any change of frame and
+# are what the operation is for:
+#
+#   1. Σ lives in the SAME frame as Γ.  Each X_a carries the pair (a-th index,
+#      temporary partner), so contracting consumed Γ's index and left the
+#      temporary one: Σ came back on the temporary frame and could not be fed
+#      to `der`, `den` or `stratify` again -- the `frames(Ω)` check rejected it
+#      with "Incompatable Indexes".  The source carried `# retag the indexes`
+#      as an undone TODO.
+#   2. A change of frame CONJUGATES the derivation algebra, so it cannot change
+#      the dimension of the Z-set.
+@testset "stratify returns a usable change of frame" begin
+    Random.seed!(20260906)
+    dims = (5, 5, 5)
+    frame = [Index(dims[i], "a_$i") for i in 1:3]
+    Γ = ITensor(randn(dims...), frame...)
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+
+    @testset "method $m" for m in (:SylverLining, :QuickDer)
+        res = stratify(Ω, P, Γ; tol=1e-6, method=m)
+
+        # Law 1: same frame in, same frame out -- the whole point of retagging.
+        @test Set(inds(res.Σ)) == Set(frame)
+
+        # Which is exactly what makes this call possible at all:
+        Δ_Γ = der(:SylverLining, Ω, P, Γ; tol=1e-6)
+        Δ_Σ = der(:SylverLining, Ω, P, res.Σ; tol=1e-6)
+
+        # Law 2: conjugation preserves the dimension of the Z-set.
+        @test length(Δ_Σ) == length(Δ_Γ)
+
+        # And the derivations of the stratified tensor are still derivations.
+        for D in Δ_Σ
+            @test der_residual(res.Σ, D, P) < LAW_TOL
+        end
+
+        # One frame matrix per axis, each invertible (else it is not a frame).
+        @test length(res.Xs) == 3
+        for X in res.Xs
+            @test isfinite(cond(Array(X, inds(X)...)))
+        end
+    end
+
+    # `:QuickDer` is the name for Liu's derivation solve-and-lift;
+    # `:FastDer3Valent` is kept as an alias and must resolve to the same thing.
+    @test get_derivation_method(:QuickDer) == get_derivation_method(:FastDer3Valent)
+end
+
 @testset "Galois adjunction: S ⊆ T(P,Ω) iff Ω ⊆ Z(S,P)" begin
     Random.seed!(20260904)
     Γ, frame = diagonal_tensor(3)

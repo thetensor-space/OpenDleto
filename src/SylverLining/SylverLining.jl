@@ -58,7 +58,14 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # a_i + b_i + c_i = 0) and callers got 3 of them.  `nv` is only how many
     # vectors to ask an *iterative* solver for; the truncation below now
     # applies only when the caller set a positive cap.
-    nv = nd <= 0 ? val : nd
+    # `nd <= 0` means "the whole space".  On the dense branch below that comes
+    # for free.  On the iterative branch we have to say how many vectors to
+    # ask for, and asking for `val` silently returned a partial basis: at
+    # n = 19 on the circulant family the space is 38-dimensional and callers
+    # got 3.  Ask for everything instead; an iterative solver given the full
+    # dimension is slow but honest, and a caller who wants a cheap partial
+    # answer can pass a positive `nd`.
+    nv = nd <= 0 ? globalDim(Ω) : nd
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(P, 2) "Incompatable Chisel"
     

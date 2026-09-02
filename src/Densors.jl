@@ -197,13 +197,28 @@ function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
     ) :: NamedTuple{(:Σ, :Xs), Tuple{ITensor, Vector{ITensor}}}
-    Xs = [ 
+    Xs = [
         let X = der[i]
             D, T = realCanonicalForm(Array(X, inds(X)...))
             ITensor(Matrix(T), inds(X)...)
         end for i in 1:length(der) ]
-    return (;Σ=Γ*Xs, Xs=Xs)
-    # retag the indexes
+    Σ = Γ * Xs
+
+    # Retag the indexes.  Each X_a carries the pair (a-th frame index, its
+    # temporary partner), so contracting it against Γ consumes Γ's index and
+    # leaves the temporary one behind: Σ came back living on the *temporary*
+    # frame.  That made the result unusable -- feeding it to `der`, `den` or
+    # `stratify` again with the same operator space failed the
+    # `Γ_frame == frames(Ω)` check with "Incompatable Indexes", so a
+    # stratified tensor could not be re-chiseled or even verified.  A change
+    # of frame must land back in the frame it started in.
+    for X in Xs
+        orig = filter(i -> hasind(Γ, i), collect(inds(X)))
+        temp = filter(i -> !hasind(Γ, i), collect(inds(X)))
+        length(orig) == 1 && length(temp) == 1 || continue
+        Σ = replaceind(Σ, temp[1], orig[1])
+    end
+    return (;Σ=Σ, Xs=Xs)
 end
 
 

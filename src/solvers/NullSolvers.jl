@@ -14,37 +14,66 @@ using LinearAlgebra
 
 
 export NullSolver, LUSolver, SVDSolver, solve
+export register_solver!, available_solvers
 
-abstract type NullSolver end 
-        
+abstract type NullSolver end
+
 """
     solve(method::NullSolver, L::LinearMap; nv::Integer=10)
 
     - method: An instance of a subtype of `NullSolver` defining the solving method.
-    - L: A `LinearMap` defining the dual-primal A'A transform
+    - L: A `LinearMap`.  Rectangular for SVD/LU; the eigen- and Krylov-based
+      solvers want the square symmetric A'A.
     - nv: Number of approximate null vectors to compute (default: 10).
 
-    Returns a named tuple with the singular-type values and right approximate null vectors
+    Returns a named tuple `(;vals, vecs)`: the singular-type values and the
+    right approximate null vectors as the columns of `vecs`.
+
+    The keyword is `nv` for every implementation.  It used to be `nd` here and
+    in the KrylovKit extension while the others used `nv`, so dispatching
+    through the symbol factory raised an unsupported-keyword error.
 """
-function solve(method::NullSolver, L::LinearMap; nd::Integer=10) end
+function solve(method::NullSolver, L::LinearMap; nv::Integer=10) end
 
 struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
+"""
+    SOLVER_REGISTRY :: Dict{Symbol, NullSolver}
 
-# Map Symbol to solver type and call solve, defaulting to SVDSolver
+Symbol -> solver instance.  Extensions register themselves here when their
+trigger package loads.
+
+This replaces a hard-coded `if/elseif` chain over seven symbol names.  That
+chain could not work: the extension solver *types* are defined inside the
+extension modules, so `KrylovSolver()` and friends were `UndefVarError:
+not defined in Dleto`.  Five of the seven advertised solvers were unreachable
+-- including Krylov, Lanczos and CG, whose packages are in [deps].
+"""
+const SOLVER_REGISTRY = Dict{Symbol, NullSolver}()
+
+"""
+    register_solver!(name::Symbol, solver::NullSolver)
+
+Make `solver` reachable as `solve(L, name)`.  Called by extensions at load.
+"""
+register_solver!(name::Symbol, solver::NullSolver) = (SOLVER_REGISTRY[name] = solver)
+
+"""Symbols currently reachable, i.e. whose packages are loaded."""
+available_solvers() = sort(collect(keys(SOLVER_REGISTRY)))
+
 function solve(L, sym::Symbol=:SVDSolver; kwargs...)
-    solver =
-        sym === :SVDSolver      ? SVDSolver() :
-        sym === :LanczosSolver  ? LanczosSolver() :
-        sym === :ArpackSolver   ? ArpackSolver() :
-        sym === :ArpackDenseSolver ? ArpackDenseSolver() :
-        sym === :CGSolver       ? CGSolver() :
-        sym === :LUSolver       ? LUSolver() :
-        sym === :KrylovSolver    ? KrylovSolver() :
-        error("Unknown solver symbol: $sym")
-    return solve(solver, L; kwargs...)
+    haskey(SOLVER_REGISTRY, sym) || error(
+        "Unknown or unavailable solver :$sym. Available now: " *
+        string(available_solvers()) *
+        ". Extension solvers need their package loaded first " *
+        "(KrylovKit for :KrylovSolver, IterativeSolvers for :LanczosSolver " *
+        "and :CGSolver, Arpack for :ArpackSolver and :ArpackDenseSolver).")
+    return solve(SOLVER_REGISTRY[sym], L; kwargs...)
 end
+
+register_solver!(:SVDSolver, SVDSolver())
+register_solver!(:LUSolver, LUSolver())
 
     
 function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)

@@ -30,7 +30,7 @@
     Provides standard local operators like -- all_matrices, symmetric_matrices and diagonal_matrices
 """
 
-# working with matrices of size zero does not work. Usually the result of the function is [] but this is of type Vector{Any} which is not Vector{<:Number}
+# working with matrices of size zero does not work. Usually the result of the function is [] but this is of type Vector{Any} which is not AbstractVector{<:Number}
 
 """
     All Matrices
@@ -66,10 +66,10 @@ struct EmptyOp <: Operator end;
 
 #coordinates
 
-coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} =
+coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing} =
     size(M)[1]==size(M)[2] ? reshape(M,length(M)) : nothing;
 
-function coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
     (sizes[1]==sizes[2]) || return nothing
     if (all(__isapproxzero, vcat([M[1:(i-1),i] for i=1:sizes[1]]...)) && 
@@ -81,7 +81,7 @@ function coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: Union{Vector{<:Numbe
 end;
 
 
-function coordinates(LΩ::SymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::SymmetricOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
     (sizes[1]==sizes[2]) || return nothing
@@ -92,7 +92,7 @@ function coordinates(LΩ::SymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Numb
     end
 end;
 
-function coordinates(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
     (sizes[1]==sizes[2]) || return nothing
@@ -103,7 +103,7 @@ function coordinates(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: Union{Vector{<:
     end
 end;
 
-function coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
     (sizes[1]==sizes[2]) || return nothing
@@ -113,7 +113,7 @@ function coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: Union{Vector{<:Number}
     return [M[1,1]]
 end;
 
-function coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing}
+function coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
     dim=sizes[1]
     (sizes[1]==sizes[2]) || return nothing
@@ -124,41 +124,41 @@ end;
 
 #unsafe_coordinates
 
-unsafe_coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
+unsafe_coordinates(LΩ::UniversalOp, M::AbstractMatrix) :: AbstractVector{<:Number} = reshape(Matrix(M),length(M));
 
-unsafe_coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+unsafe_coordinates(LΩ::DiagonalOp, M::AbstractMatrix) :: AbstractVector{<:Number} = [M[i,i] for i=1:size(M)[1]];
 
-unsafe_coordinates(LΩ::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:i,i] for i=1:size(M)[1]]...);
+unsafe_coordinates(LΩ::SymmetricOp, M::AbstractMatrix) :: AbstractVector{<:Number} = vcat([M[1:i,i] for i=1:size(M)[1]]...);
 
-unsafe_coordinates(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat([M[1:(i-1),i] for i=1:size(M)[1]]...);
+unsafe_coordinates(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: AbstractVector{<:Number} = vcat([M[1:(i-1),i] for i=1:size(M)[1]]...);
 
-# unsafe_coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} =  size(M)[1] ==0 ? zeros(0) : [M[1,1]];
-unsafe_coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} =  [M[1,1]];
+# unsafe_coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} =  size(M)[1] ==0 ? zeros(0) : [M[1,1]];
+unsafe_coordinates(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} =  [M[1,1]];
 
-unsafe_coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} =  zeros(0);
+unsafe_coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: AbstractVector{<:Number} =  zeros(0);
 
 
 #unsafe_transposeEmbed
 
-unsafe_transposeEmbed(LΩ::UniversalOp, M::AbstractMatrix) :: Vector{<:Number} = reshape(Matrix(M),length(M));
+unsafe_transposeEmbed(LΩ::UniversalOp, M::AbstractMatrix) :: AbstractVector{<:Number} = reshape(Matrix(M),length(M));
 
-unsafe_transposeEmbed(LΩ::DiagonalOp, M::AbstractMatrix) :: Vector{<:Number} = [M[i,i] for i=1:size(M)[1]];
+unsafe_transposeEmbed(LΩ::DiagonalOp, M::AbstractMatrix) :: AbstractVector{<:Number} = [M[i,i] for i=1:size(M)[1]];
 
-unsafe_transposeEmbed(LΩ::SymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [vcat( M[1:(i-1),i] + M[i,1:(i-1)],M[i,i]) for i=1:size(M)[1]]...);
+unsafe_transposeEmbed(LΩ::SymmetricOp, M::AbstractMatrix) :: AbstractVector{<:Number} = vcat( [vcat( M[1:(i-1),i] + M[i,1:(i-1)],M[i,i]) for i=1:size(M)[1]]...);
 
-unsafe_transposeEmbed(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: Vector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
+unsafe_transposeEmbed(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: AbstractVector{<:Number} = vcat( [M[1:(i-1),i] - M[i,1:(i-1)] for i=1:size(M)[1]]...);
 
-# unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
-unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: Vector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
+# unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
+unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
 
-unsafe_transposeEmbed(LΩ::EmptyOp, M::AbstractMatrix) :: Vector{<:Number} = zeros(0);
+unsafe_transposeEmbed(LΩ::EmptyOp, M::AbstractMatrix) :: AbstractVector{<:Number} = zeros(0);
 
 #unsafe_embed
-unsafe_embed(LΩ::UniversalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = reshape(data,dim,dim);
+unsafe_embed(LΩ::UniversalOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = reshape(data,dim,dim);
 
-unsafe_embed(LΩ::DiagonalOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix =  LinearAlgebra.Diagonal(data);
+unsafe_embed(LΩ::DiagonalOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix =  LinearAlgebra.Diagonal(data);
 
-function unsafe_embed(LΩ::SymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embed(LΩ::SymmetricOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix  
     A=zeros(eltype(data),dim,dim)
     k = 1
     for i = 1:dim
@@ -169,7 +169,7 @@ function unsafe_embed(LΩ::SymmetricOp, dim::Integer, data::Vector{<:Number} ) :
     return LinearAlgebra.Symmetric(A)
 end;
 
-function unsafe_embed(LΩ::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embed(LΩ::AntiSymmetricOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix  
     A=zeros(eltype(data),dim,dim)
     k = 1
     for i = 1:dim
@@ -180,16 +180,16 @@ function unsafe_embed(LΩ::AntiSymmetricOp, dim::Integer, data::Vector{<:Number}
     return A
 end;
 
-# unsafe_embed(LΩ::ScalarOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = dim==0 ? Matrix(LinearAlgebra.I,0,0) : Matrix(data[1]*LinearAlgebra.I,dim,dim); 
-unsafe_embed(LΩ::ScalarOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = Matrix(data[1]*LinearAlgebra.I,dim,dim); 
+# unsafe_embed(LΩ::ScalarOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = dim==0 ? Matrix(LinearAlgebra.I,0,0) : Matrix(data[1]*LinearAlgebra.I,dim,dim); 
+unsafe_embed(LΩ::ScalarOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = Matrix(data[1]*LinearAlgebra.I,dim,dim); 
 
-unsafe_embed(LΩ::EmptyOp, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix = Matrix(0.0*LinearAlgebra.I,dim,dim); 
+unsafe_embed(LΩ::EmptyOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = Matrix(0.0*LinearAlgebra.I,dim,dim); 
 
-unsafe_dualize(::DiagonalOp, dim::Integer, data::Vector{<:Number} ) = data 
-unsafe_dualize(::SymmetricOp, dim::Integer, data::Vector{<:Number} ) = data 
-unsafe_dualize(::AntiSymmetricOp, dim::Integer, data::Vector{<:Number} ) = -data 
-unsafe_dualize(::ScalarOp, dim::Integer, data::Vector{<:Number} ) = data 
-unsafe_dualize(::EmptyOp, dim::Integer, data::Vector{<:Number} ) = data 
+unsafe_dualize(::DiagonalOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
+unsafe_dualize(::SymmetricOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
+unsafe_dualize(::AntiSymmetricOp, dim::Integer, data::AbstractVector{<:Number} ) = -data 
+unsafe_dualize(::ScalarOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
+unsafe_dualize(::EmptyOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
 
 
 
