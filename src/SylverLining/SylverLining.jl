@@ -51,9 +51,14 @@ function derTrOpsReduced(method::SylverLiningMethod,
     ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
     val = ndims(Γ)
-    if nd <= 0
-        nd = val
-    end
+    # `nd <= 0` means "no cap -- return a basis of the whole derivation space",
+    # which is what the docstring promises.  It used to be rewritten to `val`,
+    # which silently truncated the basis to the valency: for the diagonal
+    # 3x3x3 tensor the space is 6-dimensional (all diagonal triples with
+    # a_i + b_i + c_i = 0) and callers got 3 of them.  `nv` is only how many
+    # vectors to ask an *iterative* solver for; the truncation below now
+    # applies only when the caller set a positive cap.
+    nv = nd <= 0 ? val : nd
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(P, 2) "Incompatable Chisel"
     
@@ -75,7 +80,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
         # Convert matrix columns to vector of vectors for consistency
         vecs = [vecs_matrix[:, i] for i in 1:size(vecs_matrix, 2)]
     else
-        result = solve(sylvester, method.solver; nv=nd)
+        result = solve(sylvester, method.solver; nv=nv)
         λ = result.vals
         vecs = [result.vecs[:, i] for i in 1:size(result.vecs, 2)]
         # nev = min(nd, size(sylvester, 1))  # Number of eigenvalues to compute
