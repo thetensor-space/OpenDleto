@@ -22,8 +22,10 @@ include( "TestTensorSynthesis.jl" )
 include( "TestFastDer3Valent.jl" )
 
 
-# include( "TestSylverLining.jl" )
-#include( "TestDerivations.jl" )
+include( "TestSylverLining.jl" )
+
+# TestDerivations.jl lives in test/old-tests/ and is stale against the current
+# API; it is not wired in.  See docs/review/Refactor-Plan.md Phase 0.
 
 
 # if TEST_MODE
