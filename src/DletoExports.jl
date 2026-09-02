@@ -70,19 +70,19 @@ export TransverseOpsSymmetries
 
 export NullSolver
 
-# DerivationMethodAbstract.jl
-# NOTE: `der` was exported here but never defined anywhere in the package;
-# removed.  `den` is currently only an abstract placeholder (it asserts
-# false for every method) and is kept exported because the T-set work in
-# Phase 3 implements it against that name.
-export DerivationMethod, den, get_derivation_method
+# Derivations.jl
+# `der` is the Z-set: a basis of the P-derivations of a tensor.
+# `den` is still an abstract placeholder (it asserts false for every
+# method); the T-set work implements it against that name.
+export DerivationMethod, get_derivation_method
+export der, derReduced, derTrOps, derTrOpsReduced, den
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
 export FastDer3ValentMethod
 
-# Stratify.jl
-export stratify
+# Densors.jl
+export stratify, denLM
 
 # TensorIO.jl
 export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
