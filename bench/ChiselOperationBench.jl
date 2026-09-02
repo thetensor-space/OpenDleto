@@ -39,8 +39,8 @@
 # nothing.
 #
 # Usage:
-#   julia --project=. bench/DerivationSolverBench.jl          # short
-#   julia --project=. bench/DerivationSolverBench.jl long
+#   julia --project=. bench/ChiselOperationBench.jl          # short
+#   julia --project=. bench/ChiselOperationBench.jl long
 #
 # Writes bench/chisel-operation-results.csv and, if a plotting backend is
 # available, bench/chisel-operation-results.png on log-log axes.
@@ -138,12 +138,14 @@ const CATEGORIES = [
 ]
 
 # The null-solver axis, exercised through SylverLining on the universal chisel.
-# It only bites when globalDim(Ω) = 3n^2 >= 1000, i.e. n >= 19 for this family;
-# below that SylverLining uses a dense `eigen` and every variant is the same
-# code path.  The `long` size grid therefore crosses n = 19.  The lift methods
-# call `nullspace` directly, as their reference implementations do, and ignore
-# the setting entirely.
-const NULL_SOLVERS = [:SVDSolver, :LUSolver, :KrylovSolver, :LanczosSolver, :CGSolver]
+# The derivation--densor operator is 3n^2 square, so `dense_is_cheap` says yes
+# for every size here (9MB at n = 19) and `:AutoSolver` densifies it; the
+# explicitly named solvers are what make the comparison, and they are the same
+# solvers `den` uses on a map that is far too large to densify.  The lift
+# methods call `nullspace` directly, as their reference implementations do, and
+# ignore the setting entirely.
+const NULL_SOLVERS = [:AutoSolver, :SVDSolver, :LUSolver, :KrylovSolver,
+                      :LanczosSolver, :CGSolver, :ShiftInvertSolver]
 
 struct Row
     operation::String
@@ -205,6 +207,12 @@ function run_trial(label, P, method, kw, Γ, n, trial; tol = 1e-6)
     # was handed.  That is the honest comparison -- a method that returns an
     # under-determined Δ gets an over-large densor, and this is where that
     # shows up.
+    #
+    # `den` runs at every size here.  It used to need a memory guard, because
+    # its default solver densified the map -- 14GB at n = 19 for a map that is
+    # a handful of tensor contractions to apply.  `den` now hands the abstract
+    # LinearMap to `solve_nullspace`, which densifies only when that is cheap
+    # and otherwise stays matrix-free, so there is nothing to guard against.
     GC.gc()
     try
         t_den = @elapsed tset = den(Ω, P, Δ; tol = tol, nd = -1)
@@ -215,6 +223,16 @@ function run_trial(label, P, method, kw, Γ, n, trial; tol = 1e-6)
         push!(rows, blank("den", label, n, trial, errline(e)))
     end
 
+    return append_stratify!(rows, label, P, method, kw, Γ, Ω, Δ, n, trial, tol)
+end
+
+"""
+    append_stratify!(rows, ...) -> rows
+
+The stratification measurement, factored out so the `den` size-wall skip can
+still run it.
+"""
+function append_stratify!(rows, label, P, method, kw, Γ, Ω, Δ, n, trial, tol)
     # -- stratify: the pattern -----------------------------------------------
     # There is no residual oracle for stratification yet: the sigma_{e+1}
     # verdict (Algorithm 2 of null_patterns.pdf) that decides whether a pattern

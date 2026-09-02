@@ -13,11 +13,12 @@
 # the Z-law tests, `applyDerivation`, which makes the two sides consistent by
 # construction rather than by coincidence.
 #
-# The map is built column by column against the standard basis of the tensor
-# space and the nullspace taken by SVD.  That costs prod(dims) contractions
-# per element of Δ, which is fine for the sizes in the labs and wants an
-# iterative solver later; the rectangular map is used directly (never NᵗN),
-# per docs/review/Refactor-Plan.md Phase 3.
+# The map is never built as a matrix.  `denLM` returns it as a `LinearMap`
+# with a genuine adjoint -- one tensor contraction per element of Δ to apply,
+# the transposed operators to apply the adjoint -- and `solve_nullspace` hands
+# that straight to whichever black-box null solver is asked for.  Densifying
+# it is O(prod(dims)^2 * |Δ|) entries, O(n^7) on a valence-3 family, for an
+# answer that is a handful of vectors.
 
 """
     __transposeOps(D::Vector{ITensor}) :: Vector{ITensor}
@@ -105,9 +106,11 @@ function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}}
     return (A, AtA, fr, dims)
 end
 
-# Solvers that need a square symmetric operator rather than the rectangular
-# map.  SVD- and LU-based solvers densify and handle rectangular input.
-__needsSquare(sym::Symbol) = !(sym in (:SVDSolver, :LUSolver))
+# NOTE: the old `__needsSquare(sym)` hard-coded which solvers wanted `AᵗA`
+# rather than the rectangular map, duplicating knowledge that belongs to the
+# solvers.  `AutoSolver` now squares the map itself, *as a composition of
+# linear maps*, when it hands the problem to an eigensolver -- so `den` passes
+# the rectangular map and lets the solver layer decide.
 
 """
     den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
@@ -130,23 +133,20 @@ __needsSquare(sym::Symbol) = !(sym in (:SVDSolver, :LUSolver))
     - `tol`: tolerance for the nullspace.
 """
 function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-             tol::Real=1e-6, nd=10, solver::Symbol=:SVDSolver) :: Vector{ITensor}
+             tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver) :: Vector{ITensor}
     (A, AtA, fr, dims) = denLM(Ω, P, Δ)
-    N = prod(dims)
 
-    # nd < 0 asks for a basis, so request every vector; otherwise ask for the
-    # batch size wanted.  Either way, only vectors whose singular value is
-    # below `tol` are genuine solutions.
-    want = nd < 0 ? N : min(floor(Int, nd), N)
-    L = __needsSquare(solver) ? AtA : A
-    result = solve(L, solver; nv=want)
-
-    keep = findall(v -> abs(v) < tol, result.vals)
-    isempty(keep) && return ITensor[]
-    if nd > 0 && length(keep) > nd
-        keep = keep[1:floor(Int, nd)]
-    end
-    return [ ITensor(reshape(result.vecs[:, j], dims...), fr...) for j in keep ]
+    # The rectangular map goes straight to the solver layer, which decides
+    # whether to densify it and, if not, squares it as a composition.  This
+    # used to densify unconditionally (`:SVDSolver` calls `Matrix(L)`) and ask
+    # for `prod(dims)` vectors when `nd < 0`, i.e. for the entire spectrum.
+    # Together those made `den` cost O(n^7) memory on a valence-3 family --
+    # 14GB at n = 19 -- for a computation whose answer is a handful of vectors
+    # and whose operator is a few tensor contractions.  All of that policy now
+    # lives in `solve_nullspace`.
+    (vals, vecs) = solve_nullspace(A, solver; tol=tol, nd=nd)
+    size(vecs, 2) == 0 && return ITensor[]
+    return [ ITensor(reshape(vecs[:, j], dims...), fr...) for j in 1:size(vecs, 2) ]
 end
 
 # A single derivation is the common case; accept it without wrapping.
@@ -169,7 +169,7 @@ den(::DerivationMethod, Ω::TransverseOps, P::AbstractMatrix, D::Vector{ITensor}
     the universal chisel, then for every tensor admitting them.  `Γ` must lie
     in the result, which is the Galois law.
 """
-function den(Γ::ITensor; tol::Real=1e-6, nd=10, solver::Symbol=:SVDSolver,
+function den(Γ::ITensor; tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     ch, fr, Ω = universalSetup(Γ)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method

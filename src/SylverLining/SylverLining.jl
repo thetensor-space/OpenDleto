@@ -37,8 +37,10 @@ using ITensors
 struct SylverLiningMethod <: DerivationMethod 
     solver::Symbol
 end;
-# SylverLiningMethod(; solver::Symbol=:KrylovSolver)= SylverLiningMethod(solver);
-SylverLiningMethod(; solver::Symbol=:SVDSolver)= SylverLiningMethod(solver);
+# The default is `:AutoSolver`, not `:SVDSolver`: it densifies when that is
+# cheap (which it is for this map -- 9MB at n = 19) and stays matrix-free when
+# it is not, instead of calling `Matrix` unconditionally.
+SylverLiningMethod(; solver::Symbol=:AutoSolver)= SylverLiningMethod(solver);
 
 
 function derTrOpsReduced(method::SylverLiningMethod,
@@ -51,21 +53,6 @@ function derTrOpsReduced(method::SylverLiningMethod,
     ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
     val = ndims(Γ)
-    # `nd <= 0` means "no cap -- return a basis of the whole derivation space",
-    # which is what the docstring promises.  It used to be rewritten to `val`,
-    # which silently truncated the basis to the valency: for the diagonal
-    # 3x3x3 tensor the space is 6-dimensional (all diagonal triples with
-    # a_i + b_i + c_i = 0) and callers got 3 of them.  `nv` is only how many
-    # vectors to ask an *iterative* solver for; the truncation below now
-    # applies only when the caller set a positive cap.
-    # `nd <= 0` means "the whole space".  On the dense branch below that comes
-    # for free.  On the iterative branch we have to say how many vectors to
-    # ask for, and asking for `val` silently returned a partial basis: at
-    # n = 19 on the circulant family the space is 38-dimensional and callers
-    # got 3.  Ask for everything instead; an iterative solver given the full
-    # dimension is slow but honest, and a caller who wants a cheap partial
-    # answer can pass a positive `nd`.
-    nv = nd <= 0 ? globalDim(Ω) : nd
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(P, 2) "Incompatable Chisel"
     
@@ -78,63 +65,17 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
     sylvester, ester = sylvesterLM(Ω_reduced, P_eng, Γ)
     
-    # TBD: Call into a eigen solver library that handles LinearMaps directly
-    vecs = Vector{Float64}[]
-    λ = Float64[]
-    if globalDim(Ω_reduced) < 1000
-        M = Matrix(sylvester)
-        λ, vecs_matrix = eigen(M)
-        # Convert matrix columns to vector of vectors for consistency
-        vecs = [vecs_matrix[:, i] for i in 1:size(vecs_matrix, 2)]
-    else
-        result = solve(sylvester, method.solver; nv=nv)
-        λ = result.vals
-        vecs = [result.vecs[:, i] for i in 1:size(result.vecs, 2)]
-        # nev = min(nd, size(sylvester, 1))  # Number of eigenvalues to compute
-        # x0 = randn(size(sylvester, 2))     # Initial guess vector
-
-        # # Retry logic for convergence
-        # max_attempts = 5
-        # maxiter = 100
-        # krylovdim = max(10, 2*nev)
-        # converged = false
-        
-        # for attempt in 1:max_attempts
-        #     λ, vecs, info = eigsolve(sylvester, x0, nev, :SR;
-        #         maxiter=maxiter,
-        #         krylovdim=krylovdim,
-        #         tol=tol
-        #     )
-            
-        #     converged = info.converged >= nev
-            
-        #     if converged
-        #         # Success! Convert and continue
-        #         λ = real.(λ)
-        #         vecs = [real.(v) for v in vecs]
-        #         break
-        #     else
-        #         # Not enough converged, increase parameters and retry
-        #         @warn "Attempt $attempt: Only $(info.converged) of $nev eigenvalues converged. Retrying with increased parameters..."
-        #         maxiter = Int(round(maxiter * 1.5))
-        #         krylovdim = min(Int(round(krylovdim * 1.5)), size(sylvester, 1))
-        #         x0 = randn(size(sylvester, 2))  # New random start
-                
-        #         if attempt == max_attempts
-        #             # Last attempt failed, use what we have
-        #             @warn "Final attempt: Using $(info.converged) converged eigenvalues out of $nev requested."
-        #             λ = real.(λ)
-        #             vecs = [real.(v) for v in vecs]
-        #         end
-        #     end
-        # end
-    end
-    
-    # Filter vectors by eigenvalue tolerance
-    valid_indices = findall(abs.(λ) .< tol)
-    λ = λ[valid_indices]
-    vecs = vecs[valid_indices]
-
+    # All of the null-solver policy -- when densifying is cheap enough, how
+    # many vectors to ask an iterative method for, how to grow that request
+    # until the null space is bracketed, which tolerance decides "null" --
+    # lives in `solve_nullspace` (src/solvers/NullSolvers.jl) and is tuned
+    # there once.  This function used to carry its own copy of all of it: a
+    # hand-rolled `globalDim < 1000` dense gate, a dense `eigen` branch that
+    # bypassed the solver interface entirely, `nv = globalDim(Ω)` asking an
+    # iterative solver for the whole spectrum, and its own filter and
+    # truncation.  `den` carried a second, slightly different copy.  Tuning
+    # either one left the other stale.
+    #
     # An empty result is a mathematical fact, not a solver failure: it says the
     # reduced derivation space is trivial, i.e. Γ conforms to no sparsity
     # pattern for this chisel.  A Tucker chisel on a generic tensor is the
@@ -144,13 +85,9 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # "Not enough eigenvalues computed; increase `tol` parameter", which
     # misreported the fact as a convergence problem.  Callers that need a
     # derivation (`stratify`) report it themselves.
+    (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd)
 
-    # Give only nd many vectors, unless nd < 0 or Inf
-    if nd > 0 && length(vecs) > nd
-        vecs = vecs[1:floor(Int, nd)]
-    end
-
-    coords = isempty(vecs) ? zeros(Float64, globalDim(Ω_reduced), 0) : hcat(vecs...)
+    coords = size(vecs, 2) == 0 ? zeros(Float64, globalDim(Ω_reduced), 0) : vecs
     return (Ω_reduced, expand_map, coords)
 end
 
