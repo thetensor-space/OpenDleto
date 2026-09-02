@@ -20,35 +20,94 @@
 # per docs/review/Refactor-Plan.md Phase 3.
 
 """
-    denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}})
-        :: Tuple{AbstractMatrix, Vector{<:Index}, Vector{Int}}
+    __transposeOps(D::Vector{ITensor}) :: Vector{ITensor}
 
-    The densor system: a matrix whose nullspace is the T-set of `Δ` for the
-    chisel `P`, in the coordinates of the tensor space of `Ω`.  Returns the
-    matrix together with the frame and the axis dimensions needed to read
-    nullspace vectors back as tensors.
+    Swap the two indices of each operator.  Used to build the adjoint of the
+    densor map: the adjoint of `s -> s ·_a D_a` is `r -> r ·_a D_aᵗ`.
+"""
+__transposeOps(D::Vector{ITensor}) =
+    [ replaceinds(X, (inds(X)[1], inds(X)[2]) => (inds(X)[2], inds(X)[1])) for X in D ]
+
+"""
+    __denAdjointApply(R::ITensor, Dt::Vector{ITensor}, C::Chisel, fr) :: ITensor
+
+    One block of the adjoint: contract the chisel axis of `R` against column
+    `a` of the chisel, apply the transposed operator on axis `a`, and sum.
+"""
+function __denAdjointApply(R::ITensor, Dt::Vector{ITensor}, C::Chisel, fr)
+    acc = nothing
+    for a in eachindex(fr)
+        T = R * ITensor(C.ch[:, a], C.ch_axis)
+        X = Dt[a]
+        i1, i2 = inds(X)
+        (ci, oi) = haskey(C.idx, i1) ? (i1, i2) : (i2, i1)
+        term = replaceind(T * X, oi, ci)
+        acc = acc === nothing ? term : acc + term
+    end
+    return acc
+end
+
+"""
+    denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}})
+        -> (A, AtA, fr, dims)
+
+    The densor system as **abstract linear maps**, never as a dense matrix, so
+    that any `NullSolver` can be applied to it.
+
+    - `A`: the rectangular map from the tensor space to the stacked residuals,
+      one block per element of `Δ`.  Its nullspace is the T-set.  Carries a
+      genuine adjoint, so `Matrix(A)`, SVD and LSQR-style solvers all work.
+    - `AtA`: the composition `Aᵗ∘A` on the tensor space -- square and
+      symmetric, which is what the eigen- and Krylov-based solvers need.  This
+      is the densor-side analogue of `sylvesterLM`'s `derdensor_map`, and it
+      squares the condition number, so prefer `A` where the solver allows it.
+    - `fr`, `dims`: the frame and axis dimensions, to read solution vectors
+      back as tensors.
 """
 function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}})
+    isempty(Δ) && error("den: need at least one derivation to solve against.")
     fr = collect(frames(Ω))
     C = Chisel(P, fr)
     dims = [ITensors.dim(i) for i in fr]
     N = prod(dims)
-    isempty(Δ) && error("den: need at least one derivation to solve against.")
+    m = size(P, 1)
+    blk = m * N                     # residual coordinates per element of Δ
+    ch_and_fr = (C.ch_axis, fr...)
+    Δt = [ __transposeOps(D) for D in Δ ]
 
-    cols = Vector{Vector{Float64}}()
-    for n in 1:N
-        e = zeros(Float64, N)
-        e[n] = 1.0
-        s = ITensor(reshape(e, dims...), fr...)
-        col = Float64[]
+    function forward(svec)
+        s = ITensor(reshape(collect(svec), dims...), fr...)
+        out = Vector{Float64}(undef, length(Δ) * blk)
+        off = 0
         for D in Δ
             R = applyDerivation(s, D, C)
-            append!(col, vec(Array(R, (C.ch_axis, fr...))))
+            out[off+1:off+blk] = vec(Array(R, ch_and_fr...))
+            off += blk
         end
-        push!(cols, col)
+        return out
     end
-    return (hcat(cols...), fr, dims)
+
+    function adjoint(rvec)
+        acc = nothing
+        off = 0
+        for Dt in Δt
+            R = ITensor(reshape(collect(rvec[off+1:off+blk]), m, dims...), ch_and_fr...)
+            off += blk
+            term = __denAdjointApply(R, Dt, C, fr)
+            acc = acc === nothing ? term : acc + term
+        end
+        return vec(Array(acc, fr...))
+    end
+
+    A = LinearMaps.LinearMap(forward, adjoint, length(Δ) * blk, N; ismutating=false)
+    AtA = LinearMaps.LinearMap(v -> adjoint(forward(v)), v -> adjoint(forward(v)),
+                               N, N; ismutating=false, issymmetric=true, isposdef=false)
+    return (A, AtA, fr, dims)
 end
+
+# Solvers that need a square symmetric operator rather than the rectangular
+# map.  SVD- and LU-based solvers densify and handle rectangular input.
+__needsSquare(sym::Symbol) = !(sym in (:SVDSolver, :LUSolver))
 
 """
     den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
@@ -71,14 +130,23 @@ end
     - `tol`: tolerance for the nullspace.
 """
 function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-             tol::Real=1e-6, nd=-1) :: Vector{ITensor}
-    (M, fr, dims) = denLM(Ω, P, Δ)
-    ns = LinearAlgebra.nullspace(M; atol=Float64(tol))
-    k = size(ns, 2)
-    if nd > 0 && k > nd
-        k = floor(Int, nd)
+             tol::Real=1e-6, nd=10, solver::Symbol=:SVDSolver) :: Vector{ITensor}
+    (A, AtA, fr, dims) = denLM(Ω, P, Δ)
+    N = prod(dims)
+
+    # nd < 0 asks for a basis, so request every vector; otherwise ask for the
+    # batch size wanted.  Either way, only vectors whose singular value is
+    # below `tol` are genuine solutions.
+    want = nd < 0 ? N : min(floor(Int, nd), N)
+    L = __needsSquare(solver) ? AtA : A
+    result = solve(L, solver; nv=want)
+
+    keep = findall(v -> abs(v) < tol, result.vals)
+    isempty(keep) && return ITensor[]
+    if nd > 0 && length(keep) > nd
+        keep = keep[1:floor(Int, nd)]
     end
-    return [ ITensor(reshape(ns[:, j], dims...), fr...) for j in 1:k ]
+    return [ ITensor(reshape(result.vecs[:, j], dims...), fr...) for j in keep ]
 end
 
 # A single derivation is the common case; accept it without wrapping.
@@ -101,12 +169,14 @@ den(::DerivationMethod, Ω::TransverseOps, P::AbstractMatrix, D::Vector{ITensor}
     the universal chisel, then for every tensor admitting them.  `Γ` must lie
     in the result, which is the Galois law.
 """
-function den(Γ::ITensor; tol::Real=1e-6, nd=-1,
+function den(Γ::ITensor; tol::Real=1e-6, nd=10, solver::Symbol=:SVDSolver,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     ch, fr, Ω = universalSetup(Γ)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
+    # The derivations are the *constraints* here, so always take all of them:
+    # a truncated Δ under-constrains the densor and returns too large a space.
     Δ = der(m, Ω, ch, Γ; tol=Float64(tol), nd=-1)
-    return den(Ω, ch, Δ; tol=tol, nd=nd)
+    return den(Ω, ch, Δ; tol=tol, nd=nd, solver=solver)
 end
 
 """

@@ -52,7 +52,11 @@ include("DletoBase.jl")
 
 # Fundamental Dleto Structures
     # Chisels
-    include("Chisels.jl")   
+    include("Chisels.jl")
+    # The Chisel type itself is fundamental -- Densors.jl annotates against it,
+    # and annotations are evaluated at definition time -- so it is included
+    # here rather than down in the implementations section.
+    include("chisels/ChiselImpls.jl")
     # Operator
     include("Operators.jl")
     # Transverse Operators
@@ -63,9 +67,7 @@ include("DletoBase.jl")
     include("Densors.jl")
 
 # Implementations
-    # Chisel Implementations
-    include("chisels/ChiselImpls.jl")
-    # Operator Implementations 
+    # Operator Implementations
     include("ops/OperatorImpls.jl")
     # Transverse Operator Implementations
     include("ops/TransverseOpsIndependant.jl")

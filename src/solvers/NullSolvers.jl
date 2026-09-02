@@ -57,6 +57,13 @@ function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
     return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
 end
 
+# NOTE: this does not honour the interface documented on `solve` above -- it
+# returns a bare Vector of basis vectors rather than a `(;vals, vecs)` named
+# tuple, so callers written against the contract (e.g. `den`) fail with
+# `FieldError: type Array has no field vals`.  The commented-out return at the
+# end of the body shows the intended shape.  Separately, `free_vars` is chosen
+# as the last `nv` columns regardless of the computed rank.  Left as-is here:
+# fixing it is more than a return-type change.
 function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = 1e-8)
     println("Using LUSolver on Matrix...")
     M = Matrix(L)

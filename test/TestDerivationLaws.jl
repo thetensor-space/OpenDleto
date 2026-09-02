@@ -172,6 +172,37 @@ end
 """Flatten an ITensor to a vector in a fixed frame order."""
 flat(s::ITensor, fr) = vec(Array(s, fr...))
 
+@testset "denLM is an abstract map with a genuine adjoint" begin
+    Random.seed!(20260905)
+    Γ, frame = diagonal_tensor(3)
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+    Δ = der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6)
+
+    (A, AtA, fr, dims) = denLM(Ω, P, Δ)
+
+    # Shape: one residual block per element of Δ, each of size rows(P) * prod(dims).
+    @test size(A) == (length(Δ) * size(P, 1) * prod(dims), prod(dims))
+    @test size(AtA) == (prod(dims), prod(dims))
+
+    # The adjoint must be the real adjoint, not a stand-in: <A s, r> == <s, Aᵗ r>.
+    # This is the same law TestSylverLining checks for the sylve/ester pair.
+    @testset "adjoint law" begin
+        for _ in 1:25
+            s = randn(size(A, 2))
+            r = randn(size(A, 1))
+            @test isapprox(dot(A * s, r), dot(s, A' * r); rtol=1e-9, atol=1e-12)
+        end
+    end
+
+    # The batch parameter: nd < 0 is a basis, nd > 0 is a cap.
+    @testset "batch size" begin
+        basis = den(Ω, P, Δ; tol=1e-6, nd=-1)
+        @test length(den(Ω, P, Δ; tol=1e-6, nd=2)) == min(2, length(basis))
+        @test length(den(Ω, P, Δ; tol=1e-6, nd=10^6)) == length(basis)
+    end
+end
+
 @testset "T-law: every tensor in the densor satisfies the same equation" begin
     Random.seed!(20260903)
     Γ, frame = diagonal_tensor(3)
@@ -188,7 +219,7 @@ flat(s::ITensor, fr) = vec(Array(s, fr...))
     @test length(Δ) == length(der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6, nd=10^6))
     @test length(Δ) == 2 * 3
 
-    tset = den(Ω, P, Δ; tol=1e-6)
+    tset = den(Ω, P, Δ; tol=1e-6, nd=-1)   # nd < 0 asks for a basis
     @test length(tset) >= 1
     # The densor must be a proper subspace here, not the whole tensor space.
     @test length(tset) < prod(size(Array(Γ, frame...)))
@@ -207,7 +238,7 @@ end
     Ω = IndTransverseOps(frame, UniversalOp())
 
     Δ = der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6)
-    tset = den(Ω, P, Δ; tol=1e-6)
+    tset = den(Ω, P, Δ; tol=1e-6, nd=-1)   # nd < 0 asks for a basis
 
     # Forward direction: Γ lies in the densor of its own derivations.  It is in
     # the *span*, not equal to a basis element, so project onto the span.  The
