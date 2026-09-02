@@ -244,7 +244,8 @@ signal that the null space has not yet been bracketed.  Cost is then
 proportional to the true nullity, not to the dimension of the space.
 """
 function solve_nullspace(L, solver::Union{Symbol,NullSolver};
-                         tol::Real = 1e-6, nd = -1, nv0::Integer = 16,
+                         tol::Real = 1e-6, atol::Union{Nothing,Real} = nothing,
+                         nd = -1, nv0::Integer = 16,
                          progress = false, label::AbstractString = "null solve",
                          kwargs...)
     N = size(L, 2)
@@ -255,6 +256,24 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # matrix is formed.  `AutoSolver` and `ShiftInvertSolver` decline the trait
     # because they handle the shape themselves.
     L = (wants_square(solver) && size(L, 1) != size(L, 2)) ? L' * L : L
+
+    # `tol` is RELATIVE to the operator norm, as in `LinearAlgebra.nullspace`.
+    #
+    # It used to be absolute, and that quietly broke every iterative solve on
+    # an unnormalised operator.  The densor operator on the scrambled
+    # circulant family has `‖AᵗA‖ ≈ 1e25`, so an absolute `tol = 1e-6` asks
+    # for eigenvalues 31 orders of magnitude below the operator's own scale --
+    # far below what any iterative method converges to, since their stopping
+    # criteria are relative.  The dense SVD path got away with it because on
+    # well-scaled test tensors the norm is O(1); the first genuinely
+    # matrix-free case, `den` at n = 15, returned dimension 0 after 42s of
+    # perfectly good LOBPCG work whose eigenvalues were simply above 1e-6.
+    #
+    # `‖Lop‖` bounds what any of these solvers report -- singular values of
+    # `Lop`, or its eigenvalues when it is symmetric -- so one scale serves
+    # every solver. Pass `atol` to override with an absolute threshold.
+    scale = atol === nothing ? sqrt(max(opnorm_estimate(L' * L; iters = 10), 0.0)) : 1.0
+    threshold = atol === nothing ? tol * max(scale, eps()) : atol
 
     # Progress: one wrapper serves both stages, because `Matrix(L)` applies the
     # map once per column.  A densifying solver therefore has an exact
@@ -277,10 +296,20 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             result = solve(solver, Lp; nv = k, kwargs...)
             vals = result.vals
             vecs = result.vecs
-            keep = findall(v -> abs(v) < tol, vals)
+            keep = findall(v -> abs(v) < threshold, vals)
 
             # Bracketed: something came back above tolerance, so we have seen
             # the whole null space.  Or we asked for everything there is.
+            #
+            # Note what this rule does NOT distinguish: "found the whole null
+            # space and then some" and "converged to nothing at all" both show
+            # up as `length(keep) < length(vals)`.  That is deliberate -- an
+            # empty null space is a legitimate answer (a Tucker chisel on a
+            # generic tensor) and escalating on it would be pure waste -- but
+            # it means a non-converging iterative solver reports "no
+            # solutions" rather than "I failed".  The defence is to make the
+            # solver converge: a relative `threshold` above, and block
+            # headroom inside the block methods.
             if !want_all || length(keep) < length(vals) || k >= N
                 return (vals[keep], vecs[:, keep])
             end

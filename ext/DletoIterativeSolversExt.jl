@@ -67,10 +67,18 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     println("Using CGSolver...")
     n = size(L, 2)
     @assert size(L, 1) == n "CGSolver needs a square map; pass AᵗA."
-    # LOBPCG refuses a block larger than a third of the dimension ("not stable
-    # to use when the matrix size is less than 3 times the block size"), so a
-    # request for the whole space has to be clamped rather than forwarded.
-    blocksize = clamp(nv, 1, max(1, n ÷ 3))
+    # HEADROOM.  A block method converges to the `blocksize` smallest
+    # eigenpairs at a rate governed by the gap to eigenvalue `blocksize + 1`.
+    # Asked for exactly as many vectors as the null space has, that gap is the
+    # one we care about but the block has no room to work in, and convergence
+    # is worst precisely in the case of interest.  So search in a larger
+    # subspace than requested and return the smallest `nv` of it.
+    #
+    # This is why the early measurements looked better than the method is:
+    # asked for 40 vectors of a 10-dimensional null space it converged nicely,
+    # and asked for 16 of a 15-dimensional one it returned nothing.
+    margin = max(8, nv ÷ 2)
+    blocksize = clamp(nv + margin, 1, max(1, n ÷ 3))
 
     # Even within that bound a large block is Cholesky-factorized internally,
     # and on `AᵗA` -- condition number κ(A)² -- that factorization fails with
@@ -82,7 +90,11 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
             res = lobpcg(L, false, blocksize; tol = tol, maxiter = maxiter)
             blocksize < nv && @warn "CGSolver: LOBPCG block $blocksize of $nv " *
                 "requested (dim = $n); the basis returned may be partial."
-            return (; vals = res.λ, vecs = res.X)
+            # Return the smallest `nv` of the enlarged block, smallest first:
+            # the extra vectors were search space, not answers, and the caller
+            # counts how many fall below tolerance.
+            ord = sortperm(res.λ)[1:min(nv, length(res.λ))]
+            return (; vals = res.λ[ord], vecs = res.X[:, ord])
         catch e
             e isa PosDefException || rethrow()
             blocksize == 1 && rethrow()

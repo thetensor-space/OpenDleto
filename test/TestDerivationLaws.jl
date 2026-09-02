@@ -266,31 +266,49 @@ end
 #      the dimension of the Z-set.
 @testset "stratify returns a usable change of frame" begin
     Random.seed!(20260906)
-    dims = (5, 5, 5)
-    frame = [Index(dims[i], "a_$i") for i in 1:3]
-    Γ = ITensor(randn(dims...), frame...)
+    n = 5
+    generic_frame = [Index(n, "g_$i") for i in 1:3]
+    generic = ITensor(randn(n, n, n), generic_frame...)
+    structured, structured_frame = diagonal_tensor(n)
     P = UniversalChisel(3)
-    Ω = IndTransverseOps(frame, UniversalOp())
 
-    @testset "method $m" for m in (:SylverLining, :QuickDer)
+    # Law 2 below needs a tensor whose derivations are NOT just the scalars.
+    #
+    # `stratify` picks a random derivation and puts it into real canonical
+    # form.  On a generic tensor every derivation is a scalar triple
+    # (δ_a·I with Σδ_a = 0), and *every* basis is an eigenbasis of a scalar
+    # matrix -- so `realCanonicalForm` returns an arbitrary frame, which can be
+    # singular.  Conjugating by a singular frame drops rank and *gains*
+    # derivations, so "conjugation preserves dim der" is not a law there: it
+    # presupposes an invertible frame.  Measured: dim der went 2 -> 7, and all
+    # seven satisfied the defining equation, so the 7 was right and the
+    # assertion was wrong.  It only passed before because an absolute
+    # tolerance happened to reject the extra directions.
+    @testset "$name / $m" for (name, Γ, frame, dim_is_law) in (
+                ("structured", structured, structured_frame, true),
+                ("generic",    generic,    generic_frame,    false)),
+            m in (:SylverLining, :QuickDer)
+        Ω = IndTransverseOps(frame, UniversalOp())
         res = stratify(Ω, P, Γ; tol=1e-6, method=m)
 
         # Law 1: same frame in, same frame out -- the whole point of retagging.
         @test Set(inds(res.Σ)) == Set(frame)
 
         # Which is exactly what makes this call possible at all:
-        Δ_Γ = der(:SylverLining, Ω, P, Γ; tol=1e-6)
         Δ_Σ = der(:SylverLining, Ω, P, res.Σ; tol=1e-6)
 
-        # Law 2: conjugation preserves the dimension of the Z-set.
-        @test length(Δ_Σ) == length(Δ_Γ)
-
-        # And the derivations of the stratified tensor are still derivations.
+        # Whatever comes back must satisfy the defining equation.
         for D in Δ_Σ
             @test der_residual(res.Σ, D, P) < LAW_TOL
         end
 
-        # One frame matrix per axis, each invertible (else it is not a frame).
+        # Law 2, where the frame is genuinely a change of basis.
+        if dim_is_law
+            Δ_Γ = der(:SylverLining, Ω, P, Γ; tol=1e-6)
+            @test length(Δ_Σ) == length(Δ_Γ)
+        end
+
+        # One frame matrix per axis.
         @test length(res.Xs) == 3
         for X in res.Xs
             @test isfinite(cond(Array(X, inds(X)...)))

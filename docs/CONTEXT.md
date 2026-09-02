@@ -204,6 +204,33 @@ for an answer that is a handful of vectors and an operator that is a few tensor 
 `nd = -1` meaning "the whole spectrum") threw that away. Measured after the fix: `den` recovers
 the **full** basis matrix-free at 2e-12 — 6 of 6 at `n = 6`, 10 of 10 at `n = 10`.
 
+### Progress reporting — optional, tagged, off by default
+
+```julia
+der(Γ; progress = true)               # every stage
+den(Ω, P, Δ; progress = :densify)     # just the dense build
+den(Ω, P, Δ; progress = [:solve])     # just the iterative applications
+```
+
+Chiseling spends its time applying *our own* maps — `sylve`/`ester` in `sylvesterLM`,
+`forward`/`adjoint` in `denLM` — so every unit of work is a call we control and can count. One
+wrapper (`progress_wrap`) serves both stages, because `Matrix(L)` applies the map once per
+column. Consequently:
+
+- **`:densify` has an exact denominator** and reports a percentage and ETA. This is the case that
+  actually makes people wait — densifying the densor map at `n = 12` is 1728 contractions in a
+  loop that previously printed nothing at all.
+- **`:solve` has none**, so it reports count and rate rather than a fabricated ETA.
+
+Nothing prints until a stage has run for a second (`delay`), so short solves stay silent; an
+unknown tag errors eagerly rather than silently reporting nothing.
+
+Implementation note that bit: the `kwargs...` on the *symbol* overloads of `der` are forwarded to
+the **method constructor** (`solver=`), so a per-call option like `progress` was being handed to
+`SylverLiningMethod(; progress=...)`. Per-call options must be named explicitly in every symbol
+overload; `stratify` likewise must not sweep them into `method_kwargs`. Two kinds of keyword share
+one splat, and the distinction is invisible at the call site.
+
 ### Conditioning is the binding constraint (measured)
 
 Decision 4 predicted that `κ(C)` matters because the composed operator carries `CᵗC`. Session 2
