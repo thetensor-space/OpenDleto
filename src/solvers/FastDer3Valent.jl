@@ -373,10 +373,18 @@ function derTrOpsReduced(
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
     _fastder_validate_compatibility(Ω, P, Γ)
 
+    # The solve-and-lift kernel solves  X*R + S*Y - T*Z = 0  (note the minus on
+    # the third slot; see quick-der-lib.jl check_derivation_solution).  The
+    # derivation condition we want is  c1*XΓ + c2*ΓY + c3*ΓZ = 0, so the third
+    # coefficient has to be negated on the way in.  Without this, a chisel
+    # [c1,c2,c3] was silently solved as [c1,c2,-c3] -- with the default
+    # UniversalChisel(3) = [1,1,1] that meant computing the [1,1,-1]
+    # derivations, a different Z-set.  Caught by the Z-law in
+    # test/TestDerivationLaws.jl.
     coeffs = vec(P[1, :])
     R = coeffs[1] * Γ
     S = coeffs[2] * Γ
-    T = coeffs[3] * Γ
+    T = -coeffs[3] * Γ
 
     basis = _fastder_solve_basis(
         R,
