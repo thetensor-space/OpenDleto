@@ -125,46 +125,23 @@ function _fastder_select_restriction_sizes(R::ITensor, S::ITensor, T::ITensor)
     return a_prime, b_prime, c_prime
 end
 
+"""
+    _fastder_restricted_basis(M; tol, nv, solver) -> Matrix
+
+    Basis of the nullspace of the restricted derivation system.
+
+    This is `lin_solve` of the reference (quick-der-lib.jl): a plain
+    nullspace, nothing more.  The port had replaced it with a heuristic that,
+    when *no* singular value fell below `tol`, searched the spectrum for a
+    "5x jump" and returned up to three vectors anyway -- fabricating a basis
+    out of vectors that are not null vectors.  With no jump found it kept
+    exactly one, which is precisely the dim-1, relative-residual-0.54 answer
+    the Z-law caught.  A restricted system with no nullspace means the
+    restriction sizes were insufficient, which is a condition to report, not
+    to paper over.
+"""
 function _fastder_restricted_basis(M::AbstractMatrix; tol::Float64=1e-6, nv::Int=8, solver::Symbol=:SVDSolver)
-    L = LinearMaps.LinearMap(M)
-    # Black-box path first; if it does not return usable vectors, fallback to exact dense nullspace.
-    res = solve(L, solver; nv=min(nv, min(size(M)...)))
-    vals = collect(res.vals)
-    vecs = isa(res.vecs, AbstractVector) ? res.vecs : [res.vecs[:, i] for i in 1:size(res.vecs, 2)]
-    if !isempty(vals) && !isempty(vecs)
-        order = sortperm(abs.(vals))
-        vals = vals[order]
-        vecs = vecs[order]
-        keep = findall(abs.(vals) .< tol)
-        if !isempty(keep)
-            return hcat(vecs[keep]...)
-        end
-        # Fallback: No eigenvalues strictly below tolerance.
-        # Use relative tolerance approach: find where spectrum has a significant gap.
-        # Keep vectors corresponding to eigenvalues <= median or until we see a big jump.
-        abs_vals = abs.(vals)
-        if length(abs_vals) > 1
-            # Look for the largest relative jump in consecutive eigenvalues
-            max_jump_idx = 1
-            max_jump_ratio = 1.0
-            for i in 1:(length(abs_vals)-1)
-                if abs_vals[i] > 0
-                    ratio = abs_vals[i+1] / abs_vals[i]
-                    if ratio > max_jump_ratio && ratio > 5.0  # At least 5x jump
-                        max_jump_idx = i
-                        max_jump_ratio = ratio
-                    end
-                end
-            end
-            # Keep vectors up to the jump, or at least the first 3 if no clear jump
-            keep_count = max(1, min(3, max_jump_idx))
-            return hcat(vecs[1:keep_count]...)
-        else
-            return hcat(vecs[1:1]...)
-        end
-    end
-    # If solver returns nothing, try nullspace directly
-    return nullspace(M; atol=tol, rtol=tol)
+    return nullspace(Matrix{Float64}(M); atol=tol, rtol=tol)
 end
 
 function _fastder_solve_and_lift(
