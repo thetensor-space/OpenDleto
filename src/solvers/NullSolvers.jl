@@ -107,11 +107,23 @@ either a wrong-shape assertion or a silently rectangular solve.
 """
 wants_square(::NullSolver) = true
 
+"""
+    densifies(::NullSolver, L) -> Bool
+
+Whether this solver will call `Matrix(L)`.  Used only to label and estimate the
+progress report: a densifying solver does exactly `size(L,2)` map applications,
+so its progress has an exact denominator, while an iterative one does an
+unknown number.
+"""
+densifies(::NullSolver, L) = false
+
 struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
 wants_square(::SVDSolver) = false
 wants_square(::LUSolver) = false
+densifies(::SVDSolver, L) = true
+densifies(::LUSolver, L) = true
 
 """
     AutoSolver
@@ -139,6 +151,10 @@ AutoSolver(; dense = SVDSolver(), dense_limit = DENSE_LIMIT,
 
 # Both of these take the rectangular map and reshape it themselves.
 wants_square(::AutoSolver) = false
+densifies(m::AutoSolver, L) =
+    dense_is_cheap(L; dense_limit = m.dense_limit,
+                   dense_budget_bytes = m.dense_budget_bytes) &&
+    densifies(m.dense, L)
 
 """
     SOLVER_REGISTRY :: Dict{Symbol, NullSolver}
@@ -229,6 +245,7 @@ proportional to the true nullity, not to the dimension of the space.
 """
 function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          tol::Real = 1e-6, nd = -1, nv0::Integer = 16,
+                         progress = false, label::AbstractString = "null solve",
                          kwargs...)
     N = size(L, 2)
     want_all = nd <= 0
@@ -239,21 +256,38 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # because they handle the shape themselves.
     L = (wants_square(solver) && size(L, 1) != size(L, 2)) ? L' * L : L
 
-    while true
-        # NOTE the argument order: the instance form is `solve(method, L)`
-        # while the symbol form is `solve(L, sym)`.  Reversed relative to each
-        # other, which is a wart in the existing interface.
-        result = solve(solver, L; nv = k, kwargs...)
-        vals = result.vals
-        vecs = result.vecs
-        keep = findall(v -> abs(v) < tol, vals)
+    # Progress: one wrapper serves both stages, because `Matrix(L)` applies the
+    # map once per column.  A densifying solver therefore has an exact
+    # denominator; an iterative one has none, and gets count and rate instead
+    # of a fabricated ETA.
+    spec = progress_spec(progress)
+    dense = densifies(solver, L)
+    tr = ProgressTracker(dense ? "$label (densify $(size(L,1))x$(size(L,2)))" :
+                                 "$label (iterate)",
+                         dense ? :densify : :solve,
+                         dense ? size(L, 2) : 0,
+                         spec)
+    Lp = progress_wrap(L, tr)
 
-        # Bracketed: something came back above tolerance, so we have seen the
-        # whole null space.  Or we asked for everything there is.
-        if !want_all || length(keep) < length(vals) || k >= N
-            return (vals[keep], vecs[:, keep])
+    try
+        while true
+            # NOTE the argument order: the instance form is `solve(method, L)`
+            # while the symbol form is `solve(L, sym)`.  Reversed relative to
+            # each other, which is a wart in the existing interface.
+            result = solve(solver, Lp; nv = k, kwargs...)
+            vals = result.vals
+            vecs = result.vecs
+            keep = findall(v -> abs(v) < tol, vals)
+
+            # Bracketed: something came back above tolerance, so we have seen
+            # the whole null space.  Or we asked for everything there is.
+            if !want_all || length(keep) < length(vals) || k >= N
+                return (vals[keep], vecs[:, keep])
+            end
+            k = min(N, 2 * k)
         end
-        k = min(N, 2 * k)
+    finally
+        finish!(tr)
     end
 end
 
@@ -273,7 +307,9 @@ solve_nullspace(L, solver::Symbol = :AutoSolver; kwargs...) =
 #
 #     shift_invert(M) = (M + eps*I)^-1
 #
-# whose eigenvalues are `1/(lambda + eps)`.  The small eigenvalues of `M`
+# whose eigenvalues are `1/(lambda + eps)`.  `eps` is taken RELATIVE to `‖M‖`,
+# because it sets the condition number CG has to cope with -- see
+# `shift_invert_map`.  The small eigenvalues of `M`
 # become the large eigenvalues of the transform, so a largest-end method now
 # converges straight to the null space, and it converges *fast*, because the
 # transform stretches the gap between 0 and the smallest nonzero eigenvalue
@@ -317,7 +353,28 @@ function cg_solve(M, b::AbstractVector; tol::Real = 1e-10, maxiter::Integer = 50
 end
 
 """
-    shift_invert_map(L; shift, cgtol, cgmaxiter) -> (M, S)
+    opnorm_estimate(M; iters=20) -> Real
+
+Rough largest eigenvalue of a symmetric `LinearMap` by power iteration.  A
+handful of matvecs; only the order of magnitude is needed.
+"""
+function opnorm_estimate(M; iters::Integer = 20)
+    n = size(M, 2)
+    v = randn(n)
+    v ./= norm(v)
+    λ = 0.0
+    for _ in 1:iters
+        w = M * v
+        nw = norm(w)
+        nw == 0 && return 0.0
+        λ = dot(v, w)
+        v = w ./ nw
+    end
+    return abs(λ)
+end
+
+"""
+    shift_invert_map(L; shift_rel, shift, cgtol, cgmaxiter) -> (M, S)
 
 The pair `(M, S)` where `M = LᵗL` and `S = (M + shift*I)^-1`, both as
 `LinearMap`s and neither ever formed as a matrix.
@@ -326,12 +383,24 @@ Hand `S` to any largest-eigenvalue black box -- Arpack `eigs(:LM)`, KrylovKit
 `eigsolve(:LR)`, `svdl` -- and its top eigenpairs are the null space of `L`.
 Recover the original eigenvalue from an eigenvalue `mu` of `S` by
 `lambda = 1/mu - shift`.
+
+**The shift must be relative to `‖M‖`, not absolute.** `shift` sets the
+condition number of the operator CG has to invert: `kappa(M + shift*I)` is
+about `‖M‖/shift`. On these problems `‖M‖` is enormous -- the densor operator
+on the circulant family has `‖AᵗA‖ ≈ 1e25` -- so an absolute `shift = 1e-8`
+asks CG to invert something with condition `1e33`, and it simply never
+converges. Scaling the shift by the estimated norm (`shift_rel`, default
+1e-10) fixes the inner condition number at `1/shift_rel` regardless of how the
+tensor happens to be scaled, while still separating an exact null vector
+(`1/shift`) from the smallest nonzero eigenvalue. Pass `shift` explicitly to
+override.
 """
-function shift_invert_map(L; shift::Real = 1e-8, cgtol::Real = 1e-10,
-                          cgmaxiter::Integer = 500)
+function shift_invert_map(L; shift_rel::Real = 1e-10, shift::Union{Nothing,Real} = nothing,
+                          cgtol::Real = 1e-4, cgmaxiter::Integer = 100)
     n = size(L, 2)
     M = size(L, 1) == size(L, 2) && LinearMaps.issymmetric(L) ? L : L' * L
-    Mshift = LinearMaps.LinearMap(v -> M * v + shift * v, n, n;
+    σ = shift === nothing ? max(shift_rel * opnorm_estimate(M), eps()) : shift
+    Mshift = LinearMaps.LinearMap(v -> M * v + σ * v, n, n;
                                   issymmetric = true, isposdef = true)
     apply(v) = cg_solve(Mshift, collect(v); tol = cgtol, maxiter = cgmaxiter)
     S = LinearMaps.LinearMap(apply, apply, n, n;
@@ -351,13 +420,13 @@ report, so the caller's `tol` filter is unchanged.
 """
 struct ShiftInvertSolver <: NullSolver
     outer::Symbol
-    shift::Float64
+    shift_rel::Float64
     cgtol::Float64
     cgmaxiter::Int
 end
-ShiftInvertSolver(outer::Symbol = :KrylovSolver; shift = 1e-8, cgtol = 1e-10,
-                  cgmaxiter = 500) =
-    ShiftInvertSolver(outer, shift, cgtol, cgmaxiter)
+ShiftInvertSolver(outer::Symbol = :KrylovSolver; shift_rel = 1e-10, cgtol = 1e-4,
+                  cgmaxiter = 100) =
+    ShiftInvertSolver(outer, shift_rel, cgtol, cgmaxiter)
 
 wants_square(::ShiftInvertSolver) = false
 
@@ -365,7 +434,7 @@ function solve(m::ShiftInvertSolver, L::LinearMap; nv::Integer = 10, kwargs...)
     haskey(SOLVER_REGISTRY, m.outer) || error(
         "ShiftInvertSolver needs :$(m.outer) registered; available: " *
         string(available_solvers()))
-    (M, S) = shift_invert_map(L; shift = m.shift, cgtol = m.cgtol,
+    (M, S) = shift_invert_map(L; shift_rel = m.shift_rel, cgtol = m.cgtol,
                               cgmaxiter = m.cgmaxiter)
 
     # The outer solver's own `nv` semantics differ (smallest vs largest), so

@@ -302,6 +302,43 @@ end
     @test get_derivation_method(:QuickDer) == get_derivation_method(:FastDer3Valent)
 end
 
+# --- progress reporting is optional, tagged, and inert -----------------------
+#
+# Progress must never change an answer, and must be off unless asked for.  The
+# tags are checked eagerly so a typo fails loudly instead of silently
+# reporting nothing.
+@testset "progress reporting is opt-in, tagged, and changes nothing" begin
+    Random.seed!(20260907)
+    Γ, frame = diagonal_tensor(4)
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+
+    base_der = der(:SylverLining, Ω, P, Γ; tol=1e-6)
+    base_den = den(Ω, P, base_der; tol=1e-6, nd=-1)
+
+    @testset "option $(repr(p))" for p in (false, true, :all, :densify, :solve,
+                                           [:densify, :solve])
+        @test length(der(:SylverLining, Ω, P, Γ; tol=1e-6, progress=p)) == length(base_der)
+        @test length(den(Ω, P, base_der; tol=1e-6, nd=-1, progress=p)) == length(base_den)
+    end
+
+    # A misspelled tag must be an error, not silence.
+    @test_throws ErrorException den(Ω, P, base_der; tol=1e-6, progress=:densify_typo)
+    @test_throws ErrorException der(:SylverLining, Ω, P, Γ; tol=1e-6, progress=:nonsense)
+
+    # `progress` is a per-call option and must not be mistaken for a method
+    # constructor keyword -- the two were conflated, so every symbol overload
+    # forwarded it to `SylverLiningMethod(; progress=...)` and raised
+    # "does not support keyword progress".
+    @test length(der(:SylverLining, P, Γ; tol=1e-6, progress=:solve)) == length(base_der)
+    @test length(der(:SylverLining, Γ; tol=1e-6, progress=:solve)) == length(base_der)
+    @test stratify(Ω, P, Γ; tol=1e-6, progress=:densify).Xs isa Vector
+
+    # And it still composes with a genuine constructor keyword.
+    @test length(der(:SylverLining, Ω, P, Γ; tol=1e-6, progress=:solve,
+                     solver=:SVDSolver)) == length(base_der)
+end
+
 @testset "Galois adjunction: S ⊆ T(P,Ω) iff Ω ⊆ Z(S,P)" begin
     Random.seed!(20260904)
     Γ, frame = diagonal_tensor(3)

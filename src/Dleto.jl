@@ -78,6 +78,7 @@ include("DletoBase.jl")
     include("solvers/FastDer3Valent.jl")
     # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels
     include("solvers/QuickSylver.jl")
+    include("solvers/SolverProgress.jl")
     include("solvers/NullSolvers.jl")
 
 # Supporting Utilities

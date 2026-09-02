@@ -69,6 +69,9 @@ export IndTransverseOps
 export TransverseOpsSymmetries
 
 export NullSolver
+export solve_nullspace, available_solvers, register_solver!
+export AutoSolver, SVDSolver, LUSolver, ShiftInvertSolver
+export PROGRESS_TAGS, progress_spec
 
 # Derivations.jl
 # `der` is the Z-set: a basis of the P-derivations of a tensor.

@@ -133,7 +133,8 @@ end
     - `tol`: tolerance for the nullspace.
 """
 function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-             tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver) :: Vector{ITensor}
+             tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver,
+             progress=false) :: Vector{ITensor}
     (A, AtA, fr, dims) = denLM(Ω, P, Δ)
 
     # The rectangular map goes straight to the solver layer, which decides
@@ -144,7 +145,8 @@ function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
     # 14GB at n = 19 -- for a computation whose answer is a handful of vectors
     # and whose operator is a few tensor contractions.  All of that policy now
     # lives in `solve_nullspace`.
-    (vals, vecs) = solve_nullspace(A, solver; tol=tol, nd=nd)
+    (vals, vecs) = solve_nullspace(A, solver; tol=tol, nd=nd,
+                                   progress=progress, label="den")
     size(vecs, 2) == 0 && return ITensor[]
     return [ ITensor(reshape(vecs[:, j], dims...), fr...) for j in 1:size(vecs, 2) ]
 end
@@ -229,11 +231,15 @@ function stratify(
         Γ::ITensor;
         tol::Float64=1e-6,
         nd=-1,
+        progress=false,
         method::Union{DerivationMethod, Symbol}=:SylverLining,
         method_kwargs...
     )
     selected_method = method isa Symbol ? get_derivation_method(method; method_kwargs...) : method
-    (rΩ, expand_map, ders) = derTrOpsReduced(selected_method, Ω, ch, Γ; tol=tol, nd=nd, method_kwargs...)
+    # `progress` is a per-call option, not a constructor option, so it is
+    # named rather than swept into `method_kwargs`.
+    (rΩ, expand_map, ders) = derTrOpsReduced(selected_method, Ω, ch, Γ;
+                                             tol=tol, nd=nd, progress=progress)
     if size(ders,2) == 0
         # Not necessarily a solver failure: the derivation space really can be
         # trivial, in which case Γ conforms to no sparsity pattern for this
@@ -263,6 +269,7 @@ function stratify(
         Γ::ITensor;
         tol::Float64=1e-6,
     nd=-1,
+    progress=false,
     method::Union{DerivationMethod, Symbol}=:SylverLining,
     reduced=false,
     method_kwargs...
@@ -271,7 +278,7 @@ function stratify(
     ch = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
     Ω = IndTransverseOps(fr, UniversalOp())    
-    return stratify(Ω, ch, Γ; tol=tol, nd=nd, method=method, method_kwargs...)
+    return stratify(Ω, ch, Γ; tol=tol, nd=nd, progress=progress, method=method, method_kwargs...)
 end
 
 function stratify(
@@ -286,10 +293,11 @@ function stratify(
         Γ::AbstractArray;
         tol::Float64=1e-6,
         nd=-1,
+        progress=false,
         method::Union{DerivationMethod, Symbol}=:SylverLining,
         method_kwargs...
     )
-    return stratify(__ITensor(Γ); tol=tol, nd=nd, method=method, method_kwargs...)
+    return stratify(__ITensor(Γ); tol=tol, nd=nd, progress=progress, method=method, method_kwargs...)
 end
 
 

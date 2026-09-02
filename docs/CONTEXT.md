@@ -163,25 +163,67 @@ Branches, in order. Each is a task branch off the previous.
   back on the temporary frame: a stratified tensor could not be re-chiseled or even verified
   (`AssertionError: Incompatable Indexes`).
 
+### The null-solver layer, centralized
+
+**All null-solver policy lives in `solve_nullspace` (`src/solvers/NullSolvers.jl`) and is tuned
+there once.** Previously `SylverLining` and `den` each carried their own copy — a hand-rolled
+`globalDim < 1000` dense gate plus a dense `eigen` branch that bypassed the solver interface
+entirely in one, a `__needsSquare(sym)` symbol list plus its own filter in the other. Tuning
+either left the other stale. The pieces:
+
+- **`dense_is_cheap(L)`** gates every `Matrix(L)`. The test is on **bytes**, with dimension as a
+  shortcut, because dimension alone is the wrong criterion for a rectangular map: the derivation
+  operator at `n = 19` is 1083×1083 — just over the 1000 dimension limit, but only 9 MB, so
+  densifying is free and buys SVD accuracy — while the densor map at the same `n` is
+  260642×6859, i.e. **14 GB**.
+- **`AutoSolver`** is the default for `der`, `den` and `stratify`: densify when cheap, otherwise
+  delegate to a matrix-free solver, squaring the map *as a composition of linear maps*.
+- **Adaptive escalation.** `nd <= 0` means "a basis", and both callers used to turn that into
+  "compute the entire spectrum" (`nv = globalDim(Ω)`, `nv = prod(dims)`). That is what made the
+  iterative solvers look useless — at `n = 19` Arnoldi was asked for 1083 of 1083 eigenvalues,
+  retried five times and returned 9; LOBPCG was handed a block of 1083 and could not factorize
+  it. Now: ask for a modest `nv`, count how many values fall below `tol`, and double only while
+  *every* returned value is below it — the signal that the null space is not yet bracketed. Cost
+  is proportional to the true nullity.
+- **`wants_square(::NullSolver)`** trait, so the central layer can form `LᵗL` on behalf of
+  whichever eigensolver was named, including one an extension adds later.
+- **`ShiftInvertSolver`.** Every black-box iterative eigensolver converges to an *extreme* of the
+  spectrum, and most to the largest — which is why `LanczosSolver` returned dimension 0: `svdl`
+  was pointed at the wrong end, not failing. The transform `(AᵗA + εI)⁻¹` sends small eigenvalues
+  to large ones, so a largest-end method converges straight to the null space, and fast, because
+  the gap between 0 and `λ_min` is stretched to the gap between `1/ε` and `1/(λ_min + ε)`.
+  **The ε is not optional**: a genuine null vector has `λ` exactly 0 up to rounding, so an
+  unshifted `1/λ` overflows precisely on the vectors being sought — the better the solver, the
+  worse the blow-up. The inverse is never formed; `AᵗA + εI` is SPD, so it is applied by
+  conjugate gradients (a 20-line `cg_solve` ships in core, so the transform needs no optional
+  dependency). The whole chain from tensor contractions to null space stays matrix-free.
+
+**`den` no longer densifies.** It cost `O(n⁷)` memory — 14 GB at `n = 19`, 120 GB at `n = 26` —
+for an answer that is a handful of vectors and an operator that is a few tensor contractions.
+`denLM` was *already* abstract, with a genuine adjoint; the two defaults (`:SVDSolver`, and
+`nd = -1` meaning "the whole spectrum") threw that away. Measured after the fix: `den` recovers
+the **full** basis matrix-free at 2e-12 — 6 of 6 at `n = 6`, 10 of 10 at `n = 10`.
+
 ### Conditioning is the binding constraint (measured)
 
 Decision 4 predicted that `κ(C)` matters because the composed operator carries `CᵗC`. Session 2
-measured the stronger version of the same effect: `sylvester = ester ∘ sylve` **is** `AᵗA` for the
-densor map `A`, so its condition number is `κ(A)²`. On the `n = 19` circulant family the spectrum
-spans ~25 orders of magnitude, and the consequences are visible per solver:
+measured the stronger version: `sylvester = ester ∘ sylve` **is** `AᵗA`, so its condition number
+is `κ(A)²`. On the `n = 19` circulant family the spectrum spans ~25 orders of magnitude. Measured
+per solver, with `nv` set to the whole space — i.e. *before* the escalation fix, so this table
+also records what asking for the entire spectrum does to each method:
 
 | solver | dim found (true: 38) | residual | note |
 |---|---|---|---|
-| `SVDSolver` | 38 | 4.1e-14 | correct; densifies the map |
+| `SVDSolver` | 38 | 4.1e-14 | correct; densifies (9 MB here, so allowed) |
 | `LUSolver` | 32 | 3.1e-14 | `lu` pivots rows only, so it is **not rank revealing** |
 | `KrylovSolver` | 9 | 3.5e-15 | accurate but partial: Arnoldi stops on an invariant subspace |
-| `LanczosSolver` | 0 | — | `svdl` converges to the **largest** singular values; the null space is at the other end |
+| `LanczosSolver` | 0 | — | `svdl` converges to the **largest** singular values — wrong end; this is what `ShiftInvertSolver` fixes |
 | `CGSolver` | 19 | 7.1e-07 | LOBPCG unpreconditioned on `AᵗA`; block must be shrunk to factorize |
 | `:QuickDer` | 38 | 5.3e-15 | 3× faster than `SylverLining/SVD`; solves densely on a restriction |
 
-Reading: the iterative solvers are the wrong tool for "give me the whole null space" of a squared
-operator. This is direct evidence for the Phase 5 numerics work — the fix is to stop forming `AᵗA`
-and take the SVD of `A` (or LSQR on `A`), exactly as Algorithm 2 says.
+Reading: squaring the operator, and asking for the whole spectrum, are both avoidable. The
+remaining Phase 5 item is to stop forming `AᵗA` *at all* where the solver allows the rectangular
+map — take the SVD of `A`, or LSQR on `A`, exactly as Algorithm 2 says.
 
 ## Decisions on record
 

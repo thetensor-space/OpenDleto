@@ -111,9 +111,10 @@ function der(method::DerivationMethod,
     P::AbstractMatrix,
     Γ::ITensor;
     tol::Float64=1e-6,
-    nd=-1
+    nd=-1,
+    kwargs...
     ) :: Vector{Vector{ITensor}}
-    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd)
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd, kwargs...)
     return [ embedITensors(Ω, expand_map(reduced_der_cood[:,i]))
              for i in 1:size(reduced_der_cood,2) ]
 end;
@@ -130,9 +131,10 @@ function derReduced(method::DerivationMethod,
     P::AbstractMatrix,
     Γ::ITensor;
     tol::Float64=1e-6,
-    nd=-1
+    nd=-1,
+    kwargs...
     ) :: Vector{Vector{ITensor}}
-    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd)
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd, kwargs...)
     return [ embedITensors(rΩ, reduced_der_cood[:,i])
              for i in 1:size(reduced_der_cood,2) ]
 end;
@@ -165,7 +167,8 @@ function derTrOpsReduced(method::DerivationMethod,
     P::AbstractMatrix, 
     Γ::ITensor; 
     tol::Float64=1e-6,
-    nd=10
+    nd=10,
+    kwargs...
     ) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     @assert false "Calling Placeholder Abstract Function"
 end
@@ -209,16 +212,24 @@ function der(Γ::ITensor; nd=-1, tol::Real=1e-6) :: Vector{Vector{ITensor}}
     return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(method::Symbol, Γ::ITensor; nd=-1, tol::Real=1e-6, kwargs...) :: Vector{Vector{ITensor}}
+# NOTE on the two kinds of keyword: `kwargs...` here is forwarded to the
+# *method constructor* (`solver=` and friends), while `progress` is a
+# *per-call* option consumed by the solve.  They were conflated -- everything
+# went to the constructor -- so `der(:SylverLining, Γ; progress=:solve)` died
+# with "SylverLiningMethod does not support keyword progress".  Per-call
+# options therefore have to be named explicitly in every symbol overload.
+function der(method::Symbol, Γ::ITensor; nd=-1, tol::Real=1e-6,
+             progress=false, kwargs...) :: Vector{Vector{ITensor}}
     ch, _, ops = universalSetup(Γ)
-    return der(get_derivation_method(method; kwargs...), ops, ch, Γ; nd=nd, tol=tol)
+    return der(get_derivation_method(method; kwargs...), ops, ch, Γ;
+               nd=nd, tol=tol, progress=progress)
 end
 
 der(Γ::AbstractArray; nd=-1, tol::Real=1e-6) =
     der(__asITensor(Γ); nd=nd, tol=tol)
 
-der(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=1e-6, kwargs...) =
-    der(method, __asITensor(Γ); nd=nd, tol=tol, kwargs...)
+der(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=1e-6, progress=false, kwargs...) =
+    der(method, __asITensor(Γ); nd=nd, tol=tol, progress=progress, kwargs...)
 
 function der(ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6)
     fr = collect(inds(Γ))
@@ -226,20 +237,22 @@ function der(ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6)
     return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6, kwargs...)
+function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6,
+             progress=false, kwargs...)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return der(get_derivation_method(method; kwargs...), ops, ch, Γ; nd=nd, tol=tol)
+    return der(get_derivation_method(method; kwargs...), ops, ch, Γ;
+               nd=nd, tol=tol, progress=progress)
 end
 
 der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6) =
     der(ch, __asITensor(Γ); nd=nd, tol=tol)
 
 function der(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
-             nd=-1, tol::Real=1e-6,
+             nd=-1, tol::Real=1e-6, progress=false,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
-    return der(m, Ω, ch, Γ; nd=nd, tol=tol)
+    return der(m, Ω, ch, Γ; nd=nd, tol=tol, progress=progress)
 end
 
 """
@@ -255,6 +268,7 @@ caller comparing methods on a fixed operator space would naturally write,
 `der(:QuickDer, Ω, ch, Γ)`, was a `MethodError`.
 """
 der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
-    nd=-1, tol::Real=1e-6, kwargs...) =
-    der(get_derivation_method(method; kwargs...), Ω, ch, Γ; nd=nd, tol=tol)
+    nd=-1, tol::Real=1e-6, progress=false, kwargs...) =
+    der(get_derivation_method(method; kwargs...), Ω, ch, Γ;
+        nd=nd, tol=tol, progress=progress)
 

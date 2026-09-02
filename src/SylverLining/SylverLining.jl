@@ -49,6 +49,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
     Γ::ITensor;
     tol::Float64=1e-6,
     nd=-1,  # Don't type as integer to allow Inf 
+    progress=false,
     kwargs...,
     ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
@@ -85,7 +86,8 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # "Not enough eigenvalues computed; increase `tol` parameter", which
     # misreported the fact as a convergence problem.  Callers that need a
     # derivation (`stratify`) report it themselves.
-    (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd)
+    (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
+                                progress=progress, label="der")
 
     coords = size(vecs, 2) == 0 ? zeros(Float64, globalDim(Ω_reduced), 0) : vecs
     return (Ω_reduced, expand_map, coords)
