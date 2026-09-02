@@ -13,15 +13,11 @@
 # TransverseOpsIndependant -> IndTransverseOps.  The file had been commented
 # out of runtests.jl while it was stale.
 #
-# KNOWN GAP (found by re-enabling this file, 2026-09-02):
-#   TransverseOpsSymmetries does not implement `unsafe_embedITensorsSwapped`.
-#   IndTransverseOps does (src/ops/TransverseOpsIndependant.jl:102); the
-#   symmetries version is simply absent, so the abstract placeholder in
-#   TransverseOperators.jl:143 asserts.  `sylvesterLM` applies that embedding
-#   inside `ester`, so *no derivation can be solved with symmetry-restricted
-#   operators at all* -- construction and plain embedding work, solving does
-#   not.  The symmetry test sets below are therefore marked broken rather than
-#   deleted, so the gap stays visible until the method is implemented.
+# Re-enabling this file found a real capability gap, since fixed:
+# TransverseOpsSymmetries had no `unsafe_embedITensorsSwapped`, so it fell
+# through to the abstract placeholder and *no derivation could be solved with
+# symmetry-restricted operators at all*.  The symmetry test sets below were
+# marked broken while that stood; they now run for real.
 #
 using Dleto
 using ITensors
@@ -63,25 +59,19 @@ function testComposition(f::LinearMap, g::LinearMap, num::Integer)
     return true
 end
 
-function testGlobalOpChisel(Ω::TransverseOps, ch::Matrix, num::Integer; broken::Bool=false)
+function testGlobalOpChisel(Ω::TransverseOps, ch::Matrix, num::Integer)
     @testset "Testing with $ch" begin
         for _ in 1:num
             Γ = random_itensor(frames(Ω))
             derdensor_map, densor_map = sylvesterLM(Ω, ch, Γ)
             nsamp = adaptive_samples(densor_map)
-            if broken
-                # See the KNOWN GAP note at the top of this file.
-                @test_broken testTranspose(densor_map, nsamp)
-                @test_broken testComposition(densor_map, derdensor_map, nsamp)
-            else
-                @test testTranspose(densor_map, nsamp)
-                @test testComposition(densor_map, derdensor_map, nsamp)
-            end
+            @test testTranspose(densor_map, nsamp)
+            @test testComposition(densor_map, derdensor_map, nsamp)
         end
     end
 end
 
-function testGlobalOp(Ω::TransverseOps; ntimes::Integer=5, broken::Bool=false)
+function testGlobalOp(Ω::TransverseOps; ntimes::Integer=5)
     d = globalDim(Ω)
     @testset "Testing Ω with dim $d" begin
         for (name, build) in (
@@ -95,7 +85,7 @@ function testGlobalOp(Ω::TransverseOps; ntimes::Integer=5, broken::Bool=false)
                     # CentroidChisel needs at least two engaged axes to be nonempty.
                     needed = name == "Centroid" ? 2 : 1
                     if sum(eng) >= needed
-                        testGlobalOpChisel(Ω, build(eng), ntimes; broken=broken)
+                        testGlobalOpChisel(Ω, build(eng), ntimes)
                     end
                 end
             end
@@ -123,8 +113,7 @@ end
                 axisdim = rand(2:10, val)
                 frame = axisdim .|> (i -> Index(i, "dim $i"))
                 localops = rand(1:length(LΩs), val) .|> (i -> LΩs[i])
-                testGlobalOp(TransverseOpsSymmetries(frame, localops, [i for i in 1:val]);
-                             broken=true)   # KNOWN GAP, see header
+                testGlobalOp(TransverseOpsSymmetries(frame, localops, [i for i in 1:val]))
             end
         end
     end
@@ -142,7 +131,7 @@ end
                     [prime(frame[abs(sym[i])], i) for i in 1:length(sym)],
                     [localops[abs(sym[i])] for i in 1:length(sym)],
                     sym)
-                testGlobalOp(Ω; ntimes=2, broken=true)   # KNOWN GAP, see header
+                testGlobalOp(Ω; ntimes=2)
             end
         end
     end

@@ -144,7 +144,29 @@ unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Ve
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[GΩ.soffsets[i]:GΩ.eoffsets[i]]),
-        GΩ.frames[i],GΩ.framesTemp[i] ) 
+        GΩ.frames[i],GΩ.framesTemp[i] )
+    for i=1:GΩ.val
+    ];
+
+# The swapped orientation.  This was missing entirely: IndTransverseOps has it
+# (TransverseOpsIndependant.jl:102) and the symmetries version fell through to
+# the abstract placeholder, which asserts.  `sylvesterLM` applies this
+# embedding inside `ester`, so no derivation could be solved with
+# symmetry-restricted operators at all -- construction and plain embedding
+# worked, solving did not.
+unsafe_embedITensorsSwapped(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} =
+    [ ITensor(
+        GΩ.duals[i] ?
+            Matrix(transpose(unsafe_embed(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]
+            ))) :
+            unsafe_embed(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]),
+        GΩ.framesTemp[i],GΩ.frames[i] )
     for i=1:GΩ.val
     ];
 

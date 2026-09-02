@@ -93,5 +93,5 @@ export rand_den, randTensorChisel
 export ITensorNorm, ITensorNormChisel
 
 # TensorSynthesis3D.jl
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor

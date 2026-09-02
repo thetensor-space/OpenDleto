@@ -125,16 +125,26 @@ function derTrOpsReduced(method::SylverLiningMethod,
     
     # Filter vectors by eigenvalue tolerance
     valid_indices = findall(abs.(λ) .< tol)
-    @assert length(valid_indices) > 0 "Not enough eigenvalues computed; increase `tol` parameter."
     λ = λ[valid_indices]
     vecs = vecs[valid_indices]
-    
+
+    # An empty result is a mathematical fact, not a solver failure: it says the
+    # reduced derivation space is trivial, i.e. Γ conforms to no sparsity
+    # pattern for this chisel.  A Tucker chisel on a generic tensor is the
+    # standard example -- it forces each engaged D_a into the a-th radical,
+    # which is zero, and its only scalar derivation lives on the disengaged
+    # axis that the engagement reduction drops.  This used to assert
+    # "Not enough eigenvalues computed; increase `tol` parameter", which
+    # misreported the fact as a convergence problem.  Callers that need a
+    # derivation (`stratify`) report it themselves.
+
     # Give only nd many vectors, unless nd < 0 or Inf
     if nd > 0 && length(vecs) > nd
         vecs = vecs[1:floor(Int, nd)]
     end
-    
-    return (Ω_reduced, expand_map, hcat(vecs...) )
+
+    coords = isempty(vecs) ? zeros(Float64, globalDim(Ω_reduced), 0) : hcat(vecs...)
+    return (Ω_reduced, expand_map, coords)
 end
 
 

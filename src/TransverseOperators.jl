@@ -134,7 +134,7 @@ function unsafe_embedITensors(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vec
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function embedITensorsSwaped(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
+function embedITensorsSwapped(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
     unsafe_embedITensorsSwapped(GΩ,data)
 end;

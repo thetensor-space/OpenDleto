@@ -219,11 +219,15 @@ function stratify(
     )
     selected_method = method isa Symbol ? get_derivation_method(method; method_kwargs...) : method
     (rΩ, expand_map, ders) = derTrOpsReduced(selected_method, Ω, ch, Γ; tol=tol, nd=nd, method_kwargs...)
-    if size(ders,2) ==0
-        # should never happen as there are always trivial derivations
-        # so this indicates an error
-        # it can happen if we use operators which do not contain scalars, or use full Tucker chisel
-        error("No derivations found for the given tensor, this indicates failure to converge in solvers, consider adjusting parameters.")
+    if size(ders,2) == 0
+        # Not necessarily a solver failure: the derivation space really can be
+        # trivial, in which case Γ conforms to no sparsity pattern for this
+        # chisel and there is nothing to stratify along.  Happens for a Tucker
+        # chisel on a generic tensor, and whenever the operator space excludes
+        # the scalars.
+        error("No nontrivial derivations for this chisel, so Γ exhibits no " *
+              "sparsity pattern to stratify along. Check the chisel and the " *
+              "operator space; if a pattern is expected, loosen `tol`.")
     end
     @info "Found $(size(ders,2)) derivations for stratification."
     # Select a random linear combination of derivations

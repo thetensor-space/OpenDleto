@@ -134,13 +134,14 @@ const BROKEN_SOLVERS = [:FastDer3Valent]
         # reduced Z-set is genuinely {0} here -- a legitimate answer meaning
         # "Γ conforms to no pattern for this chisel".
         #
-        # KNOWN DEFECT: instead of returning an empty basis, SylverLining.jl:123
-        # asserts "Not enough eigenvalues computed; increase `tol` parameter",
-        # which misreports a mathematical fact as a solver failure.  This is the
-        # missing sigma_{e+1} verdict of docs/review/Refactor-Plan.md section 5.
-        @testset "tucker chisel: trivial Z-set should not be an error" begin
+        # It used to assert "Not enough eigenvalues computed; increase `tol`
+        # parameter", misreporting a mathematical fact as a solver failure.
+        # Now it returns an empty basis and the caller decides.
+        @testset "tucker chisel: trivial Z-set is not an error" begin
             P = TuckerChisel([true, false, true])
-            @test_broken der(P, Γ; tol=1e-6) isa Vector
+            basis = der(P, Γ; tol=1e-6)
+            @test basis isa Vector
+            @test isempty(basis)
         end
     end
 end

@@ -57,40 +57,47 @@ function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
     return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
 end
 
-# NOTE: this does not honour the interface documented on `solve` above -- it
-# returns a bare Vector of basis vectors rather than a `(;vals, vecs)` named
-# tuple, so callers written against the contract (e.g. `den`) fail with
-# `FieldError: type Array has no field vals`.  The commented-out return at the
-# end of the body shows the intended shape.  Separately, `free_vars` is chosen
-# as the last `nv` columns regardless of the computed rank.  Left as-is here:
-# fixing it is more than a return-type change.
-function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = 1e-8)
-    println("Using LUSolver on Matrix...")
-    M = Matrix(L)
-    println("Performing LU Factorization...")
-    F = lu(M)
-    U = F.U
-    L = F.L
-    p = F.p  # permutation
+"""
+    solve(::LUSolver, L; nv, tol)
 
-    # Determine rank and free variables
-    rank = sum(abs.(diag(U)) .> tol)
+    Null vectors by LU plus back-substitution.
+
+    CAVEAT: `lu` pivots rows only, so it is **not rank revealing** -- this is
+    only valid when the leading `rank` columns are independent.  It therefore
+    reports an honest residual `‖Lv‖/‖v‖` for each vector it returns, so a
+    caller filtering on `vals` discards a bad basis rather than trusting it.
+    Prefer `SVDSolver` unless you know the column order is benign.
+
+    Previously this returned a bare `Vector`, violating the `(;vals, vecs)`
+    contract above -- callers written against it died with
+    `FieldError: type Array has no field vals` -- and chose its free variables
+    as the last `nv` columns regardless of the computed rank.
+"""
+function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = 1e-8)
+    M = Matrix(L)
     n = size(M, 2)
-    # free_vars = rank+1:n
-    free_vars = (n-nv+1):n
-println("Matrix rank: $rank, free variables: ", free_vars, " with tolerance $tol")
-    # Build null space basis
-    null_basis = []
-    for j in free_vars
-        v = zeros(n)
+    F = lu(M; check = false)
+    U = F.U
+    r = min(sum(abs.(diag(U)) .> tol), size(U, 1), n)
+
+    cols = Vector{Vector{eltype(M)}}()
+    for j in (r + 1):n
+        v = zeros(eltype(M), n)
         v[j] = 1
-        # Solve U * x = -U[:, free_vars]*v_free for pivot variables
-        rhs = -U[:, free_vars] * v[free_vars]
-        x = U[1:rank, 1:rank] \ rhs[1:rank]
-        v[1:rank] = x
-        push!(null_basis, v)
+        if r > 0
+            # U[1:r,1:r] x = -U[1:r,j] makes the pivot variables consistent.
+            v[1:r] = U[1:r, 1:r] \ (-U[1:r, j])
+        end
+        push!(cols, v)
     end
 
-    return null_basis #(;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
+    if isempty(cols)
+        return (; vals = eltype(M)[], vecs = zeros(eltype(M), n, 0))
+    end
+
+    V = hcat(cols...)
+    vals = [ norm(M * V[:, k]) / max(norm(V[:, k]), eps()) for k in 1:size(V, 2) ]
+    keep = 1:min(nv, size(V, 2))
+    return (; vals = vals[keep], vecs = V[:, keep])
 end
 
