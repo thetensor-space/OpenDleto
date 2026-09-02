@@ -32,9 +32,13 @@ function stratify(
         Ω::TransverseOps, 
         ch::AbstractMatrix,          
         Γ::ITensor;
-        tol::Float64=1e-6
+        tol::Float64=1e-6,
+        nd=-1,
+        method::Union{DerivationMethod, Symbol}=:SylverLining,
+        method_kwargs...
     )
-    (rΩ, expand_map, ders) = derTrOpsReduced(Ω,ch,Γ; tol=tol)
+    selected_method = method isa Symbol ? get_derivation_method(method; method_kwargs...) : method
+    (rΩ, expand_map, ders) = derTrOpsReduced(selected_method, Ω, ch, Γ; tol=tol, nd=nd, method_kwargs...)
     if size(ders,2) ==0
         # should never happen as there are always trivial derivations
         # so this indicates an error
@@ -59,13 +63,16 @@ end
 function stratify(
         Γ::ITensor;
         tol::Float64=1e-6,
-        reduced=false
+    nd=-1,
+    method::Union{DerivationMethod, Symbol}=:SylverLining,
+    reduced=false,
+    method_kwargs...
     )
     # Use universal chisel and transverse ops
     ch = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
     Ω = IndTransverseOps(fr, UniversalOp())    
-    return stratify(Ω, ch, Γ; tol=tol)
+    return stratify(Ω, ch, Γ; tol=tol, nd=nd, method=method, method_kwargs...)
 end
 
 function stratify(
@@ -78,9 +85,12 @@ end
 
 function stratify(
         Γ::AbstractArray;
-        tol::Float64=1e-6
+        tol::Float64=1e-6,
+        nd=-1,
+        method::Union{DerivationMethod, Symbol}=:SylverLining,
+        method_kwargs...
     )
-    return stratify(__ITensor(Γ); tol=tol)
+    return stratify(__ITensor(Γ); tol=tol, nd=nd, method=method, method_kwargs...)
 end
 
 

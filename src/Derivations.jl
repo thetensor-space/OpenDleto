@@ -39,6 +39,23 @@
 abstract type DerivationMethod end;
 
 """
+    get_derivation_method(method::Symbol; kwargs...)
+
+Factory for selecting a derivation strategy by name.
+Supported symbols:
+- `:SylverLining`
+- `:FastDer3Valent`
+"""
+function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
+    if method === :SylverLining
+        return SylverLiningMethod(; kwargs...)
+    elseif method === :FastDer3Valent
+        return FastDer3ValentMethod(; kwargs...)
+    end
+    error("Unknown derivation method symbol: $method")
+end
+
+"""
     derITensor(method::DerivationMethod, 
             Ω::TransverseOps, 
             P::LinearChisel, 
@@ -169,10 +186,23 @@ function derITensor(Γ::ITensor; nd=-1, tol::Real=1e-6):: Vector{Vector{ITensor}
     return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
+function derITensor(method::Symbol, Γ::ITensor; nd=-1, tol::Real=1e-6, kwargs...)::Vector{Vector{ITensor}}
+    ch = UniversalChisel(length(inds(Γ)))
+    fr = collect(inds(Γ))
+    ops = IndTransverseOps(fr, UniversalOp())
+    return derITensor(get_derivation_method(method; kwargs...), ops, ch, Γ; nd=nd, tol=tol)
+end
+
 function derITensor(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
     fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
     Σ = ITensor(Γ, fr...)
     return derITensor(Σ; nd=nd, tol=tol)
+end
+
+function derITensor(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=1e-6, kwargs...)
+    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
+    Σ = ITensor(Γ, fr...)
+    return derITensor(method, Σ; nd=nd, tol=tol, kwargs...)
 end
 
 function derITensor(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)

@@ -71,10 +71,11 @@ export TransverseOpsSymmetries
 export NullSolver
 
 # DerivationMethodAbstract.jl
-export DerivationMethod, der, den
+export DerivationMethod, der, den, get_derivation_method
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
+export FastDer3ValentMethod
 
 # Stratify.jl
 export stratify
