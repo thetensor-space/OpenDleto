@@ -71,7 +71,7 @@ include("DletoBase.jl")
     include("ops/TransverseOpsIndependant.jl")
     include("ops/TransverseOpsSymmetries.jl")
     # Sylver Lining Derivation Method
-    include("SylverLining/SylverLininig.jl")
+    include("SylverLining/SylverLining.jl")
     # Fast derivation strategy (3-valent, universal setup)
     include("solvers/FastDer3Valent.jl")
     # [COMING SOON] QuickSylver
