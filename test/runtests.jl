@@ -20,6 +20,7 @@ include( "TestOperators.jl" )
 include( "TestTransverseOps.jl" )
 include( "TestTensorSynthesis.jl" )
 include( "TestFastDer3Valent.jl" )
+include( "TestDerivationLaws.jl" )
 
 
 include( "TestSylverLining.jl" )

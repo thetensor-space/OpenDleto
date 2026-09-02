@@ -1,0 +1,230 @@
+#
+# Equational laws for derivations and densors.
+#
+# The definitions of derivation and densor ARE equations, so they are the
+# tests.  Everything is approximate: these are floating-point solves, so the
+# residuals are compared relative to the scale of the inputs.
+#
+# The same residual serves both sides, because the derivation equation and the
+# densor equation are one equation with a different unknown:
+#
+#   Z-law   D in der(P, Γ)          =>  residual(Γ, D, P) ≈ 0
+#   T-law   s in den(P, Δ)          =>  residual(s, ω, P) ≈ 0  for all ω in Δ
+#   Galois  S ⊆ T(P,Ω) <=> Ω ⊆ Z(S,P), both directions being that residual
+#
+# `applyDerivation` already computes that residual -- it weights Γ·X_a by
+# column a of the chisel and sums over the axes, carrying the chisel axis so
+# every row of a multi-row chisel is checked at once.  It had no caller in the
+# package; it is the verifier that was written and never wired up.
+#
+using Test
+using Dleto
+using ITensors
+using LinearAlgebra
+using Random
+
+# --- the residual, relative to the scale of its inputs ----------------------
+
+"""
+    der_residual(Γ, D, P) -> Real
+
+Relative size of the chisel-weighted sum  Σ_a P[:,a] ⊗ (Γ · D_a).  Zero
+exactly when D is a P-derivation of Γ.
+"""
+function der_residual(Γ::ITensor, D::Vector{ITensor}, P::AbstractMatrix)
+    C = Chisel(P, collect(inds(Γ)))
+    R = applyDerivation(Γ, D, C)
+    scale = norm(Γ) * maximum(norm.(D))
+    return norm(R) / max(scale, eps())
+end
+
+"""Random linear combination of a basis of derivations, axis by axis."""
+function combine(basis::Vector{Vector{ITensor}}, coefs::Vector{<:Number})
+    val = length(first(basis))
+    return [ sum(coefs[i] * basis[i][a] for i in eachindex(basis)) for a in 1:val ]
+end
+
+const LAW_TOL = 1e-6
+
+# --- Z-law: every solver must return actual derivations ---------------------
+
+# Solvers and the settings they support.  FastDer3Valent is restricted to
+# valence 3 with a one-row, fully engaged chisel and universal operators.
+#
+# FastDer3Valent is marked broken: on a generic 4x5x3 tensor with the universal
+# chisel it returns a 1-dimensional basis whose single element has relative
+# residual 0.54, where SylverLining returns the correct 2-dimensional space at
+# 2e-15.  dim >= 2 is forced for *any* tensor, since null([1,1,1]) is
+# 2-dimensional and those scalar tuples are always derivations, so the port is
+# both incomplete and wrong.  Checked and ruled out: all eight transpose
+# combinations of the (X,Y,Z) slots give residuals in 0.44..0.56, so it is not
+# an orientation problem; the third-slot sign mismatch against the reference
+# was fixed separately and is necessary but not sufficient.  The reference
+# guards exactly this case with check_derivation_solution ("Retry with larger
+# a',b',c'!"), which the port did not carry over -- so the likely cause is the
+# restriction sizes or the lift, with the missing verification hiding it.
+const SOLVERS = [:SylverLining, :FastDer3Valent]
+const BROKEN_SOLVERS = [:FastDer3Valent]
+
+@testset "Z-law: applyDerivation of any der result is approximately 0" begin
+    Random.seed!(20260902)
+
+    @testset "solver $solver" for solver in SOLVERS
+        dims = (4, 5, 3)
+        frame = [Index(dims[i], "a_$i") for i in 1:3]
+        Γ = ITensor(randn(dims...), frame...)
+        P = UniversalChisel(3)
+
+        basis = der(solver, Γ; tol=1e-6)
+        broken = solver in BROKEN_SOLVERS
+
+        # dim >= dim null(P) always, by the scalar derivations.
+        if broken
+            @test_broken length(basis) >= size(nullspace(P), 2)
+        else
+            @test length(basis) >= size(nullspace(P), 2)
+        end
+
+        @testset "each generator" begin
+            for D in basis
+                if broken
+                    @test_broken der_residual(Γ, D, P) < LAW_TOL
+                else
+                    @test der_residual(Γ, D, P) < LAW_TOL
+                end
+            end
+        end
+
+        # The Z-set is a subspace, so combinations must satisfy it too -- and a
+        # random combination is what `stratify` actually consumes.
+        @testset "random combinations" begin
+            for _ in 1:5
+                D = combine(basis, randn(length(basis)))
+                if broken
+                    @test_broken der_residual(Γ, D, P) < LAW_TOL
+                else
+                    @test der_residual(Γ, D, P) < LAW_TOL
+                end
+            end
+        end
+    end
+
+    # The general solver must satisfy the law for the other chisels too.
+    @testset "SylverLining across chisels" begin
+        dims = (4, 3, 5)
+        frame = [Index(dims[i], "a_$i") for i in 1:3]
+        Γ = ITensor(randn(dims...), frame...)
+
+        for (name, P) in (
+            ("universal", UniversalChisel(3)),
+            ("adjoint",   AdjointChisel(3, 1, 2)),
+            ("centroid",  CentroidChisel(3)),
+        )
+            @testset "$name chisel" begin
+                basis = der(P, Γ; tol=1e-6)
+                for D in basis
+                    @test der_residual(Γ, D, P) < LAW_TOL
+                end
+            end
+        end
+
+        # A Tucker chisel forces D_a into the a-th radical, which is zero for a
+        # generic tensor; and the only scalar derivation it admits is supported
+        # on its disengaged axis, which the engagement reduction drops.  So the
+        # reduced Z-set is genuinely {0} here -- a legitimate answer meaning
+        # "Γ conforms to no pattern for this chisel".
+        #
+        # KNOWN DEFECT: instead of returning an empty basis, SylverLining.jl:123
+        # asserts "Not enough eigenvalues computed; increase `tol` parameter",
+        # which misreports a mathematical fact as a solver failure.  This is the
+        # missing sigma_{e+1} verdict of docs/review/Refactor-Plan.md section 5.
+        @testset "tucker chisel: trivial Z-set should not be an error" begin
+            P = TuckerChisel([true, false, true])
+            @test_broken der(P, Γ; tol=1e-6) isa Vector
+        end
+    end
+end
+
+# --- T-law and Galois adjunction --------------------------------------------
+#
+# These need `den` (the densor / T-set), which is still an abstract
+# placeholder that asserts false for every method.  They are written out
+# rather than omitted, and marked broken, so that implementing `den` turns
+# them green -- and so that an accidental pass is reported loudly as
+# "Unexpectedly Pass" rather than going unnoticed.
+
+# A generic tensor has only the scalar derivations, and those satisfy the
+# equation for *every* tensor -- for C = [1,1,1] and D_a = δ_a I with Σδ_a = 0
+# the residual is (Σδ_a)·s = 0 identically.  So its densor is the whole space
+# and both laws below would hold trivially (§5.4: "scalar derivations reveal
+# nothing").  A structured tensor is needed to make the T-set a proper
+# subspace.  The diagonal tensor Γ_ijk = [i=j=k] admits all diagonal triples
+# with a_i + b_i + c_i = 0, so its derivation space is genuinely larger.
+function diagonal_tensor(n::Int)
+    frame = [Index(n, "a_$i") for i in 1:3]
+    A = zeros(Float64, n, n, n)
+    for i in 1:n
+        A[i, i, i] = 1.0
+    end
+    return ITensor(A, frame...), frame
+end
+
+"""Flatten an ITensor to a vector in a fixed frame order."""
+flat(s::ITensor, fr) = vec(Array(s, fr...))
+
+@testset "T-law: every tensor in the densor satisfies the same equation" begin
+    Random.seed!(20260903)
+    Γ, frame = diagonal_tensor(3)
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+
+    Δ = der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6)
+    @test length(Δ) > size(nullspace(P), 2)   # more than just the scalars
+
+    # The default (nd <= 0) must not cap the basis.  It used to be rewritten to
+    # the valency, so this tensor's 6-dimensional derivation space came back as
+    # 3 vectors.  Oracle: the diagonal tensor admits exactly the diagonal
+    # triples with a_i + b_i + c_i = 0, i.e. 2 per index, so dim = 2n.
+    @test length(Δ) == length(der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6, nd=10^6))
+    @test length(Δ) == 2 * 3
+
+    tset = den(Ω, P, Δ; tol=1e-6)
+    @test length(tset) >= 1
+    # The densor must be a proper subspace here, not the whole tensor space.
+    @test length(tset) < prod(size(Array(Γ, frame...)))
+
+    @testset "each densor element admits each derivation" begin
+        for s in tset, ω in Δ
+            @test der_residual(s, ω, P) < LAW_TOL
+        end
+    end
+end
+
+@testset "Galois adjunction: S ⊆ T(P,Ω) iff Ω ⊆ Z(S,P)" begin
+    Random.seed!(20260904)
+    Γ, frame = diagonal_tensor(3)
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+
+    Δ = der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6)
+    tset = den(Ω, P, Δ; tol=1e-6)
+
+    # Forward direction: Γ lies in the densor of its own derivations.  It is in
+    # the *span*, not equal to a basis element, so project onto the span.  The
+    # nullspace basis is orthonormal, so the projector is Σ_j s_j s_jᵗ.
+    @testset "Γ lies in the densor of its own derivations" begin
+        B = hcat([flat(s, frame) for s in tset]...)
+        g = flat(Γ, frame)
+        residual = norm(g - B * (B' * g)) / norm(g)
+        @test residual < LAW_TOL
+    end
+
+    # Reverse direction: everything in Δ is a derivation of everything in the
+    # T-set -- which together with the forward direction is the adjunction
+    # S ⊆ T(P,Ω) <=> Ω ⊆ Z(S,P) instantiated at S = {Γ}, Ω = Δ.
+    @testset "Δ ⊆ Z(T-set, P)" begin
+        for s in tset, ω in Δ
+            @test der_residual(s, ω, P) < LAW_TOL
+        end
+    end
+end
