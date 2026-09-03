@@ -201,8 +201,68 @@ either left the other stale. The pieces:
 **`den` no longer densifies.** It cost `O(n⁷)` memory — 14 GB at `n = 19`, 120 GB at `n = 26` —
 for an answer that is a handful of vectors and an operator that is a few tensor contractions.
 `denLM` was *already* abstract, with a genuine adjoint; the two defaults (`:SVDSolver`, and
-`nd = -1` meaning "the whole spectrum") threw that away. Measured after the fix: `den` recovers
-the **full** basis matrix-free at 2e-12 — 6 of 6 at `n = 6`, 10 of 10 at `n = 10`.
+`nd = -1` meaning "the whole spectrum") threw that away.
+
+### `LSMRSolver` — the null space by projection, never squaring (the working answer)
+
+Getting `den` to be *correct* matrix-free took one more step. Every other iterative solver here
+is an eigensolver, so it needs `AᵗA`, and on the densor map that squaring is what fails:
+measured at `n = 10` (map 20000×1000) `σ_max = 1.45e3`, the ten null directions sit at
+`σ ≈ 3e-13`, and the smallest **nonzero** singular value is `2.2e-2`. So the null space is
+separated by **1.5e-5 relative in σ** — a huge, comfortable gap — and by **2.3e-10 in σ²**,
+shedding an order of magnitude of headroom per step in `n`.
+
+**The method is not an eigensolver — it is a projection**, which is why it needs to know nothing
+about the spectrum:
+
+    null(A) = { w − A⁺(A w) : w arbitrary }
+
+since `A⁺A` is the orthogonal projector onto the row space. And `A⁺y` is exactly what LSMR
+computes (minimum-norm least squares), using only `A` and `Aᵗ`. One LSMR solve per candidate
+vector; no shift, no eigenvalue iteration, nothing squared. Three details are load-bearing:
+
+- **Iterative refinement.** One pass leaves an error of about `lsmr_tol · κ_row`: measured
+  `σ ≈ 2e-5` where the truth is `3e-13`. The projector is idempotent in exact arithmetic, so
+  re-projecting an already-nearly-null vector is standard refinement — `‖Az‖` is now tiny, so the
+  same *relative* tolerance buys a far smaller absolute correction. One extra pass took
+  `σ` to `2.2e-13`, matching the true null singular values.
+- **Rank-revealing QR gives the nullity for free.** Project `k > d` random vectors and they span
+  the `d`-dimensional null space, so a column-pivoted QR reports `d`. Unpivoted `qr` would hand
+  back `k` columns whatever the rank, and the extra ones would be noise indistinguishable from
+  null vectors.
+- **Return one column *above* threshold.** `solve_nullspace` brackets by seeing something
+  non-null. A solver returning only what it believes is null can never let it bracket, so the
+  request doubles to the full dimension — 868,000 map applications at `n = 10` before this was
+  caught.
+
+What was tried first and does **not** work: shift-invert subspace iteration, the textbook
+approach. Its inner solve `(AᵗA + σI)x = v` is conditioned at `σ_max/√σ`, and picking `σ`
+requires knowing the spectral gap in advance. With `σ` small enough to separate the null space
+the stacked map had `κ ≈ 1e7`, needing thousands of LSMR iterations; capped at 400 it returned
+mid-spectrum directions (`σ ≈ 250–500` out of 1451), i.e. noise. The projection has no such
+parameter — the only conditioning that matters is `σ_max/σ_min⁺` on the row space, 6.6e4 here,
+which LSMR handles in a few hundred iterations.
+
+Matrix-free `den` on maps far too large to densify, `LSMRSolver` vs LOBPCG-on-`AᵗA`:
+
+| n | map | dense would need | `CGSolver` (squared) | `LSMRSolver` (unsquared) |
+|---|---|---|---|---|
+| 10 | 20000×1000 | 0.1 GB | 10 of 10, 2.0e-12 | **10 of 10, 2.0e-15**, 41 s |
+| 15 | 101250×3375 | 2.5 GB | 15 of 15, 1.2e-11, 190 s | **15 of 15, 4.8e-15, 31 s** |
+| 19 | 260642×6859 | 13.3 GB | **11 of 19**, 2.1e-05, 166 s | **19 of 19, 1.1e-14, 131 s** |
+
+Faster *and* four orders more accurate, and it is the only one that gets `n = 19` right at all.
+This closes the Algorithm-2 deviation for the densor side: the paper takes the SVD of `N`, and
+nothing in this chain — projection, inner solve, or reported value — squares the operator.
+
+**Verified range and the cost wall.** `den` is verified correct to `n = 19` (~2 min). At `n = 26`
+it was measured running at **7 map applications/s** — each application is `|Δ| = 52` forward plus
+52 adjoint contractions on 17576-element tensors — which extrapolates to roughly **4 hours**, and
+was stopped rather than run to completion. So the memory wall is gone but a time wall remains, and
+it is in the *map application*, not the solver: cost is `O(k · lsmr_iters)` applications, each
+`O(|Δ| · n³) = O(n⁴)`. The lever is the LSMR iteration count, which goes like `√κ_row` and would
+need a preconditioner to reduce; `nv0 = 16` also over-asks when the nullity is known to be `n`.
+Neither is attempted yet.
 
 ### Progress reporting — optional, tagged, off by default
 

@@ -144,8 +144,8 @@ const CATEGORIES = [
 # solvers `den` uses on a map that is far too large to densify.  The lift
 # methods call `nullspace` directly, as their reference implementations do, and
 # ignore the setting entirely.
-const NULL_SOLVERS = [:AutoSolver, :SVDSolver, :LUSolver, :KrylovSolver,
-                      :LanczosSolver, :CGSolver, :ShiftInvertSolver]
+const NULL_SOLVERS = [:AutoSolver, :SVDSolver, :LUSolver, :LSMRSolver,
+                      :KrylovSolver, :LanczosSolver, :CGSolver, :ShiftInvertSolver]
 
 struct Row
     operation::String
@@ -174,7 +174,7 @@ constraints, and `stratify` puts one of them into canonical form.  A failure in
 `der` is recorded and the two dependents are recorded as skipped rather than
 silently omitted.
 """
-function run_trial(label, P, method, kw, Γ, n, trial; tol = 1e-6)
+function run_trial(label, P, method, kw, Γ, n, trial; tol = 1e-6, do_den = true)
     rows = Row[]
     fr = collect(inds(Γ))
     Ω = IndTransverseOps(fr, UniversalOp())
@@ -213,6 +213,10 @@ function run_trial(label, P, method, kw, Γ, n, trial; tol = 1e-6)
     # a handful of tensor contractions to apply.  `den` now hands the abstract
     # LinearMap to `solve_nullspace`, which densifies only when that is cheap
     # and otherwise stays matrix-free, so there is nothing to guard against.
+    if !do_den
+        push!(rows, blank("den", label, n, trial, "skipped: outside den size grid"))
+        return append_stratify!(rows, label, P, method, kw, Γ, Ω, Δ, n, trial, tol)
+    end
     GC.gc()
     try
         t_den = @elapsed tset = den(Ω, P, Δ; tol = tol, nd = -1)
@@ -305,14 +309,17 @@ end
 
 function bench(; sizes, trials, tol = 1e-6, null_solvers = false)
     rows = Row[]
-    for n in sizes, trial in 1:trials
+    all_sizes = sort(unique(vcat(sizes.der, sizes.den)))
+    for n in all_sizes, trial in 1:trials
         A = K_M_field_tensor(n)
         frame = [Index(size(A, i), "a_$i") for i in 1:3]
         Γ = ITensor(A, frame...)
 
         batch = Row[]
+        do_den = n in sizes.den
         for (label, P, method, kw) in CATEGORIES
-            append!(batch, run_trial(label, P, method, kw, Γ, n, trial; tol = tol))
+            append!(batch, run_trial(label, P, method, kw, Γ, n, trial;
+                                     tol = tol, do_den = do_den))
         end
         null_solvers && append!(batch, run_null_solvers(Γ, n, trial; tol = tol))
 
@@ -405,9 +412,23 @@ function summarise_text(rows::Vector{Row})
     end
 end
 
+"""
+    bench_sizes(mode) -> (; der, den)
+
+Separate size grids per operation, because their costs are nothing alike.
+
+`der` and `stratify` run on the 3n²-dimensional operator, which stays dense and
+cheap: `:QuickDer` does n = 26 in 0.2s.  `den` runs on the n³-column densor
+map, and once past the dense gate its cost is `O(k · lsmr_iters)` map
+applications at `O(|Δ| · n³)` each.  Measured: n = 19 takes about two minutes
+and n = 26 runs at 7 applications/s, extrapolating to roughly four hours.  A
+single grid for all three either stops `der` far short of where it is
+interesting or spends hours in `den`.
+"""
 bench_sizes(mode) =
-    mode === :short ? [4, 6, 8, 10] :
-    mode === :long  ? [4, 6, 8, 10, 12, 15, 19, 22, 26] :
+    mode === :short ? (; der = [4, 6, 8, 10], den = [4, 6, 8, 10]) :
+    mode === :long  ? (; der = [4, 6, 8, 10, 12, 15, 19, 22, 26],
+                         den = [4, 6, 8, 10, 12, 15]) :
     error("Unknown mode $mode; use short or long.")
 
 if abspath(PROGRAM_FILE) == @__FILE__

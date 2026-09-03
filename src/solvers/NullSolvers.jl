@@ -75,17 +75,21 @@ dense_is_cheap(L; dense_limit::Integer = DENSE_LIMIT,
 
 Registered solvers that never call `Matrix`, in preference order.
 
-`CGSolver` (LOBPCG) leads because it targets the *smallest* eigenpairs of the
-symmetric `AᵗA`, which is the end a null space lives at, and it was measured to
-recover the full densor basis (6 of 6, 10 of 10) at 2e-12.  `KrylovSolver`
-(Arnoldi, `:SR`) is next but stops on invariant subspaces and typically returns
-about half the basis.  `LanczosSolver` is deliberately absent: `svdl` converges
-to the *largest* singular values, so it approaches the null space from the
-wrong end.
+`LSMRSolver` leads because it is the only one that never squares the operator:
+it runs shift-invert subspace iteration on the *rectangular* map, with LSMR as
+the inner solve.  Squaring is a precision wall, not a slowdown -- a null space
+separated from the rest of the spectrum by 1e-8 in `σ` is separated by 1e-16 in
+`σ²`, which is the double-precision noise floor.  `CGSolver` (LOBPCG on `AᵗA`)
+is next: it targets the right end and is cheaper per step, but it inherits
+`κ(A)²`.  `KrylovSolver` (Arnoldi, `:SR`) stops on invariant subspaces and
+typically returns about half the basis.  `LanczosSolver` is deliberately
+absent: `svdl` converges to the *largest* singular values, so it approaches the
+null space from the wrong end -- see `ShiftInvertSolver` for the transform that
+fixes that.
 """
 matrix_free_solvers() =
     filter(s -> haskey(SOLVER_REGISTRY, s),
-           [:CGSolver, :ArpackSolver, :KrylovSolver])
+           [:LSMRSolver, :CGSolver, :ArpackSolver, :KrylovSolver])
 
 """
     wants_square(::NullSolver) -> Bool
