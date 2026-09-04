@@ -605,6 +605,32 @@ methods rather than discriminating them, and the discriminating axis for `strati
   (`SylverLininig.jl` → `SylverLining.jl`), because `git commit` takes the whole index. Not
   rewritten, since six uncommitted edits were at risk at the time.
 
+## Direction set 2026-09-04 (evening): the movie regime runs in Float16
+
+The user's target is video: 640 x 480 x F x 3 at 30 fps, F up to 1800 (one minute), and by
+decision it will run in **Float16** -- 3.3 GB for the minute instead of 6.6 GB. Measured on
+that shape today (Float32, whitened matrix-free QuickDer, 5 CPU threads, `labs/MovieRuntime.ipynb`):
+1 s / 3 s / 10 s of video take 21.6 / 28.3 / 44.7 s, all nullity 3/3 certified; the affine fit
+projects the minute at ~171 s of which ~20 s is the eigensolve (set by 640 x 480, flat in F)
+and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the tensor
+(3.4 / 6.7 / 16.9 GB), NOT explained by input copies -- Float64 used no more than Float32 at
+the same F -- so the minute would need ~92 GB today.
+
+Order of work, decided with the user:
+1. **Memory first.** Profile the video shape per stage; find the precision-independent ~14x
+   footprint; target < 15 GB for the minute. Nothing else pays off until this lands.
+2. **Then GPU, designed together with (1).** Move the tensor stages (sketch, lift, verify --
+   the ~150 s) to Metal on the restructured pipeline: the tensor lives once, contracted
+   axis-by-axis without a full permuted copy (last night: `permutedims!` on the device, not GEMM,
+   was the bottleneck). The eigensolve stays on the host: 20 s, tiny, and Float32.
+3. **Float16 contract**, pending measurement (`docs/design/Float16-Metal.md` when it lands):
+   expected shape is Float16 storage and half operands on the GPU with fp32 accumulation and
+   output, Float32 for the restricted eigensolve, verdict floored by `data_floor(Float16)` so a
+   half-precision result is never certified beyond what the data carries.
+
+Not now: native core (gated behind a measured 2x), eigensolve on the GPU (wrong regime for
+video), the d = 1000 long-axis frontier as a goal in itself.
+
 ## How work reaches beta, from 2026-09-04
 
 OpenDleto is now developed alongside a **private downstream project** that consumes it. That
