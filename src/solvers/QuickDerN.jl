@@ -512,6 +512,74 @@ function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
 end
 
 """
+    _qdn_ttm_square!(G, M, a; block_bytes) -> G
+
+The mode-`a` product `G ×_a M` for a SQUARE `M`, written back over `G`.
+
+The two-buffer form (`_qdn_ttm!`) already holds a chain of mode products to
+two copies of the tensor; this holds it to ONE.  It is what makes the harness's
+d = 1000 valence-3 build fit: six mode products by square orthogonal matrices
+(the scramble and the `nondeg` change of basis) at 8 GB per copy is a 16 GB
+peak with two buffers and a 9 GB peak with this, against a 20 GB process.
+
+`G ×_a M` is a separate GEMM for each slice of the axes other than `a`, so the
+only thing that cannot be overwritten as it goes is the slice being multiplied.
+Take `block_bytes` of slices at a time into a buffer and copy back: the extra
+traffic is one read and one write of the tensor per mode product, which against
+`2 d^{n+1}` flops of GEMM is a few percent, and the buffer is 64 MB rather than
+`d^n`.  The slices are contiguous or strided views in every case (a column
+block of `reshape(G, d, :)` for axis 1, a row block of `reshape(G, :, d)` for
+axis `N`, a row block of one `(front, d, back)` page in between), so BLAS takes
+them directly.
+
+Host `Array` only, and square only -- both are checked.  A rectangular mode
+product changes the shape of the tensor and cannot be done in place at all;
+`_qdn_ttm!` is the general form.
+"""
+function _qdn_ttm_square!(G::Array{T,N}, M::AbstractMatrix{T}, a::Integer;
+                          block_bytes::Real = 64.0 * 2^20) where {T,N}
+    d = size(G, a)
+    size(M) == (d, d) || throw(DimensionMismatch(
+        "in-place mode-$a product: matrix is $(size(M)), expected ($d, $d)"))
+    rest = length(G) ÷ max(d, 1)
+    span(n) = clamp(floor(Int, block_bytes / (sizeof(T) * max(d, 1))), 1, max(n, 1))
+    if a == 1
+        Gm = reshape(G, d, rest)
+        cols = span(rest)
+        buf = Matrix{T}(undef, d, cols)
+        for lo in 1:cols:rest
+            hi = min(rest, lo + cols - 1)
+            B = view(buf, :, 1:(hi - lo + 1))
+            @views mul!(B, transpose(M), Gm[:, lo:hi])
+            @views Gm[:, lo:hi] .= B
+        end
+    elseif a == N
+        Gm = reshape(G, rest, d)
+        rows = span(rest)
+        buf = Matrix{T}(undef, rows, d)
+        for lo in 1:rows:rest
+            hi = min(rest, lo + rows - 1)
+            B = view(buf, 1:(hi - lo + 1), :)
+            @views mul!(B, Gm[lo:hi, :], M)
+            @views Gm[lo:hi, :] .= B
+        end
+    else
+        front = prod(ntuple(i -> size(G, i), a - 1))
+        back = rest ÷ front
+        G3 = reshape(G, front, d, back)
+        rows = span(front)
+        buf = Matrix{T}(undef, rows, d)
+        for b in 1:back, lo in 1:rows:front
+            hi = min(front, lo + rows - 1)
+            B = view(buf, 1:(hi - lo + 1), :)
+            @views mul!(B, G3[lo:hi, :, b], M)
+            @views G3[lo:hi, :, b] .= B
+        end
+    end
+    return G
+end
+
+"""
     _qdn_slice(G, a, idx) -> array
 
 `selectdim(G, a, idx)` materialised on the device `G` lives on.  `copy` of a

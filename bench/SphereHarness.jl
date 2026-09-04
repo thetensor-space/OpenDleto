@@ -271,9 +271,14 @@ end
 `build_sphere` on plain arrays, with two `d^n` buffers and nothing else that
 size.  Every `d^n` step -- the `n` orthogonal scrambles and the `n` `nondeg`
 changes of basis -- is `Dleto._qdn_ttm!(B, A, M, a)` followed by a buffer swap,
-so the pipeline holds exactly two copies from start to finish where the classic
-path holds six, and allocates nothing per step.  At d = 1000 valence 3 that is
-16 GB steady against the classic path's 40-plus.
+so the pipeline holds ONE copy of the tensor from start to finish where the
+classic path holds six, and allocates nothing per step: every matrix in the
+chain is square (`d x d` orthogonal), which is the case
+`Dleto._qdn_ttm_square!` writes back over the tensor a block of slices at a
+time.  At d = 1000 valence 3 that is 8 GB plus a 64 MB buffer against the
+classic path's 40-plus.  The general `_qdn_ttm!` and one output buffer are
+kept for the one case that changes the shape -- a rank-deficient axis, which
+the sphere never has.
 
 WHAT IT IS AND IS NOT.  It is the same input FAMILY -- the same lattice tensor
 from the same seed, the same orthogonal matrices drawn in the same order from
@@ -319,10 +324,8 @@ function build_sphere_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
     # The scramble, drawn exactly as `randomize_tensor(_; type = :orthogonal)`
     # draws it: one `__random_orthogonal(d)` per axis, in axis order.
     Xa = [Dleto.__random_orthogonal(d) for _ in 1:n]
-    B = similar(A)
     for a in 1:n
-        Dleto._qdn_ttm!(B, A, Xa[a], a)
-        (A, B) = (B, A)
+        Dleto._qdn_ttm_square!(A, Xa[a], a)
     end
 
     # `nondeg` reads every axis basis off the SCRAMBLED tensor, before any of
@@ -331,15 +334,18 @@ function build_sphere_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
     ks = Int[count(>=(tol), s) for (_, s) in bases]
     Va = [V[:, 1:k] for ((V, _), k) in zip(bases, ks)]
     for a in 1:n
-        # The second buffer fits the output only while no axis has shrunk; a
-        # rank-deficient axis (never the sphere, but this is the safety net)
-        # needs its own, and then the pair of buffers restarts from there.
-        Ba = all(b -> ks[b] == d, 1:a) ? B :
-             similar(A, ntuple(i -> i <= a ? ks[i] : d, n))
-        Dleto._qdn_ttm!(Ba, A, Va[a], a)
-        (A, B) = (Ba, A)
+        # Square while the axis kept its full rank, which is every axis of a
+        # sphere: then the change of basis goes over the tensor in place and
+        # the build never holds a second copy.  A rank-deficient axis (the
+        # safety net, not the normal path) shrinks the tensor and needs the
+        # general form and one output buffer.
+        if ks[a] == d
+            Dleto._qdn_ttm_square!(A, Va[a], a)
+        else
+            A = Dleto._qdn_ttm!(similar(A, ntuple(i -> i <= a ? ks[i] : d, n)),
+                                A, Va[a], a)
+        end
     end
-    B = nothing
 
     mid = [Index(d, "a$a,rand") for a in 1:n]
     fr_nd = [Index(ks[a], "a$a,nondeg") for a in 1:n]

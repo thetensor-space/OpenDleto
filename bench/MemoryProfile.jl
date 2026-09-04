@@ -158,12 +158,10 @@ function profile_build_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
     mp_stage!(log, "2 nnz count")
 
     Xa = [Dleto.__random_orthogonal(d) for _ in 1:n]
-    B = similar(A)
     for a in 1:n
-        Dleto._qdn_ttm!(B, A, Xa[a], a)
-        (A, B) = (B, A)
+        Dleto._qdn_ttm_square!(A, Xa[a], a)
     end
-    mp_stage!(log, "3 scramble (2 buffers)")
+    mp_stage!(log, "3 scramble (in place)")
 
     bases = [_tsqr_axis_basis(A, a) for a in 1:n]
     ks = Int[count(>=(1e-10), s) for (_, s) in bases]
@@ -171,13 +169,14 @@ function profile_build_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
     mp_stage!(log, "4a nondeg bases (TSQR)")
 
     for a in 1:n
-        Ba = all(b -> ks[b] == d, 1:a) ? B :
-             similar(A, ntuple(i -> i <= a ? ks[i] : d, n))
-        Dleto._qdn_ttm!(Ba, A, Va[a], a)
-        (A, B) = (Ba, A)
+        if ks[a] == d
+            Dleto._qdn_ttm_square!(A, Va[a], a)
+        else
+            A = Dleto._qdn_ttm!(similar(A, ntuple(i -> i <= a ? ks[i] : d, n)),
+                                A, Va[a], a)
+        end
     end
-    B = nothing
-    mp_stage!(log, "4b nondeg apply")
+    mp_stage!(log, "4b nondeg apply (in place)")
 
     mid = [Index(d, "a$a,rand") for a in 1:n]
     fr_nd = [Index(ks[a], "a$a,nondeg") for a in 1:n]
