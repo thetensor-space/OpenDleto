@@ -750,8 +750,19 @@ Order of work, decided with the user:
    output, Float32 for the restricted eigensolve, verdict floored by `data_floor(Float16)` so a
    half-precision result is never certified beyond what the data carries.
 
-Not now: native core (gated behind a measured 2x), eigensolve on the GPU (wrong regime for
-video), the d = 1000 long-axis frontier as a goal in itself.
+**Correction, later the same evening (GPU agent's per-stage map, `bench/reports/2026-09-04/gpu-movie/`):**
+the tensor stages are <= 5% of a movie run. The restricted eigensolve is NOT flat in F -- `r_3`
+grows with the frame count, so the restricted system grows (33480x31819 at F = 30 to 40800x38569
+at F = 300) and its cost, not the tensor's, carries ~90% of the wall-time slope. The "20 s
+eigensolve + 150 s tensor" split above was a mis-attribution of the affine fit. Consequences:
+the GPU port of sketch/lift/verify is correct and kept on (sketch 20x, verify 13.5x) but saves
+~9 s of a ~35-75 s minute; **the eigensolve is the lever for video after all**, and the Float16
+argument is memory (a 6.6 GB host copy next to a ~12 GB device footprint at F = 1800), not speed.
+Also measured: Metal pipeline specialization costs ~14 s cold on the movie shape -- a one-shot
+GPU run is a net loss without a warm-up entry point.
+
+Not now: native core (gated behind a measured 2x), the d = 1000 long-axis frontier as a goal
+in itself.
 
 ## How work reaches beta, from 2026-09-04
 
