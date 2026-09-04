@@ -196,6 +196,98 @@ so what makes its apply count non-monotone; (3) `bench/jl`'s RSS watchdog needs
 `JL_HEAP` set well below the limit on these runs -- RSS ran ~1.5x the heap
 target above the live set on every large run.
 
+### Session 4, part 3 (evening): determinism, and what it exposed
+
+Branch `worktree-agent-a88f0bc3af49e35e6` off `feature/under-pressure/2026-09-04`.
+Four commits, 13,770 tests green over 45 testsets.
+
+**The Float32 undercount was in `_fastder_tall_nullspace`, and it was a hard
+cutoff at the noise level.**  That function kept exactly the singular values
+`<= atol`, and `atol` is `qd_tolerance(T)` = `sqrt(eps(Float32))` = 3.45e-4 --
+which is also the accuracy of the Float32 lift whose residual that matrix is.
+Traced at d = 48: 13 lifted derivations in, spectrum
+`1.709 ... 0.244 | 4.486e-4 2.011e-4 1.157e-4`, the three genuine directions
+separated from the rest by 544x with the largest of them at 1.30 `atol` --
+so 2 out of a true 3.  Same shape at d = 64/100/140 (gaps 1054x / 4056x /
+457x, within-cluster ratios under 4x).  The cut is now a GAP with `atol` as
+the FLOOR and `FASTDER_RESTRICT_CEILING = 32` times it as the ceiling -- the
+constant and the reasoning `QDN_LIFT_CEILING` already uses -- falling back to
+the old absolute count when no jump clears `GAP_RATIO`, so it can only refine.
+Float32 is 3/3 at d = 48, 64, 100 and 140; Float64 is untouched (its cluster
+is nine decades under `atol`).
+
+**Every iterative null solve is now seeded, and that changed the ground
+under the benchmark numbers.**  ARPACK keeps its start vector's seed inside
+the Fortran library across calls, KrylovKit's block came from the default RNG,
+LOBPCG drew its own `X0`; `solve_nullspace(...; seed)` fixes all three
+(`wants_seed` says who takes it) and `QuickDerMethod`'s seed travels to the
+restricted solve.  `opnorm_estimate` was the second unseeded start and not a
+harmless one -- it is the scale the whole verdict is relative to, so two
+identical seeded ARPACK calls still disagreed by 8.4e-4 on the relative
+spectrum until it took an `rng` too.
+
+What determinism exposed, and it is the honest headline: **the restricted
+solve loses a copy of its multiple eigenvalue on roughly one (d, T) case in
+eight, and which one is a coin flip set by the start vector.**  Over the grid
+{48, 64, 100, 140} x {Float32, Float64} at seed 20260904, `seed` gives 7 of 8
+(Float64 d = 48 returns restricted nullity 12 of 13) and `seed + 1` gives 7 of
+8 (Float32 d = 64 does).  Per-seed at a fixed size it is 5 or 6 of 6.  Before,
+this variability was averaged over by the library's saved state and read as
+"Float64 is 3/3 throughout".  It is not a threshold bug in the restrict step --
+`below == keep` in every one of those traces -- it is ARPACK returning an
+unconverged Ritz value where a null one belongs, or the Float32 restricted
+threshold cutting a 13-value near-null cluster that straddles
+`precision_floor(Float32)`.  That is lever (2) from the afternoon's list (the
+restriction size or the null threshold), and it is now measurable one case per
+process instead of one per mood.
+
+*Note the coupling that was left in place*: `seed` is passed to the solver
+verbatim, so ARPACK's start vector is `randn(MersenneTwister(seed), n)` --
+drawn from the same stream at the same position as the sketch's first random
+axis, i.e. built out of the numbers that formed the restriction.  An offset
+would decouple them; it measured no better (7 of 8 either way), so the simple
+form stayed and the observation is recorded here rather than acted on.
+
+**A non-ok `status` no longer certifies.**  `certified` was computed
+independently of `status`, so the d = 300 block-Lanczos case -- 16 Ritz values
+stalled at 1.1e-9 with a textbook gap between them -- read `nullity 0,
+certified`.  Unconverged Ritz values sit ABOVE their true eigenvalues, so the
+spectrum a failed solve returns is not the operator's.  `status` and
+`undecidable`/`data_floor` are documented as two INDEPENDENT reasons a
+spectrum is not evidence (the solver, and the data), neither implying the
+other, either withholding the certificate, and neither moving a number.  One
+existing assertion changed meaning and is annotated in place.
+
+**The same failure class, found by the GPU agent, in a process without
+ARPACK.**  ARPACK is a weakdep and is not in the manifest, so a plain
+`runtests.jl` meets KrylovKit while a `bench/jl` run that stacked an
+environment carrying Arpack meets ARPACK -- two code paths, one testset.  On
+the KrylovKit path at d = 12 unwhitened, seed 4242: block Lanczos broke down
+(`DomainError with -3.09e-19`), the single-vector Arnoldi fallback returned
+restricted nullity 7 of 13 with every value converged, and QuickDer reported
+ZERO derivations of a true three, silently and green.  Fixed at both ends: the
+Arnoldi fallback never claims convergence (`info.converged` counts residual
+tests, not COPIES of a repeated eigenvalue, and a null space is a repeated
+eigenvalue), and `_qdn_empty_result` refuses to return an empty derivation
+space from a non-`:ok` solve -- an undercounted restricted null space is not
+empty, it lifts to derivations that miss `Ω` entirely, and the answer collapses
+only after `_fastder_restrict_to_ops`.  `:Auto` now falls back to SylverLining
+and returns the full 3.  The testset pins `solver = :KrylovSolver` so it means
+the same thing with and without ARPACK.
+
+**`Dleto.der_residual` is now in `src/`.**  The Z-law check is what a consumer
+runs on an answer (DletoVideo included), not a benchmark detail.
+`der_residual(Γ, D, chisel; block_bytes = 2^28)`, with an array form and a
+per-chisel-row `der_residual_squares` underneath; `_qdn_verify`'s `:full`
+branch and every bench script call it.  Bit-identical (`===`) to the bench
+function it replaces on the degenerate 40^3 Float64 case and on a video-shaped
+20x20x10x3 Float32 one, after one change: the two block buffers are allocated
+ONCE rather than per block, so the bytes are bounded by `block_bytes` and do
+not grow with the tensor.  Measured on 60x60x40x3 Float32: 0.36 MB against
+62.5 MB through `applyDerivation`, and a Float32 run allocates half what the
+same shape does in Float64 -- nothing is promoted, and the answer comes back
+Float32.
+
 ## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
 
 Branch `aint-no-mountain-high-enough/valence-n-stratify`.  Coordination board with every
