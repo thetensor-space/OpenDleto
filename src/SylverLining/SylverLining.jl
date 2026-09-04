@@ -35,13 +35,24 @@ using SparseArrays
 
     Derivation Method implemented via linear maps. 
 """
-struct SylverLiningMethod <: DerivationMethod 
+struct SylverLiningMethod <: DerivationMethod
     solver::Symbol
+    # Which `sylvesterLM` kernel the solve applies; see `sylvesterLM`.  It has
+    # to live on the method and not only on `derTrOpsReduced`'s keyword,
+    # because the `der(:SylverLining, Γ; kwargs...)` family forwards its
+    # `kwargs` to the *method constructor*, not to the solve (see the NOTE in
+    # src/Derivations.jl) -- so `der(:SylverLining, Γ; backend = :metal)` can
+    # only reach the kernel through here.
+    backend::Symbol
 end;
-# The default is `:AutoSolver`, not `:SVDSolver`: it densifies when that is
-# cheap (which it is for this map -- 9MB at n = 19) and stays matrix-free when
-# it is not, instead of calling `Matrix` unconditionally.
-SylverLiningMethod(; solver::Symbol=:AutoSolver)= SylverLiningMethod(solver);
+# One-positional-argument form kept: it predates `backend` and is what
+# `SylverLiningMethod(:SVDSolver)` still means.
+SylverLiningMethod(solver::Symbol) = SylverLiningMethod(solver, :auto);
+# The default solver is `:AutoSolver`, not `:SVDSolver`: it densifies when that
+# is cheap (which it is for this map -- 9MB at n = 19) and stays matrix-free
+# when it is not, instead of calling `Matrix` unconditionally.
+SylverLiningMethod(; solver::Symbol=:AutoSolver, backend::Symbol=:auto) =
+    SylverLiningMethod(solver, backend);
 
 
 function derTrOpsReduced(method::SylverLiningMethod,
@@ -51,11 +62,11 @@ function derTrOpsReduced(method::SylverLiningMethod,
     tol::Real=1e-6,
     nd=-1,  # Don't type as integer to allow Inf
     progress=false,
-    # Which sylvester kernel to build; see `sylvesterLM`.  Exposed here only so
-    # a benchmark or a bisecting caller can pin the ITensor reference without
-    # editing the source -- nothing in the library passes anything but the
-    # default.
-    backend::Symbol=:auto,
+    # Which sylvester kernel to build; see `sylvesterLM`.  Defaults to whatever
+    # the method was constructed with (`:auto`, i.e. the CPU array kernel,
+    # unless the caller asked for another), and can be overridden per call so a
+    # benchmark or a bisecting caller can pin a kernel without editing source.
+    backend::Symbol=method.backend,
     kwargs...,
     ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     Γ_frame = inds(Γ)
@@ -455,15 +466,21 @@ end
 # --- the kernel --------------------------------------------------------------
 
 """
-    _sylvesterLM_array(Ω, P, Γ; allow_sparse = true)
+    _sylver_plan(Ω, P, Γ)
 
-`sylvesterLM` over plain arrays; see the block comment above for the algebra
-and the layout conventions.  `allow_sparse = false` forces the dense unfoldings
-even for a sparse `Γ` -- that is what `backend = :array` selects, and it is how
-the two branches get compared against each other.
+Everything both the CPU and the device kernel need to know about the layout,
+computed once on the host: the chisel matrix in `Γ`'s element type, the mode-`p`
+unfolding shapes and permutations, which tensor axis each transverse operator
+acts on, and `Γ` as a plain array.
+
+Returned as a NamedTuple with fields
+
+    T engsize n m dims N axpos perms iperms da Ka flat Pm GA op_dim densor_dim
+
+so that the layout conventions documented in the block comment above have ONE
+statement in the source rather than one per backend.
 """
-function _sylvesterLM_array(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor;
-                            allow_sparse::Bool = true)
+function _sylver_plan(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     Γ_frame = inds(Γ)
     engsize = valency(Ω)
     @assert engsize == size(P, 2) "Incompatable Chisel"
@@ -495,7 +512,7 @@ function _sylvesterLM_array(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor;
     # round, and 0.47 ms against 0.12 ms on `sylve`'s side.  It also puts the
     # permutation-free axis at `p = 1` rather than `p = n`, and `p = n` is the
     # one that also lets the residual be written in place (see `flat` below).
-    # Dense GEMM is indifferent (0.82 ms either way round).
+    # Dense GEMM is indifferent (0.82 ms either way round), and so is Metal's.
     perms = [NTuple{n,Int}(((k for k in 1:n if k != axpos[a])..., axpos[a]))
              for a in 1:engsize]
     iperms = [NTuple{n,Int}(invperm(collect(perms[a]))) for a in 1:engsize]
@@ -504,6 +521,26 @@ function _sylvesterLM_array(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor;
     # For the LAST axis that permutation is the identity, so the unfolding is a
     # reshape of Γ itself and both closures skip the O(d^n) permute entirely.
     flat = [axpos[a] == n for a in 1:engsize]
+
+    return (T=T, engsize=engsize, n=n, m=m, dims=dims, N=N, axpos=axpos,
+            perms=perms, iperms=iperms, da=da, Ka=Ka, flat=flat, Pm=Pm, GA=GA,
+            op_dim=globalDim(Ω), densor_dim=m * N)
+end
+
+"""
+    _sylvesterLM_array(Ω, P, Γ; allow_sparse = true)
+
+`sylvesterLM` over plain arrays; see the block comment above for the algebra
+and the layout conventions.  `allow_sparse = false` forces the dense unfoldings
+even for a sparse `Γ` -- that is what `backend = :array` selects, and it is how
+the two branches get compared against each other.
+"""
+function _sylvesterLM_array(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor;
+                            allow_sparse::Bool = true)
+    pl = _sylver_plan(Ω, P, Γ)
+    T, engsize, n, m = pl.T, pl.engsize, pl.n, pl.m
+    dims, N, Pm, GA = pl.dims, pl.N, pl.Pm, pl.GA
+    perms, iperms, da, Ka, flat = pl.perms, pl.iperms, pl.da, pl.Ka, pl.flat
 
     sparse_Γ = allow_sparse && N > 0 &&
                count(!iszero, GA) / N <= SYLVER_SPARSE_DENSITY
@@ -650,17 +687,60 @@ end
 
     `backend` picks the kernel:
     - `:auto` (default) -- the array kernel, with sparse unfoldings when `Γ` is
-      at or below `SYLVER_SPARSE_DENSITY` and dense ones otherwise.
+      at or below `SYLVER_SPARSE_DENSITY` and dense ones otherwise.  Stays on
+      the CPU: a GPU is opt-in, never picked for you.
     - `:array` -- the array kernel with dense unfoldings, whatever `Γ` looks like.
+    - `:metal` -- the dense array kernel with the unfoldings and the residual
+      resident on an Apple GPU (`ext/DletoMetalSylver.jl`, needs `using Metal`).
+      Float32 arithmetic, CPU-facing vectors; dense only.
     - `:itensor` -- the ITensor reference implementation, `sylvesterLM_itensor`.
 
-    All three produce the same vectors; the array kernel exists only because it
-    does so without allocating per apply.  Both `Ω` and `P` are assumed reduced.
+    All of them produce the same vectors (to fp32 rounding for `:metal`); the
+    array kernel exists only because it does so without allocating per apply.
+    Both `Ω` and `P` are assumed reduced.
 """
 function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor;
                      backend::Symbol = :auto)
     backend === :itensor && return sylvesterLM_itensor(Ω, P, Γ)
     backend === :auto && return _sylvesterLM_array(Ω, P, Γ; allow_sparse=true)
     backend === :array && return _sylvesterLM_array(Ω, P, Γ; allow_sparse=false)
-    error("sylvesterLM: unknown backend $backend (expected :auto, :array or :itensor)")
+    backend === :metal && return _sylvesterLM_metal(Ω, P, Γ)
+    error("sylvesterLM: unknown backend $backend " *
+          "(expected :auto, :array, :metal or :itensor)")
 end
+
+"""
+    _sylvesterLM_device(::Val{device}, Ω, P, Γ)
+
+The device-kernel entry point, keyed by a device token so that a GPU extension
+can ADD a method instead of replacing one.
+
+This file defines only the `::Val` fallback, which errors.  The Apple-GPU
+kernel is `_sylvesterLM_device(::Val{:metal}, ...)` in
+`ext/DletoMetalSylver.jl`, loaded with `Metal`; nothing device-specific lives
+here beyond the name of the token.
+
+THE TOKEN IS NOT DECORATION.  An extension may only add methods with new
+signatures (or set a `Ref`) -- redefining a signature the core package already
+defines is method overwriting, which Julia 1.12 refuses during precompilation,
+so the whole extension silently falls back to being recompiled on every
+`using Metal`.  `gpu_available`/`gpu_sync` in src/solvers/NullSolvers.jl solve
+the same problem with `Ref`s; dispatch does it here, because the kernel needs
+`Γ`'s types anyway.
+
+Errors rather than silently falling back to the CPU: `:metal` is an explicit
+request, and a caller benchmarking a GPU wants to be told it never ran on one.
+`:auto` is the backend that is allowed to choose.
+"""
+function _sylvesterLM_device(::Val{device}, Ω::TransverseOps, P::AbstractMatrix,
+                             Γ::ITensor) where {device}
+    error("sylvesterLM: backend = :$device needs its GPU extension loaded. " *
+          (gpu_available() ?
+           "A GPU is available but no `sylvesterLM` device kernel is " *
+           "registered for :$device -- is ext/DletoMetalSylver.jl present?" :
+           "Add `using Metal` (Apple Silicon only) before building the map; " *
+           "`gpu_available()` is currently false."))
+end
+
+_sylvesterLM_metal(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) =
+    _sylvesterLM_device(Val(:metal), Ω, P, Γ)

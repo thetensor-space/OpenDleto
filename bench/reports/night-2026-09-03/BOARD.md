@@ -925,3 +925,282 @@ to SylverLining: 105 s / 1295 s). Raised `QDN_DENSE_BUDGET_BYTES` to 2.5 GB so t
 takes those sizes: sphere v3 d=150 **11.1 s**, d=200 **22.0 s** (5 threads, RSS 3.6 / 8.0 GB,
 lsq 1e-12). Beyond d ≈ 200 at valence 3 the matrix-free branch must be preconditioned
 (docs/design/Native-Core-Plan.md Phase 2) — that is the next lever toward 500–1000.
+
+### sylver-metal (2026-09-04)
+
+`sylvesterLM(Ω, P, Γ; backend = :metal)` runs the dense array kernel with the
+mode-`p` unfoldings and the residual resident on the Apple GPU. The LinearMaps
+stay CPU-FACING -- Float32 host vectors in and out -- so every null solver in
+`src/solvers/NullSolvers.jl` drives it unchanged and unaware; only the operator
+coordinates (dimension `Σ_a d_a²`, e.g. 30009 for a 100×100×100×3 video against
+3·10⁶ tensor entries) cross the bus per apply of the square map. `:auto` is
+still the CPU array kernel: the GPU is opt-in, and `:metal` with no functional
+Metal is a clear error, never a silent fallback. Dense only -- the
+`SparseMatrixCSC` branch stays on the CPU, where it is already the faster
+answer for a sphere octant.
+
+Files: `src/SylverLining/SylverLining.jl` -- `:metal` in `sylvesterLM`; the
+layout/plan computation factored out of `_sylvesterLM_array` into a new
+`_sylver_plan`, so the two kernels share ONE statement of the unfolding
+conventions instead of one each; `_sylvesterLM_device(::Val{device}, ...)` as
+the erroring no-GPU fallback (see pitfall 5 for why it takes a token);
+`SylverLiningMethod` gained a `backend` field. New `ext/DletoMetalSylver.jl`
+(the whole device kernel, `include`d by `ext/DletoMetalExt.jl`), new
+`bench/SylverMetalBench.jl`, new
+`bench/reports/night-2026-09-03/sylver-metal.csv`.  Nothing else touched --
+`ext/DletoMetalExt.jl`, `NullSolvers.jl` and `QuickDerN.jl` belong to other
+agents this session.
+
+`backend` had to go on the METHOD, not just on `derTrOpsReduced`'s keyword:
+`der(:SylverLining, Γ; kwargs...)` forwards its `kwargs` to the *method
+constructor* (see the NOTE at src/Derivations.jl:233), so
+`der(:SylverLining, Γ; backend = :metal, solver = :ArpackSolver)` can only
+reach the kernel through the struct. `SylverLiningMethod(:SVDSolver)` still
+means what it did; `derTrOpsReduced(...; backend = ...)` still overrides
+per call.
+
+CORRECTNESS. 56 configurations of `:metal` against `:array`, valence 3 and 4,
+Universal / Symmetric / Diagonal / AntiSymmetric operator spaces, universal /
+Tucker / centroid chisels, an engagement-reduced Ω (so operator `a` is not
+tensor axis `a`), a `TransverseOpsSymmetries` space, ragged frames, Float32 and
+Float64 inputs:
+
+- worst relative max difference vs `:array`: **5.1e-7** (Float32 inputs;
+  1.6e-7 for Float64 inputs, which the device computes in fp32) -- comfortably
+  inside the 1e-5 fp32 budget, on `ester`, on `sylve` and on the square
+  composition.
+- transpose law on the DEVICE maps, `⟨a, f'(B)⟩` vs `⟨f(a), B⟩`: worst
+  **2.4e-8** relative to `‖f(a)‖·‖B‖` (4.1e-8 in an earlier pass), over 5
+  random pairs per configuration.
+  (Scale by the norms, not by the dot product: `⟨f(a),B⟩` is a sum of 10³-10⁷
+  fp32 terms with heavy cancellation, and `|lhs-rhs|/|rhs|` then measures the
+  cancellation in the dot -- up to 1e-5 -- rather than any asymmetry of the
+  pair. Worth knowing before anyone reads a "failure" into that ratio.)
+- `test/TestSylverLining.jl` + `test/TestDerivationLaws.jl` with the Metal
+  extension loaded: **5081 pass, 0 fail, 0 error**, 54.7 s, exit 0.
+
+ONE APPLY, Float32, `UniversalOp()` + universal chisel, `:array` on 5 CPU
+threads against `:metal` on the M4 Max. Milliseconds, minimum over 6-12
+repeats, all rows taken at load average 6-7 (the CSV also holds an earlier,
+contended pass -- see the contention note; read the rows by the `loadavg` in
+their `note` field). `dev MB` is `Metal.device().currentAllocatedSize` while
+the maps exist:
+
+| shape | ester `:array` | `:metal` | sylve `:array` | `:metal` | **sylvester `:array`** | **`:metal`** | **speedup** | dev MB |
+|---|---|---|---|---|---|---|---|---|
+| (100,100,100,3) | 12.8 | 3.08 | 13.7 | 3.75 | **26.4** | **4.61** | **5.7x** | 70 |
+| (200,200,100,3) | 57.9 | 12.0 | 62.1 | 16.7 | **118.8** | **19.5** | **6.1x** | 275 |
+| (300,300,300,3) | 531 | 78.9 | 659 | 135 | **1178** | **169** | **7.0x** | 1857 |
+| (200,200,200) | 34.0 | 6.37 | 30.4 | 4.97 | **63.4** | **6.16** | **10.3x** | 154 |
+| (400,400,400) | 502 | 34.5 | 395 | 25.6 | **889** | **52.9** | **16.8x** | 1225 |
+
+`sylvester` is the number that matters -- it is the only one an eigensolver
+applies, and it is the only one that does not put `m·d^n` on the bus, which is
+why on the device it costs LESS than `ester` + `sylve` measured separately
+(169 against 79 + 135 at (300,300,300,3)) while on the CPU it is exactly their
+sum. Every row is self-consistent in that sense, which is the check that the
+timings are not contention artefacts.
+
+Valence 3 does better than valence 4 (10-17x against 6-7x) because the video
+shapes spend a bigger share of their work on the permutes and on the `d = 3`
+colour axis, whose GEMM is pure memory traffic.
+
+Device footprint is exactly `(valence + 1) · N` Float32: Γ, one permuted
+unfolding per MIDDLE axis, one shared scratch, one fold buffer, one residual.
+The CPU kernel's host footprint for the same input is `2·valence + 1` copies of
+`N` (9N at valence 4 against 5N), because it keeps a separate scratch per axis
+and a permuted unfolding for every non-flat axis.
+
+END TO END, `der(:SylverLining, Ω, ch, Γ; tol = 1e-4, solver = :ArpackSolver)`,
+random Float32, `UniversalOp()`, universal chisel, oracle nullity 3 (= n-1):
+
+| shape | backend | seconds | nullity | Z-law residual | map applications | dev MB |
+|---|---|---|---|---|---|---|
+| (100,100,100,3) | `:array` | 371.8 | 3 | 8.35e-07 | 2252 | 0 |
+| (100,100,100,3) | `:metal` | **99.9** | 3 | 7.63e-07 | 2342 | 77 |
+| (200,200,100,3) | `:array` | 1426.4 | 3 | 9.39e-07 | 11288 | 0 |
+| (200,200,100,3) | `:metal` | **245.5** | 3 | 1.69e-06 | 10581 | 341 |
+
+Both backends find the right nullity with a Z-law residual at the fp32 floor.
+Application counts come from `progress`: a `ProgressSpec` with `delay = 0` and
+`interval = 0` writing into an `IOBuffer` turns the human progress line into a
+machine-readable count without touching `src/` (`count_applies` in the bench).
+
+End-to-end speedups are **3.7x** at (100,100,100,3) and **5.8x** at
+(200,200,100,3), against per-apply speedups of 5.7x and 6.1x. Both solves ran
+in the contended window, so treat the absolute seconds as upper bounds; the
+RATIO is the part worth keeping, and it is the interesting part.
+
+WHERE THE REST OF THE TIME GOES. Divide seconds by applications and compare
+against the apply timings measured in the same contended window (49.5 ms
+`:array` / 5.0 ms `:metal` at (100,100,100,3); 220 / 20.8 at (200,200,100,3)):
+
+| shape | backend | s / application | one apply | non-kernel slack |
+|---|---|---|---|---|
+| (100,100,100,3) | `:array` | 165 ms | 49.5 ms | ~115 ms |
+| (100,100,100,3) | `:metal` | 42.7 ms | 5.0 ms | ~38 ms |
+| (200,200,100,3) | `:array` | 126 ms | 220 ms | -- (apply dominates) |
+| (200,200,100,3) | `:metal` | 23.2 ms | 20.8 ms | ~2 ms |
+
+So at (100,100,100,3) roughly 40-115 ms per application is NOT the tensor
+contraction -- it is Arpack's own per-iteration work on a 30009-dimensional
+Krylov basis, plus the box. At (200,200,100,3) the operator is big enough that
+the `:metal` solve is back to being apply-bound. **The GPU moves the crossover:
+at 100³ scale the derivation solve is no longer contraction-bound, and the next
+win there is in the solver, not the kernel.**
+
+Note also that Arpack asked for 11288 applications at (200,200,100,3) against
+2252 at (100,100,100,3) -- 5x more for the same 3-dimensional null space at the
+same `tol` and only 3x the operator dimension. That is the escalate-and-confirm
+loop in `solve_nullspace`, not the kernel, and it is most of why the bigger
+case costs 4x more per tensor element.
+
+WHAT MADE THE DIFFERENCE, for whoever tunes this next.
+
+**`permutedims!` on an `MtlArray` is the bottleneck, not the GEMM.** GPUArrays'
+generic permute kernel runs at about a tenth of this device's bandwidth.
+Measured at (200,200,100,3), one axis (bare Metal primitives, best of 5):
+
+| op | ms | note |
+|---|---|---|
+| `permutedims!` | 3.11 | 48 MB in, 48 MB out => ~31 GB/s |
+| `mul!` (K×d)·(d×d) | 1.44 | the mode product it feeds |
+| `mul!` (d×K)ᵗ·(K×d) | 1.24 | the adjoint |
+| `x .+= α .* y` over N | 0.52 | |
+| `fill!` over N | 0.33 | |
+
+So the fix is to need fewer permutes, and two axes need none:
+
+- **axis n ("flat")**: the unfolding is `reshape(Γ, N/d, d)` and `U·M` lands in
+  natural order. The CPU kernel already exploits this.
+- **axis 1 ("head")**: `A = reshape(Γ, d, N/d)` is the axis-1-first unfolding,
+  and `Mᵗ·A` ALSO lands in natural order -- axis 1 is the fastest-varying index
+  of source and result alike. Its adjoint is `A·Zᵗ`. Same algebra, written on
+  the other side of the product. **The CPU kernel cannot use this one**: it is
+  exactly the `dense × sparse` orientation that the sylvester-kernel entry
+  above measured at 0.49 ms against 0.14 ms, because SparseArrays has no good
+  kernel for it. On a dense device GEMM the orientation is free.
+
+Valence 4 therefore pays 2 permutes per apply instead of 3 and valence 3 pays 1
+instead of 2, and axis 1 needs no permuted copy of Γ on the device either.
+Worth 6.27 -> 4.23 ms on `ester` in a same-session A/B (both halves measured
+in the contended window, so read the ratio and not the absolutes) and
+81.8 -> 70.4 MB of device memory at (100,100,100,3).
+
+**A shared scratch buffer, not one per axis.** Every mode-`p` unfolding has
+exactly `N` entries -- only the shape differs -- and both closures visit the
+axes strictly one at a time, so one `N`-element device buffer reshaped per axis
+replaces the CPU kernel's `engsize` separate ones. 972 MB against 324 at
+(300,300,300,3).
+
+**Fusing the permute into the accumulate is SLOWER.** Broadcasting over a
+`PermutedDimsArray` of an `MtlArray` works (Metal handles the wrapper), and it
+should save one full pass over `N`: measured 1.29 ms against 0.90 + 0.23 =
+1.13 ms for the separate permute and axpy at (100,100,100,3). The lazy
+wrapper's indexing coalesces worse than the dedicated permute kernel. Left
+separate.
+
+PITFALLS AND Metal.jl SPECIFICS.
+
+1. **Per-apply host allocation is 18-58 KB on the device backend against
+   192-704 B on the CPU one.** The array kernel's "a warmed-up apply allocates
+   only the few bytes `mul!` needs" property does NOT carry over: every Metal
+   kernel launch allocates command-buffer and MPS descriptor objects on the
+   host. It is ~100x more, but still negligible in absolute terms (58 KB per
+   apply against 2 GB of device traffic), so no GC pressure in practice.
+2. **`MtlArray` scalar indexing from the host is disallowed.** The two places
+   the CPU kernel writes an element loop are handled elsewhere: embedding the
+   operator coordinates into matrices runs on the HOST (the matrices are
+   `d_a × d_a`, and `Dleto._embed_all!` / `_transverse_embed_all!` are reused
+   verbatim), and the chisel scatter `R[c,i] += P[c,a]·t` becomes a rank-1
+   broadcast `R .+= Pdev[a] .* transpose(Foldv)`.
+3. `reshape` of an `MtlArray` returns a real `MtlArray` (contiguous,
+   `PrivateStorage`), so `mul!` stays on the MPS path through reshapes and
+   through `transpose`. Five-argument `mul!` works, including `β = 1`
+   accumulation, and so does gemv with a transposed matrix. Nothing here
+   needed a hand-written Metal kernel.
+4. **`Metal.reclaim()` does not exist** in this Metal.jl version (`Metal.alloc`
+   is the only `alloc`-ish name exported). The bench guards it with
+   `isdefined`; without a reclaim, `currentAllocatedSize` between cases is only
+   meaningful if you also `GC.gc(true)` first.
+5. **AN EXTENSION MAY ONLY ADD METHODS, NEVER REPLACE ONE.** The first version
+   of this work had `ext/DletoMetalSylver.jl` define
+   `Dleto._sylvesterLM_metal(::TransverseOps, ::AbstractMatrix, ::ITensor)`,
+   the same signature the core stub in SylverLining.jl already had. On Julia
+   1.12 that is "Method overwriting is not permitted during Module
+   precompilation": `DletoMetalExt` then fails to precompile ENTIRELY -- not
+   just that method -- and every `using Metal` pays ~2.5 s of recompilation,
+   silently, with only a WARNING in the log. Caught by the coordinator, who had
+   just fixed the identical bug in `gpu_available`/`gpu_sync`. The core now
+   defines only `_sylvesterLM_device(::Val{device}, Ω, P, Γ)` (which errors) and
+   the extension adds `_sylvesterLM_device(::Val{:metal}, ...)`; the `Ref`
+   pattern in `NullSolvers.jl` is the other way to do it. Verified with
+   `bench/jl -e 'using Dleto, Metal'` showing `✓ DletoMetalExt` and no
+   warning. **Anyone adding a hook for an extension should pick one of those
+   two shapes from the start** -- a token argument, or a `Ref` set in
+   `__init__` -- because the failure mode is a performance regression with no
+   error.
+6. `:ArpackSolver` needs an explicit `using Arpack` in the benchmark script
+   even with `@dleto-bench` stacked -- the extension registers the solver only
+   once Arpack is loaded, so without that line every row dies with
+   `no solver :ArpackSolver is registered`. `bench/SylverMetalBench.jl`
+   soft-loads it and warns.
+7. **`sylve` is dearer than `ester` on the device, unlike on the CPU**, and it
+   is a GEMM-shape effect. `sylve`'s products reduce over the LONG dimension --
+   `(d × K)·(K × d)` with `K = N/d` up to 2.7·10⁵, producing a `d × d` output
+   -- where `ester`'s reduce over `d`. Same flop count, and MPS is markedly
+   worse at the tall-skinny one. Isolated on bare Metal primitives at
+   (300,300,300,3): ester chain 51 ms, sylve chain 117 ms. Worth knowing before
+   anyone concludes the adjoint is doing extra work; it is not.
+8. **A long chain of enqueued MPS GEMMs and permutes does NOT cost more than
+   the same ops with syncs interleaved.** Checked because the square map looked
+   anomalously dear at the two largest shapes in the FIRST, contended pass
+   (443 ms at (300,300,300,3) against ester 95 + sylve 164; 85 against 36 + 34
+   at (400,400,400)). On bare Metal primitives at (300,300,300,3): ester +
+   sylve = 168.2 ms, the two chained with no intervening sync 167.9 ms, and
+   with a mid-chain `Metal.synchronize()` 168.1 ms -- identical. Re-measuring
+   the kernel on a quiet box then gave sylvester 169 ms against ester 79 +
+   sylve 135, i.e. exactly the expected "cheaper than the sum". So there was no
+   Metal scheduling effect; it was contention landing hardest on the closure
+   with the longest host-side launch loop. Recorded because the wrong
+   conclusion here would have sent someone writing a custom Metal kernel.
+
+CONTENTION, and how the tables above were made trustworthy. This ran in the
+5-thread / 3 slots / 16 GB `bench/jl` window the user opened on 2026-09-04
+(`bench/jl` has since gone back to 2 slots x 4 threads), and load average ran
+6-49 across the session -- two other agents at 400-820% CPU for most of it. A
+first pass at the apply sweep, best-of-2/3, produced numbers that were not
+merely noisy but SELF-CONTRADICTORY: `:array` sylve 19.16 s against `:array`
+sylvester 7.92 s at (300,300,300,3), and sylvester 1.38 s against ester 0.10 s
+at (100,100,100,3) -- a composition cheaper or dearer than its own halves by
+10x. Two changes fixed it, both worth copying into other benches here:
+
+- take the MINIMUM over as many repeats as a time budget allows (`best_of`:
+  up to 12 repeats or 6 s for small cases, 6 or 12 s for large). A contended
+  sample can only be slower, so the minimum converges on the uncontended time
+  from above, where a mean or a best-of-2 does not.
+- record `loadavg` in every CSV row, so a reader can tell which rows to trust
+  and can compare like with like.
+
+Even so, the load-12-16 pass and the load-6-7 pass differ by up to 2.4x on the
+CPU column (`:array` sylvester at (100,100,100,3): 49.5 ms then 26.4 ms), so
+the table above quotes only the quiet pass and the CSV keeps both. Read the two
+end-to-end `:array` seconds (371.8 and 1426.4) as UPPER BOUNDS -- those ran at
+load 8-15 and cannot be repeated cheaply -- which means the true end-to-end
+speedups are probably smaller than 3.7x and 5.8x, and closer to the per-apply
+ratios.
+
+NOT DONE / FOLLOW-UPS.
+- The head-axis orientation would also save the CPU dense branch one
+  `permutedims` per apply, but it is precisely the orientation the sparse
+  branch must not use, so it needs a dense-only code path in
+  `_sylvesterLM_array`. Left alone deliberately: changing the CPU kernel would
+  have moved the baseline this entry is measured against.
+- No sparse device branch (Metal.jl has no sparse `mul!`), and none wanted: a
+  sphere octant is 2-3x faster in the CPU sparse branch than in dense.
+- Float64 Γ is accepted and computed in fp32 (the map keeps its Float64 eltype
+  so solvers still work); it is an exploratory mode, not a certification path.
+- `den`/`stratify` were not exercised on `:metal`. `ester!`/`sylve!` work and
+  are transpose-verified, but they move `m·d^n` over the bus per apply and that
+  is 324 MB at (300,300,300,3) -- the square map is the only shape worth
+  putting on a GPU at video scale.
