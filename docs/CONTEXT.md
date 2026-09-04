@@ -132,8 +132,12 @@ at 8.4e-16.
 sphere: **valence 3 d = 1000 in 552 s at a 13.70 GB peak**, nullity 3, Z-law
 residual 7.19e-13 (r = [57,56,56], 178752 x 168000 restricted system, 56388
 applies) -- the goal for this size was "500..1000 within an hour" -- and
-**valence 4 d = 150 in 31 s at 7.29 GB**, nullity 4, residual 1.63e-13, against
-the morning's d = 500 and d = 100 ceilings.  d = 200 reproduces the morning's
+**valence 4 d = 150 in 31 s at 7.29 GB and d = 200 in 181 s at 17.35 GB**
+(nullity 4, residuals 1.63e-13 and 1.33e-11), against the morning's d = 500 and
+d = 100 ceilings -- the morning's own estimate table put valence 4 d = 200 at
+35.8 GB and "over budget, not attempted".  At valence 4 the solve is now 9.6 s
+of d = 200's 181 s, so the remaining cost is the build and the Z-law check, not
+the solver.  d = 200 reproduces the morning's
 row to the digit (38262 applies, 3.249e-10), which is the regression check on
 every change here: the mode-product rewrite, the in-place kernels, the
 preallocated apply and the rewritten Z-law check are numerically identical, not

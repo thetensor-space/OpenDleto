@@ -432,11 +432,13 @@ are).  `nv` is `solve_nullspace`'s request sequence.
 | v3 d = 500 -lean | 64000 x 60000 | 40 | 49556 | 16, 32 | 204.4 | **3.87 GB** | 3 | 2.38e-11 |
 | **v3 d = 1000** -lean | 178752 x 168000 | 57,56,56 | 56388 | 16, 32 | 552.6 | **13.70 GB** | 3 | 7.19e-13 |
 | **v4 d = 150** -lean | 10000 x 6000 | 10 | 16024 | 16, 32 | 31.0 | 7.29 GB | 4 | 1.63e-13 |
+| **v4 d = 200** -lean | 14641 x 8800 | 11 | 14430 | 16, 32 | 181.4 | 17.35 GB | 4 | 1.33e-11 |
 | video 640x480x90x3 F32 | 7920 x 25680 | 20,20,11,3 | 19482 | -- | 26.3 | 2.03 GB | 3 | 9.7e-6 |
 | video 640x480x300x3 F32 | 13200 x 30000 | 20,20,11,3 | 26554 | -- | 43.9 | 4.06 GB | 3 | 1.5e-5 |
 
-**d = 1000 at valence 3 and d = 150 at valence 4 are new**, against the
-morning's d = 500 and d = 100.  d = 1000 answers in 9.2 minutes at a Z-law
+**d = 1000 at valence 3 and d = 200 at valence 4 are new**, against the
+morning's d = 500 and d = 100 -- and the morning's own estimate table put
+valence 4 at d = 200 Float64 at 35.8 GB and "over budget, not attempted".  d = 1000 answers in 9.2 minutes at a Z-law
 residual of 7.2e-13 and a peak of 13.7 GB -- the goal set for this size was
 "500..1000 within an hour", and the morning's own estimate for the BUILD alone
 was 22.4 GB.  Note that d = 1000 costs FEWER applies than d = 700 (56388
@@ -446,6 +448,12 @@ rows, plus d = 1000's request sequence stopping at [16, 32] where d = 700's
 went to 64.  The valence-4 ceiling moved for the same reason it was there:
 `build_sphere` held six copies of a 3.8 GB tensor and then the Z-law check
 asked for `2(n+1)` more.
+
+At valence 4 the two rows show where the cost now sits: d = 200's solve is
+9.6 s of its 181 s, so what is left is the BUILD (a 12.8 GB tensor, the three
+TSQR passes over it) and the Z-law check.  The 17.35 GB peak is one tensor plus
+the GC's headroom, which is the floor for a `d^4` Float64 array on this
+machine.
 
 The requirement this half was set was that d = 500 drop "well below" the
 morning's 11.4 GB: it is 3.87 GB, a 2.9x cut, with the same nullity, the same
