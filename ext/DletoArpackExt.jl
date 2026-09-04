@@ -54,7 +54,8 @@ function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real =
     # ARPACK needs nev < n - 1 and ncv <= n; below that a dense eigen is free.
     if n <= 32
         E = eigen(Symmetric(Matrix(L)))
-        return (; vals = RT.(E.values[1:want]), vecs = T.(E.vectors[:, 1:want]))
+        return (; vals = RT.(E.values[1:want]), vecs = T.(E.vectors[:, 1:want]),
+                  converged = true)
     end
 
     nev = clamp(max(want, min_request), 1, n - 2)
@@ -63,11 +64,23 @@ function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real =
     # it survives Float32 at any `tol`; flooring at 100*eps(T) just stops it
     # polishing below the element type's precision (~20% fewer applications
     # in Float32, no change in Float64).
-    vals, vecs = Arpack.eigs(L; nev = nev, ncv = ncv_, which = :SM,
-                             tol = max(tol, 100 * eps(RT)), maxiter = maxiter)
+    #
+    # `nconv` and `niter` are ARPACK's own account of what it managed, and
+    # `solve_nullspace` needs them: a non-converged solve whose Ritz values
+    # have merely STALLED near zero produces a spectrum with a clean gap in
+    # it, so a caller reading the spectrum alone reports a confident nullity
+    # (often 0) for what is a failure.  ARPACK does not say WHICH pairs
+    # converged, so `converged` is the honest conservative test, `nconv >=
+    # nev`; the caller acts on it only where it can matter (see
+    # `NullVerdict`'s `status`).  Note that exhausting `maxiter` is not this
+    # case: `Arpack.eigs` throws `XYAUPD_Exception` for that, which propagates.
+    vals, vecs, nconv, niter = Arpack.eigs(L; nev = nev, ncv = ncv_, which = :SM,
+                                           tol = max(tol, 100 * eps(RT)),
+                                           maxiter = maxiter)
     λ = real.(vals)
     ord = sortperm(abs.(λ))[1:min(want, length(λ))]
-    return (; vals = λ[ord], vecs = real.(vecs[:, ord]))
+    return (; vals = λ[ord], vecs = real.(vecs[:, ord]),
+              converged = nconv >= nev, nconv = Int(nconv), niter = Int(niter))
 end
 
 function Dleto.solve(::ArpackDenseSolver, L::LinearMap; nv::Integer = 20)
