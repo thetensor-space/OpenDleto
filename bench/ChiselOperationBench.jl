@@ -307,7 +307,7 @@ end
 
 # ---------------------------------------------------------------- driver
 
-function bench(; sizes, trials, tol = 1e-6, null_solvers = false)
+function bench(; sizes, trials, tol = 1e-6)
     rows = Row[]
     all_sizes = sort(unique(vcat(sizes.der, sizes.den)))
     for n in all_sizes, trial in 1:trials
@@ -321,7 +321,7 @@ function bench(; sizes, trials, tol = 1e-6, null_solvers = false)
             append!(batch, run_trial(label, P, method, kw, Γ, n, trial;
                                      tol = tol, do_den = do_den))
         end
-        null_solvers && append!(batch, run_null_solvers(Γ, n, trial; tol = tol))
+        n in sizes.solvers && append!(batch, run_null_solvers(Γ, n, trial; tol = tol))
 
         for r in batch
             @printf("%-9s %-28s n=%-4d t=%d %9.3fs dim=%-5d resid=%-9.2e κ=%-9.2e %s\n",
@@ -426,17 +426,21 @@ single grid for all three either stops `der` far short of where it is
 interesting or spends hours in `den`.
 """
 bench_sizes(mode) =
-    mode === :short ? (; der = [4, 6, 8, 10], den = [4, 6, 8, 10]) :
+    mode === :short ? (; der = [4, 6, 8, 10], den = [4, 6, 8, 10], solvers = Int[]) :
     mode === :long  ? (; der = [4, 6, 8, 10, 12, 15, 19, 22, 26],
-                         den = [4, 6, 8, 10, 12, 15]) :
+                         den = [4, 6, 8, 10, 12, 15],
+                         # The null-solver axis is only informative once the
+                         # derivation operator is big enough for the choice to
+                         # matter, and two of the solvers take tens of seconds
+                         # per call, so it runs on a short grid of its own.
+                         solvers = [15, 19]) :
     error("Unknown mode $mode; use short or long.")
 
 if abspath(PROGRAM_FILE) == @__FILE__
     Random.seed!(20260902)
     mode = isempty(ARGS) ? :short : Symbol(ARGS[1])
-    trials = mode === :short ? 3 : 5
-    rows = bench(; sizes = bench_sizes(mode), trials = trials,
-                 null_solvers = (mode === :long))
+    trials = 3
+    rows = bench(; sizes = bench_sizes(mode), trials = trials)
     write_csv(joinpath(@__DIR__, "chisel-operation-results.csv"), rows)
     plot_results(rows, joinpath(@__DIR__, "chisel-operation-results.png"))
     summarise_text(rows)

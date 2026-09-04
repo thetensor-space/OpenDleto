@@ -66,7 +66,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
 
     # if globalDim(reducedΩ) < 10000
     # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
-    sylvester, ester = sylvesterLM(Ω_reduced, P_eng, Γ)
+    sylvester, ester_map = sylvesterLM(Ω_reduced, P_eng, Γ)
     
     # All of the null-solver policy -- when densifying is cheap enough, how
     # many vectors to ask an iterative method for, how to grow that request
@@ -88,7 +88,25 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # "Not enough eigenvalues computed; increase `tol` parameter", which
     # misreported the fact as a convergence problem.  Callers that need a
     # derivation (`stratify`) report it themselves.
-    (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
+    # Hand over the RECTANGULAR map, not the squared one.
+    #
+    # `sylvesterLM` returns both: `sylvester = sylve∘ester` is the Gram
+    # operator `AᵗA`, and `ester_map` is `A` itself, with `sylve` as its
+    # genuine adjoint.  A derivation is exactly an `X` with `ester(X) = 0`, so
+    # `null(ester_map) = ` the derivation space -- the same null space, without
+    # squaring anything.
+    #
+    # This was the derivation half of the deviation from Algorithm 2 of
+    # null_patterns.pdf ("take the SVD of N"; the code eigendecomposed `NᵗN`).
+    # Squaring costs half the available precision and, worse, silently
+    # square-roots the tolerance: filtering `λ = σ²` at `tol·‖AᵗA‖` admits
+    # every direction with `σ/σ_max ≤ √tol`.  Asking for 1e-6 gave 1e-3, which
+    # on real video boxes meant ~130 reported "derivations" per box at a
+    # residual of 2e-3.
+    #
+    # `solve_nullspace` squares it as a composition of maps for the solvers
+    # that need eigenvalues, so nothing here has to know which those are.
+    (λ, vecs) = solve_nullspace(ester_map, method.solver; tol=tol, nd=nd,
                                 progress=progress, label="der")
 
     coords = size(vecs, 2) == 0 ? zeros(T, globalDim(Ω_reduced), 0) : Matrix{T}(vecs)

@@ -163,6 +163,70 @@ const BROKEN_SOLVERS = Symbol[]
     end
 end
 
+# --- Z-law on NEAR-DEGENERATE tensors ------------------------------------
+#
+# The Z-law above uses generic and diagonal tensors, both well conditioned,
+# and that is why it missed a real bug for a whole session.  What exposes a
+# tolerance error is a tensor with many *near*-null directions -- smooth,
+# low-rank, quantized data, i.e. exactly what real measurements look like.
+#
+# The bug: `SylverLining` hands the solver `sylvester = ester∘sylve`, which is
+# the Gram operator `AᵗA`, so the values being filtered are `λ = σ²`.  A
+# threshold relative to `‖AᵗA‖` therefore admitted every direction with
+# `σ/σ_max ≤ √tol` -- ask for 1e-6, get 1e-3.  On real video boxes from
+# Boards.mp4 that made `der` report 113--156 derivations per 8x8x8 box at a
+# residual of 2e-3: about 130 vectors per box that are not derivations,
+# silently, with no error and no warning.
+#
+# The invariant this pins down is the one a caller actually asks for: whatever
+# `der` returns satisfies the defining equation to `tol`.  It is asserted here
+# per tensor rather than per dimension, because on degenerate tensors the
+# derivation space is legitimately large and its exact dimension is not the
+# thing under test.
+@testset "Z-law holds on near-degenerate tensors" begin
+    Random.seed!(20260908)
+    n = 6
+    frame = [Index(n, "a_$i") for i in 1:3]
+    P = UniversalChisel(3)
+    Ω = IndTransverseOps(frame, UniversalOp())
+
+    ramp    = [i + j + k for i in 1:n, j in 1:n, k in 1:n] .+ 0.0
+    rank1   = [i * j * k for i in 1:n, j in 1:n, k in 1:n] .+ 0.0
+    cases = (
+        ("constant",              ones(n, n, n)),
+        ("rank-1 outer product",  rank1),
+        ("smooth ramp",           ramp),
+        ("smooth + tiny noise",   ramp .+ 1e-3 .* randn(n, n, n)),
+        ("smooth + tinier noise", ramp .+ 1e-8 .* randn(n, n, n)),
+        ("quantized 0:255",       Float64.(rand(0:255, n, n, n))),
+        ("scaled up 1e6",         1e6 .* randn(n, n, n)),
+        ("scaled down 1e-6",      1e-6 .* randn(n, n, n)),
+    )
+
+    @testset "$name" for (name, A) in cases
+        Γ = ITensor(A, frame...)
+        basis = der(:SylverLining, Ω, P, Γ; tol=1e-6)
+        # Not "how many" -- "is every one of them actually a derivation".
+        for D in basis
+            @test der_residual(Γ, D, P) < LAW_TOL
+        end
+        # The scalars are always there, so an empty answer is always wrong.
+        @test length(basis) >= size(nullspace(P), 2)
+    end
+
+    # Scale invariance: the answer must not depend on how the tensor is scaled,
+    # which is the property an absolute tolerance breaks and a relative one
+    # keeps.  Both failed before -- absolute at 1e6, relative at 1e-6.
+    @testset "scale invariance" begin
+        A = randn(n, n, n)
+        base = length(der(:SylverLining, Ω, P, ITensor(A, frame...); tol=1e-6))
+        for c in (1e-6, 1e-3, 1e3, 1e6)
+            scaled = length(der(:SylverLining, Ω, P, ITensor(c .* A, frame...); tol=1e-6))
+            @test scaled == base
+        end
+    end
+end
+
 # --- T-law and Galois adjunction --------------------------------------------
 #
 # These need `den` (the densor / T-set), which is still an abstract

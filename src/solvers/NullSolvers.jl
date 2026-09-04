@@ -534,6 +534,10 @@ warning, because that is the routine case in Float64, but a note that a
 near-derivation hiding below the floor would look identical.  With `nd > 0`
 the threshold count capped at `nd` is returned as before (`rule = :fixed`).
 
+`squared = true` says the map handed in is ALREADY a Gram operator `AᵗA`, so
+its values are `σ²` and the ceiling is squared to match; solvers that square a
+rectangular map here are detected without the flag.
+
 `nv0` is the first request; it defaults to `initial_request(solver, L)`, a
 per-solver trait, because the right first request depends on the solver's
 cost model (flat in the request for ARPACK, linear for block Lanczos).
@@ -554,6 +558,7 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          tol::Real = 1e-6, atol::Union{Nothing,Real} = nothing,
                          nd = -1, nv0::Union{Nothing,Integer} = nothing,
                          gap_ratio::Real = GAP_RATIO, min_above::Integer = 2,
+                         squared::Bool = false,
                          progress = false, label::AbstractString = "null solve",
                          kwargs...)
     N = size(L, 2)
@@ -564,6 +569,7 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # Square the map for the solvers that need it -- as a composition, so no
     # matrix is formed.  `AutoSolver` and `ShiftInvertSolver` decline the trait
     # because they handle the shape themselves.
+    want_squared = squared || (wants_square(solver) && size(L, 1) != size(L, 2))
     L = (wants_square(solver) && size(L, 1) != size(L, 2)) ? L' * L : L
 
     # `tol` is RELATIVE to the operator norm, as in `LinearAlgebra.nullspace`.
@@ -581,6 +587,24 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # `‖Lop‖` bounds what any of these solvers report -- singular values of
     # `Lop`, or its eigenvalues when it is symmetric -- so one scale serves
     # every solver. Pass `atol` to override with an absolute threshold.
+    #
+    # SQUARING SILENTLY SQUARE-ROOTS THE TOLERANCE, and that is the other half
+    # of getting a relative tolerance right.  When the operator being filtered
+    # is a Gram operator `AᵗA` -- which this function forms itself for the
+    # eigensolvers, and which a caller may hand in ready-made (`squared=true`)
+    # -- the reported values are `λ = σ²`.  A ceiling of `tol·‖AᵗA‖` then
+    # admits every direction with `σ/σ_max ≤ √tol`: ask for 1e-6 and you get
+    # 1e-3.
+    #
+    # That is not hypothetical.  On real video boxes from Boards.mp4 (8x8x8,
+    # true derivation space = the 2 scalars) it made `SVDSolver` report
+    # 113--156 derivations per box at a residual of 2e-3.  Squaring the
+    # tolerance restores the invariant the caller asked for: accepted
+    # directions satisfy `σ/σ_max ≤ tol`.  The `FLOOR_EPS` floor below still
+    # applies, so this can only tighten the ceiling as far as the element type
+    # can actually resolve -- in Float32 the floor binds and `tol²` never
+    # takes effect.
+    #
     # The null eigenvalues an iterative solver returns sit at a few `eps(T)`
     # relative to `‖L‖` -- up to 6.2e-7 in Float32 at d = 40 on the sphere
     # benchmark, within 1.6x of the default 1e-6 -- while the first nonzero
@@ -589,7 +613,8 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # in Float64 the floor (2.2e-14) is far below any sensible `tol`.
     RT = real(eltype(L))
     scale = max(sqrt(max(opnorm_estimate(L' * L; iters = 10), 0.0)), eps(RT))
-    threshold = atol === nothing ? max(tol, FLOOR_EPS * eps(RT)) * scale : atol
+    rel = want_squared ? tol^2 : tol
+    threshold = atol === nothing ? max(rel, FLOOR_EPS * eps(RT)) * scale : atol
     # The gap test works in relative terms; the floor is the same constant
     # that floors the threshold, so a value under it is "zero" in both rules.
     rel_threshold = threshold / scale
