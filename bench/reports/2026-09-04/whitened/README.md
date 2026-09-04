@@ -111,12 +111,14 @@ not an accident of the harness.
 ### Valence 4 and the video shape -- the cases with a finite ratio and a right answer
 
 Here the unwhitened branch also fails, but the whitened counts are small enough
-that the ratio against the cap is itself above 3x:
+that the ratio against the cap is itself at or above 3x -- so these are the rows
+that meet the "at least 3x fewer iterations" bar on its own terms, with the
+plain column's count being only a lower bound on what it would have needed:
 
 | case | oracle | plain applies / result | whitened applies / result | iter |
 |---|---|---|---|---|
 | sphere v4 d = 60 (60^4 Float64) | 4 | 61994 / **cap, nullity 0** | 12808 / nullity 4, resid 1.1e-13, 2.8 s | 4.8x |
-| sphere v4 d = 80 (80^4 Float64) | 4 | (below) | 19718 / nullity 4, resid 2.4e-13, 5.5 s | (below) |
+| sphere v4 d = 80 (80^4 Float64) | 4 | 64584 / **cap, nullity 0** | 19718 / nullity 4, resid 2.4e-13, 5.5 s | 3.3x |
 | video 200x200x100x3 Float32 | 3 | 56980 / **cap, nullity 0** | 11182 / nullity 3, resid 1.7e-5, 3.2 s | 5.1x |
 | degenerate 40^3, mode-1 rank 38 | 82 | 59640 / **nullity 26 of 82** | 4024 / nullity 82, resid 8.4e-16 | 14.8x |
 
