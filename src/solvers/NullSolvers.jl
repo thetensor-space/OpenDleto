@@ -204,7 +204,7 @@ struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
 """
-    GramSolver
+    GramSolver(; device = :cpu)
 
 Dense null space at the cost of the GRAM matrix, with the precision of the
 rectangular one.  Two stages:
@@ -212,8 +212,8 @@ rectangular one.  Two stages:
 1. FIND the subspace.  Form `G = MᵗM` (one BLAS-3 `syrk`, `n x n` instead of
    `m x n`), factor `G + εI` by Cholesky, and run a few steps of subspace
    iteration with that inverse.  Directions with `σ² ≲ ε` are amplified by
-   `σ_next²/ε` per step -- hundreds to millions -- so three steps capture
-   every null and near-null direction among `nv` vectors.
+   `σ_next²/ε` per step -- hundreds to millions -- so a handful of steps
+   capture every null and near-null direction.
 2. MEASURE it on `M`, not on `G`.  Rayleigh--Ritz: the SVD of the small
    `M·X` (m x k) gives the singular values of `M` restricted to the subspace,
    and rotating `X` by its right singular vectors separates the null
@@ -229,11 +229,51 @@ escalation in `solve_nullspace` ran the request up to the full dimension --
 8 GB of subspace vectors before the watchdog stopped it.  Measured on `M`
 the same directions read `1e-15 | 1.9e-6 | 2.5e-4`: unambiguous.
 
+WHY IT OVERSAMPLES.  Stage 1 amplifies EVERY direction with `σ² ≲ ε` by the
+same `≈1/ε`, so it cannot rank them; it can only produce a subspace that
+contains them.  Iterating on exactly `nv` vectors therefore fails as soon as
+the matrix has more than `nv` near-null directions: the iterates converge to
+an arbitrary mix of them and a genuine null direction can be absent from
+`span(X)` altogether, which Rayleigh--Ritz has no way to recover.  Measured:
+`build_sphere(50; valence = 4)` through `:Auto` reported nullity 3 with
+`lsq_err = 2.7e-8` where the oracle (and the old dense SVD route) says 4 at
+1e-11, twice in a row.  So the iteration runs on `k + p` columns with
+`p = min(n - k, max(16, k))`, takes `steps` (4 by default) of them, and then
+keeps the `k` Ritz pairs of smallest `σ` -- the exact null directions sit at
+`~1e-15` and sort first, and the extra `p` columns are what makes room for
+them. That is the standard randomized-subspace oversampling argument, and it
+costs `p` extra columns in three `n x k` operations, not a second solve.
+
 Why it exists at all.  `SVDSolver` on QuickDer's restricted system at d = 100
 (6859 x 5700) takes 52 s at two threads; this takes ~4 s (2.7 s for `G`,
 about a second for Cholesky, iteration and the Ritz step).
+
+`device = :gpu` puts the two BLAS-3 pieces on the GPU -- the Gram `MᵗM` of
+stage 1 and the `M·X` of stage 2 -- and leaves the rest on the host.  What
+stays behind, and why:
+
+- `qr(X)` (the re-orthonormalization) and `svd(M·X)` (the Ritz rotation)
+  because Metal.jl 1.10 has NO kernel for either; the generic LinearAlgebra
+  fallback throws `Cannot access the contents of a private buffer`.  Both are
+  `n x (k+p)` / `m x (k+p)` with `k+p` a few dozen, so this is under a
+  megabyte of transfer per step against an `m·n²` Gram.
+- the Cholesky of `G + εI` and the subspace triangular solves because the MPS
+  kernels that DO exist for them are 2.8x and 3.2x SLOWER than 5 CPU threads
+  at these sizes, while the Gram is 11x faster -- see `GRAM_GPU_FACTOR`, which
+  flips them back to the device and carries the measurements.
+
+The device path is Float32-only (Apple GPUs have no Float64) and requires
+`gpu_available()`; both are checked with a clear error.
 """
-struct GramSolver <: NullSolver end
+struct GramSolver <: NullSolver
+    device::Symbol
+end
+
+function GramSolver(; device::Symbol = :cpu)
+    device in (:cpu, :gpu) ||
+        error("GramSolver: device must be :cpu or :gpu, got :$device.")
+    return GramSolver(device)
+end
 
 wants_square(::SVDSolver) = false
 wants_square(::LUSolver) = false
@@ -785,9 +825,13 @@ end
 """
     gpu_available() -> Bool
 
-Whether a GPU backend extension is loaded and functional.
+Whether a GPU backend extension is loaded and functional.  Backed by a `Ref`
+that the extension sets in its `__init__`: redefining a zero-argument method
+from an extension is "method overwriting", which Julia 1.12 refuses during
+precompilation, so the extension would never precompile.
 """
-gpu_available() = false
+const GPU_AVAILABLE = Ref(false)
+gpu_available() = GPU_AVAILABLE[]
 
 """
     to_gpu(x::AbstractArray) -> AbstractArray
@@ -806,11 +850,13 @@ to_cpu(x::AbstractArray) = x
 to_cpu(x::Array) = x
 
 """
-    gpu_sync(f) 
+    gpu_sync(f)
 
-Run `f()` and wait for the device to finish; plain `f()` on the CPU.
+Run `f()` and wait for the device to finish; plain `f()` on the CPU.  Also a
+`Ref`, for the same precompilation reason as `gpu_available`.
 """
-gpu_sync(f) = f()
+const GPU_SYNC = Ref{Function}(f -> f())
+gpu_sync(f) = GPU_SYNC[](f)
 
 # ---------------------------------------------------- spectral transform
 #
@@ -1127,46 +1173,200 @@ function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = nothing)
 end
 
 """
-Shift of the Gram matrix relative to its 1-norm.  Must sit above the roundoff
-of the null eigenvalues (~`n·eps`) and below the square of the smallest
-nonzero singular value to be resolved: 1e-10 leaves 1e-6 of headroom on each
-side in Float64 for a spectrum whose gap is 1e-5 in σ.
+Shift of the Gram matrix relative to its largest diagonal entry.  Must sit
+above the roundoff of the null eigenvalues (~`n·eps`) and below the square of
+the smallest nonzero singular value to be resolved: 1e-10 leaves 1e-6 of
+headroom on each side in Float64 for a spectrum whose gap is 1e-5 in σ.
+
+In Float32 that constant sits BELOW `eps`, so adding it to the diagonal is a
+no-op and the Cholesky of a matrix that is singular by construction fails.
+`_gram_shift_rel` therefore floors it at `10·eps(T)`, which is 1e-10 in
+Float64 (the constant wins, behaviour unchanged) and 1.2e-6 in Float32.  That
+floor is measured, not guessed: on the QuickDer restricted matrix of
+`build_sphere(40; T = Float32)` (1728 x 1440, 1440 columns, exact null
+directions at `σ/σmax = 1.2e-7`) the Cholesky of `G + εI` fails outright at
+`ε_rel = 1e-10` and `1e-8`, succeeds at `1e-6` and resolves the null space to
+`σ/σmax = 4.3e-7` -- comfortably under the `100·eps` cut `gap_verdict` uses --
+while `1e-4` drags the same directions up to `3e-6..1.4e-4` and `1e-2` to
+`7e-3`, i.e. above the cut, and the solver reports nullity ZERO.  A shift that
+is too big is the more dangerous error: it fails silently, as a wrong answer,
+where too small a shift fails loudly in the factorisation.
+
+Hence the escalation.  "Cholesky failed" is exactly the signal that the shift
+did not clear the Gram's roundoff, and the roundoff grows with `n`, so the
+factorisation is retried with the shift multiplied by `GRAM_SHIFT_ESCALATE`
+up to `GRAM_SHIFT_TRIES` times.  Starting from the floor and going UP finds
+the smallest shift that works, which is the one that resolves the most.
 """
 const GRAM_SHIFT_REL = 1e-10
+const GRAM_SHIFT_ESCALATE = 100
+const GRAM_SHIFT_TRIES = 4
 
-function solve(::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing, steps::Integer = 3)
-    M = Matrix(L)
-    T = eltype(M)
-    m, n = size(M)
+"""
+Whether `GramSolver(device = :gpu)` also FACTORS on the device.
+
+`false`, and the reason is measured rather than assumed.  Metal.jl does have a
+Cholesky (`MPSMatrixDecompositionCholesky`) and a triangular solve
+(`MPSMatrixSolveCholesky`), so the whole of stage 1 *can* run on the GPU -- it
+is just slower there.  Float32, QuickDer's restricted matrix at valence 3
+d = 200 (17576 x 15600), 5 CPU threads on an M4 Max:
+
+| piece | GPU | CPU |
+|---|---|---|
+| Gram `MᵗM` | **2.5 s** | 27.6 s |
+| Cholesky of `G + εI` | 22.9 s | **8.3 s** |
+| 4 x 32-column triangular solves | 3.5 s | **1.1 s** |
+
+The GEMM is 11x faster on the device and the two MPS factorisation kernels are
+2.8x and 3.2x slower, so the default splits stage 1 down the middle: the Gram
+(and stage 2's `M·X`) on the GPU, the factorisation, the subspace solves, the
+re-orthonormalizing `qr` and the Ritz `svd` on the host.  The `n x n` Gram is
+half the size of `M` and comes back in one copy.
+
+Set this to `true` to keep everything on the device -- which is the right
+choice if a future Metal release fixes the factorisation kernels, and is how
+the table above was measured.
+"""
+const GRAM_GPU_FACTOR = Ref(false)
+
+_gram_shift_rel(::Type{RT}) where {RT<:Real} =
+    max(RT(GRAM_SHIFT_REL), 10 * eps(RT))
+
+"""
+    _gram_dense(L) -> AbstractMatrix
+
+The matrix behind `L`, without a needless copy when `L` is just a wrapper
+around a dense one.  `Matrix(::WrappedMap)` copies, and QuickDer's restricted
+matrix is 1.1 GB at valence 3 d = 200 and 3.3 GB at d = 300 -- a copy that is
+pure loss when nothing here mutates `M`.  Anything else (a genuine function
+map, a progress wrapper, a composition) goes through `Matrix`, which applies
+the map once per column, as before.
+"""
+_gram_dense(L::LinearMap) = Matrix(L)
+_gram_dense(L::LinearMaps.WrappedMap{<:Any,<:StridedMatrix}) = L.lmap
+
+function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
+               steps::Integer = 4)
+    Mh = _gram_dense(L)
+    T = eltype(Mh)
+    m, n = size(Mh)
     k = min(nv, n)
     k <= 0 && return (; vals = real(T)[], vecs = zeros(T, n, 0))
     RT = real(T)
 
-    # Stage 1: the Gram (one syrk, half the flops of a GEMM), shifted, factored;
-    # subspace iteration with its inverse.  The shift scale is the largest
-    # diagonal entry -- within a factor n of ‖G‖ and O(n) to read; `opnorm` on
-    # a Symmetric takes a generic path that cost minutes at n = 5700.
-    Gm = T <: LinearAlgebra.BlasFloat ? BLAS.syrk('U', 'T', one(T), M) : M' * M
-    G = Symmetric(Gm, :U)
-    shift = RT(GRAM_SHIFT_REL) * max(maximum(abs, diag(Gm)), eps(RT))
-    for i in 1:n
-        Gm[i, i] += shift
+    on_gpu = s.device === :gpu
+    if on_gpu
+        gpu_available() || error(
+            "GramSolver(device = :gpu): no GPU backend is loaded or functional. " *
+            "Load one alongside Dleto (`using Metal` on Apple silicon).")
+        T === Float32 || T === ComplexF32 || error(
+            "GramSolver(device = :gpu) is Float32 only (Apple GPUs have no " *
+            "Float64), but the matrix is $T.")
     end
-    C = cholesky(G)
-    for i in 1:n
-        Gm[i, i] -= shift
+    M = on_gpu ? to_gpu(Mh) : Mh
+    # Which half of stage 1 runs on the device.  `M` (and therefore the Gram
+    # and `M·X`) is on the device whenever `device = :gpu`; the FACTORISATION
+    # and its triangular solves are a separate decision, because MPS is bad at
+    # them -- see GRAM_GPU_FACTOR.
+    fac_gpu = on_gpu && GRAM_GPU_FACTOR[]
+
+    # OVERSAMPLE.  Stage 1 amplifies everything below the shift by the same
+    # factor, so it ranks nothing; it only has to produce a subspace that
+    # CONTAINS the null space.  With exactly k columns and more than k
+    # near-null directions the iterates are an arbitrary mix and a genuine
+    # null direction can be missing -- measured on the valence-4 sphere at
+    # d = 50 (reported 3, true 4).  See the docstring.
+    p = min(n - k, max(16, k))
+    kp = k + p
+
+    # Stage 1: the Gram (one syrk on the host, half the flops of a GEMM; a
+    # plain GEMM on the device, where MPS has no syrk and the flops are free),
+    # shifted, factored; subspace iteration with its inverse.  The shift scale
+    # is the largest diagonal entry -- within a factor n of ‖G‖ and O(n) to
+    # read; `opnorm` on a Symmetric takes a generic path that cost minutes at
+    # n = 5700.
+    tstage = time()
+    Graw = if on_gpu
+        M' * M
+    elseif T <: LinearAlgebra.BlasFloat
+        BLAS.syrk('U', 'T', one(T), M)
+    else
+        M' * M
     end
-    X = randn(RT, n, k)
+    # `n x n`, half the size of `M` at these shapes, and the last thing the
+    # device is asked for in stage 1 unless GRAM_GPU_FACTOR says otherwise.
+    Gm = (on_gpu && !fac_gpu) ? Matrix(to_cpu(Graw)) : Graw
+    Graw = nothing
+    # The diagonal through a view, so the same line serves a host matrix and a
+    # device one (scalar `Gm[i,i]` is disallowed on an MtlArray).
+    dv = view(Gm, diagind(Gm))
+    # The `to_cpu` above, or this `maximum`'s scalar read, is the
+    # synchronisation point that makes the Gram's time its own.
+    scale_g = max(maximum(abs, dv), eps(RT))
+    tstage = _qdn_stage!(:gram, tstage)
+    shift = _gram_shift_rel(RT) * scale_g
+    applied = zero(RT)
+    C = nothing
+    for attempt in 1:GRAM_SHIFT_TRIES
+        dv .+= T(shift - applied)
+        applied = shift
+        # `cholesky(::Symmetric)` copies its argument on both devices, so Gm
+        # survives for the next attempt.  `check = false` because a failure
+        # here is expected and informative, not exceptional.
+        F = cholesky(Symmetric(Gm, :U), LinearAlgebra.NoPivot(); check = false)
+        if issuccess(F)
+            C = F
+            break
+        end
+        attempt < GRAM_SHIFT_TRIES && (shift *= RT(GRAM_SHIFT_ESCALATE))
+    end
+    C === nothing && error(
+        "GramSolver: the Gram matrix would not factor even with a shift of " *
+        "$(applied / scale_g) times its largest diagonal entry ($(GRAM_SHIFT_TRIES) " *
+        "attempts from $(_gram_shift_rel(RT))). The matrix is $(m)x$(n) in $T; " *
+        "in Float32 the Gram's own roundoff is n*eps and a system this large may " *
+        "simply need Float64 -- use :SVDSolver, or the CPU Float64 path.")
+
+    # `qr` is the one piece of the iteration with no Metal kernel, so the
+    # re-orthonormalization happens on the host on `n x (k+p)` -- under a
+    # megabyte per step, against an `m·n²` Gram.
+    tstage = _qdn_stage!(:cholesky, tstage)
+
+    Xh = T.(randn(RT, n, kp))
+    X = fac_gpu ? to_gpu(Xh) : Xh
     for _ in 1:steps
         X = C \ X
-        X = Matrix(qr(X).Q)
+        Xh = _gram_host(X)
+        all(isfinite, Xh) || error(
+            "GramSolver: the subspace iteration overflowed -- the Cholesky of " *
+            "the shifted Gram factored but is numerically useless. The matrix " *
+            "is $(m)x$(n) in $T with a shift of $(applied / scale_g) times the " *
+            "largest diagonal entry; try :SVDSolver, or Float64.")
+        Xh = Matrix(qr(Xh).Q)[:, 1:kp]
+        X = fac_gpu ? to_gpu(Xh) : Xh
     end
 
     # Stage 2: Rayleigh--Ritz on M itself.  `svd(M X)` has the singular
     # values of M on span(X); rotating X by V makes each column a Ritz vector
-    # with its own σ.  Ascending, so the null space leads.
-    F = svd(M * X)
-    vals = reverse(F.S)
-    vecs = X * F.V[:, end:-1:1]
+    # with its own σ.  Ascending, so the null space leads -- and with
+    # oversampling, TRUNCATED to the k smallest, which is where every exact
+    # null direction is.  `M*X` is a device GEMM; the `m x (k+p)` svd is not
+    # (no Metal kernel) and does not matter.
+    tstage = _qdn_stage!(:subspace, tstage)
+    MX = on_gpu ? M * (fac_gpu ? X : to_gpu(Xh)) : M * X
+    F = svd(_gram_host(MX))
+    ord = sortperm(F.S)[1:k]
+    vals = F.S[ord]
+    vecs = Xh * F.V[:, ord]
+    tstage = _qdn_stage!(:ritz, tstage)
     return (; vals, vecs)
 end
+
+"""
+    _gram_host(x) -> Array
+
+`x` on the host, without a copy when it is already there.  The GramSolver's
+`qr` and `svd` calls go through here: Metal.jl (1.10) implements neither, and
+the arrays involved are `n x (k+p)` and `m x (k+p)`.
+"""
+_gram_host(x::AbstractMatrix{T}) where {T} = x isa Matrix{T} ? x : Matrix(to_cpu(x))

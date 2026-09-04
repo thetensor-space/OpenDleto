@@ -16,8 +16,6 @@ using Dleto
 using Metal
 using LinearAlgebra
 
-Dleto.gpu_available() = Metal.functional()
-
 Dleto.to_gpu(x::AbstractArray{Float64}) = MtlArray{Float32}(x)
 Dleto.to_gpu(x::AbstractArray{Float32}) = MtlArray(x)
 Dleto.to_gpu(x::AbstractArray{<:Complex}) = MtlArray{ComplexF32}(x)
@@ -25,7 +23,6 @@ Dleto.to_gpu(x::MtlArray) = x
 
 Dleto.to_cpu(x::MtlArray) = Array(x)
 
-Dleto.gpu_sync(f) = Metal.@sync f()
 
 # SylverLining array kernel on the GPU (owned by the sylvesterLM work)
 isfile(joinpath(@__DIR__, "DletoMetalSylver.jl")) && include("DletoMetalSylver.jl")
@@ -33,6 +30,11 @@ isfile(joinpath(@__DIR__, "DletoMetalSylver.jl")) && include("DletoMetalSylver.j
 isfile(joinpath(@__DIR__, "DletoMetalQuickDer.jl")) && include("DletoMetalQuickDer.jl")
 
 function __init__()
+    # Hooks are Refs set here rather than methods redefined at top level: a
+    # zero-argument redefinition is method overwriting and blocks
+    # precompilation of this extension on Julia 1.12.
+    Dleto.GPU_AVAILABLE[] = Metal.functional()
+    Dleto.GPU_SYNC[] = f -> Metal.@sync f()
     Metal.functional() && @info "Loading Dleto Metal Extension ($(Metal.device().name))"
 end
 
