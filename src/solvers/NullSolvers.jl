@@ -824,6 +824,27 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             if bracketed && want_all && !dense && verdict.nullity > 0 && k < N &&
                (confirmed_at < 0 || verdict.nullity > confirmed_at)
                 confirmed_at = verdict.nullity
+                # DOUBLING, and it was measured against the alternative.  The
+                # obvious suspicion about this loop is that it is what makes an
+                # apply count non-monotone in problem size -- on the whitened
+                # restricted map, scrambled sphere valence 3, matrix-free:
+                # d = 200 needs requests [16, 32] and 38262 applies, d = 300
+                # needs [16, 32, 64] and 76810, d = 500 [16, 32] and 51116.
+                # It is not.  The trace at d = 300 reads
+                #
+                #   request 16 -> nullity 10 |  request 22 -> nullity 12
+                #   request 27 -> nullity 13 |  request 33 -> nullity 13
+                #
+                # (with a gentler `k + max(4, k÷4)` step): the RESTRICTED
+                # system there really does have a 13-dimensional numerical
+                # near-null space against 3 true derivations, this loop is
+                # correctly chasing it, and the lift's consistency filter is
+                # what cuts 13 down to 3.  So the cost is the spurious
+                # dimension, not the escalation rule, and the escalation rule
+                # should get past it in as few solves as possible: the gentler
+                # step took FOUR solves and 99170 applies where doubling takes
+                # three and 76810.  The lever on the d = 300 cost is the
+                # restriction size or the null threshold, not `nv`.
                 k = min(N, max(2 * k, 2 * verdict.nullity + min_above))
                 continue
             end
