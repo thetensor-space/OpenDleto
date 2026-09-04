@@ -1698,15 +1698,32 @@ function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     if method.verify === :full && prod(dims) <= 2e7
         for Ms in mats
             bound = atol * gnorm * max(sum(norm, Ms), eps(RT))
-            Md = [engaged[a] ? up(Ms[a]) : Ms[a] for a in 1:N]
-            for rho in 1:m
-                E = _qdn_zeros_like(G, size(G))
-                for a in 1:N
-                    (!engaged[a] || iszero(P[rho, a])) && continue
-                    E .+= P[rho, a] .* _qdn_ttm(G, Md[a], a)
+            if G isa Array
+                # The library's own Z-law check (`Dleto.der_residual`), one
+                # squared norm per chisel row: two blocks of `block_bytes`
+                # instead of an accumulator and a mode product the size of the
+                # tensor.  A disengaged axis has `P[rho, a] == 0` -- that is
+                # what disengaged MEANS -- so its zero matrix is skipped there
+                # exactly as it was skipped here.
+                sq = der_residual_squares(G, Ms, P)
+                for rho in 1:m
+                    res = sqrt(sq[rho])
+                    res <= bound || fail(res, bound)
                 end
-                res = norm(E)
-                res <= bound || fail(res, bound)
+            else
+                # Device tensors keep the direct route: the blocked
+                # accumulation is `mul!` with `β = 1`, which `_qdn_ttm!`'s
+                # device path cannot do.
+                Md = [engaged[a] ? up(Ms[a]) : Ms[a] for a in 1:N]
+                for rho in 1:m
+                    E = _qdn_zeros_like(G, size(G))
+                    for a in 1:N
+                        (!engaged[a] || iszero(P[rho, a])) && continue
+                        E .+= P[rho, a] .* _qdn_ttm(G, Md[a], a)
+                    end
+                    res = norm(E)
+                    res <= bound || fail(res, bound)
+                end
             end
         end
         return nothing
