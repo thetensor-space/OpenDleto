@@ -449,10 +449,13 @@ A combination `Σ_i c_i D^{(i)}` lies in `Ω` iff on every axis `a` its componen
 is fixed by the projector onto `Ω`'s local space: `(I - Π_a) Σ_i c_i D_a^{(i)} = 0`.
 Stacking those residuals over the axes gives a `(Σ_a n_a²) x k` matrix whose
 null space is the coefficient space `c`; `k` is the universal nullity (13 for
-the sphere), so this is small.  The basis is normalised first so `atol` is
-meaningful as an absolute threshold on the residual, and `rtol` is zero
-because when every basis element already lies in `Ω` the residual matrix is
-pure roundoff and a relative threshold would keep none of it.
+the sphere), so this is small.  The basis is normalised first, so every column
+of the residual matrix has norm at most 1 and `atol` is a meaningful ABSOLUTE
+threshold on it -- a relative one would keep nothing when every basis element
+already lies in `Ω` and the residual matrix is pure roundoff.
+
+The cut on that residual spectrum is a GAP, not the bare `atol`; see
+`_fastder_tall_nullspace`, which is where a Float32 undercount lived.
 """
 function _fastder_restrict_to_ops(Ω::IndTransverseOps,
                                   basis::AbstractVector{<:AbstractVector{<:AbstractMatrix}},
@@ -503,23 +506,84 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
 end
 
 """
+    FASTDER_RESTRICT_CEILING :: Ref{Float64}
+
+Multiplies `atol` to bound which cuts `_fastder_tall_nullspace`'s gap test may
+consider at all, exactly as `QDN_LIFT_CEILING` does for the lift consistency
+filter, and with the same value (32) for the same reason: it has to clear the
+top of the genuine cluster and stay well under the first spurious direction.
+
+Measured on the scrambled sphere valence 3 in Float32 (`atol` = 3.45e-4 there,
+which is `sqrt(eps(Float32))`), residual spectrum of the restriction matrix,
+genuine cluster | first spurious value:
+
+| d | genuine (x `atol`) | first spurious | ceiling headroom |
+|---|---|---|---|
+|  48 | 1.30, 0.58, 0.34 | 0.244 (707 x `atol`) | 24x above the cluster, 22x below |
+|  64 | 0.74, 0.44, 0.13 | 0.270 (784 x `atol`) | 43x / 24x |
+| 100 | 0.14, 0.12, 0.06 | 0.201 (581 x `atol`) | 223x / 18x |
+| 140 | 0.74, 0.10, 0.09 | 0.117 (338 x `atol`) | 43x / 11x |
+
+so 32 sits in the middle of a two-decade window in every case.
+"""
+const FASTDER_RESTRICT_CEILING = Ref(32.0)
+
+"""
     _fastder_tall_nullspace(A, atol) -> Matrix
 
-Null space of a TALL matrix (m >= n) from its thin SVD: the right singular
-vectors whose singular value is at most `atol`.  `LinearAlgebra.nullspace`
+Null space of a TALL matrix (m >= n) from its thin SVD.  `LinearAlgebra.nullspace`
 computes `svd(A; full = true)`, whose `U` is m x m -- for the 30000 x 13
 residual matrix of the sphere at d = 100 that is a 7 GB array for 13 columns
 of answer, and it is what took the process past its memory budget.  For a
 wide matrix the thin SVD has no room for the null space, so that case keeps
 `nullspace`.
+
+THE CUT IS A GAP, and this is where the Float32 undercount lived.  `A` is the
+residual of a normalised derivation basis off `Ω`, so its singular values split
+into two populations: the combinations that DO lie in `Ω` leave a residual at
+the noise of the basis they were built from, and the ones that do not leave an
+O(1) one.  Taking every value `<= atol` puts a hard cutoff at the noise level
+itself, and in Float32 the noise level is where the answer is: the genuine
+cluster runs from 0.06 to 1.30 times `atol` (`qd_tolerance(Float32)` =
+`sqrt(eps(Float32))`, the accuracy of the lift that produced the basis), so at
+d = 48 the third genuine direction sat at 1.30 `atol` and was DROPPED -- 13
+lifted derivations in, 2 out of a true 3.  The gap between the populations is
+338x to 4056x across d = 48..140, and every ratio inside the genuine cluster is
+under 4x, so the two are never in doubt; only their absolute position is.
+
+So: floor at `atol` (everything at or under the basis's own noise is zero),
+bound the eligible cuts at `FASTDER_RESTRICT_CEILING * atol`, and take the
+largest consecutive ratio that clears `gap_ratio` -- the same rule
+`gap_verdict` applies to a null solver's spectrum and the lift filter applies
+to its residual spectrum.  `atol` is `qd_tolerance(T)`, so the floor follows
+the element type without a constant of its own: 1e-6 in Float64, where the null
+cluster sits 9 decades below it and nothing about the old behaviour moves.
+
+WHEN NO GAP CLEARS, the old absolute count is used unchanged.  A gap can only
+REFINE the answer here, never invent one: with no jump of `gap_ratio` anywhere
+in the spectrum there is no evidence for a split, and the historical count
+below `atol` is what every existing caller was calibrated on -- including the
+case where EVERY direction lies in `Ω` (the raw sphere's nullity 13, whose
+residual matrix is pure roundoff and has no gap in it at all).
 """
-function _fastder_tall_nullspace(A::AbstractMatrix, atol::Real)
+function _fastder_tall_nullspace(A::AbstractMatrix, atol::Real;
+                                 gap_ratio::Real = GAP_RATIO,
+                                 ceiling::Real = FASTDER_RESTRICT_CEILING[] * atol)
     m, n = size(A)
     m < n && return nullspace(A; atol = atol, rtol = zero(atol))
     n == 0 && return zeros(eltype(A), 0, 0)
     F = svd(A)
-    keep = F.S .<= atol
-    return F.V[:, keep]
+    below = count(<=(atol), F.S)
+    # `gap_verdict` reads an ASCENDING spectrum and `F.S` is descending, so the
+    # null end is the tail of `F.S` and the head of `asc`.  `scale = 1.0`: these
+    # are already absolute numbers on a normalised basis (see
+    # `_fastder_restrict_to_ops`), not ratios to an operator norm.
+    asc = reverse(Float64.(F.S))
+    (_, v) = gap_verdict(asc, 1.0; threshold = Float64(ceiling),
+                         floor = Float64(atol), gap_ratio = gap_ratio)
+    keep = v.rule === :gap ? v.nullity : below
+    @debug "restrict_to_ops residual spectrum" atol ceiling below keep rule = v.rule gap = v.gap svals = string(round.(asc; sigdigits = 3))
+    return F.V[:, (n - keep + 1):n]
 end
 
 """

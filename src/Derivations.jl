@@ -287,3 +287,156 @@ der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
     der(get_derivation_method(method; kwargs...), Ω, ch, Γ;
         nd=nd, tol=tol, progress=progress)
 
+
+# ---------------------------------------------------------------------------
+# The Z-law check, memory-lean
+# ---------------------------------------------------------------------------
+
+"""
+    der_residual(Γ, D, chisel; block_bytes = 2^28) -> Real
+    der_residual(G::AbstractArray, Ms::Vector{<:AbstractMatrix}, P; block_bytes) -> Real
+
+`‖Σ_a P[ρ,a]·(Γ ×_a D_a)‖ / (‖Γ‖·max_a‖D_a‖)` -- the defining equation of a
+derivation, measured relative to the size of the data it is built from so the
+test is invariant to how `Γ` and the basis happen to be scaled.  This is the
+check that says whether an answer from ANY solver is a derivation, so it is
+the first thing a consumer of this package runs on a result, and it belongs
+here rather than in a benchmark script.
+
+`chisel` is the chisel matrix `P` (a `Chisel` is accepted and unwrapped);
+`D` is one two-index `ITensor` per axis carrying that axis's frame index, the
+`embedITensors` convention, or -- in the array form -- one matrix per axis with
+the frame index FIRST, the index that meets the tensor.
+
+WHY THIS IS NOT `applyDerivation`, which is what the benchmarks used to call.
+That route goes through ITensor contraction, so it materialises a full `d^n`
+intermediate per axis and accumulates them, AND it promotes: the chisel is
+typically Float64, so a Float32 tensor is contracted in Float64 and every
+intermediate is twice its size.  The bill is about `2(n+1)` tensor copies, and
+it lands on whoever is CHECKING an answer rather than on the solver that
+produced it -- which is why the benchmark harness's peak RSS was 15 to 20 times
+the tensor on shapes where the stratification itself is a fraction of it.
+Measured: a valence-4 sphere at d = 150 in Float64 peaks at 6.2 GB through a
+profiler that does not check and was killed at 18.7 GB through the harness that
+did.  On the video target shape, a 640x480x1800x3 Float32 movie is 6.6 GB and
+the old route wanted ~66 GB of Float64 intermediates to check an answer that
+fits in far less.
+
+So: read the tensor and the operators as plain arrays in `Γ`'s OWN element
+type, and accumulate `Σ_a P[ρ,a]·(Γ ×_a D_a)` with `_qdn_ttm!`'s `α`/`β` -- in
+BLOCKS along the longest axis, so the working set is `block_bytes` and not the
+tensor.  The block trick is that for a block `q` of axis `c` the output block
+`E[..., q, ...]` needs only `G[..., q, ...]` for every term `a ≠ c`, and for
+`a = c` it is exactly `G ×_c D_c[:, q]` -- so no term ever needs a full extra
+copy.  Two blocks of `block_bytes` replace `2(n+1)` tensors, whatever the
+tensor's size, and nothing is promoted: a Float32 tensor is checked entirely in
+Float32 and the answer comes back Float32.
+
+HOST ARRAYS ONLY.  The blocked accumulation is `mul!` with `β = 1`, which the
+device path of `_qdn_ttm!` cannot do; a device tensor is checked by
+`_qdn_verify`'s own slice route instead.
+
+If the operators cannot be matched to axes by index (anything other than one
+two-index operator carrying each frame index) the ITensor form falls back to
+`applyDerivation` rather than guess.
+"""
+function der_residual(Γ::ITensor, D::Vector{ITensor}, chisel;
+                      block_bytes::Integer = 2^28)
+    P = chisel isa Chisel ? chisel.ch : chisel
+    fr = collect(inds(Γ))
+    n = length(fr)
+    G = ITensors.array(Γ, fr...)
+    T = eltype(G)
+    Ms = Vector{Matrix{T}}(undef, n)
+    ok = length(D) == n
+    if ok
+        for a in 1:n
+            hits = filter(t -> hasind(t, fr[a]), D)
+            others = length(hits) == 1 ?
+                     filter(i -> i != fr[a], collect(inds(only(hits)))) : Index[]
+            if length(hits) != 1 || length(others) != 1
+                ok = false
+                break
+            end
+            # The frame index FIRST, which is the index `_qdn_ttm` contracts and
+            # the convention `applyDerivation` and `embedITensors` share.
+            Ms[a] = Matrix{T}(Array(only(hits), fr[a], only(others)))
+        end
+    end
+    if !ok
+        C = chisel isa Chisel ? chisel : Chisel(P, fr)
+        R = applyDerivation(Γ, D, C)
+        return norm(R) / max(norm(Γ) * maximum(norm.(D)), eps())
+    end
+    return der_residual(G, Ms, P; block_bytes = block_bytes)
+end
+
+function der_residual(G::AbstractArray{T,N}, Ms::AbstractVector{<:AbstractMatrix},
+                      P::AbstractMatrix; block_bytes::Integer = 2^28) where {T,N}
+    RT = real(T)
+    sq = der_residual_squares(G, Ms, P; block_bytes = block_bytes)
+    scale = norm(G) * maximum(a -> norm(Ms[a]), 1:N)
+    return sqrt(sum(sq)) / max(scale, eps(RT))
+end
+
+"""
+    der_residual_squares(G, Ms, P; block_bytes = 2^28) -> Vector
+
+`‖Σ_a P[ρ,a]·(G ×_a M_a)‖²`, one entry per ROW of the chisel, unnormalised --
+the raw material of `der_residual` and of `_qdn_verify`'s `:full` branch, which
+wants the rows separately because it tests each against a bound rather than
+folding them into one number.
+
+The blocking is what `der_residual` documents; the working set is two blocks of
+`block_bytes` in `G`'s own element type, whatever the size of `G`.  With a
+one-row chisel -- every case in `bench/` -- the accumulation order is exactly
+the single running sum the benchmark used, so the reported digits do not move;
+with several rows the per-row sums are the same quantity summed in a different
+order.
+"""
+function der_residual_squares(G::AbstractArray{T,N}, Ms::AbstractVector{<:AbstractMatrix},
+                              P::AbstractMatrix;
+                              block_bytes::Integer = 2^28) where {T,N}
+    length(Ms) == N || error("der_residual: $(length(Ms)) operators for a valence-$N " *
+                             "tensor; one per axis is needed.")
+    size(P, 2) == N || error("der_residual: the chisel has $(size(P,2)) columns but " *
+                             "the tensor has $N axes.")
+    Pm = Matrix{T}(P)
+    RT = real(T)
+    dims = size(G)
+    ca = argmax(collect(dims))                 # block along the LONGEST axis
+    per = max(length(G) ÷ dims[ca], 1)         # entries per unit of that axis
+    step = clamp(fld(Int(block_bytes), sizeof(T) * per), 1, dims[ca])
+    acc = zeros(RT, size(Pm, 1))
+    # The two buffers are allocated ONCE, not once per block, so the bytes this
+    # function asks for are bounded by `block_bytes` and do not grow with the
+    # tensor -- which is the whole claim.  Both are overwritten in full at the
+    # top of every block (`fill!` and `copyto!`), so reuse changes no arithmetic.
+    # The last block is short and gets its own pair.
+    Efull = Array{T}(undef, ntuple(i -> i == ca ? step : dims[i], N))
+    Gfull = Array{T}(undef, size(Efull))
+    for lo in 1:step:dims[ca]
+        hi = min(dims[ca], lo + step - 1)
+        w = hi - lo + 1
+        blk = ntuple(i -> i == ca ? (lo:hi) : Colon(), N)
+        Eb = w == step ? Efull : Array{T}(undef, ntuple(i -> i == ca ? w : dims[i], N))
+        Gb = w == step ? Gfull : Array{T}(undef, size(Eb))
+        copyto!(Gb, view(G, blk...))
+        for rho in axes(Pm, 1)
+            fill!(Eb, zero(T))
+            for a in 1:N
+                c = Pm[rho, a]
+                iszero(c) && continue
+                if a == ca
+                    # This block of the output is the whole tensor against the
+                    # selected COLUMNS of the operator on the blocked axis.
+                    _qdn_ttm!(Eb, G, view(Ms[a], :, lo:hi), a, c, one(T))
+                else
+                    _qdn_ttm!(Eb, Gb, Ms[a], a, c, one(T))
+                end
+            end
+            acc[rho] += sum(abs2, Eb)
+        end
+    end
+    return acc
+end

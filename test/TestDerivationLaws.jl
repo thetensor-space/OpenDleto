@@ -452,3 +452,87 @@ end
         end
     end
 end
+
+# --- `Dleto.der_residual`: the same law, checked without a Float64 copy -----
+#
+# The Z-law check is what any CONSUMER of this package runs on an answer, so it
+# lives in `src/` now rather than in a benchmark script.  Two things have to
+# hold, and neither is a timing.
+#
+# IT IS THE SAME NUMBER as the `applyDerivation` route above -- that route is
+# kept in this file precisely as the independent witness.
+#
+# AND IT DOES NOT PROMOTE.  `applyDerivation` contracts through ITensor, so a
+# Float32 tensor against a Float64 chisel is contracted in Float64 and every
+# one of its ~2(n+1) intermediates is twice the tensor.  That bill lands on
+# whoever is CHECKING an answer: on a 640x480x1800x3 Float32 movie it is ~66 GB
+# to verify something that fits in 6.6.  The blocked route holds two buffers of
+# `block_bytes` in the tensor's OWN type, so its allocation is bounded by the
+# block and not by the tensor.
+@testset "Dleto.der_residual: same law, no promoted copy" begin
+    Random.seed!(20260904)
+    dims = (60, 60, 40, 3)
+    fr = [Index(dims[i], "a$i") for i in 1:4]
+    P = Matrix{Float64}(UniversalChisel(4))
+
+    make(T, dm) = begin
+        f = [Index(dm[i], "b$i") for i in 1:4]
+        G = Array{T}(randn(dm...))
+        Ms = [Matrix{T}(randn(dm[a], dm[a])) for a in 1:4]
+        (ITensor(G, f...),
+         [ITensor(Ms[a], f[a], Index(dm[a], "o$a")) for a in 1:4],
+         G)
+    end
+
+    @testset "agrees with the applyDerivation route" begin
+        # A real derivation (a scalar: X_a = c_a I with Σ_a P[1,a] c_a = 0)
+        # and an arbitrary tuple, so both ends of the scale are covered.
+        f3 = [Index(6, "s$i") for i in 1:3]
+        Γs = ITensor(Array{Float64}(randn(6, 6, 6)), f3...)
+        scal = [ITensor(Matrix{Float64}(c * LinearAlgebra.I, 6, 6),
+                        f3[a], Index(6, "o$a"))
+                for (a, c) in enumerate([1.0, -1.0, 0.0])]
+        P3 = Matrix{Float64}(UniversalChisel(3))
+        @test Dleto.der_residual(Γs, scal, P3) < LAW_TOL
+        @test isapprox(Dleto.der_residual(Γs, scal, P3), der_residual(Γs, scal, P3);
+                       atol = 1e-12)
+
+        Γ4, D4, _ = make(Float64, dims)
+        @test isapprox(Dleto.der_residual(Γ4, D4, P), der_residual(Γ4, D4, P);
+                       rtol = 1e-12)
+    end
+
+    @testset "no Float64 array of the tensor's size" begin
+        Γ32, D32, G32 = make(Float32, dims)
+        # The answer stays in the tensor's type: the clearest single piece of
+        # evidence that nothing was promoted on the way.
+        @test Dleto.der_residual(Γ32, D32, P) isa Float32
+
+        bb = 2^16
+        Dleto.der_residual(Γ32, D32, P; block_bytes = bb)          # compile
+        a32 = @allocated Dleto.der_residual(Γ32, D32, P; block_bytes = bb)
+        # THE ASSERTION: less than one Float64 array of the tensor's size.
+        # Measured 3.6e5 bytes against 3.5e6 here.
+        @test a32 < 8 * length(G32)
+
+        # And it is bounded by the BLOCK, not by the tensor: doubling the
+        # tensor must not double the bytes.
+        Γb, Db, Gb = make(Float32, (60, 60, 80, 3))
+        @test length(Gb) == 2 * length(G32)                        # the premise
+        Dleto.der_residual(Γb, Db, P; block_bytes = bb)
+        ab = @allocated Dleto.der_residual(Γb, Db, P; block_bytes = bb)
+        @test ab < 8 * length(Gb)
+        @test ab < 1.6 * a32
+
+        # No promotion, stated as a scaling law: at a block big enough to hold
+        # the whole tensor the buffers ARE the tensor, and a Float32 run then
+        # allocates about half what the same shape does in Float64.  It could
+        # only fail to if something Float64-sized were being made either way.
+        Γ64, D64, _ = make(Float64, dims)
+        Dleto.der_residual(Γ32, D32, P)
+        Dleto.der_residual(Γ64, D64, P)
+        f32 = @allocated Dleto.der_residual(Γ32, D32, P)
+        f64 = @allocated Dleto.der_residual(Γ64, D64, P)
+        @test f32 < 0.6 * f64
+    end
+end

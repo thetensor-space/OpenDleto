@@ -620,6 +620,30 @@ end
 # matrix-free branch, where the whitening has to hold up against an iterative
 # null solver rather than a dense SVD.  `QDN_APPLY_COUNT` is the counter the
 # scaling sweeps read; check it actually counts.
+#
+# TWO THINGS ARE PINNED HERE, and neither used to be.
+#
+# THE SOLVER.  The matrix-free branch takes whatever matrix-free solver is
+# REGISTERED, and that depends on the environment: ARPACK is a weakdep and is
+# not in this project's manifest, so a plain `runtests.jl` process meets
+# KrylovKit's block Lanczos while a `bench/jl` process that stacked an
+# environment carrying Arpack meets ARPACK.  Two different code paths, one
+# testset, and a green run that means different things in different places.
+# `:KrylovSolver` is a hard dep, so pinning it makes this test say the same
+# thing everywhere.
+#
+# THE SEED, which now reaches the null solver (`QuickDerMethod`'s `seed` is
+# passed to `solve_nullspace`, which fixes the Krylov start block -- see
+# `Dleto.wants_seed`) instead of being decided by wherever the global RNG
+# happened to be.  That makes the testset reproducible, and it makes visible
+# what was already true: at d = 12 block Lanczos loses null vectors when the
+# block is a large fraction of the restricted dimension (see its own dense
+# gate in ext/DletoKrylovKitExt.jl).  Sweeping the seed 1..24 on this tensor,
+# unwhitened returns the full 3 on 20 of 24 and whitened on 22 of 24.  The
+# seed must be one where BOTH branches converge, or this compares an answer
+# against a breakdown instead of testing that the two branches agree.  4242 is
+# one of the unwhitened failures; 4243 is not.  The failure itself is pinned
+# separately, just below.
 @testset "whiten: matrix-free branch agrees and counts its applies" begin
     if !QUICKDER_AVAILABLE
         @test_skip false
@@ -633,7 +657,8 @@ end
             results = Dict{Bool,Any}()
             for w in (false, true)
                 Dleto.QDN_APPLY_COUNT[] = 0
-                basis = der(get_derivation_method(:QuickDer; whiten = w, seed = 4242),
+                basis = der(get_derivation_method(:QuickDer; whiten = w, seed = 4243,
+                                                   solver = :KrylovSolver),
                             Ω, P, Γ; tol = QD_TOL)
                 results[w] = (; basis, applies = Dleto.QDN_APPLY_COUNT[])
                 Dleto.QDN_APPLY_COUNT[] = -1
@@ -652,6 +677,52 @@ end
         finally
             Dleto.QDN_DENSE_BUDGET_BYTES[] = saved
             Dleto.QDN_APPLY_COUNT[] = -1
+        end
+    end
+end
+
+# --- an empty answer from a failed solve is a failure, not an answer -----
+#
+# The silent case, and it was live: at d = 12, forced matrix-free, UNWHITENED,
+# seed 4242, KrylovKit's block Lanczos breaks down (`DomainError with
+# -3.09e-19` out of its Cholesky-type block normalisation), the single-vector
+# Arnoldi fallback returns restricted nullity 7 of 13 -- every value converged,
+# so the old code called it `certified` -- those 7 lift to universal
+# derivations that miss `Ω` entirely, and QuickDer reported ZERO derivations of
+# a true three.  Not an error: a confident empty answer.
+#
+# Two things now stop it.  The Arnoldi fallback reports `converged = false`,
+# because `info.converged` counts Ritz pairs that met a residual test and says
+# nothing about how many COPIES of a repeated eigenvalue were found -- and a
+# null space IS a repeated eigenvalue.  And `_qdn_empty_result` refuses to
+# return an empty derivation space from a non-`:ok` solve, so `:Auto` falls
+# back to SylverLining, which is exact.
+@testset "QuickDer: an empty answer from a non-converged solve raises" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        Random.seed!(20260924)
+        inp = build_sphere(12; valence = 3)
+        Ω, P, Γ = inp.Ω, Matrix{Float64}(inp.ch), inp.Γ
+        saved = Dleto.QDN_DENSE_BUDGET_BYTES[]
+        try
+            Dleto.QDN_DENSE_BUDGET_BYTES[] = 0.0
+            # :QuickDer alone must RAISE rather than report an empty space.
+            @test_throws ErrorException der(
+                get_derivation_method(:QuickDer; whiten = false, seed = 4242,
+                                      solver = :KrylovSolver),
+                Ω, P, Γ; tol = QD_TOL)
+            @test Dleto.QDN_LAST_SOLVE_STATUS[] !== :ok
+            # ... and :Auto turns that raise into the right answer.
+            auto = der(get_derivation_method(:Auto; whiten = false, seed = 4242,
+                                             solver = :KrylovSolver),
+                       Ω, P, Γ; tol = QD_TOL)
+            @test length(auto) == 3
+            for D in auto
+                @test der_residual(Γ, D, P) < RESID64
+            end
+        finally
+            Dleto.QDN_DENSE_BUDGET_BYTES[] = saved
         end
     end
 end

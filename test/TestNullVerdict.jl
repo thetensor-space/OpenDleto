@@ -211,7 +211,7 @@ end
     end
 end
 
-# --- the solver's own word, kept apart from the verdict on the spectrum ----
+# --- the solver's own word, and what it does to the certificate ------------
 #
 # The failure this pins was live and silent: an iterative solver that converges
 # to NOTHING returns Ritz values stalled well above zero, the gap test reads
@@ -219,6 +219,13 @@ end
 # `nullity 0, certified` -- indistinguishable from the legitimate "this tensor
 # conforms to no pattern".  Measured on the whitened restricted map at d = 300
 # and d = 500 valence 3, block Lanczos, spectrum stalled at 1.1e-9 relative.
+#
+# `status` records what the solver did, and it now also CLEARS `certified`.
+# The two words answer different questions -- `status` is about the solver,
+# `undecidable`/`data_floor` is about the data -- and they are independent
+# reasons the spectrum is not evidence, but neither of them leaves a
+# certificate standing.  The numbers (nullity, gap, spectrum, below/above) are
+# reported exactly as computed either way.
 #
 # Two stub solvers, because the point is the PLUMBING and a real
 # non-convergence is neither deterministic nor cheap: one reports
@@ -252,10 +259,20 @@ Dleto.solve(::StubSilentSolver, L::LinearMaps.LinearMap; nv::Integer = 10, kwarg
         logs = Test.collect_test_logs() do
             res = solve_nullspace(L, StubStalledSolver(); tol = 1e-6, nv0 = 6)
         end |> first
-        # The verdict on the SPECTRUM is unchanged -- there is genuinely
-        # nothing near zero in it, and certifying that is correct.
+        # The NUMBERS on the spectrum are unchanged: there is genuinely
+        # nothing near zero in it, the gap rule finds the cut at 0, and the
+        # caller still sees the cut and the values around it.
         @test res.verdict.nullity == 0
-        @test res.verdict.certified
+        @test res.verdict.gap >= GAP_RATIO        # the spectrum's own verdict
+        # But the CERTIFICATE is withheld, and this assertion is the one that
+        # changed.  It used to read `@test res.verdict.certified`, on the
+        # argument that certification is a statement about the spectrum alone.
+        # It is -- but the spectrum a failed solve returned is not the spectrum
+        # of the operator: unconverged Ritz values sit ABOVE their true
+        # eigenvalues, so a stalled cluster produces a textbook gap over
+        # nothing.  That is exactly this stub, and it is the measured d = 300
+        # block-Lanczos case.  A solve that did not converge cannot certify.
+        @test !res.verdict.certified
         # The verdict on the SOLVER is the new word, and it is the one that
         # says this is a failure and not an empty null space.
         @test res.verdict.status === :unconverged

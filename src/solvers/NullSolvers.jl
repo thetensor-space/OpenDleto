@@ -10,6 +10,7 @@
 
 using LinearMaps
 using LinearAlgebra
+using Random
 
 
 
@@ -200,6 +201,40 @@ find larger null spaces; the doubling costs at most one extra solve's worth.
 initial_request(::NullSolver) = 16
 initial_request(solver::NullSolver, L) = initial_request(solver)
 
+"""
+    wants_seed(::NullSolver) -> Bool
+
+Whether this solver accepts a `seed` keyword and uses it to fix its RANDOM
+START.  Default `false`.
+
+Every Krylov and block method here begins from a random vector or block, and
+none of them draws it from a stream the caller controls: ARPACK keeps its start
+vector's seed inside the Fortran library across calls, KrylovKit's block came
+from `randn` on the task-local default RNG, and LOBPCG generates its own `X0`.
+So the same input, the same tolerance and the same request could give a
+DIFFERENT null space on the second call in one process -- measured on the
+whitened restricted map at d = 48 in Float32, three identical calls returned
+nullity 2, 3, 3.  That is not noise to be averaged over: it means a benchmark
+row and a test assertion are both only reproducible one call per process, and
+that a Float32 undercount cannot be attributed to the code that shows it.
+
+`solve_nullspace` therefore forwards its own `seed` only to the solvers whose
+trait says `true`, because most `solve` methods take a fixed keyword list and
+a dense factorization has no random start to fix.  A seeded solver must be
+bit-reproducible: same map, same `seed`, same `nv` and `tol` -> same values.
+"""
+wants_seed(::NullSolver) = false
+
+"""
+    seed_opts(solver, seed) -> NamedTuple
+
+`(; seed = seed)` when `solver` takes one and `seed` is not `nothing`, and the
+empty NamedTuple otherwise -- so a `seed` may be splatted into any `solve` call
+without knowing whether that solver has the keyword.
+"""
+seed_opts(solver::NullSolver, seed) =
+    (seed === nothing || !wants_seed(solver)) ? (;) : (; seed = seed)
+
 struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
@@ -308,6 +343,9 @@ AutoSolver(; dense = SVDSolver(), dense_limit = DENSE_LIMIT,
 
 # Both of these take the rectangular map and reshape it themselves.
 wants_square(::AutoSolver) = false
+# Takes a `seed` and hands it on to whichever solver it picks, if that one
+# wants it (`seed_opts` in its own `solve` below).
+wants_seed(::AutoSolver) = true
 densifies(m::AutoSolver, L) =
     dense_is_cheap(L; dense_limit = m.dense_limit,
                    dense_budget_bytes = m.dense_budget_bytes) &&
@@ -369,10 +407,10 @@ it delegates to are eigensolvers; when handed a rectangular `L` it forms
 condition number, which is the price of never densifying, and is why the dense
 branch is preferred whenever it fits.
 """
-function solve(m::AutoSolver, L::LinearMap; nv::Integer = 10, kwargs...)
+function solve(m::AutoSolver, L::LinearMap; nv::Integer = 10, seed = nothing, kwargs...)
     if dense_is_cheap(L; dense_limit = m.dense_limit,
                       dense_budget_bytes = m.dense_budget_bytes)
-        return solve(m.dense, L; nv = nv, kwargs...)
+        return solve(m.dense, L; nv = nv, seed_opts(m.dense, seed)..., kwargs...)
     end
 
     free = matrix_free_solvers(L)
@@ -387,7 +425,7 @@ function solve(m::AutoSolver, L::LinearMap; nv::Integer = 10, kwargs...)
     # the square: `LSMRSolver` exists to take the rectangular map unsquared.
     chosen = SOLVER_REGISTRY[first(free)]
     S = (wants_square(chosen) && size(L, 1) != size(L, 2)) ? L' * L : L
-    return solve(chosen, S; nv = nv, kwargs...)
+    return solve(chosen, S; nv = nv, seed_opts(chosen, seed)..., kwargs...)
 end
 
 # ---------------------------------------------------------------- the verdict
@@ -405,23 +443,45 @@ see for itself.  Every value is RELATIVE to the operator norm `scale`.
                 below `threshold` was used) or `:fixed` (the caller asked
                 for `nd > 0` vectors; the threshold count, capped at `nd`)
 - `certified`   `true` only for `:gap`, or for a nullity of 0 whose smallest
-                value is `gap_ratio` above the threshold.  This is a statement
-                about the SPECTRUM and about nothing else
+                value is `gap_ratio` above the threshold -- AND only when
+                `status` is `:ok` and `undecidable` is 0.  The gap rule is a
+                statement about the spectrum; the other two are the two
+                independent ways that spectrum can fail to be evidence, and
+                either of them alone is enough to withhold the certificate:
+
+                * `status != :ok` is about the SOLVER.  A solve that did not
+                  converge, or that ran out of room before it bracketed the
+                  cut, did not compute the spectrum it appears to have
+                  computed -- unconverged Ritz values sit above their true
+                  eigenvalues, so a clean-looking jump between two of them
+                  certifies nothing.  Measured on the whitened restricted map
+                  at d = 300 valence 3: block Lanczos converged NOTHING,
+                  returned 16 values stalled at 1.1e-9 relative, and that
+                  spectrum reads `nullity 0` with a textbook gap.
+                * `undecidable > 0` is about the DATA.  The arithmetic
+                  converged, but values it calls nonzero lie below the
+                  resolution of the numbers the caller handed in, so rounding
+                  the input could have created or destroyed them.
+
+                They answer different questions and neither implies the other:
+                a Float16 tensor solved exactly is `:ok` and undecidable, and a
+                stalled Float64 solve is decidable and not `:ok`.  The numeric
+                fields (`gap`, `spectrum`, `below`, `above`, `nullity`) are
+                untouched by either -- the cut and the numbers around it are
+                reported as computed, and only the CERTIFICATE is withheld
 - `status`      what the SOLVER did: `:ok`, `:unconverged` (it reported that it
                 did not converge everything it was asked for) or `:capped`
                 (the escalation reached the dimension of the space without ever
-                bracketing the cut).  A caller has to read both words, because
-                they answer different questions and a non-converged solve can
-                perfectly well produce a spectrum with a clean gap in it --
-                which is exactly the failure this field exists for.  Measured
-                on the whitened restricted map at d = 300 valence 3: block
-                Lanczos converged NOTHING, returned its 16 Ritz values stalled
-                at 1.1e-9 relative, and the verdict on that spectrum was
-                `nullity 0, certified`.  Nullity 0 is a legitimate answer
-                ("Γ conforms to no pattern for this chisel") and cannot be
-                escalated away, so the only defence is for the solver to say
-                whether it converged and for the caller to refuse to read
-                silence as "no derivations"
+                bracketing the cut).  It clears `certified` (see above), and it
+                is still worth reading on its own: a caller that falls back to
+                another method has to distinguish "I failed" from the
+                legitimate answer "Γ conforms to no pattern for this chisel",
+                and `certified = false` alone does not say which.
+                `_qdn_solve_and_lift` and `AutoDerMethod` branch on this field,
+                not on the certificate.  Nullity 0 cannot be escalated away, so
+                the only defence is for the solver to say whether it converged
+                and for the caller to refuse to read silence as "no
+                derivations"
 - `gap`         the ratio at the cut, `spectrum[nullity+1] / max(spectrum[nullity], floor)`
                 (for nullity 0: `spectrum[1] / threshold`); `NaN` if nothing
                 was returned above the cut
@@ -587,10 +647,20 @@ function gap_verdict(vals::AbstractVector, scale::Real;
     end
     gap = ratio_at(cut)
 
-    # The data's own noise vetoes certification (but never the cut): values
-    # above the cut that sit below `data_floor` are not evidence of anything.
+    # TWO INDEPENDENT VETOES, and neither moves the cut.
+    #
+    # The data's own noise: values above the cut that sit below `data_floor`
+    # are not evidence of anything, because rounding the input to its own
+    # precision could have created or destroyed them.
     undecidable = count(v -> v < data_floor, @view rel[(cut + 1):end])
-    certified = certified && undecidable == 0
+    # The solver's own word: a solve that did not converge, or that ran out of
+    # room before it bracketed the cut, did not compute the spectrum it appears
+    # to have computed.  Unconverged Ritz values sit ABOVE their true
+    # eigenvalues, so the jump between two of them can look like a textbook
+    # gap and mean nothing -- see `NullVerdict`'s `status` for the measured
+    # case.  `gap_verdict` is usually called before the status is known and
+    # `_with_status` applies the same veto when it is stamped later.
+    certified = certified && undecidable == 0 && status === :ok
 
     take(r) = rel[r]
     return perm, NullVerdict(cut, rule, certified, status, gap, Float64(gap_ratio), floor,
@@ -615,20 +685,25 @@ solver_converged(result) = !hasproperty(result, :converged) || result.converged 
 """
     _with_status(v, status) -> NullVerdict
 
-`v` with its `status` replaced.  `gap_verdict` reads the spectrum and can know
-neither whether the solver converged nor whether the escalation ran out of
-room, so `solve_nullspace` decides those after its bracket test and stamps the
-word here.
+`v` with its `status` replaced, and `certified` cleared with it when the new
+status is not `:ok`.  `gap_verdict` reads the spectrum and can know neither
+whether the solver converged nor whether the escalation ran out of room, so
+`solve_nullspace` decides those after its bracket test and stamps the word
+here -- which means the certificate has to be re-decided here too, on the same
+rule `gap_verdict` applies when it is told the status up front.  Only ever
+withdraws a certificate; a `:ok` stamp cannot restore one that the spectrum or
+the data floor already refused.
 """
 _with_status(v::NullVerdict, status::Symbol) =
-    NullVerdict(v.nullity, v.rule, v.certified, status, v.gap, v.gap_ratio, v.floor,
+    NullVerdict(v.nullity, v.rule, v.certified && status === :ok, status, v.gap,
+                v.gap_ratio, v.floor,
                 v.floor_binding, v.data_floor, v.undecidable, v.threshold, v.near_null,
                 v.below, v.above, v.spectrum, v.scale, v.requested)
 
 export NullVerdict, gap_verdict
 
 """
-    solve_nullspace(L, solver; tol, atol, nd, nv0, gap_ratio, min_above)
+    solve_nullspace(L, solver; tol, atol, nd, nv0, gap_ratio, min_above, seed)
         -> (; vals, vecs, verdict)
 
 A null-space basis, asking an iterative solver only for as many vectors as the
@@ -652,7 +727,10 @@ proportional to the true nullity, not to the dimension of the space.
 HOW THE NULLITY IS DECIDED -- see `gap_verdict`.  The values are sorted,
 floored at `precision_floor(T) * ‖L‖`, and cut at the largest consecutive
 ratio when that ratio clears `gap_ratio` (default `GAP_RATIO`); the result
-is then `certified`.  `tol` is a CEILING: only values below
+is then `certified`, unless the solver reported a non-`:ok` `status` or the
+data cannot resolve a value above the cut (`undecidable`), either of which
+withholds the certificate while leaving the count and the numbers as
+computed.  `tol` is a CEILING: only values below
 `max(tol, precision_floor(T)) * ‖L‖` can be counted null, so the gap refines the old
 fixed count and never exceeds it.  When no jump clears `gap_ratio` the old
 count is used, the verdict is uncertified, and a warning names the values
@@ -680,8 +758,9 @@ null space and then some" from "converged to nothing at all" -- both look like
 values above the cut -- so a non-converging iterative solver used to report
 "no solutions" rather than "I failed", silently.  It no longer does: the
 solvers that know whether they converged say so (`solver_converged`), the
-verdict carries that as `status` (`:ok`, `:unconverged`, `:capped`), and the
-nullity-0-from-a-failed-solve combination is a `@warn`.  Callers must treat a
+verdict carries that as `status` (`:ok`, `:unconverged`, `:capped`), a
+non-`:ok` status clears `certified`, and the nullity-0-from-a-failed-solve
+combination is a `@warn`.  Callers must treat a
 non-`:ok` status with nullity 0 as a failure to fall back from, never as an
 empty null space; `_qdn_solve_and_lift` does exactly that.
 
@@ -691,12 +770,24 @@ a single-vector Krylov method finds one copy per start vector and the rest by
 luck.  Both Krylov extensions now guarantee this (ARPACK by requesting at
 least 16 pairs, `KrylovSolver` by a block as wide as the request); see their
 docstrings and bench/reports/krylov-calibration.md for the measurements.
+
+`seed` makes an iterative solve REPRODUCIBLE by fixing its random start; it
+reaches only the solvers whose `wants_seed` trait takes it, and without it a
+repeated call in one process can land on a different null space (see
+`wants_seed`).  It changes no numerics -- the start vector is arbitrary either
+way -- so it is the right thing to pass from any caller that has a seed of its
+own, as `QuickDerMethod` does.
 """
 function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          tol::Real = TOL_DEFAULT, atol::Union{Nothing,Real} = nothing,
                          nd = -1, nv0::Union{Nothing,Integer} = nothing,
                          gap_ratio::Real = GAP_RATIO, min_above::Integer = 2,
                          squared::Bool = false,
+                         # Fixes the random START of a Krylov or block solver,
+                         # so that two calls on the same map in one process
+                         # agree.  Forwarded only to solvers whose `wants_seed`
+                         # trait says they take it; see `wants_seed`.
+                         seed::Union{Nothing,Integer} = nothing,
                          # The type the DATA was handed in as, which is not
                          # `eltype(L)` when a caller promoted it to solve (a
                          # Float16 tensor solved in Float32).  Only the data
@@ -758,7 +849,14 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # four lines comes from src/solvers/Precision.jl -- see `tol_default`,
     # `precision_floor` and `data_floor` there for the measurements.
     RT = real(eltype(L))
-    scale = max(sqrt(max(opnorm_estimate(L' * L; iters = 10), 0.0)), eps(RT))
+    # Seeded when the caller gave a seed: see `opnorm_estimate`, whose random
+    # start is the other half of making a solve reproducible.  Its own stream,
+    # not the solver's, so that changing one does not move the other.
+    scale = max(sqrt(max(opnorm_estimate(L' * L; iters = 10,
+                                         rng = seed === nothing ?
+                                               Random.default_rng() :
+                                               MersenneTwister(seed + 1)), 0.0)),
+                eps(RT))
     rel_threshold = atol === nothing ?
         tol_default(RT; tol = tol, squared = want_squared) :
         Float64(atol) / scale
@@ -791,7 +889,7 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             # NOTE the argument order: the instance form is `solve(method, L)`
             # while the symbol form is `solve(L, sym)`.  Reversed relative to
             # each other, which is a wart in the existing interface.
-            result = solve(solver, Lp; nv = k, kwargs...)
+            result = solve(solver, Lp; nv = k, seed_opts(solver, seed)..., kwargs...)
             vals = result.vals
             vecs = result.vecs
             solver_ok = solver_converged(result)
@@ -867,10 +965,15 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             end
 
             if bracketed
-                # THE SOLVER'S OWN WORD, kept separate from the verdict on the
-                # spectrum (see `NullVerdict`'s `status`).  `:capped` is the
-                # other way out of this loop without an answer: the request
-                # reached the dimension of the space and the cut was still not
+                # THE SOLVER'S OWN WORD (see `NullVerdict`'s `status`), which
+                # is also the moment the certificate is decided: a non-`:ok`
+                # status clears `certified`, because the spectrum a failed
+                # solve returned is not the spectrum of the operator.  The
+                # NUMBERS are left exactly as computed -- the caller still sees
+                # the cut, the gap and the values around it, and can judge them
+                # -- only the certificate is withheld.  `:capped` is the other
+                # way out of this loop without an answer: the request reached
+                # the dimension of the space and the cut was still not
                 # bracketed, so the count returned is whatever fitted.
                 verdict = _with_status(verdict,
                                        !solver_ok ? :unconverged :
@@ -888,9 +991,10 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                           "solver, a preconditioner, or a larger request." maxlog = 1
                 elseif verdict.status !== :ok
                     @info "$label: nullity $(verdict.nullity) from a solver that " *
-                          "reported :$(verdict.status); the count may be short. The " *
-                          "vectors returned still stand or fall on their own " *
-                          "residual." maxlog = 1
+                          "reported :$(verdict.status); the count may be short and " *
+                          "the verdict is UNCERTIFIED for that reason, whatever the " *
+                          "spectrum looks like. The vectors returned still stand or " *
+                          "fall on their own residual." maxlog = 1
                 end
                 if want_all && verdict.undecidable > 0
                     # Honest failure, and the one Float16 is for: the
@@ -909,6 +1013,11 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                           "$(verdict.nullity + verdict.undecidable). Values around the " *
                           "cut: $(verdict.below) | $(verdict.above). Store the tensor " *
                           "in a wider type to decide it." maxlog = 1
+                elseif want_all && !verdict.certified && verdict.status !== :ok
+                    # Already reported, one line up: the certificate is withheld
+                    # because of the SOLVER, and blaming the spectrum here would
+                    # be wrong -- a capped run can have a textbook gap in it.
+                    nothing
                 elseif want_all && !verdict.certified
                     @warn "$label: nullity $(verdict.nullity) is UNCERTIFIED -- no gap " *
                           "of $(gap_ratio)x in the spectrum below the threshold " *
@@ -1057,15 +1166,23 @@ function cg_solve(M, b::AbstractVector; tol::Real = 1e-10, maxiter::Integer = 50
 end
 
 """
-    opnorm_estimate(M; iters=20) -> Real
+    opnorm_estimate(M; iters=20, rng=Random.default_rng()) -> Real
 
 Rough largest eigenvalue of a symmetric `LinearMap` by power iteration.  A
 handful of matvecs; only the order of magnitude is needed.
+
+`rng` is the SECOND unseeded random start in a null solve, and it is not
+harmless: this estimate is the `scale` every relative number in a
+`NullVerdict` is divided by AND the scale the null threshold is multiplied by,
+so an unseeded start makes the reported spectrum -- and, when a value sits near
+the threshold, the nullity itself -- differ between two identical calls.  Pass
+a seeded `rng` (as `solve_nullspace` does when given a `seed`) to make the
+whole verdict a function of its arguments.
 """
-function opnorm_estimate(M; iters::Integer = 20)
+function opnorm_estimate(M; iters::Integer = 20, rng = Random.default_rng())
     n = size(M, 2)
     T = eltype(M)
-    v = randn(T, n)
+    v = randn(rng, T, n)
     v ./= norm(v)
     λ = zero(real(T))
     for _ in 1:iters

@@ -57,95 +57,16 @@ const THREAD_NOTE = "# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS 
 """
     der_residual(Γ, D, P)
 
-`‖Σ_a P[ρ,a]·(Γ ×_a D_a)‖ / (‖Γ‖·max_a‖D_a‖)`, the same definition as
-test/TestDerivationLaws.jl -- computed on ONE extra copy of the tensor, in the
-tensor's own element type.
+`Dleto.der_residual`, under the name every bench script in this directory
+already calls.
 
-WHY THIS IS NOT `applyDerivation`, which is what it used to call.  That route
-goes through ITensor contraction, so it materialises a full `d^n` intermediate
-per axis and accumulates them, AND it promotes: the chisel `P` is Float64, so a
-Float32 tensor is contracted in Float64 and every intermediate is twice its
-size.  The bill is about `2(n+1)` tensor copies, and it lands on the BENCHMARK
-and not on the solver -- which is why the harness's peak RSS was 15 to 20 times
-the tensor on shapes where the stratification itself is a fraction of it.
-Measured: valence-4 sphere d = 150 Float64, whitened matrix-free, peaks at
-6.2 GB through `bench/MemoryProfile.jl` (which does not score) and was killed
-at 18.7 GB through this harness (which did).  On the user's target shape, a
-640x480x1800x3 Float32 movie is 6.6 GB and the old route wanted ~66 GB of
-Float64 intermediates to check an answer that fits in far less.
-
-So: read the tensor and the operators as plain arrays in Γ's own type, and
-accumulate `Σ_a P[ρ,a]·(Γ ×_a D_a)` with `Dleto._qdn_ttm!`'s `α`/`β` -- in
-BLOCKS along the longest axis, so the working set is `block_bytes` and not the
-tensor.  The block trick is that for a block `q` of axis `c` the output block
-`E[..., q, ...]` needs only `G[..., q, ...]` for every term `a ≠ c`, and for
-`a = c` it is exactly `G ×_c D_c[:, q]` -- so no term ever needs a full extra
-copy.  Two blocks of 256 MB replace `2(n+1)` tensors, whatever the tensor's
-size, and nothing is promoted.
-
-If the operators cannot be matched to axes by index (anything other than one
-two-index operator carrying each frame index) this falls back to the old route
-rather than guess.
+This used to be a local implementation, and moving it into `src/` is the
+point: the Z-law check is what any CONSUMER of the package runs on an answer
+(the downstream video project included), not a benchmark detail.  Its history
+-- why it is not `applyDerivation`, and the 15-to-20x tensor footprint that
+route cost the harness -- is in `Dleto.der_residual`'s own docstring.
 """
-function der_residual(Γ::ITensor, D::Vector{ITensor}, P::AbstractMatrix)
-    fr = collect(inds(Γ))
-    n = length(fr)
-    G = ITensors.array(Γ, fr...)
-    T = eltype(G)
-    Ms = Vector{Matrix{T}}(undef, n)
-    ok = length(D) == n
-    if ok
-        for a in 1:n
-            hits = filter(t -> hasind(t, fr[a]), D)
-            others = length(hits) == 1 ?
-                     filter(i -> i != fr[a], collect(inds(only(hits)))) : Index[]
-            if length(hits) != 1 || length(others) != 1
-                ok = false
-                break
-            end
-            # The frame index FIRST, which is the index `_qdn_ttm` contracts and
-            # the convention `applyDerivation` and `embedITensors` share.
-            Ms[a] = Matrix{T}(Array(only(hits), fr[a], only(others)))
-        end
-    end
-    if !ok
-        C = Chisel(P, fr)
-        R = applyDerivation(Γ, D, C)
-        return norm(R) / max(norm(Γ) * maximum(norm.(D)), eps())
-    end
-    Pm = Matrix{T}(P)
-    RT = real(T)
-    dims = size(G)
-    ca = argmax(collect(dims))                 # block along the LONGEST axis
-    per = max(length(G) ÷ dims[ca], 1)         # entries per unit of that axis
-    step = clamp(fld(1 << 28, sizeof(T) * per), 1, dims[ca])
-    acc = zero(RT)
-    for lo in 1:step:dims[ca]
-        hi = min(dims[ca], lo + step - 1)
-        w = hi - lo + 1
-        blk = ntuple(i -> i == ca ? (lo:hi) : Colon(), n)
-        Eb = Array{T}(undef, ntuple(i -> i == ca ? w : dims[i], n))
-        Gb = Array{T}(undef, size(Eb))
-        copyto!(Gb, view(G, blk...))
-        for rho in axes(Pm, 1)
-            fill!(Eb, zero(T))
-            for a in 1:n
-                c = Pm[rho, a]
-                iszero(c) && continue
-                if a == ca
-                    # This block of the output is the whole tensor against the
-                    # selected COLUMNS of the operator on the blocked axis.
-                    Dleto._qdn_ttm!(Eb, G, view(Ms[a], :, lo:hi), a, c, one(T))
-                else
-                    Dleto._qdn_ttm!(Eb, Gb, Ms[a], a, c, one(T))
-                end
-            end
-            acc += sum(abs2, Eb)
-        end
-    end
-    scale = norm(G) * maximum(a -> norm(Ms[a]), 1:n)
-    return sqrt(acc) / max(scale, eps(RT))
-end
+const der_residual = Dleto.der_residual
 
 csv_header(path, lines...) = isfile(path) || open(path, "w") do io
     println(io, THREAD_NOTE)
