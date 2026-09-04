@@ -211,3 +211,97 @@ identically to before the generalisation.
 Files changed: `bench/SphereHarness.jl` (generalised to any valence), new
 `bench/HypersphereBaseline.jl`, new
 `bench/reports/night-2026-09-03/hypersphere-baseline-v{3,4}.csv`.
+
+### sylvester-kernel (2026-09-03)
+`sylvesterLM` now has an array kernel: plain `Array`s, preallocated scratch,
+`ismutating=true` LinearMaps, and a `SparseMatrixCSC` branch. The ITensor
+version is kept verbatim as `sylvesterLM_itensor` and is reachable as
+`backend=:itensor`; `:array` is the array kernel with dense unfoldings and
+`:auto` (the default) is the array kernel with sparse detection at
+`SYLVER_SPARSE_DENSITY = 0.05`. `derTrOpsReduced` gained a matching `backend`
+keyword so a bench can pin either kernel without editing source.
+
+Files: `src/SylverLining/SylverLining.jl` (all of the above),
+`Project.toml` (+SparseArrays, a stdlib already in the Manifest).
+
+EQUIVALENCE. `:array` and `:auto` are **bit-identical** to `:itensor` (max abs
+difference exactly 0.0) on 108 configurations: valence 3/4/5, Float64 and
+Float32, dense and sphere-octant Γ, ragged frames, Universal / Symmetric /
+Diagonal / AntiSymmetric operator spaces, universal / Tucker / centroid
+chisels, an engagement-reduced Ω (so operator `a` is not tensor axis `a`), and
+a `TransverseOpsSymmetries` space. `Matrix(densor_map)` agrees entry for entry.
+Full `test/runtests.jl` passes (exit 0, 0 fail / 0 error), including the
+transpose law and `f'∘f` sets in TestSylverLining.
+
+ONE APPLY, 2 threads, universal chisel + `UniversalOp()`, ms and bytes:
+
+| case | ester :itensor | :auto | sylve :itensor | :auto | sylvester :itensor | :auto | sylvester speedup | sylvester bytes before → after |
+|---|---|---|---|---|---|---|---|---|
+| dense v3 d=40  | 0.321 | 0.275 | 0.573 | 0.232 | 0.836 | 0.490 | **1.71x** | 6.9 MB → 384 B |
+| dense v3 d=80  | 3.105 | 3.103 | 4.118 | 2.682 | 6.782 | 5.905 | 1.15x | 49.4 MB → 384 B |
+| dense v4 d=16  | 0.536 | 0.275 | 0.404 | 0.282 | 0.692 | 0.541 | 1.28x | 9.3 MB → 448 B |
+| dense v4 d=24  | 1.400 | 1.485 | 1.757 | 1.364 | 3.079 | 2.785 | 1.11x | 53.0 MB → 512 B |
+| sphere v3 d=40 | 0.321 | 0.149 | 0.693 | 0.080 | 1.051 | 0.216 | **4.87x** | 6.9 MB → 384 B |
+| sphere v3 d=80 | 2.934 | 1.309 | 4.006 | 0.796 | 6.960 | 1.994 | **3.49x** | 49.4 MB → 384 B |
+| sphere v4 d=16 | 0.342 | 0.201 | 0.462 | 0.103 | 0.691 | 0.287 | **2.41x** | 9.3 MB → 448 B |
+| sphere v4 d=24 | 1.373 | 0.968 | 1.752 | 0.499 | 3.171 | 1.423 | **2.23x** | 63.1 MB → 512 B |
+
+Allocation per warmed-up apply is 384-512 bytes (the `mul!` transpose/reshape
+wrappers), against 5-63 MB before: a ~10^5 reduction. Forcing `:array` on the
+sphere gives the dense-branch numbers (e.g. v3 d=80 sylvester 5.774 ms), so the
+sparse branch itself is worth a further 2.0-2.9x on top of the array rewrite.
+
+END TO END, `der(:SylverLining, Γ; tol=1e-8)`, same two threads, two repeats
+(the box is shared, so the `:itensor` column is noisy):
+
+| case | :itensor | :auto | speedup | heap :itensor → :auto |
+|---|---|---|---|---|
+| dense v3 d=40  | 29.6 / 40.0 s | 28.9 / 26.9 s | 1.0-1.5x | 32.9 GB → 1.24 GB |
+| sphere v3 d=40 | 39.2 / 33.8 s | 27.0 / 19.2 s | 1.5-1.8x | 32.9 GB → 1.24 GB |
+| dense v4 d=16  | 4.78 / 1.24 s | 1.06 / 0.91 s | 1.4-4.5x | 9.3 GB → 70 MB |
+| sphere v4 d=16 | 4.60 / 1.16 s | 0.66 / 0.60 s | 2.0-7.0x | 9.3 GB → 71 MB |
+
+Nullities agree with `:itensor` in every case (2, 13, 3, 13). The valence-3
+d=40 rows are held back by the solve, not the kernel: `AutoSolver` densifies
+the 4800x4800 Gram operator and the dense SVD of it is ~20 s of the wall time.
+
+WHAT MADE THE DIFFERENCE, for whoever tunes this next. The mode-`p` unfolding
+convention is not cosmetic. Writing it as `(N/d_p) x d_p` -- other axes
+column-major in the ROWS, `p` in the columns -- makes the mode product
+`Γ_(p)·M` and the adjoint `Γ_(p)ᵗ·Z`, which are the two CSC products
+SparseArrays has good kernels for. The natural-looking other convention (axis
+`p` first) gives `Mᵗ·Γ_(p)`, i.e. dense x sparse, which SparseArrays does NOT
+have a good kernel for -- at valence 3, d = 80, sphere density it measured
+**0.49 ms against 0.14 ms**, barely better than the 0.82 ms dense GEMM it was
+supposed to replace. Dense GEMM is indifferent to the choice (0.82 ms either
+way). This chosen convention also makes the permutation the identity on the
+LAST axis, so one axis per apply needs no `permutedims` at all; and when the
+chisel has one row (universal and adjoint chisels -- every solve `der` and
+`stratify` actually run) the residual is its own chisel-collapse up to a
+scalar, so that scalar rides in the GEMM's `α`, `sylve` needs no gemv, and
+`ester` accumulates straight into the residual. Those two together were worth
+more than the sparse branch on the dense inputs.
+
+Also folded in, at the coordinator's request: `derTrOpsReduced` hands
+`solve_nullspace` the SQUARE map with `squared=true` again instead of the
+rectangular `ester_map`.
+
+BUG FOUND ELSEWHERE (not fixed). `src/ops/TransverseOpsSymmetries.jl:102-103`:
+the two-argument constructor
+`TransverseOpsSymmetries(fr::Vector{Index}, localOp::Operator)` forwards an
+undefined variable `symmetries`, so any call to it is an immediate
+`UndefVarError`. Nothing calls it today. (`IndTransverseOps` has the working
+twin at TransverseOpsIndependant.jl:75.)
+
+NOT DONE. AppleAccelerate was skipped -- there is no way to try it without
+either touching `Project.toml`'s dependency set or standing up a scratch
+environment and a `LOAD_PATH` hack, and the dense cases are already within a
+few percent of the GEMM floor, so the upside is bounded by the ~30% of a dense
+apply that is not GEMM.
+
+HOUSEKEEPING for the orchestrator: this agent's worktree was created off `main`
+(40b20d5), not off `aint-no-mountain-high-enough/valence-n-stratify` (e18b65f),
+so `src/SylverLining/SylverLining.jl` did not even exist in it. The 25 changed
+source files were re-materialised from e18b65f by hand before any work started;
+the diff to merge is `src/SylverLining/SylverLining.jl` and `Project.toml`
+only.

@@ -32,6 +32,14 @@ module Dleto
 # Linear Algebra libraries
 import LinearAlgebra
 import ITensors
+# KrylovKit and IterativeSolvers are hard dependencies whose solver extensions
+# (DletoKrylovKitExt, DletoIterativeSolversExt) only activate once the trigger
+# package is loaded.  Loading them here means :KrylovSolver, :LanczosSolver,
+# :CGSolver and :LSMRSolver are always registered, so `AutoSolver` sees the
+# matrix-free solvers it was tuned with instead of falling back to a dense SVD.
+# Arpack stays a weak dependency: `using Arpack` adds :ArpackSolver.
+import KrylovKit
+import IterativeSolvers
 
 # # Plotting libraries
 # import Plots
