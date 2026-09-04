@@ -2,7 +2,8 @@
 
 Purpose: hand this file to a new chat so it starts with the context of prior sessions.
 Keep it updated as work progresses. Last updated 2026-09-04 (session 4: the whitened
-restriction; session 3: valence-n stratification -- see the sections of those names).
+restriction, then the memory wall; session 3: valence-n stratification -- see the
+sections of those names).
 
 ## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
 
@@ -90,6 +91,110 @@ line.  Valence 3 reaches d = 500 and valence 4 d = 100 in Float64.
 New knob for the next session: `Dleto.QDN_APPLY_COUNT[] = 0` before a call counts the
 matrix-free applies the restricted solve took (forward + adjoint), so iteration count is
 readable directly instead of inferred from wall time.
+
+### Session 4, part 2 (afternoon): the memory wall, and three honesty fixes
+
+Branch `we-gotta-hold-on-to-what-weve-got/qdn-memory-frontier` off
+`feature/under-pressure/2026-09-04`.  Numbers: `bench/reports/2026-09-04/whitened/`
+(README sections "Memory: where the frontier's bytes actually were" and
+"Honesty"), profiler `bench/MemoryProfile.jl`.
+
+**The memory wall was the harness, not the solver, and not where reading the
+code said.**  Measured at d = 500 valence 3 (one copy 0.93 GB): the build peaks
+at 10.3 GB of the run's 12.1, and the whole of QuickDer adds 1 GB on top.  Six
+copies live at the worst moment for a pipeline that needs one, and the biggest
+single term is `nondeg` -- a full `d^{n-1} x d` SVD per axis, which forms the
+unfolding AND its left factor: 25 GB of churn, 4.7 GB of peak.
+`_qdn_pair_tensor`'s per-axis transpose, the other named suspect, is 80 MB at
+d = 500; it is fatal only at d = 1000, where the same transpose is 8 GB.
+
+Fixed: `_qdn_ttm` never permutes its input (axis 1 and axis `N` are reshapes,
+so single GEMMs; a middle axis runs `back` GEMMs on contiguous slices), plus
+`_qdn_ttm!` (two buffers) and `_qdn_ttm_square!` (ONE buffer -- a block of
+slices into 64 MB and copy back, which every square mode product can use).
+`build_sphere` takes a lean path above `SPHERE_LEAN_BYTES` (256 MB per copy):
+plain arrays, one tensor-sized buffer, `nondeg`'s axis bases by tall-skinny QR
+(`_tsqr_axis_basis`: `R` is `d x d`, one 64 MB block, full precision, a third
+of `gesdd`'s flops), `itensor` rather than `ITensor` at the boundary, and the
+original sphere dropped unless `keep_S` asks.  The lean input is the same family
+up to a per-axis orthogonal change of basis, not the same array; `-lean` marks
+those CSV rows.
+
+Also memory: the trivial derivations of a rank-deficient mode are published
+FACTORED (`QDN_TRIVIAL_FACTORED`, one `(; axis, K)` per axis, meaning
+`X_axis = K v e_q'`) and written out as operator tuples only up to
+`QDN_TRIVIAL_MAX_BYTES` (256 MB), warning and naming the field when that
+truncates.  At d = 500 with one degenerate mode the write-out was 3 GB of zeros
+to describe a 2 MB matrix.  The degenerate 40^3 case still reports its full 82
+at 8.4e-16.
+
+**FRONTIER MOVED AGAIN.**  Whitened, matrix-free, ARPACK, Float64, scrambled
+sphere: **valence 3 d = 1000 in 552 s at a 13.70 GB peak**, nullity 3, Z-law
+residual 7.19e-13 (r = [57,56,56], 178752 x 168000 restricted system, 56388
+applies) -- the goal for this size was "500..1000 within an hour" -- and
+**valence 4 d = 150 in 31 s at 7.29 GB and d = 200 in 181 s at 17.35 GB**
+(nullity 4, residuals 1.63e-13 and 1.33e-11), against the morning's d = 500 and
+d = 100 ceilings -- the morning's own estimate table put valence 4 d = 200 at
+35.8 GB and "over budget, not attempted".  At valence 4 the solve is now 9.6 s
+of d = 200's 181 s, so the remaining cost is the build and the Z-law check, not
+the solver.  d = 200 reproduces the morning's
+row to the digit (38262 applies, 3.249e-10), which is the regression check on
+every change here: the mode-product rewrite, the in-place kernels, the
+preallocated apply and the rewritten Z-law check are numerically identical, not
+merely close.  On the user's own video shape, 640x480x300x3 Float32 was killed
+at 13.1 GB this morning and now peaks at 4.06 GB in 43.9 s.
+
+Honesty, three items:
+
+* A non-converging iterative solve reported an empty null space rather than a
+  failure.  The solvers that know now say so (`ArpackSolver` from `nconv`,
+  `CGSolver` from LOBPCG's flag, `KrylovSolver` from `info.converged`) and
+  `NullVerdict` carries it as `status` -- `:ok` / `:unconverged` / `:capped`,
+  kept separate from `certified`, which is a statement about the spectrum
+  alone.  `_qdn_solve_and_lift` declines a non-`:ok` solve that returned
+  nothing, so `:Auto` falls back to SylverLining.  Block Lanczos on the
+  whitened restricted map at d = 300 and 500 is the measured case: it converges
+  nothing, stalls at 1.1e-9 relative, and its spectrum reads `nullity 0,
+  certified`.
+* The d = 300 apply anomaly (76810 applies against d = 500's 51116) is NOT the
+  `nv` escalation.  The restricted system there has a 13-dimensional numerical
+  near-null space against 3 true derivations; the escalation chases it
+  correctly and the lift filter cuts 13 to 3.  A gentler escalation step is
+  measurably worse (four solves, 99170 applies, against three and 76810), so
+  doubling stays; the lever is the restriction size or the null threshold.
+* The lift consistency filter now cuts on a GAP in the residual spectrum
+  (floor `sqrt(eps(T))`, which is where a lift residual bottoms out, ceiling
+  `32*sqrt(eps)`) instead of at a hard cutoff AT that floor.  But the Float32
+  undercount it was written for is not there: at d = 48 Float32 the filter
+  passes all 13 of its 13 directions under both rules and
+  `_fastder_restrict_to_ops` then returns 2.  **And ARPACK's start vector comes
+  from a seed saved inside the library across calls**, so repeated calls in one
+  process on identical input give different restricted null spaces -- the same
+  setting three times gives 2, 3, 3 at d = 48 Float32.  Measure any Float32
+  matrix-free result one data point per PROCESS, or with a deterministic
+  solver.
+
+Two more memory items, both found by the same profiler and both large:
+`_qdn_restricted_map` now allocates its scratch ONCE rather than ~13 MB per
+apply-pair (a 100k-apply solve was throwing away ~700 GB, and RSS tracked the
+GC's heap target instead of the live set), and the BENCHMARK's own Z-law check
+`der_residual` was the biggest single item on video shapes -- it went through
+`applyDerivation`, so ITensor contraction materialised a full `d^n` intermediate
+per axis AND promoted a Float32 tensor to Float64 because the chisel is
+Float64.  That is why peak RSS grew ~15 GB per GB of tensor there and why
+Float32 and Float64 peaked the SAME.  It now accumulates
+`Σ_a P[ρ,a]·(Γ ×_a D_a)` in 256 MB blocks along the longest axis, in the
+tensor's own type, and reproduces the old value exactly (degenerate 40^3:
+8.40e-16 both ways).  `_qdn_ttm!` gained `mul!`'s `α`/`β` to make that
+possible.
+
+Next levers, in the order the measurements suggest: (1)
+`_fastder_restrict_to_ops` is the Float32 cliff -- at d = 48 Float32 it takes
+13 lifted derivations to 2; (2) the restriction sizes at d = 300 (6.8%
+overdetermined) are what make its restricted near-null space 13-dimensional and
+so what makes its apply count non-monotone; (3) `bench/jl`'s RSS watchdog needs
+`JL_HEAP` set well below the limit on these runs -- RSS ran ~1.5x the heap
+target above the live set on every large run.
 
 ## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
 
@@ -616,6 +721,23 @@ and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the ten
 (3.4 / 6.7 / 16.9 GB), NOT explained by input copies -- Float64 used no more than Float32 at
 the same F -- so the minute would need ~92 GB today.
 
+Measured again after the lean kernels landed (same harness, 5 threads, the machine shared with two
+other agents so wall times are noisy; `labs/MovieRuntime.ipynb` has the plots):
+
+| 640 x 480 x F x 3 | F = 30 (1 s) | F = 90 (3 s) | F = 300 (10 s) |
+|---|---|---|---|
+| Float32 wall / peak RSS, before | 21.6 s / 3.4 GB | 28.3 s / 6.7 GB | 44.7 s / 16.9 GB |
+| Float32 wall / peak RSS, after | 22.7 s / **1.7 GB** | 18.7 s / **2.4 GB** | 34.8 s / **5.4 GB** |
+| Float16 input, after | 23.8 s / 1.7 GB | 24.2 s / 2.9 GB | 61.3 s / 5.4 GB |
+| nullity (oracle 3), verdict | 3, certified (all) | 3, certified (all) | 3, certified (all) |
+
+Fit on the current tree: `t = 18 s + 0.053 s/frame`, `RSS = 1.2 GB + 0.014 GB/frame` (maxrss under
+`JL_HEAP=6G`, so it carries GC headroom; the live set is ~2.8 GB per GB of tensor). The minute
+projects to **~110-170 s and ~19-26 GB in Float32 on the CPU** -- it runs on this machine now.
+Float16 input costs the same CPU memory as Float32 because the precision policy computes in
+Float32; the Float16 storage saving is realised only where storage stays Float16, i.e. on the GPU
+path being built.
+
 Order of work, decided with the user:
 1. **Memory first.** Profile the video shape per stage; find the precision-independent ~14x
    footprint; target < 15 GB for the minute. Nothing else pays off until this lands.
@@ -628,8 +750,19 @@ Order of work, decided with the user:
    output, Float32 for the restricted eigensolve, verdict floored by `data_floor(Float16)` so a
    half-precision result is never certified beyond what the data carries.
 
-Not now: native core (gated behind a measured 2x), eigensolve on the GPU (wrong regime for
-video), the d = 1000 long-axis frontier as a goal in itself.
+**Correction, later the same evening (GPU agent's per-stage map, `bench/reports/2026-09-04/gpu-movie/`):**
+the tensor stages are <= 5% of a movie run. The restricted eigensolve is NOT flat in F -- `r_3`
+grows with the frame count, so the restricted system grows (33480x31819 at F = 30 to 40800x38569
+at F = 300) and its cost, not the tensor's, carries ~90% of the wall-time slope. The "20 s
+eigensolve + 150 s tensor" split above was a mis-attribution of the affine fit. Consequences:
+the GPU port of sketch/lift/verify is correct and kept on (sketch 20x, verify 13.5x) but saves
+~9 s of a ~35-75 s minute; **the eigensolve is the lever for video after all**, and the Float16
+argument is memory (a 6.6 GB host copy next to a ~12 GB device footprint at F = 1800), not speed.
+Also measured: Metal pipeline specialization costs ~14 s cold on the movie shape -- a one-shot
+GPU run is a net loss without a warm-up entry point.
+
+Not now: native core (gated behind a measured 2x), the d = 1000 long-axis frontier as a goal
+in itself.
 
 ## How work reaches beta, from 2026-09-04
 
@@ -695,3 +828,38 @@ Ordered by what unblocks what.
    restriction sizes `(a',b',c')`, whether valence 3 with a one-row chisel is essential or
    incidental, and the expected complexity — all of which currently rest on the reference
    implementation's own choices rather than on a stated theorem.
+
+## Movie regime measured per stage, 2026-09-04 (late): the eigensolve is the movie
+
+`bench/GpuMovie.jl` + `bench/reports/2026-09-04/gpu-movie/README.md`. Read STAGE BY STAGE
+rather than by fitting wall time, the `640 x 480 x F x 3` run is not shaped the way the
+"Direction set 2026-09-04 (evening)" note assumed.
+
+- **The tensor stages are 1-5 % of the run, not ~85 %.** F = 300 Float32 CPU: 44.84 s of
+  restricted eigensolve against 2.459 s of sketch + lift + verify (0.933 / 1.054 / 0.472).
+  They *are* linear in F, at 0.0077 s/frame — but that is ~9 % of the slope of the total.
+  The rest of the observed growth is the eigensolve, which is **not** flat in F (`r_3` grows
+  with the frame count, so the restricted system grows from 33480x31819 to 40800x38569) and
+  is also the noisy term: 17 s and 54 s were seen for the same input in the same process.
+  The earlier "~150 s of tensor work at F = 1800" came from attributing the whole fitted
+  slope to the tensor stages; the measured projection is **14.1 s (CPU) / 4.8 s (GPU)**.
+- **Cold start dominates a one-shot device run.** The first movie-shaped GPU run pays ~14 s
+  of Metal pipeline specialization in the tensor stages (`verify` 3.257 s cold, 0.018 s
+  warm); a `10x10x10x3` warm-up does not cover it. The device path pays for itself only in a
+  process that solves several tensors. Any GPU benchmark that does not warm up on the shape
+  it measures is measuring the compiler — that is what `bench/GpuMovie.jl` exists to avoid.
+- **Warm, the device wins and the LIFT is the new wall.** Tensor totals 2.57x at F = 300,
+  rising with F; sketch 20x and verify 13.5x, but lift only 1.20x, because the lift's cost is
+  the host `qr(A) \ B` after the pair tensors (Metal has no `qr`), not the mode products.
+- **`permutedims!` was not the bottleneck the night board took it for.** Every device
+  primitive at the movie shape is milliseconds (skinny GEMM 1.4 ms, `norm` 7.6 ms,
+  `permutedims` 16.8 ms) against a 0.44 s warm tensor budget at F = 90. `_qdn_ttm!` now
+  chooses slabs over the permute by a cost model (`_qdn_slab_is_cheap`) and `_qdn_mode_order`
+  chooses which axis meets `d^n` — right, and worth tens of milliseconds.
+- **Float16 buys nothing today.** `compute_eltype` promotes it to Float32 before the tensor
+  is touched, so the Float16 and Float32 device rows agree to three digits and allocate the
+  same 2.06 GB. The measured half-precision contract needs a mixed-eltype `_qdn_ttm` AND a
+  decision about the host copy — the latter is a precision-policy change, not a kernel one.
+- **Memory, not speed, is the binding constraint for the minute.** Peak device allocation is
+  1.87x the tensor, so F = 1800 Float32 projects to ~12 GB on device next to a 6.6 GB host
+  copy, against a ~10 GB budget. That is what Float16 is for.

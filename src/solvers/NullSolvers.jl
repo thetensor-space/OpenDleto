@@ -405,7 +405,23 @@ see for itself.  Every value is RELATIVE to the operator norm `scale`.
                 below `threshold` was used) or `:fixed` (the caller asked
                 for `nd > 0` vectors; the threshold count, capped at `nd`)
 - `certified`   `true` only for `:gap`, or for a nullity of 0 whose smallest
-                value is `gap_ratio` above the threshold
+                value is `gap_ratio` above the threshold.  This is a statement
+                about the SPECTRUM and about nothing else
+- `status`      what the SOLVER did: `:ok`, `:unconverged` (it reported that it
+                did not converge everything it was asked for) or `:capped`
+                (the escalation reached the dimension of the space without ever
+                bracketing the cut).  A caller has to read both words, because
+                they answer different questions and a non-converged solve can
+                perfectly well produce a spectrum with a clean gap in it --
+                which is exactly the failure this field exists for.  Measured
+                on the whitened restricted map at d = 300 valence 3: block
+                Lanczos converged NOTHING, returned its 16 Ritz values stalled
+                at 1.1e-9 relative, and the verdict on that spectrum was
+                `nullity 0, certified`.  Nullity 0 is a legitimate answer
+                ("Γ conforms to no pattern for this chisel") and cannot be
+                escalated away, so the only defence is for the solver to say
+                whether it converged and for the caller to refuse to read
+                silence as "no derivations"
 - `gap`         the ratio at the cut, `spectrum[nullity+1] / max(spectrum[nullity], floor)`
                 (for nullity 0: `spectrum[1] / threshold`); `NaN` if nothing
                 was returned above the cut
@@ -439,6 +455,7 @@ struct NullVerdict
     nullity::Int
     rule::Symbol
     certified::Bool
+    status::Symbol
     gap::Float64
     gap_ratio::Float64
     floor::Float64
@@ -458,6 +475,7 @@ function Base.show(io::IO, v::NullVerdict)
     fmt(x) = isfinite(x) ? string(round(x; sigdigits = 3)) : string(x)
     print(io, "NullVerdict(nullity = ", v.nullity, ", rule = :", v.rule,
           v.certified ? ", certified" : ", UNCERTIFIED",
+          v.status === :ok ? "" : ", solver :" * string(v.status),
           ", gap = ", fmt(v.gap), " (need ", fmt(v.gap_ratio), ")",
           v.floor_binding ? ", floor-bound" : "",
           v.undecidable > 0 ? ", UNDECIDABLE: $(v.undecidable) value(s) above the " *
@@ -532,7 +550,8 @@ threshold would have swallowed.
 function gap_verdict(vals::AbstractVector, scale::Real;
                      threshold::Real, floor::Real, data_floor::Real = 0.0,
                      gap_ratio::Real = GAP_RATIO,
-                     nd::Integer = -1, requested::Integer = length(vals))
+                     nd::Integer = -1, requested::Integer = length(vals),
+                     status::Symbol = :ok)
     perm = sortperm(abs.(vals))
     rel = Float64[abs(v) / scale for v in vals[perm]]
     n = length(rel)
@@ -574,13 +593,37 @@ function gap_verdict(vals::AbstractVector, scale::Real;
     certified = certified && undecidable == 0
 
     take(r) = rel[r]
-    return perm, NullVerdict(cut, rule, certified, gap, Float64(gap_ratio), floor,
+    return perm, NullVerdict(cut, rule, certified, status, gap, Float64(gap_ratio), floor,
                              cut >= 1 && rel[cut] < floor,
                              data_floor, undecidable,
                              threshold, max(below_thr - cut, 0),
                              take(max(1, cut - 2):cut), take(cut + 1:min(n, cut + 3)),
                              rel, Float64(scale), Int(requested))
 end
+
+"""
+    solver_converged(result) -> Bool
+
+Whether a `solve` result claims convergence.  A solver that knows says so with
+a `converged` field on the NamedTuple it returns (`ArpackSolver` from ARPACK's
+`nconv`, `CGSolver` from LOBPCG's own flag, `KrylovSolver` from KrylovKit's
+`info.converged`); one that has nothing to report -- a dense factorisation has
+no iteration to fail -- omits the field and is taken at its word.
+"""
+solver_converged(result) = !hasproperty(result, :converged) || result.converged === true
+
+"""
+    _with_status(v, status) -> NullVerdict
+
+`v` with its `status` replaced.  `gap_verdict` reads the spectrum and can know
+neither whether the solver converged nor whether the escalation ran out of
+room, so `solve_nullspace` decides those after its bracket test and stamps the
+word here.
+"""
+_with_status(v::NullVerdict, status::Symbol) =
+    NullVerdict(v.nullity, v.rule, v.certified, status, v.gap, v.gap_ratio, v.floor,
+                v.floor_binding, v.data_floor, v.undecidable, v.threshold, v.near_null,
+                v.below, v.above, v.spectrum, v.scale, v.requested)
 
 export NullVerdict, gap_verdict
 
@@ -631,6 +674,16 @@ trusted, so a spectrum `0, 0, 0, 1e-10 | 1e-2` cannot be cut at 3 when only
 four values were seen and at 4 when five were.  For ARPACK (16 requested)
 this costs nothing; block Lanczos, which starts at 4, doubles once on a
 nullity-3 problem.
+
+WHEN THE SOLVER SIMPLY FAILS.  The bracket rule cannot tell "found the whole
+null space and then some" from "converged to nothing at all" -- both look like
+values above the cut -- so a non-converging iterative solver used to report
+"no solutions" rather than "I failed", silently.  It no longer does: the
+solvers that know whether they converged say so (`solver_converged`), the
+verdict carries that as `status` (`:ok`, `:unconverged`, `:capped`), and the
+nullity-0-from-a-failed-solve combination is a `@warn`.  Callers must treat a
+non-`:ok` status with nullity 0 as a failure to fall back from, never as an
+empty null space; `_qdn_solve_and_lift` does exactly that.
 
 The doubling rule is only sound if the solver returns *every* copy of the zero
 eigenvalue it could have found -- a null space is a multiple eigenvalue, and
@@ -741,6 +794,7 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             result = solve(solver, Lp; nv = k, kwargs...)
             vals = result.vals
             vecs = result.vecs
+            solver_ok = solver_converged(result)
             perm, verdict = gap_verdict(vals, scale; threshold = rel_threshold,
                                         floor = rel_floor, data_floor = rel_data_floor,
                                         gap_ratio = gap_ratio,
@@ -763,6 +817,12 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             # uncertified unless the smallest value is far above threshold.
             above = length(vals) - verdict.nullity
             bracketed = !want_all || above >= min_above || k >= N
+            # The escalation trace, one line per request: this loop can solve
+            # the same system two or three times and the cost of an iterative
+            # solve is superlinear in the request, so "how many times, and how
+            # big" is the first question to ask of an unexpected apply count.
+            @debug "$label: request $k of $N -> nullity $(verdict.nullity) of " *
+                   "$(length(vals)) returned, $above above the cut" bracketed certified = verdict.certified solver_ok confirmed_at
 
             # CONFIRM before trusting an iterative solver's count.  Bracketing
             # says "some values came back above the cut", not "every copy of
@@ -781,11 +841,57 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             if bracketed && want_all && !dense && verdict.nullity > 0 && k < N &&
                (confirmed_at < 0 || verdict.nullity > confirmed_at)
                 confirmed_at = verdict.nullity
+                # DOUBLING, and it was measured against the alternative.  The
+                # obvious suspicion about this loop is that it is what makes an
+                # apply count non-monotone in problem size -- on the whitened
+                # restricted map, scrambled sphere valence 3, matrix-free:
+                # d = 200 needs requests [16, 32] and 38262 applies, d = 300
+                # needs [16, 32, 64] and 76810, d = 500 [16, 32] and 51116.
+                # It is not.  The trace at d = 300 reads
+                #
+                #   request 16 -> nullity 10 |  request 22 -> nullity 12
+                #   request 27 -> nullity 13 |  request 33 -> nullity 13
+                #
+                # (with a gentler `k + max(4, k÷4)` step): the RESTRICTED
+                # system there really does have a 13-dimensional numerical
+                # near-null space against 3 true derivations, this loop is
+                # correctly chasing it, and the lift's consistency filter is
+                # what cuts 13 down to 3.  So the cost is the spurious
+                # dimension, not the escalation rule, and the escalation rule
+                # should get past it in as few solves as possible: the gentler
+                # step took FOUR solves and 99170 applies where doubling takes
+                # three and 76810.  The lever on the d = 300 cost is the
+                # restriction size or the null threshold, not `nv`.
                 k = min(N, max(2 * k, 2 * verdict.nullity + min_above))
                 continue
             end
 
             if bracketed
+                # THE SOLVER'S OWN WORD, kept separate from the verdict on the
+                # spectrum (see `NullVerdict`'s `status`).  `:capped` is the
+                # other way out of this loop without an answer: the request
+                # reached the dimension of the space and the cut was still not
+                # bracketed, so the count returned is whatever fitted.
+                verdict = _with_status(verdict,
+                                       !solver_ok ? :unconverged :
+                                       (want_all && above < min_above && k >= N) ?
+                                       :capped : :ok)
+                if verdict.status !== :ok && verdict.nullity == 0
+                    # The dangerous combination, and the reason `status`
+                    # exists: nullity 0 from a solver that did not converge is
+                    # "I failed", and it is indistinguishable on the spectrum
+                    # alone from the legitimate "there is no null space".
+                    @warn "$label: the solver reported :$(verdict.status) and the " *
+                          "spectrum then gives nullity 0 -- read that as a FAILED " *
+                          "solve, not as an empty null space. Smallest values " *
+                          "(relative): $(verdict.above). Consider a different " *
+                          "solver, a preconditioner, or a larger request." maxlog = 1
+                elseif verdict.status !== :ok
+                    @info "$label: nullity $(verdict.nullity) from a solver that " *
+                          "reported :$(verdict.status); the count may be short. The " *
+                          "vectors returned still stand or fall on their own " *
+                          "residual." maxlog = 1
+                end
                 if want_all && verdict.undecidable > 0
                     # Honest failure, and the one Float16 is for: the
                     # arithmetic converged, but `verdict.undecidable` of the

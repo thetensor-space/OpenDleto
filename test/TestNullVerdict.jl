@@ -210,3 +210,75 @@ end
         @test resf.verdict.certified
     end
 end
+
+# --- the solver's own word, kept apart from the verdict on the spectrum ----
+#
+# The failure this pins was live and silent: an iterative solver that converges
+# to NOTHING returns Ritz values stalled well above zero, the gap test reads
+# that spectrum as "nothing near zero", and the answer comes back
+# `nullity 0, certified` -- indistinguishable from the legitimate "this tensor
+# conforms to no pattern".  Measured on the whitened restricted map at d = 300
+# and d = 500 valence 3, block Lanczos, spectrum stalled at 1.1e-9 relative.
+#
+# Two stub solvers, because the point is the PLUMBING and a real
+# non-convergence is neither deterministic nor cheap: one reports
+# `converged = false`, one omits the field (a dense factorisation has no
+# iteration to fail) and must be taken at its word.
+struct StubStalledSolver <: Dleto.NullSolver end
+struct StubSilentSolver <: Dleto.NullSolver end
+
+# A spectrum with a clean gap and nothing at zero: exactly what a stalled
+# iterative solve produces, and exactly what the gap test certifies at 0.  The
+# stall sits at 1.1e-4 relative rather than the measured 1.1e-9 only because
+# this stub is handed a SQUARE map, so `tol` is not squared here; on the real
+# rectangular restricted map `tol = 1e-6` becomes a ceiling of 1e-12 and 1.1e-9
+# lands in exactly this position relative to it.
+const STUB_VALS = Float64[1.1e-4, 1.7e-4, 3.2e-4, 1e-2, 0.3, 1.0]
+
+Dleto.solve(::StubStalledSolver, L::LinearMaps.LinearMap; nv::Integer = 10, kwargs...) =
+    (; vals = STUB_VALS[1:min(nv, length(STUB_VALS))],
+       vecs = zeros(Float64, size(L, 2), min(nv, length(STUB_VALS))),
+       converged = false)
+
+Dleto.solve(::StubSilentSolver, L::LinearMaps.LinearMap; nv::Integer = 10, kwargs...) =
+    (; vals = STUB_VALS[1:min(nv, length(STUB_VALS))],
+       vecs = zeros(Float64, size(L, 2), min(nv, length(STUB_VALS))))
+
+@testset "solve_nullspace: a failed iterative solve says so" begin
+    L = LinearMaps.LinearMap(Diagonal(collect(STUB_VALS)); issymmetric = true)
+
+    @testset "converged = false, nullity 0 -> :unconverged and a warning" begin
+        local res
+        logs = Test.collect_test_logs() do
+            res = solve_nullspace(L, StubStalledSolver(); tol = 1e-6, nv0 = 6)
+        end |> first
+        # The verdict on the SPECTRUM is unchanged -- there is genuinely
+        # nothing near zero in it, and certifying that is correct.
+        @test res.verdict.nullity == 0
+        @test res.verdict.certified
+        # The verdict on the SOLVER is the new word, and it is the one that
+        # says this is a failure and not an empty null space.
+        @test res.verdict.status === :unconverged
+        @test any(r -> r.level == LogWarn && occursin("FAILED", r.message), logs)
+        @test occursin("solver :unconverged", sprint(show, res.verdict))
+    end
+
+    @testset "no `converged` field -> :ok, and no warning about the solver" begin
+        local res
+        logs = Test.collect_test_logs() do
+            res = solve_nullspace(L, StubSilentSolver(); tol = 1e-6, nv0 = 6)
+        end |> first
+        @test res.verdict.status === :ok
+        @test Dleto.solver_converged((; vals = [1.0], vecs = zeros(1, 1)))
+        @test !any(r -> r.level == LogWarn, logs)
+        @test !occursin("solver :", sprint(show, res.verdict))
+    end
+
+    @testset "a real solver still reports :ok" begin
+        D = Diagonal([0.0, 0.0, 0.0, 7e-2, 2.1, 7.0])
+        Ld = LinearMaps.LinearMap(D; issymmetric = true)
+        res = solve_nullspace(Ld, :SVDSolver; tol = 1e-6, nv0 = 6)
+        @test res.verdict.nullity == 3
+        @test res.verdict.status === :ok
+    end
+end

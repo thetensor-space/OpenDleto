@@ -118,33 +118,244 @@ function sphere_octant(d::Integer; valence::Integer = 3, mode::Symbol = :densor,
 end
 
 """
+    SPHERE_LEAN_BYTES :: Ref{Float64}
+
+Above this many bytes PER COPY of the tensor, `build_sphere` takes its
+memory-lean path (`build_sphere_lean`).  Default 256 MB, which is d = 320 at
+valence 3 and d = 76 at valence 4 in Float64: below it the classic ITensor
+path costs a fraction of a gigabyte, and being exactly what every existing
+test has always run is worth more than the bytes.
+"""
+const SPHERE_LEAN_BYTES = Ref(256.0 * 2^20)
+
+"""
     build_sphere(d; valence = 3, T = Float64, seed = d, mode = :densor,
-                 ops = SymmetricOp())
+                 ops = SymmetricOp(), lean = nothing, keep_S = nothing)
 
 The input for dimension `d`.  Fields:
 
-- `S`, `fr`        the original sphere tensor and its frame (Float64)
+- `S`, `fr`        the original sphere tensor and its frame (Float64); `S` is
+                   `nothing` when `keep_S = false`, and `reconstruction` then
+                   cannot score the run
 - `nnz`            nonzeros in `S`
 - `Xs`, `Es`       the orthogonal scramble and the `nondeg` bases, per axis
 - `Γ`              the tensor to stratify, element type `T`, on the nondeg frame
 - `Ω`, `ch`        operator space on Γ's frame, and the universal chisel
 - `dims`           Γ's axis dimensions
+- `lean`           which construction path ran
+
+MEMORY, which is the frontier's binding constraint from d ≈ 500 up.  Measured
+at d = 500 valence 3 (`bench/MemoryProfile.jl`, one copy = 0.93 GB): the
+classic path below peaks at 10.3 GB of the run's 11.4 GB, and the entire solve
+adds only 1 GB on top of that.  Where it goes -- `Array(S, fr...)` for the
+nonzero count is a second full copy (+0.93 GB of peak), `ITensor(A, frames...)`
+copies the array it is handed (+0.93 GB), `randomize_tensor` contracts three
+`ITensor`s in sequence (+1.9 GB), and `nondeg`, a full `d^{n-1} x d` SVD per
+axis that forms the unfolding AND its left factor, churns 25 GB and adds
+4.7 GB of peak by itself.  Six copies live at the worst moment, for a pipeline
+that needs two.
+
+So above `SPHERE_LEAN_BYTES` per copy this hands off to `build_sphere_lean`,
+which runs the same construction on plain arrays with two buffers and returns
+a member of the same family -- see its docstring for exactly how the two
+differ.  Pass `lean = false` to force the classic path, `lean = true` to take
+the lean one at a size where it would not have been chosen.
+
+`keep_S` defaults to "keep it unless the lean path was chosen", because
+`reconstruction` needs `S` and the frontier runs -- the only ones large enough
+to reach the lean path -- do not score.
 """
 function build_sphere(d::Integer; valence::Integer = 3, T::Type = Float64, seed::Integer = d,
                       mode::Symbol = :densor, cutoff::Real = 1.5,
-                      ops::Operator = SymmetricOp())
+                      ops::Operator = SymmetricOp(),
+                      lean::Union{Bool,Nothing} = nothing,
+                      keep_S::Union{Bool,Nothing} = nothing)
+    go_lean = lean === nothing ?
+              (mode === :densor &&
+               float(d)^valence * sizeof(Float64) > SPHERE_LEAN_BYTES[]) : lean
+    keep = keep_S === nothing ? !go_lean : keep_S
+    go_lean && return build_sphere_lean(d; valence, T, seed, ops, keep_S = keep)
+
     Random.seed!(seed)
     S = sphere_octant(d; valence, mode, cutoff)
     fr = collect(inds(S))
-    nnz = count(!=(0), Array(S, fr...))
+    # `ITensors.array` in the storage order is a view, so the nonzero count is
+    # free; `Array(S, fr...)` was a second full copy of the tensor.
+    nnz = count(!=(0), ITensors.array(S, fr...))
     rn = randomize_tensor(S; type = :orthogonal)
-    nd = nondeg(rn.Δ)
+    # Keep the scramble's output and its per-axis matrices, drop the
+    # NamedTuple: `nondeg` is this path's peak and `rn.Δ` must not still be
+    # alive underneath it once `nd.Δ` exists.
+    Xs = rn.Xs
+    Δrn = rn.Δ
+    rn = nothing
+    nd = nondeg(Δrn)
+    Δrn = nothing
     fr_nd = collect(inds(nd.Δ))
     Γ = T === Float64 ? nd.Δ : ITensor(Array{T}(Array(nd.Δ, fr_nd...)), fr_nd...)
     Ω = IndTransverseOps(fr_nd, ops)
     ch = UniversalChisel(valence)
-    return (; S, fr, nnz, Xs = rn.Xs, Es = nd.Es, Γ, Ω, ch,
-              dims = ITensors.dim.(fr_nd), T)
+    return (; S = keep ? S : nothing, fr, nnz, Xs, Es = nd.Es, Γ, Ω, ch,
+              dims = ITensors.dim.(fr_nd), T, lean = false)
+end
+
+# ------------------------------------------------- the memory-lean build path
+
+"""
+    _tsqr_axis_basis(A, a; block_bytes) -> (V, s)
+
+The right singular basis of the `(other axes) x a` unfolding of the dense
+array `A`, with its singular values -- exactly what `nondeg` takes from
+`ITensors.svd(Γ, a_comp)`, and all it takes from it -- without ever forming
+either the unfolding or its left factor.
+
+Tall-skinny QR.  The unfolding is `m x d` with `m = prod(dims)/d` (a million by
+a thousand at d = 1000 valence 3) and `A = QR` has `R` only `d x d`, with the
+same singular values and the same right singular vectors.  Accumulate `R`
+block by block (`R <- qr([R; block]).R`) and the working set is one block,
+never the matrix.  `svd(R)` then gives `V` and `s` at full precision, which is
+the reason for a QR rather than a `d x d` Gram: squaring would halve the digits
+of exactly the small singular values `nondeg`'s rank test at 1e-10 has to
+resolve.
+
+Cost is `2 m d^2` flops, a THIRD of the `8 m d^2` a full `gesdd` of the
+unfolding pays, and the peak is `block_bytes` rather than three copies of the
+tensor.
+
+`block_bytes` is 64 MB, which at d = 1000 is an 8000 x 1000 block: large
+enough that `geqrf` runs at its blocked rate, small enough that the block plus
+the `vcat` that feeds it are noise against the tensor.  Measured at d = 500,
+256 MB blocks cost 1.5 GB of peak here for nothing.
+
+Blocks come out of the array without a transpose wherever the layout allows
+one: axis 1's unfolding-transpose is `reshape(A, d, m)` and axis `N`'s is
+`reshape(A, m, d)`, so those are contiguous slices.  For a middle axis
+`(front, d, back)` a chunk of `back` is permuted into shape, which copies one
+block and not the tensor.
+"""
+function _tsqr_axis_basis(A::Array{Float64,N}, a::Integer;
+                          block_bytes::Real = 64.0 * 2^20) where {N}
+    d = size(A, a)
+    m = length(A) ÷ d
+    R = zeros(Float64, 0, d)
+    step!(B) = (R = Matrix(qr!(vcat(R, B)).R))
+    chunk = clamp(floor(Int, block_bytes / (8 * d)), 1, m)
+    if a == 1
+        Am = reshape(A, d, m)
+        for lo in 1:chunk:m
+            step!(transpose(Am[:, lo:min(m, lo + chunk - 1)]))
+        end
+    elseif a == N
+        Am = reshape(A, m, d)
+        for lo in 1:chunk:m
+            step!(Am[lo:min(m, lo + chunk - 1), :])
+        end
+    else
+        front = prod(ntuple(i -> size(A, i), a - 1))
+        back = m ÷ front
+        A3 = reshape(A, front, d, back)
+        bstep = clamp(chunk ÷ front, 1, back)
+        for lo in 1:bstep:back
+            hi = min(back, lo + bstep - 1)
+            step!(reshape(permutedims(A3[:, :, lo:hi], (1, 3, 2)),
+                          front * (hi - lo + 1), d))
+        end
+    end
+    F = svd(R)
+    return (F.V, F.S)
+end
+
+"""
+    build_sphere_lean(d; valence, T, seed, ops, keep_S, tol)
+
+`build_sphere` on plain arrays, with two `d^n` buffers and nothing else that
+size.  Every `d^n` step -- the `n` orthogonal scrambles and the `n` `nondeg`
+changes of basis -- is `Dleto._qdn_ttm!(B, A, M, a)` followed by a buffer swap,
+so the pipeline holds ONE copy of the tensor from start to finish where the
+classic path holds six, and allocates nothing per step: every matrix in the
+chain is square (`d x d` orthogonal), which is the case
+`Dleto._qdn_ttm_square!` writes back over the tensor a block of slices at a
+time.  At d = 1000 valence 3 that is 8 GB plus a 64 MB buffer against the
+classic path's 40-plus.  The general `_qdn_ttm!` and one output buffer are
+kept for the one case that changes the shape -- a rank-deficient axis, which
+the sphere never has.
+
+WHAT IT IS AND IS NOT.  It is the same input FAMILY -- the same lattice tensor
+from the same seed, the same orthogonal matrices drawn in the same order from
+the same RNG, and a per-axis orthogonal change of basis read off the mode
+unfoldings of the scrambled tensor -- and it is NOT the same array.  Two
+reasons, and both are per-axis orthogonal, which is why every invariant the
+frontier reports survives them:
+
+- the SVD's sign ambiguity: `_tsqr_axis_basis` and `ITensors.svd` agree on the
+  singular values and on each singular vector up to its sign;
+- `nondeg` applies its basis TRANSPOSED.  It takes `V_arr = Array(V, r, a)`,
+  which is `(link) x (a)`, and hands it to `ITensor(nondeg_basis, a, a_nondeg)`
+  as though it were `(a) x (link)`, so the change of basis it applies is
+  `V_aᵗ` and not `V_a`.  Both are orthogonal and both leave the tensor
+  nondegenerate; only `V_a` actually diagonalises the mode-`a` unfolding, which
+  is what the function's name says, so that is what this path applies.
+
+A per-axis invertible change of basis conjugates the derivation algebra, so
+nullity, verdict, the certified/uncertified word and the ORDER of the Z-law
+residual are all unchanged; the residual's digits and the solver's iteration
+count are not (they depend on the actual matrix), and neither are the matrix
+entries.  `bench/MemoryProfile.jl compare <d>` checks the singular values
+against `ITensors.svd` and the two runs' nullity and residual side by side.
+
+`keep_S = false`, the default here, also drops the original sphere tensor --
+one more full copy -- which `reconstruction` needs and no frontier run asks
+for.
+"""
+function build_sphere_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
+                           seed::Integer = d, ops::Operator = SymmetricOp(),
+                           keep_S::Bool = false, tol::Real = 1e-10)
+    n = valence
+    Random.seed!(seed)
+    A = zeros(Float64, ntuple(_ -> d, n))
+    _fill_sum_lattice!(A, d)
+    nnz = count(!=(0), A)
+    fr = [Index(d, "a$a") for a in 1:n]
+    # `itensor`, not `ITensor`: the capitalised constructor COPIES the array
+    # it is handed (+0.93 GB of peak at d = 500, measured), the lowercase one
+    # takes ownership of it.
+    S = keep_S ? ITensors.itensor(copy(A), fr...) : nothing
+
+    # The scramble, drawn exactly as `randomize_tensor(_; type = :orthogonal)`
+    # draws it: one `__random_orthogonal(d)` per axis, in axis order.
+    Xa = [Dleto.__random_orthogonal(d) for _ in 1:n]
+    for a in 1:n
+        Dleto._qdn_ttm_square!(A, Xa[a], a)
+    end
+
+    # `nondeg` reads every axis basis off the SCRAMBLED tensor, before any of
+    # them has been applied, so all `n` are taken first and applied after.
+    bases = [_tsqr_axis_basis(A, a) for a in 1:n]
+    ks = Int[count(>=(tol), s) for (_, s) in bases]
+    Va = [V[:, 1:k] for ((V, _), k) in zip(bases, ks)]
+    for a in 1:n
+        # Square while the axis kept its full rank, which is every axis of a
+        # sphere: then the change of basis goes over the tensor in place and
+        # the build never holds a second copy.  A rank-deficient axis (the
+        # safety net, not the normal path) shrinks the tensor and needs the
+        # general form and one output buffer.
+        if ks[a] == d
+            Dleto._qdn_ttm_square!(A, Va[a], a)
+        else
+            A = Dleto._qdn_ttm!(similar(A, ntuple(i -> i <= a ? ks[i] : d, n)),
+                                A, Va[a], a)
+        end
+    end
+
+    mid = [Index(d, "a$a,rand") for a in 1:n]
+    fr_nd = [Index(ks[a], "a$a,nondeg") for a in 1:n]
+    Xs = [ITensor(Xa[a], fr[a], mid[a]) for a in 1:n]
+    Es = [ITensor(Va[a], mid[a], fr_nd[a]) for a in 1:n]
+    Γ = ITensors.itensor(T === Float64 ? A : Array{T}(A), fr_nd...)
+    A = nothing
+    Ω = IndTransverseOps(fr_nd, ops)
+    return (; S, fr, nnz, Xs, Es, Γ, Ω, ch = UniversalChisel(n),
+              dims = ks, T, lean = true)
 end
 
 # ---------------------------------------------------------------- the metric
@@ -281,7 +492,10 @@ function run_stratify(inp; method::Symbol = :SylverLining, solver::Symbol = :Aut
         status = "error: " * first(split(sprint(showerror, e), '\n'))
         res = nothing
     end
-    sc = (res !== nothing && score) ? reconstruction(inp, res.Σ, res.Xs) :
+    # No `S`, no score: the memory-lean build drops the original tensor
+    # `reconstruction` fits against (`build_sphere`'s `keep_S`).
+    sc = (res !== nothing && score && inp.S !== nothing) ?
+         reconstruction(inp, res.Σ, res.Xs) :
          (; lsq_err = NaN, support = NaN, perm_ok = false)
     return (; seconds = st.time, bytes = st.bytes, nullity, sc.lsq_err, sc.support,
               sc.perm_ok, status, res)
