@@ -75,7 +75,14 @@ a Float32 GPU run, say) raise it explicitly.
 Not a `const` expression of `DENSE_BUDGET_BYTES`: `QuickDerN.jl` is included
 before `NullSolvers.jl`, so that name does not exist yet at load time.
 """
-const QDN_DENSE_BUDGET_BYTES = Ref(0.5 * 2^30)
+const QDN_DENSE_BUDGET_BYTES = Ref(2.5 * 2^30)
+# 2.5 GB, not 0.5: the matrix-free branch is the weak spot.  On a STRUCTURED
+# tensor its spectrum is clustered and Arpack hits its iteration cap
+# (XYAUPD_Exception(1)) on the scrambled sphere at d = 150 and 200, where the
+# dense Gram route answers in seconds; random tensors converge there
+# (bench/reports/night-2026-09-03/quickder-restricted-solvers.csv).  At 2.5 GB
+# the Gram route reaches d = 200 at valence 3 (17576 x 15600, 2.2 GB) with a
+# peak of ~3x the matrix, under the machine's 10 GB default budget.
 
 """
 Byte budget for the dense restricted matrix on the DEVICE route

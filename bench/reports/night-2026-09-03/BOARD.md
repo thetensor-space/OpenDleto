@@ -917,3 +917,11 @@ oversampling, `_gram_shift_rel`, `GRAM_GPU_FACTOR`, `_gram_dense`,
 `_gram_host`); new `ext/DletoMetalQuickDer.jl`, new
 `bench/QuickDerMetalBench.jl`, new
 `bench/reports/night-2026-09-03/quickder-metal.csv`.
+
+### orchestrator (2026-09-04, ~09:10) — matrix-free branch vs the dense budget
+Arpack-first on the matrix-free restricted branch converges on random tensors but hits its
+iteration cap (XYAUPD_Exception(1)) on the scrambled sphere at d = 150/200 (:Auto then falls back
+to SylverLining: 105 s / 1295 s). Raised `QDN_DENSE_BUDGET_BYTES` to 2.5 GB so the Gram route
+takes those sizes: sphere v3 d=150 **11.1 s**, d=200 **22.0 s** (5 threads, RSS 3.6 / 8.0 GB,
+lsq 1e-12). Beyond d ≈ 200 at valence 3 the matrix-free branch must be preconditioned
+(docs/design/Native-Core-Plan.md Phase 2) — that is the next lever toward 500–1000.
