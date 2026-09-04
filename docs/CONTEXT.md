@@ -18,12 +18,19 @@ Work items and where they live:
 
 | item | files | status |
 |---|---|---|
-| Sphere harness for any valence (`build_sphere(d; valence)`, `reconstruction` for n axes, `bench/HypersphereBaseline.jl`) | `bench/SphereHarness.jl` | in progress |
-| QuickDer for any valence: sketch-restrict / solve / lift / verify | design `docs/design/QuickDer-valence-n.md`; code `src/solvers/QuickDerN.jl`; `:QuickDer` -> new, `:QuickDer3`/`:FastDer3Valent` -> old | in progress |
-| `sylvesterLM` over plain arrays, zero-alloc apply, sparse branch | `src/SylverLining/SylverLining.jl` | in progress |
-| Oracle tests at valence 3/4/5 | `test/TestQuickDerN.jl` | in progress |
+| Sphere harness for any valence (`build_sphere(d; valence)`, `reconstruction` for n axes, `bench/HypersphereBaseline.jl`) | `bench/SphereHarness.jl` | done; valence-4 nullity is 4 at every d, recovery 1e-13 |
+| QuickDer for any valence: sketch-restrict / solve / lift / verify | design `docs/design/QuickDer-valence-n.md`; code `src/solvers/QuickDerN.jl`; `:QuickDer` -> new, `:QuickDer3`/`:FastDer3Valent` -> old | done; 65x faster than SylverLining at 30^3, 152x at 16^4 |
+| `sylvesterLM` over plain arrays, zero-alloc apply, sparse branch | `src/SylverLining/SylverLining.jl` (`backend=:auto/:array/:itensor`) | done; bit-identical, 400 B/apply, 2-5x on sparse |
+| Oracle tests at valence 3/4/5 | `test/TestQuickDerN.jl`, `test/TestAutoDer.jl` | done |
 | Contraction backend research | `bench/reports/night-2026-09-03/contraction-options.md` | done |
-| Auto-selection policy from measurements | TBD | not started |
+| Auto-selection: `:Auto` = QuickDer when applicable, SylverLining otherwise/on failure; `stratify` default | `src/solvers/AutoDer.jl` | done; thresholds pending the scaling sweeps |
+| Scaling sweeps (valence 4 dense/sparse/video; valence 3 to d = 500) and restricted-map solver choice | `bench/QuickDerScaling.jl`, `bench/QuickDerLargeD.jl`, CSVs in `bench/reports/night-2026-09-03/` | in progress |
+
+Bugs fixed along the way: `dense_is_cheap` densified a 160000x840 map because a small side
+short-circuited the byte budget (now bytes decide); `SVDSolver` used the thin SVD and so lost the
+null space of wide maps; `TransverseOpsSymmetries(fr, localOp)` referenced an undefined variable;
+extension solvers (KrylovKit, IterativeSolvers) now register on `using Dleto` because Dleto imports
+them.  Arpack is a weak dependency: `bench/jl` stacks the shared env `@dleto-bench` that carries it.
 
 Key design decision (QuickDer-n): restrict by *sketching* each output axis with a random
 orthogonal `W_a` (d_a x r_a) rather than by a corner slice.  The corner is a special case
