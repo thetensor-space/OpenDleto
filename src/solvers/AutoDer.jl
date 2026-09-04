@@ -70,7 +70,7 @@ function derTrOpsReduced(
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Real = 1e-6,
+    tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
     kwargs...,

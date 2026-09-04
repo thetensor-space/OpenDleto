@@ -1338,14 +1338,21 @@ the disengaged ones (whose operator is zero, the representative `SylverLining`
 expands to), so there is nothing to expand.
 
 `nd > 0` caps the number of returned derivations; `tol` is relative and floored
-at `sqrt(eps(eltype(Γ)))`.
+at `sqrt(eps(eltype(Γ)))` by `qd_tolerance` (src/solvers/Precision.jl).
+
+PRECISION.  The arithmetic runs in `compute_eltype(eltype(Γ))`, which is
+`eltype(Γ)` except for Float16 (no CPU BLAS or LAPACK has a half-precision
+path); the returned coordinates are rounded back to `eltype(Γ)`, so a Float16
+tensor gives Float16 derivations at Float32 reliability.  The tolerance is
+floored on the STORED type, not the computed one: promoting the arithmetic buys
+stability, not information about the data.
 """
 function derTrOpsReduced(
     method::QuickDerMethod,
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Real = 1e-6,
+    tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
     kwargs...,
@@ -1357,21 +1364,33 @@ function derTrOpsReduced(
     fr = frames(Ω)
     G0 = ITensors.array(Γ, fr...)
     T = eltype(G0)
-    G = G0 isa Array{T} ? G0 : Array(G0)
+
+    # STORAGE type vs COMPUTE type.  `Tc` is the arithmetic; it differs from `T`
+    # only for Float16, which has no BLAS or LAPACK anywhere (see
+    # `Dleto.compute_eltype`).  The whole kernel below is written against one
+    # element type, so the promotion happens here, once, in the same pass that
+    # already materialises `G` -- and it is also what lets a Float16 tensor use
+    # `device = :gpu`, since Apple GPUs want exactly Float32.
+    Tc = compute_eltype(T)
+    G = (T === Tc && G0 isa Array{T}) ? G0 : Array{Tc}(G0)
 
     # One upload for the whole run: every pass over the full tensor (the cross
     # sketches, the pair tensors of the lift, the verification) then happens on
     # the device, and nothing sends `d^n` bytes back.
-    _qdn_check_device(method.device, T)
+    _qdn_check_device(method.device, Tc)
     tstage = time()
     Gk = method.device === :gpu ? to_gpu(G) : G
     tstage = _qdn_stage!(:upload, tstage)
 
+    # On the STORED type: every check the kernel makes compares a product of two
+    # data-sized quantities against zero, and promoting the arithmetic does not
+    # make the data finer.  `qd_tolerance` (src/solvers/Precision.jl) has the
+    # measured table.
     atol = _qd_tolerance(T, tol)
     dims = collect(size(G))
     n = length(dims)
     eng = engaged(Matrix{Float64}(P))
-    Pm = Matrix{T}(P)
+    Pm = Matrix{Tc}(P)
     rng = method.seed === nothing ? Random.default_rng() : MersenneTwister(method.seed)
 
     r = method.sizes === nothing ? _qdn_restriction_sizes(dims, eng, n) :
@@ -1409,8 +1428,11 @@ function derTrOpsReduced(
                              ismutating = false),
         zeros(T, globalDim(Ω), 0))
 
-    # Universal derivations, cut down to the ones that live in Ω.
+    # Universal derivations, cut down to the ones that live in Ω.  Rounded back
+    # to the stored type: a Float16 tensor gets Float16 derivations, carrying
+    # exactly the precision its data justifies and no more.
     ders = _fastder_restrict_to_ops(Ω, mats, atol)
+    ders = eltype(ders) === T ? ders : Matrix{T}(ders)
     tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
     if nd > 0 && size(ders, 2) > nd

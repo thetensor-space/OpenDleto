@@ -410,12 +410,21 @@ see for itself.  Every value is RELATIVE to the operator norm `scale`.
                 (for nullity 0: `spectrum[1] / threshold`); `NaN` if nothing
                 was returned above the cut
 - `gap_ratio`   the minimum ratio that was required
-- `floor`       the precision floor `floor_eps * eps(T)`, relative
+- `floor`       the precision floor `FLOOR_EPS * eps(T_compute)`, relative
 - `floor_binding`  whether the value just below the cut was *under* the
                 floor, i.e. the gap was measured from the floor and not from
                 the value itself.  Always true for a clean Float64 null space
                 (its values sit at 1e-15); the informative case is Float32,
                 where a genuine near-derivation can hide under the floor.
+- `data_floor`  the resolution of the STORED data, `eps(store_eltype)`,
+                relative.  Inert unless the tensor was handed in coarser than
+                the arithmetic ran (a Float16 tensor solved in Float32); see
+                `Dleto.data_floor`.
+- `undecidable` how many values ABOVE the cut are still below `data_floor`:
+                values the arithmetic converged to but the data cannot
+                justify calling nonzero.  A nonzero count clears `certified`,
+                because rounding the input to its own precision could have
+                created or destroyed every one of them.
 - `threshold`   the old-style relative threshold `max(tol, 100 eps) `; with an
                 explicit `atol` this is `atol / scale`
 - `near_null`   how many values ABOVE the cut are still below `threshold`:
@@ -434,6 +443,8 @@ struct NullVerdict
     gap_ratio::Float64
     floor::Float64
     floor_binding::Bool
+    data_floor::Float64
+    undecidable::Int
     threshold::Float64
     near_null::Int
     below::Vector{Float64}
@@ -449,51 +460,21 @@ function Base.show(io::IO, v::NullVerdict)
           v.certified ? ", certified" : ", UNCERTIFIED",
           ", gap = ", fmt(v.gap), " (need ", fmt(v.gap_ratio), ")",
           v.floor_binding ? ", floor-bound" : "",
+          v.undecidable > 0 ? ", UNDECIDABLE: $(v.undecidable) value(s) above the " *
+                              "cut are below the data floor $(fmt(v.data_floor))" : "",
           v.near_null > 0 ? ", near-null above cut: $(v.near_null)" : "",
           "; below = ", map(fmt, v.below), ", above = ", map(fmt, v.above), ")")
 end
 
-"""
-    GAP_RATIO
-
-Default minimum multiplicative jump that certifies a nullity; see
-`gap_verdict`.  Chosen from the sphere stratification data
-(bench/reports/gap-verdict.md).  With the precision floor at `100 eps(T)`:
-
-- Float64: the null cluster sits at 1e-16..1e-13 relative, so it is floored
-  to 2.2e-14, and the first nonzero eigenvalue of the derivation operator is
-  1.2e-8 (the near-degenerate d = 50 seed 50) to 5e-3 relative.  Gaps are
-  5e5..2e11.  Consecutive ratios *among nonzero* eigenvalues are 1.4..20,
-  except at that same near-degenerate seed, where `lambda_5/lambda_4 = 4.5e3`.
-- Float32: the null cluster is 6e-8..6e-7 relative -- under the 1.2e-5 floor
-  -- and the first nonzero eigenvalue is 2.5e-3..7e-3 at d <= 40, giving
-  floored gaps of 200..600; at d >= 45, where that eigenvalue drifts to
-  ~1e-4, the floored gap is 10..50 and Float32 has genuinely run out of
-  margin (its recovery error is 1e-3 there).
-
-100 sits above every within-cluster ratio (the floored null cluster spans at
-most ~5x), below every Float64 gap by more than three decades, and splits
-the Float32 cases exactly where the precision study found Float32 to be
-trustworthy (d <= 40) or not (d >= 45).  1e3 would leave every Float32 run
-uncertified, because the 100 eps floor caps the Float32 gap at
-`lambda_4 / 1.2e-5 < 1e3` for any first eigenvalue below 1.2e-2.
-"""
-const GAP_RATIO = 100.0
+# `GAP_RATIO` and `FLOOR_EPS` -- the two constants that decide what "zero"
+# means -- moved to src/solvers/Precision.jl, next to `precision_floor` and
+# `data_floor`, so that the derivation entry points and the extension solvers
+# consult the same policy this file does.  Their measured justifications are in
+# those docstrings and in docs/design/Precision-Policy.md.
 
 """
-    FLOOR_EPS
-
-The precision floor, in units of `eps(T)`, below which a returned value is
-indistinguishable from zero.  The same constant floors the relative
-threshold, so "null" has one meaning in this file.  Measured null values sit
-at 1..14 eps (Float64 Arpack/SVD), up to ~450 eps (Float64 block Lanczos at
-its loose tolerance) and 1..5 eps (Float32); 100 eps keeps Float32's
-margin without swallowing a Float64 gap.
-"""
-const FLOOR_EPS = 100
-
-"""
-    gap_verdict(vals, scale; threshold, floor, gap_ratio, nd, requested) -> (perm, NullVerdict)
+    gap_verdict(vals, scale; threshold, floor, data_floor, gap_ratio, nd, requested)
+        -> (perm, NullVerdict)
 
 The `sigma_(e+1)` verdict of Algorithm 2 (null_patterns.pdf), as a GAP test
 on the values a null solver returned.
@@ -529,19 +510,35 @@ the gap alone.
 Nullity 0 is certified when the smallest value is `gap_ratio` above the
 threshold, i.e. there is nothing anywhere near zero.
 
+WHAT THE DATA MAY CERTIFY.  `data_floor` is the resolution of the numbers the
+caller handed in (`eps(store_eltype)`, see `Dleto.data_floor`); it is a second,
+coarser floor that does NOT move the cut but does veto certification.  A gap is
+only evidence if the value above it is larger than the noise already in the
+data: rounding a tensor to Float16 perturbs it by 2e-4 relative and carries the
+eigenvalues of its derivation operator along, so a first-nonzero eigenvalue
+below that could have been put there, or removed, by the rounding alone.  Every
+value above the cut and below `data_floor` is counted in `undecidable`, and a
+nonzero count clears `certified` -- the caller is told "nullity 3, and the
+fourth value is not resolvable at this precision" instead of a confident 4.
+Defaults to 0, which is no veto; when the stored and computed types agree it is
+`FLOOR_EPS` times below `floor` and can never bind, so Float64 and Float32
+verdicts are unaffected.
+
 The cut is only trusted when at least one value came back above it (the
 caller asks for more otherwise); values above the cut but under the
 threshold are counted in `near_null` -- the near-derivations that the fixed
 threshold would have swallowed.
 """
 function gap_verdict(vals::AbstractVector, scale::Real;
-                     threshold::Real, floor::Real, gap_ratio::Real = GAP_RATIO,
+                     threshold::Real, floor::Real, data_floor::Real = 0.0,
+                     gap_ratio::Real = GAP_RATIO,
                      nd::Integer = -1, requested::Integer = length(vals))
     perm = sortperm(abs.(vals))
     rel = Float64[abs(v) / scale for v in vals[perm]]
     n = length(rel)
     threshold = Float64(threshold)
     floor = Float64(floor)
+    data_floor = Float64(data_floor)
     below_thr = count(<(threshold), rel)
 
     # Candidate cuts k = 1..kmax: at least one value above, all below the
@@ -570,9 +567,16 @@ function gap_verdict(vals::AbstractVector, scale::Real;
         certified = cut == 0 && n >= 1 && rel[1] / threshold >= gap_ratio
     end
     gap = ratio_at(cut)
+
+    # The data's own noise vetoes certification (but never the cut): values
+    # above the cut that sit below `data_floor` are not evidence of anything.
+    undecidable = count(v -> v < data_floor, @view rel[(cut + 1):end])
+    certified = certified && undecidable == 0
+
     take(r) = rel[r]
     return perm, NullVerdict(cut, rule, certified, gap, Float64(gap_ratio), floor,
                              cut >= 1 && rel[cut] < floor,
+                             data_floor, undecidable,
                              threshold, max(below_thr - cut, 0),
                              take(max(1, cut - 2):cut), take(cut + 1:min(n, cut + 3)),
                              rel, Float64(scale), Int(requested))
@@ -603,10 +607,10 @@ space -- fewer than `min_above` values came back above the cut.  Cost is then
 proportional to the true nullity, not to the dimension of the space.
 
 HOW THE NULLITY IS DECIDED -- see `gap_verdict`.  The values are sorted,
-floored at `FLOOR_EPS * eps(T) * ‖L‖`, and cut at the largest consecutive
+floored at `precision_floor(T) * ‖L‖`, and cut at the largest consecutive
 ratio when that ratio clears `gap_ratio` (default `GAP_RATIO`); the result
 is then `certified`.  `tol` is a CEILING: only values below
-`max(tol, 100 eps(T)) * ‖L‖` can be counted null, so the gap refines the old
+`max(tol, precision_floor(T)) * ‖L‖` can be counted null, so the gap refines the old
 fixed count and never exceeds it.  When no jump clears `gap_ratio` the old
 count is used, the verdict is uncertified, and a warning names the values
 around the cut.  When the verdict IS certified but the cut landed at the
@@ -636,10 +640,15 @@ least 16 pairs, `KrylovSolver` by a block as wide as the request); see their
 docstrings and bench/reports/krylov-calibration.md for the measurements.
 """
 function solve_nullspace(L, solver::Union{Symbol,NullSolver};
-                         tol::Real = 1e-6, atol::Union{Nothing,Real} = nothing,
+                         tol::Real = TOL_DEFAULT, atol::Union{Nothing,Real} = nothing,
                          nd = -1, nv0::Union{Nothing,Integer} = nothing,
                          gap_ratio::Real = GAP_RATIO, min_above::Integer = 2,
                          squared::Bool = false,
+                         # The type the DATA was handed in as, which is not
+                         # `eltype(L)` when a caller promoted it to solve (a
+                         # Float16 tensor solved in Float32).  Only the data
+                         # floor depends on it; see `Dleto.data_floor`.
+                         store_eltype::Type = real(eltype(L)),
                          progress = false, label::AbstractString = "null solve",
                          kwargs...)
     N = size(L, 2)
@@ -689,17 +698,24 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     # The null eigenvalues an iterative solver returns sit at a few `eps(T)`
     # relative to `‖L‖` -- up to 6.2e-7 in Float32 at d = 40 on the sphere
     # benchmark, within 1.6x of the default 1e-6 -- while the first nonzero
-    # eigenvalue is >= 1e-4 relative there.  Floor the relative threshold at
-    # 100*eps(T) so a Float32 run does not lose a null vector to rounding;
-    # in Float64 the floor (2.2e-14) is far below any sensible `tol`.
+    # eigenvalue is >= 1e-4 relative there.  So the relative threshold is
+    # floored at `precision_floor(T)` (`5 eps(T)`, tuned -- see there) and a
+    # Float32 run does not lose a null vector to rounding; in Float64 the floor
+    # (1.1e-15) is far below any sensible `tol`.  Every constant in the next
+    # four lines comes from src/solvers/Precision.jl -- see `tol_default`,
+    # `precision_floor` and `data_floor` there for the measurements.
     RT = real(eltype(L))
     scale = max(sqrt(max(opnorm_estimate(L' * L; iters = 10), 0.0)), eps(RT))
-    rel = want_squared ? tol^2 : tol
-    threshold = atol === nothing ? max(rel, FLOOR_EPS * eps(RT)) * scale : atol
-    # The gap test works in relative terms; the floor is the same constant
-    # that floors the threshold, so a value under it is "zero" in both rules.
-    rel_threshold = threshold / scale
-    rel_floor = FLOOR_EPS * eps(RT)
+    rel_threshold = atol === nothing ?
+        tol_default(RT; tol = tol, squared = want_squared) :
+        Float64(atol) / scale
+    threshold = atol === nothing ? rel_threshold * scale : atol
+    # The gap test works in relative terms; the floor is the same policy that
+    # floors the threshold, so a value under it is "zero" in both rules.  The
+    # DATA floor is a second, coarser one that only vetoes certification, and
+    # only when the caller solved wider than it stored.
+    rel_floor = precision_floor(RT)
+    rel_data_floor = data_floor(store_eltype)
 
     # Progress: one wrapper serves both stages, because `Matrix(L)` applies the
     # map once per column.  A densifying solver therefore has an exact
@@ -726,7 +742,8 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             vals = result.vals
             vecs = result.vecs
             perm, verdict = gap_verdict(vals, scale; threshold = rel_threshold,
-                                        floor = rel_floor, gap_ratio = gap_ratio,
+                                        floor = rel_floor, data_floor = rel_data_floor,
+                                        gap_ratio = gap_ratio,
                                         nd = want_all ? -1 : floor(Int, nd),
                                         requested = k)
 
@@ -769,7 +786,24 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             end
 
             if bracketed
-                if want_all && !verdict.certified
+                if want_all && verdict.undecidable > 0
+                    # Honest failure, and the one Float16 is for: the
+                    # arithmetic converged, but `verdict.undecidable` of the
+                    # values it calls nonzero are below the resolution of the
+                    # data itself, so the nullity is not decidable at this
+                    # storage precision -- it could be `nullity` or
+                    # `nullity + undecidable` and rounding the input would
+                    # change the answer.  Report the count that the data DOES
+                    # support and say so, rather than a confident number.
+                    @warn "$label: nullity $(verdict.nullity) is UNDECIDABLE at " *
+                          "$(store_eltype) precision -- $(verdict.undecidable) value(s) " *
+                          "above the cut lie below the data floor " *
+                          "$(verdict.data_floor) (relative), i.e. within the rounding " *
+                          "of the input, so the true nullity may be up to " *
+                          "$(verdict.nullity + verdict.undecidable). Values around the " *
+                          "cut: $(verdict.below) | $(verdict.above). Store the tensor " *
+                          "in a wider type to decide it." maxlog = 1
+                elseif want_all && !verdict.certified
                     @warn "$label: nullity $(verdict.nullity) is UNCERTIFIED -- no gap " *
                           "of $(gap_ratio)x in the spectrum below the threshold " *
                           "$(verdict.threshold) (relative). Values around the cut: " *
