@@ -159,7 +159,13 @@ function sphere_case(valence::Int, d::Int, whiten::Bool, solver::Symbol, T::Type
     dims = collect(inp.dims)
     r = Dleto._qdn_restriction_sizes(dims, Dleto.engaged(Matrix{Float64}(inp.ch)), valence)
     res = timed_quickder(inp.Ω, inp.ch, inp.Γ; whiten, solver)
-    record!("sphere-v$valence-d$d", dims, r, T, whiten, solver, valence, res)
+    # `-lean` in the case name, not a new column: above `SPHERE_LEAN_BYTES`
+    # `build_sphere` takes its memory-lean path, which is the same input family
+    # up to a per-axis orthogonal change of basis but NOT the same array -- so
+    # the applies and the residual digits of a `-lean` row are not comparable
+    # with a classic row at the same d, while the nullity and verdict are.
+    record!("sphere-v$valence-d$d" * (inp.lean ? "-lean" : ""),
+            dims, r, T, whiten, solver, valence, res)
     return nothing
 end
 
