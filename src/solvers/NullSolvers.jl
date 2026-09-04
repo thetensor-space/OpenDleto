@@ -443,23 +443,45 @@ see for itself.  Every value is RELATIVE to the operator norm `scale`.
                 below `threshold` was used) or `:fixed` (the caller asked
                 for `nd > 0` vectors; the threshold count, capped at `nd`)
 - `certified`   `true` only for `:gap`, or for a nullity of 0 whose smallest
-                value is `gap_ratio` above the threshold.  This is a statement
-                about the SPECTRUM and about nothing else
+                value is `gap_ratio` above the threshold -- AND only when
+                `status` is `:ok` and `undecidable` is 0.  The gap rule is a
+                statement about the spectrum; the other two are the two
+                independent ways that spectrum can fail to be evidence, and
+                either of them alone is enough to withhold the certificate:
+
+                * `status != :ok` is about the SOLVER.  A solve that did not
+                  converge, or that ran out of room before it bracketed the
+                  cut, did not compute the spectrum it appears to have
+                  computed -- unconverged Ritz values sit above their true
+                  eigenvalues, so a clean-looking jump between two of them
+                  certifies nothing.  Measured on the whitened restricted map
+                  at d = 300 valence 3: block Lanczos converged NOTHING,
+                  returned 16 values stalled at 1.1e-9 relative, and that
+                  spectrum reads `nullity 0` with a textbook gap.
+                * `undecidable > 0` is about the DATA.  The arithmetic
+                  converged, but values it calls nonzero lie below the
+                  resolution of the numbers the caller handed in, so rounding
+                  the input could have created or destroyed them.
+
+                They answer different questions and neither implies the other:
+                a Float16 tensor solved exactly is `:ok` and undecidable, and a
+                stalled Float64 solve is decidable and not `:ok`.  The numeric
+                fields (`gap`, `spectrum`, `below`, `above`, `nullity`) are
+                untouched by either -- the cut and the numbers around it are
+                reported as computed, and only the CERTIFICATE is withheld
 - `status`      what the SOLVER did: `:ok`, `:unconverged` (it reported that it
                 did not converge everything it was asked for) or `:capped`
                 (the escalation reached the dimension of the space without ever
-                bracketing the cut).  A caller has to read both words, because
-                they answer different questions and a non-converged solve can
-                perfectly well produce a spectrum with a clean gap in it --
-                which is exactly the failure this field exists for.  Measured
-                on the whitened restricted map at d = 300 valence 3: block
-                Lanczos converged NOTHING, returned its 16 Ritz values stalled
-                at 1.1e-9 relative, and the verdict on that spectrum was
-                `nullity 0, certified`.  Nullity 0 is a legitimate answer
-                ("Γ conforms to no pattern for this chisel") and cannot be
-                escalated away, so the only defence is for the solver to say
-                whether it converged and for the caller to refuse to read
-                silence as "no derivations"
+                bracketing the cut).  It clears `certified` (see above), and it
+                is still worth reading on its own: a caller that falls back to
+                another method has to distinguish "I failed" from the
+                legitimate answer "Γ conforms to no pattern for this chisel",
+                and `certified = false` alone does not say which.
+                `_qdn_solve_and_lift` and `AutoDerMethod` branch on this field,
+                not on the certificate.  Nullity 0 cannot be escalated away, so
+                the only defence is for the solver to say whether it converged
+                and for the caller to refuse to read silence as "no
+                derivations"
 - `gap`         the ratio at the cut, `spectrum[nullity+1] / max(spectrum[nullity], floor)`
                 (for nullity 0: `spectrum[1] / threshold`); `NaN` if nothing
                 was returned above the cut
@@ -625,10 +647,20 @@ function gap_verdict(vals::AbstractVector, scale::Real;
     end
     gap = ratio_at(cut)
 
-    # The data's own noise vetoes certification (but never the cut): values
-    # above the cut that sit below `data_floor` are not evidence of anything.
+    # TWO INDEPENDENT VETOES, and neither moves the cut.
+    #
+    # The data's own noise: values above the cut that sit below `data_floor`
+    # are not evidence of anything, because rounding the input to its own
+    # precision could have created or destroyed them.
     undecidable = count(v -> v < data_floor, @view rel[(cut + 1):end])
-    certified = certified && undecidable == 0
+    # The solver's own word: a solve that did not converge, or that ran out of
+    # room before it bracketed the cut, did not compute the spectrum it appears
+    # to have computed.  Unconverged Ritz values sit ABOVE their true
+    # eigenvalues, so the jump between two of them can look like a textbook
+    # gap and mean nothing -- see `NullVerdict`'s `status` for the measured
+    # case.  `gap_verdict` is usually called before the status is known and
+    # `_with_status` applies the same veto when it is stamped later.
+    certified = certified && undecidable == 0 && status === :ok
 
     take(r) = rel[r]
     return perm, NullVerdict(cut, rule, certified, status, gap, Float64(gap_ratio), floor,
@@ -653,13 +685,18 @@ solver_converged(result) = !hasproperty(result, :converged) || result.converged 
 """
     _with_status(v, status) -> NullVerdict
 
-`v` with its `status` replaced.  `gap_verdict` reads the spectrum and can know
-neither whether the solver converged nor whether the escalation ran out of
-room, so `solve_nullspace` decides those after its bracket test and stamps the
-word here.
+`v` with its `status` replaced, and `certified` cleared with it when the new
+status is not `:ok`.  `gap_verdict` reads the spectrum and can know neither
+whether the solver converged nor whether the escalation ran out of room, so
+`solve_nullspace` decides those after its bracket test and stamps the word
+here -- which means the certificate has to be re-decided here too, on the same
+rule `gap_verdict` applies when it is told the status up front.  Only ever
+withdraws a certificate; a `:ok` stamp cannot restore one that the spectrum or
+the data floor already refused.
 """
 _with_status(v::NullVerdict, status::Symbol) =
-    NullVerdict(v.nullity, v.rule, v.certified, status, v.gap, v.gap_ratio, v.floor,
+    NullVerdict(v.nullity, v.rule, v.certified && status === :ok, status, v.gap,
+                v.gap_ratio, v.floor,
                 v.floor_binding, v.data_floor, v.undecidable, v.threshold, v.near_null,
                 v.below, v.above, v.spectrum, v.scale, v.requested)
 
@@ -690,7 +727,10 @@ proportional to the true nullity, not to the dimension of the space.
 HOW THE NULLITY IS DECIDED -- see `gap_verdict`.  The values are sorted,
 floored at `precision_floor(T) * ‖L‖`, and cut at the largest consecutive
 ratio when that ratio clears `gap_ratio` (default `GAP_RATIO`); the result
-is then `certified`.  `tol` is a CEILING: only values below
+is then `certified`, unless the solver reported a non-`:ok` `status` or the
+data cannot resolve a value above the cut (`undecidable`), either of which
+withholds the certificate while leaving the count and the numbers as
+computed.  `tol` is a CEILING: only values below
 `max(tol, precision_floor(T)) * ‖L‖` can be counted null, so the gap refines the old
 fixed count and never exceeds it.  When no jump clears `gap_ratio` the old
 count is used, the verdict is uncertified, and a warning names the values
@@ -718,8 +758,9 @@ null space and then some" from "converged to nothing at all" -- both look like
 values above the cut -- so a non-converging iterative solver used to report
 "no solutions" rather than "I failed", silently.  It no longer does: the
 solvers that know whether they converged say so (`solver_converged`), the
-verdict carries that as `status` (`:ok`, `:unconverged`, `:capped`), and the
-nullity-0-from-a-failed-solve combination is a `@warn`.  Callers must treat a
+verdict carries that as `status` (`:ok`, `:unconverged`, `:capped`), a
+non-`:ok` status clears `certified`, and the nullity-0-from-a-failed-solve
+combination is a `@warn`.  Callers must treat a
 non-`:ok` status with nullity 0 as a failure to fall back from, never as an
 empty null space; `_qdn_solve_and_lift` does exactly that.
 
@@ -924,10 +965,15 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             end
 
             if bracketed
-                # THE SOLVER'S OWN WORD, kept separate from the verdict on the
-                # spectrum (see `NullVerdict`'s `status`).  `:capped` is the
-                # other way out of this loop without an answer: the request
-                # reached the dimension of the space and the cut was still not
+                # THE SOLVER'S OWN WORD (see `NullVerdict`'s `status`), which
+                # is also the moment the certificate is decided: a non-`:ok`
+                # status clears `certified`, because the spectrum a failed
+                # solve returned is not the spectrum of the operator.  The
+                # NUMBERS are left exactly as computed -- the caller still sees
+                # the cut, the gap and the values around it, and can judge them
+                # -- only the certificate is withheld.  `:capped` is the other
+                # way out of this loop without an answer: the request reached
+                # the dimension of the space and the cut was still not
                 # bracketed, so the count returned is whatever fitted.
                 verdict = _with_status(verdict,
                                        !solver_ok ? :unconverged :
@@ -945,9 +991,10 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                           "solver, a preconditioner, or a larger request." maxlog = 1
                 elseif verdict.status !== :ok
                     @info "$label: nullity $(verdict.nullity) from a solver that " *
-                          "reported :$(verdict.status); the count may be short. The " *
-                          "vectors returned still stand or fall on their own " *
-                          "residual." maxlog = 1
+                          "reported :$(verdict.status); the count may be short and " *
+                          "the verdict is UNCERTIFIED for that reason, whatever the " *
+                          "spectrum looks like. The vectors returned still stand or " *
+                          "fall on their own residual." maxlog = 1
                 end
                 if want_all && verdict.undecidable > 0
                     # Honest failure, and the one Float16 is for: the
@@ -966,6 +1013,11 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                           "$(verdict.nullity + verdict.undecidable). Values around the " *
                           "cut: $(verdict.below) | $(verdict.above). Store the tensor " *
                           "in a wider type to decide it." maxlog = 1
+                elseif want_all && !verdict.certified && verdict.status !== :ok
+                    # Already reported, one line up: the certificate is withheld
+                    # because of the SOLVER, and blaming the spectrum here would
+                    # be wrong -- a capped run can have a textbook gap in it.
+                    nothing
                 elseif want_all && !verdict.certified
                     @warn "$label: nullity $(verdict.nullity) is UNCERTIFIED -- no gap " *
                           "of $(gap_ratio)x in the spectrum below the threshold " *

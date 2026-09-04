@@ -128,3 +128,86 @@ end
         @test maximum(abs.(a.verdict.spectrum .- b.verdict.spectrum)) <= 1e-12
     end
 end
+
+# --- a non-ok status withholds the certificate -----------------------------
+#
+# `certified` is a claim that the spectrum PROVES the nullity.  A solve that
+# did not converge, or that ran out of room before it bracketed the cut, did
+# not compute that spectrum: unconverged Ritz values sit ABOVE their true
+# eigenvalues, so a stalled cluster produces a textbook gap over nothing.  The
+# plumbing is pinned by the stubs in TestNullVerdict.jl; this is the same rule
+# on a REAL solver.
+#
+# HOW `:capped` IS FORCED, and why not with `maxiter`.  A tiny `maxiter` does
+# not produce a capped verdict at all -- `Arpack.eigs` raises
+# `XYAUPD_Exception` when it exhausts its iterations (measured here at
+# maxiter = 1, 2 and 4 on a clustered 400 x 400 operator), which propagates
+# and never reaches `gap_verdict`.  The status that IS reachable from the
+# escalation is `:capped`: "the request reached the dimension of the space and
+# the cut was still not bracketed".  `min_above` is the documented knob that
+# decides bracketing, so asking for more values above the cut than the
+# operator has drives the loop to `k >= N` with the cut still unbracketed --
+# a genuine ARPACK run, a genuine cap, and a spectrum whose gap would
+# otherwise certify.
+if HAVE_ARPACK
+    @testset "a non-ok status withholds the certificate (ARPACK)" begin
+        L = seeded_test_map(40)          # above ARPACK's n <= 32 dense shortcut
+        arp = Dleto.SOLVER_REGISTRY[:ArpackSolver]
+
+        # The control: the same map, the same solver, bracketing normally.
+        okr = solve_nullspace(L, arp; tol = 1e-6, nv0 = 16, seed = 4242)
+        @test okr.verdict.status === :ok
+        @test okr.verdict.nullity == 3
+        @test okr.verdict.certified
+        @test okr.verdict.rule === :gap
+
+        # And now the cap: 40 values above the cut are demanded of an operator
+        # that has 37, so the escalation runs to k = N and gives up.
+        cap = solve_nullspace(L, arp; tol = 1e-6, nv0 = 16, seed = 4242,
+                              min_above = 40)
+        @test cap.verdict.status === :capped
+        # The NUMBERS are untouched -- same cut, same rule, same gap as the
+        # control -- so the caller still sees what was computed.
+        @test cap.verdict.nullity == okr.verdict.nullity
+        @test cap.verdict.rule === :gap
+        @test cap.verdict.gap >= Dleto.GAP_RATIO
+        # Only the certificate is withheld, and that is the whole change.
+        @test !cap.verdict.certified
+        @test occursin("UNCERTIFIED", sprint(show, cap.verdict))
+        @test occursin("solver :capped", sprint(show, cap.verdict))
+    end
+end
+
+@testset "status and undecidable are independent vetoes" begin
+    # They answer different questions -- the SOLVER versus the DATA -- and
+    # either alone is enough to withhold the certificate.  Built directly on
+    # `gap_verdict` so both can be set without a solver that has to fail.
+    floorv = Dleto.FLOOR_EPS * eps(Float64)
+    rel = Float64[0.0, 3e-16, 2e-16, 1e-2, 0.3, 1.0]     # a clean nullity 3
+
+    _, ok = gap_verdict(rel, 1.0; threshold = 1e-6, floor = floorv)
+    @test ok.certified && ok.status === :ok && ok.undecidable == 0
+
+    # Solver failed, data fine.
+    _, bad_solver = gap_verdict(rel, 1.0; threshold = 1e-6, floor = floorv,
+                                status = :unconverged)
+    @test !bad_solver.certified
+    @test bad_solver.undecidable == 0        # the data had nothing to say
+    @test bad_solver.nullity == ok.nullity   # and the cut did not move
+    @test bad_solver.gap == ok.gap
+
+    # Data too coarse, solver fine: a Float16 tensor solved in Float32 whose
+    # first nonzero value lies inside the rounding of the input.
+    _, bad_data = gap_verdict(rel, 1.0; threshold = 1e-6, floor = floorv,
+                              data_floor = 0.1)
+    @test !bad_data.certified
+    @test bad_data.status === :ok
+    @test bad_data.undecidable > 0
+
+    # `_with_status` applies the same rule when the status is stamped later,
+    # and only ever withdraws: an `:ok` stamp cannot restore a certificate the
+    # data floor already refused.
+    @test !Dleto._with_status(ok, :capped).certified
+    @test Dleto._with_status(ok, :ok).certified
+    @test !Dleto._with_status(bad_data, :ok).certified
+end

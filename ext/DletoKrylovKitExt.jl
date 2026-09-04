@@ -114,6 +114,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
     # 2.2e-14 in Float64, so Float64 behaviour is unchanged.
     atol = Dleto.iter_tol(RT, tol) * max(scale, eps(RT))
 
+    fell_back = false
     if LinearAlgebra.issymmetric(L)
         bs = blocksize === nothing ? nev : clamp(blocksize, 1, nev)
         kd = krylovdim === nothing ? max(128, 8 * bs) : Int(krylovdim)
@@ -129,18 +130,33 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
         # about the tensor, so neither should reach the caller as a crash --
         # fall back to the single-vector Arnoldi, which is less reliable on
         # multiplicities (it finds one copy of a repeated eigenvalue per start
-        # vector) but does not break down.  The undercount that risks is
-        # reported by the convergence warning below and by an uncertified
-        # verdict; a `DomainError` from inside a dependency is reported by
-        # nothing.
+        # vector) but does not break down.  A `DomainError` from inside a
+        # dependency is reported by nothing.
+        #
+        # THE FALLBACK NEVER CLAIMS CONVERGENCE, and that is not pessimism.
+        # `info.converged` counts Ritz pairs that met their residual test; it
+        # says nothing about how many COPIES of a repeated eigenvalue were
+        # found, and single-vector Arnoldi finds one per start vector by
+        # construction.  A null space IS a repeated eigenvalue, so on the one
+        # problem this solver exists for the fallback can converge everything
+        # it looked at and still have looked at too little.  Measured, and
+        # this is the case the flag is for: the scrambled sphere at d = 12,
+        # forced matrix-free, unwhitened, seed 4242 -- the block broke down
+        # with `DomainError with -3.09e-19`, Arnoldi returned restricted
+        # nullity 7 of 13 with every value converged, the verdict read
+        # `certified`, and QuickDer came back with ZERO derivations of a true
+        # three.  Reported as `:unconverged` instead, that is a failed solve a
+        # caller can fall back from (`AutoDerMethod` -> SylverLining).
         vals_a, vecs_a, info = try
             eigsolve(L, x0, nev, :SR, alg)
         catch err
             err isa Union{DomainError,ArgumentError,LinearAlgebra.PosDefException} || rethrow()
+            fell_back = true
             @warn "KrylovSolver: block Lanczos broke down in $RT " *
                   "($(first(split(sprint(showerror, err), '\n')))); retrying with " *
                   "single-vector Arnoldi, which may undercount a repeated " *
-                  "eigenvalue. Consider :ArpackSolver or Float64." maxlog = 1
+                  "eigenvalue and is therefore reported as NOT converged. " *
+                  "Consider :ArpackSolver or Float64." maxlog = 1
             eigsolve(L, randn(rng, T, n), nev, :SR;
                      krylovdim = clamp(max(kd, nev), nev, n),
                      maxiter = maxiter, tol = atol, verbosity = 0)
@@ -152,7 +168,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
                                         verbosity = 0)
     end
 
-    converged = info.converged >= nev
+    converged = info.converged >= nev && !fell_back
     info.converged < nev && @warn "KrylovSolver: $(info.converged) of $nev eigenvalues " *
         "converged to relative tolerance $tol in $(info.numiter) restarts " *
         "($(info.numops) map applications); returning the Ritz pairs as computed."
