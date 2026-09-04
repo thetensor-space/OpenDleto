@@ -2,6 +2,12 @@
 
 This document surveys existing work relevant to OpenDleto's core challenge: computing the derivation algebra (symmetries / null space) of a tensor at large dimension (d = 500–2000 per axis, valence 3–4), using randomized sketching, preconditioned Gram solvers, mixed precision, and GPU acceleration.
 
+> **Parent's note (2026-09-04).** Scout report by a small model; sources spot-checked, the
+> analysis not. Read the takeaways as leads, not conclusions. In particular takeaway 1's cost
+> model is wrong: the matrix-free branch never pays O((prod r)^3) per iteration -- an apply is a
+> handful of contractions, linear in the tensor's size -- so the win from Kronecker structure is
+> in *conditioning* (the whitened restriction now being built), not in per-apply cost.
+
 ## 1. Derivation Algebra / Lie Algebra of Tensors and Symmetries
 
 **Brooksbank, Maglione, Wilson — TensorSpace software for Magma (2015–2022)**
