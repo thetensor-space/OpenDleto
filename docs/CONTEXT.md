@@ -30,15 +30,23 @@ Work items and where they live:
 | Native-core (Rust/C++) study | `docs/design/Native-Core-Plan.md` | done: do not port now |
 
 Frontier reached (5 CPU threads, Float64, `:Auto`): valence-4 scrambled sphere stratified at
-d = 100 in 11 s (d = 50 in 0.4 s, d = 80 in 1.4 s); valence-3 sphere d = 100 in 1.8 s;
+d = 100 in 11 s (d = 50 in 0.4 s, d = 80 in 1.4 s); valence-3 sphere d = 100 in 1.8 s, d = 150 in
+11 s, d = 200 in 22 s (8 GB peak; the dense Gram route, `QDN_DENSE_BUDGET_BYTES` = 2.5 GB);
 video-shaped 100x100x100x3 derivations in 3.2 s; sparse raw valence-4 sphere d = 100 (nullity 13)
-in 6 s.  Every result verified by the Z-law.
+in 6 s.  Every result verified by the Z-law.  Beyond d ~ 200 at valence 3 the matrix-free
+restricted branch must converge on its own, and on structured tensors Arpack hits its iteration
+cap there -- preconditioning that branch is the next lever toward 500..1000.
+
+Integration branch `beta` (worktree `/Users/algeboy/CODE/OpenDleto-beta`) = `main` + every active
+September branch, 13,103 tests passing; `main` itself is untouched until the user says push.
 
 GPU (M4 Max, 40 cores; Metal is Float32-only so GPU runs are exploratory, Float64 CPU certifies):
-- `sylvesterLM(...; backend=:metal)` applies the derivation operator 10-25x faster than 5 CPU
-  threads on dense tensors (100^3x3: 49.5 -> 5.0 ms; 400^3: 2.13 s -> 85 ms; 300^3x3: 2.09 s ->
-  0.44 s).  This is the dense-video regime: an eigensolve of ~500 applies at 400^3 goes from
-  ~18 min to under a minute.
+- `sylvesterLM(...; backend=:metal)` applies the derivation operator 6-17x faster than 5 CPU
+  threads on dense tensors on a quiet machine (100^3x3: 26 -> 4.6 ms; 400^3: 889 -> 53 ms;
+  300^3x3: 1178 -> 169 ms); end-to-end Float32 Arpack derivations 100^3x3 372 s -> 100 s,
+  200x200x100x3 1426 s -> 246 s (2000-11000 applies).  `permutedims!` on the device, not the
+  GEMM, is the bottleneck.  On generic tensors QuickDer answers the same question in ~3 s, so the
+  GPU operator is the accelerated FALLBACK for tensors that fail QuickDer's genericity check.
 - QuickDer `device=:gpu` is a hybrid -- Gram and M*X on the device (11.6x), Cholesky/qr/svd on the
   host because Metal's MPS Cholesky is 4.5x slower than the CPU's -- 2.6x end to end at d = 200.
   QuickDer's work is small by design, so the GPU pays less there.
