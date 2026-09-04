@@ -34,6 +34,10 @@ using Arpack          # so `_qdn_default_free_solver()` is :ArpackSolver, as in 
 using Printf
 
 include(joinpath(@__DIR__, "SphereHarness.jl"))
+# `Frontier.jl` for `der_residual`: the Z-law residual is part of what a run
+# costs, and measuring the stages without it was how the harness's peak came to
+# be 15x the tensor without anyone noticing (see `der_residual`'s docstring).
+include(joinpath(@__DIR__, "Frontier.jl"))
 
 const MP_GB = 1 / 2^30
 
@@ -194,6 +198,42 @@ function profile_build_lean(d::Integer; valence::Integer = 3, T::Type = Float64,
     return (inp, log)
 end
 
+"""
+    profile_video(H, W, F; T) -> (inp, log)
+
+The user's target shape, `H x W x F x 3`, on the same stage boundaries.  A
+video is a DIFFERENT memory problem from the sphere and it is the one that
+matters: no `nondeg`, no scramble, `UniversalOp` rather than `SymmetricOp`, and
+axis extents that differ by two orders of magnitude (640 against 3), so the
+restriction sizes and everything that scales with `d_a^2` are lopsided in a way
+a cube never is.
+
+The measured puzzle this exists to answer: at 640x480x90x3 the peak is 6.5 GB
+for a 0.33 GB Float32 tensor, AND IT IS THE SAME 6.5 GB IN FLOAT64 with twice
+the tensor -- so the thing that dominates depends on the SHAPE and not on the
+element type or the number of tensor copies.
+"""
+function profile_video(H::Integer, W::Integer, F::Integer; T::Type = Float32)
+    log = MPLog()
+    Random.seed!(20260904 + H + 100W + 10_000F)
+    mp_stage!(log, "0 baseline")
+
+    A = randn(T, H, W, F, 3)
+    mp_stage!(log, "1 randn array")
+
+    fr = [Index(H, "h"), Index(W, "w"), Index(F, "f"), Index(3, "c")]
+    Γ = ITensors.itensor(A, fr...)
+    Ω = IndTransverseOps(fr, UniversalOp())
+    mp_stage!(log, "2 itensor + ops")
+
+    inp = (; S = nothing, fr, nnz = length(A), Xs = ITensor[], Es = ITensor[],
+             Γ, Ω, ch = UniversalChisel(4), dims = [H, W, F, 3], T, lean = true)
+    A = nothing
+    GC.gc(); GC.gc()
+    mp_stage!(log, "3 after full GC")
+    return (inp, log)
+end
+
 # ------------------------------------------------------- the solver
 
 """
@@ -222,14 +262,17 @@ function profile_solve(inp; whiten::Bool = true, solver::Symbol = :AutoSolver,
     Dleto.QDN_STAGE_BYTES[] = bytes
     Dleto.QDN_APPLY_COUNT[] = 0
     nullity = 0
+    resid = NaN
     status = "ok"
     t0 = time()
     try
         with_logger(verbose ? ConsoleLogger(stderr, Logging.Debug) : NullLogger()) do
             redirect_stdout(devnull) do
-                (_, _, ders) = Dleto.derTrOpsReduced(method, inp.Ω, inp.ch, inp.Γ;
-                                                     tol = tol)
+                (_, emap, ders) = Dleto.derTrOpsReduced(method, inp.Ω, inp.ch, inp.Γ;
+                                                        tol = tol)
                 nullity = size(ders, 2)
+                nullity == 0 || (resid = der_residual(inp.Γ,
+                                     embedITensors(inp.Ω, emap(ders[:, 1])), inp.ch))
             end
         end
     catch e
@@ -254,10 +297,10 @@ function profile_solve(inp; whiten::Bool = true, solver::Symbol = :AutoSolver,
         @printf("%-26s %10.2f %10.3f %10.3f\n", String(k), get(times, k, NaN),
                 al * MP_GB, pk * MP_GB)
     end
-    @printf("%-26s %10.2f %10s %10.3f  applies=%d nullity=%d status=%s\n",
-            "TOTAL", secs, "", Sys.maxrss() * MP_GB, applies, nullity, status)
+    @printf("%-26s %10.2f %10s %10.3f  applies=%d nullity=%d resid=%.2e status=%s\n",
+            "TOTAL", secs, "", Sys.maxrss() * MP_GB, applies, nullity, resid, status)
     flush(stdout)
-    return (; seconds = secs, applies, nullity, status,
+    return (; seconds = secs, applies, nullity, resid, status,
               peak_GB = Sys.maxrss() * MP_GB)
 end
 
@@ -300,7 +343,28 @@ function compare(d::Integer; valence::Integer = 3)
 end
 
 function mpmain(args)
-    isempty(args) && error("first argument must be build, sphere or compare")
+    isempty(args) && error("first argument must be build, sphere, video or compare")
+    if args[1] == "video"
+        (H, W, F) = (parse(Int, args[2]), parse(Int, args[3]), parse(Int, args[4]))
+        T = length(args) >= 5 && args[5] == "Float64" ? Float64 : Float32
+        verbose = length(args) >= 6 && args[6] == "1"
+        let (wi, _) = profile_video(10, 10, 10; T)
+            try
+                redirect_stdout(devnull) do
+                    profile_solve(wi)
+                end
+            catch e
+                @warn "warmup failed (continuing)" exception = (e, catch_backtrace())
+            end
+        end
+        GC.gc(); GC.gc()
+        @printf("video %dx%dx%dx3 eltype=%s tensor=%.3f GB\n", H, W, F, T,
+                float(H) * W * F * 3 * sizeof(T) * MP_GB)
+        (inp, blog) = profile_video(H, W, F; T)
+        mp_table(blog, "video($H, $W, $F; T = $T)")
+        profile_solve(inp; verbose)
+        return nothing
+    end
     task = args[1]
     d = parse(Int, args[2])
     valence = length(args) >= 3 ? parse(Int, args[3]) : 3

@@ -498,10 +498,11 @@ function _qdn_ttm(G::AbstractArray{T,N}, M::AbstractMatrix{T}, a::Integer) where
 end
 
 """
-    _qdn_ttm!(out, G, M, a) -> out
+    _qdn_ttm!(out, G, M, a, α = 1, β = 0) -> out
 
 `_qdn_ttm` writing into a caller-owned `out` of shape `size(G)` with axis `a`
-replaced by `size(M, 2)`.  `out` must not alias `G`.
+replaced by `size(M, 2)`: `out <- α·(G ×_a M) + β·out`.  `out` must not alias
+`G`.
 
 This is the form the memory-lean pipelines want.  A chain of mode products
 `Γ ×_1 M_1 ×_2 M_2 ⋯` with square `M_a` -- the harness's orthogonal scramble
@@ -510,9 +511,17 @@ and its `nondeg` change of basis are both exactly that -- allocates a fresh
 churns 48 GB and leans on the GC to keep two of those six 8 GB arrays live at
 a time.  With two buffers and this function it is 16 GB steady and no churn at
 all: `_qdn_ttm!(B, A, M, a); A, B = B, A`.
+
+`α`/`β` are `mul!`'s, and they exist so that a SUM of mode products --
+`Σ_a P[ρ,a]·(Γ ×_a M_a)`, which is the derivation equation itself -- can be
+accumulated into one array instead of one temporary per term.  On a `d^n`
+tensor that is the difference between one extra copy and `n + 1` of them.  The
+device fall-through below cannot accumulate (it has to permute its result into
+place) and refuses a nonzero `β`.
 """
 function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
-                   M::AbstractMatrix{T}, a::Integer) where {T,N}
+                   M::AbstractMatrix{T}, a::Integer,
+                   α = one(T), β = zero(T)) where {T,N}
     d = size(G, a)
     size(M, 1) == d || throw(DimensionMismatch(
         "mode-$a product: matrix is $(size(M)) but axis $a has length $d"))
@@ -524,22 +533,24 @@ function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
     # over a `d x 0` block) makes `0 x :` uninferable.
     rest = length(G) ÷ max(d, 1)
     if a == 1
-        mul!(reshape(out, k, rest), transpose(M), reshape(G, d, rest))
+        mul!(reshape(out, k, rest), transpose(M), reshape(G, d, rest), α, β)
     elseif a == N
-        mul!(reshape(out, rest, k), reshape(G, rest, d), M)
+        mul!(reshape(out, rest, k), reshape(G, rest, d), M, α, β)
     elseif G isa Array && out isa Array
         front = prod(ntuple(i -> size(G, i), a - 1))
         back = prod(ntuple(i -> size(G, a + i), N - a))
         G3 = reshape(G, front, d, back)
         O3 = reshape(out, front, k, back)
         for b in 1:back
-            @views mul!(O3[:, :, b], G3[:, :, b], M)
+            @views mul!(O3[:, :, b], G3[:, :, b], M, α, β)
         end
     else
+        iszero(β) || error("_qdn_ttm!: the device path cannot accumulate (β = $β); " *
+                           "it permutes its result into `out`.")
         perm = _qdn_front(N, a)
         Gm = reshape(permutedims(G, perm), d, :)
         tmp = similar(G, T, (k, size(Gm, 2)))
-        mul!(tmp, transpose(M), Gm)
+        mul!(tmp, transpose(M), Gm, α, zero(T))
         permutedims!(out, reshape(tmp, ntuple(i -> i == 1 ? k : size(G, perm[i]), N)),
                      invperm(collect(perm)))
     end
@@ -666,6 +677,25 @@ function _qdn_unfold(G::AbstractArray{T,N}, a::Integer) where {T,N}
     d = size(GA, a)
     a == 1 && return reshape(GA, d, :)
     return reshape(permutedims(GA, _qdn_front(N, a)), d, :)
+end
+
+"""
+    _qdn_unfold!(buf, G, a) -> Matrix
+
+`_qdn_unfold` with the transposed copy written into `buf`, whose shape must be
+`size(G)` permuted by `_qdn_front(N, a)`.  Axis 1 needs no copy at all and
+`buf` is left alone there.
+
+For the matrix-free adjoint, which unfolds a small tensor once per chisel row
+per axis per apply and would otherwise allocate that copy every time.
+"""
+function _qdn_unfold!(buf::AbstractArray{T,N}, G::AbstractArray{T,N},
+                      a::Integer) where {T,N}
+    d = size(G, a)
+    rest = length(G) ÷ max(d, 1)
+    a == 1 && return reshape(G, d, rest)
+    permutedims!(buf, G, _qdn_front(N, a))
+    return reshape(buf, d, rest)
 end
 
 """
@@ -1213,13 +1243,35 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
     rt = ntuple(a -> r[a], N)
     nrows = _qdn_system_rows(m * R, ncols)      # zero-padded when wide
 
+    # SCRATCH, allocated once and reused by every apply.  This is a memory
+    # change and it is a large one: written with fresh temporaries the pair of
+    # applies allocated about 13 MB at d = 700 valence 3, so a 100k-apply
+    # solve churned ~700 GB and the process RSS tracked the GC's heap target
+    # rather than the live set (measured: 17 GB at d = 700 for a live set
+    # under 8).  Nothing here is ever returned -- the two vectors that ARE
+    # (`out` and `y`) stay freshly allocated -- and every null solver in this
+    # package applies the map one vector at a time, ARPACK, LOBPCG and block
+    # Lanczos alike, so there is no apply running concurrently with another.
+    # (That is the invariant to keep if a threaded solver is ever added.)
+    Yb = Dict{Int, Matrix{T}}(a => Matrix{T}(undef, dims[a], r[a]) for a in eaxes)
+    Ab = Dict{Int, Matrix{T}}(a => Matrix{T}(undef, dims[a], r[a]) for a in eaxes)
+    # One mode product's output is `rt` whichever axis it came from, so one
+    # buffer serves them all.
+    Tb = Array{T}(undef, rt)
+    Eb = Array{T}(undef, (rt..., m))
+    Sb = Array{T}(undef, rt)
+    Pb = Dict{Int, Array{T,N}}(
+        a => Array{T}(undef, ntuple(i -> rt[_qdn_front(N, a)[i]], N)) for a in eaxes)
+
     function fwd(y::AbstractVector)
         _qdn_tick!()
         out = zeros(T, nrows)
         Out = reshape(view(out, 1:(R * m)), rt..., m)
         for a in eaxes
-            Ya = reshape(T.(y[(coff[a] + 1):(coff[a] + dims[a] * r[a])]), dims[a], r[a])
-            Ta = _qdn_ttm(S[a], Ya, a)
+            Ya = Yb[a]
+            @views Ya .= reshape(y[(coff[a] + 1):(coff[a] + dims[a] * r[a])],
+                                 dims[a], r[a])
+            Ta = _qdn_ttm!(Tb, S[a], Ya, a)
             for rho in 1:m
                 c = P[rho, a]
                 iszero(c) && continue
@@ -1232,17 +1284,21 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
 
     function adj(e::AbstractVector)
         _qdn_tick!()
-        E = reshape(T.(e[1:(R * m)]), rt..., m)
+        @views Eb .= reshape(e[1:(R * m)], rt..., m)
         y = zeros(T, ncols)
         for a in eaxes
-            acc = zeros(T, dims[a], r[a])
+            acc = fill!(Ab[a], zero(T))
             for rho in 1:m
                 c = P[rho, a]
                 iszero(c) && continue
-                Eu = _qdn_unfold(Array(selectdim(E, N + 1, rho)), a)   # r_a x R_a
-                acc .+= c .* (Uf[a] * transpose(Eu))
+                copyto!(Sb, selectdim(Eb, N + 1, rho))
+                Eu = _qdn_unfold!(Pb[a], Sb, a)                        # r_a x R_a
+                # 5-argument `mul!` accumulates `c * Uf[a] * Euᵗ` straight into
+                # `acc`, where the loop used to build the product and then add
+                # it.
+                mul!(acc, Uf[a], transpose(Eu), c, one(T))
             end
-            y[(coff[a] + 1):(coff[a] + dims[a] * r[a])] = vec(acc)
+            @views y[(coff[a] + 1):(coff[a] + dims[a] * r[a])] .= vec(acc)
         end
         return y
     end
@@ -1467,7 +1523,13 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # A thin QR compresses each axis block to k x k first, which is exact
         # -- an orthonormal Q does not change singular values -- and keeps the
         # peak memory at one axis block instead of all of them.
-        Rm = reshape(AZ .- B, (m * Ra) * ha, k)
+        #
+        # `AZ .-= B`, not `AZ .- B`: `B` is dead after `scale` above, and these
+        # are the largest arrays in the whole method -- `(m·R_a) x (k·h_a)`,
+        # 1.5 GB each at d = 1000 valence 3 with a restricted nullity in the
+        # tens -- so a third live copy of one is worth more than the line.
+        AZ .-= B
+        Rm = reshape(AZ, (m * Ra) * ha, k)
         push!(Rblocks, size(Rm, 1) >= k ? Matrix(qr(Rm).R) : Matrix(Rm))
         tlift = _qdn_stage!(Symbol("lift", a), tlift)
     end
