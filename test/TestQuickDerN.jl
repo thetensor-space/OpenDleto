@@ -655,3 +655,71 @@ end
         end
     end
 end
+
+# --- the trivial space of a degenerate mode, factored -------------------
+#
+# `(d - rank)*d` operator tuples of `n` dense `d x d` matrices is 3 GB at
+# d = 500 with a single degenerate mode, to describe a space whose complete
+# statement is one `d x (d - rank)` matrix.  So the complete answer is
+# published FACTORED (`QDN_TRIVIAL_FACTORED`) and only what fits in
+# `QDN_TRIVIAL_MAX_BYTES` is written out.  What has to hold: the factored form
+# is complete whether or not the write-out truncated, the truncation warns and
+# names the field, and with the budget restored the full count comes back.
+@testset "whiten: the trivial space is published factored, and capped" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        d = 12
+        Random.seed!(20260923)
+        U = Matrix(qr(randn(d, d)).Q)
+        G = Dleto._qdn_ttm(randn(d, d, d),
+                           U[:, 1:(d - 2)] * transpose(U[:, 1:(d - 2)]), 1)
+        frame = [Index(d, "t_$i") for i in 1:3]
+        Γ = ITensor(G, frame...)
+        P = Matrix{Float64}(UniversalChisel(3))
+        Ω = IndTransverseOps(frame, UniversalOp())
+        method = get_derivation_method(:QuickDer; whiten = true, seed = 4242)
+        per = 3 * d^2 * sizeof(Float64)          # one tuple, all three axes
+        saved = Dleto.QDN_TRIVIAL_MAX_BYTES[]
+        try
+            # (a) budget for exactly 5 tuples: the write-out truncates.
+            Dleto.QDN_TRIVIAL_MAX_BYTES[] = 5.4 * per
+            capped = der(method, Ω, P, Γ; tol = QD_TOL)
+            @test length(capped) == 2 + 5           # 2 scalars + the budget
+
+            fac = Dleto.QDN_TRIVIAL_FACTORED[]
+            @test length(fac) == 1
+            @test fac[1].axis == 1
+            @test size(fac[1].K) == (d, 2)          # rank d-2, so 2 truncated
+            @test norm(transpose(fac[1].K) * fac[1].K - I) < 1e-12
+            # The COMPLETE space is (d - rank)*d = 2d, and every element of it
+            # `K[:,p] * e_q'` really does annihilate Γ -- the whole content of
+            # the factored statement, checked on the corners of the box.
+            @test size(fac[1].K, 2) * d == 2 * d
+            for p in 1:2, q in (1, d)
+                X = zeros(Float64, d, d)
+                X[:, q] = fac[1].K[:, p]
+                @test norm(Dleto._qdn_ttm(G, X, 1)) < 1e-10 * norm(G)
+            end
+
+            # (b) the same call with the budget restored writes all of it out,
+            # and reproduces the count the uncapped code has always returned.
+            Dleto.QDN_TRIVIAL_MAX_BYTES[] = saved
+            full = der(method, Ω, P, Γ; tol = QD_TOL)
+            @test length(full) == 2 + 2 * d
+            for D in full
+                @test der_residual(Γ, D, P) < RESID64
+            end
+            @test length(Dleto.QDN_TRIVIAL_FACTORED[]) == 1
+
+            # (c) a tensor with no degenerate mode leaves the field empty, so
+            # a stale value can never be read as a trivial space.
+            Random.seed!(20260925)
+            Γg = ITensor(randn(d, d, d), frame...)
+            der(method, Ω, P, Γg; tol = QD_TOL)
+            @test isempty(Dleto.QDN_TRIVIAL_FACTORED[])
+        finally
+            Dleto.QDN_TRIVIAL_MAX_BYTES[] = saved
+        end
+    end
+end

@@ -151,15 +151,60 @@ otherwise charge its time to whichever stage happened to block first.
 const QDN_STAGE_TIMES = Ref{Union{Nothing, Dict{Symbol,Float64}}}(nothing)
 
 """
+    QDN_STAGE_BYTES :: Ref{Union{Nothing, Dict{Symbol,NTuple{2,Float64}}}}
+
+Opt-in per-stage MEMORY, the companion of `QDN_STAGE_TIMES` and on the same
+stage boundaries.  Set it to an empty `Dict` and each stage records
+
+    (bytes allocated during the stage, `Sys.maxrss()` at the end of it)
+
+so a run says both what it churned and where its peak was.  Allocation is read
+from `Base.gc_bytes()`, which counts every allocation whether or not it
+survives -- the churn -- while `Sys.maxrss()` is the process peak SO FAR and
+therefore monotone across stages: the stage whose RSS entry first reaches the
+final value is the one that set the peak.  Two numbers because they answer
+different questions, and the memory wall this was written for (d = 1000 at
+valence 3) is a peak wall, not a churn wall.
+
+Left `nothing` (the default) the cost is one `Ref` load per stage, the same as
+the clock.
+"""
+const QDN_STAGE_BYTES = Ref{Union{Nothing, Dict{Symbol,NTuple{2,Float64}}}}(nothing)
+
+# Allocation counter at the last stage boundary, so consecutive stages can
+# report a difference.  Reset by `_qdn_stage_reset!` at the top of a run.
+const _QDN_BYTE_MARK = Ref(0.0)
+
+"""
+    _qdn_stage_reset!()
+
+Start a fresh per-stage memory accounting, so the first stage of a run is
+charged from the call and not from whenever the counters were last read.
+"""
+function _qdn_stage_reset!()
+    QDN_STAGE_BYTES[] === nothing || (_QDN_BYTE_MARK[] = Float64(Base.gc_bytes()))
+    return nothing
+end
+
+"""
     _qdn_stage!(name, t0) -> Float64
 
 Charge `time() - t0` to stage `name` when stage timing is on, and return the
 current time so consecutive stages can chain (`t0 = _qdn_stage!(:sketch, t0)`).
+Also charges the bytes allocated since the previous boundary, and records the
+process peak RSS, when `QDN_STAGE_BYTES` is on.
 """
 function _qdn_stage!(name::Symbol, t0::Float64)
     t = time()
     d = QDN_STAGE_TIMES[]
     d === nothing || (d[name] = get(d, name, 0.0) + (t - t0))
+    b = QDN_STAGE_BYTES[]
+    if b !== nothing
+        now = Float64(Base.gc_bytes())
+        (al, _) = get(b, name, (0.0, 0.0))
+        b[name] = (al + (now - _QDN_BYTE_MARK[]), Float64(Sys.maxrss()))
+        _QDN_BYTE_MARK[] = now
+    end
     return t
 end
 
@@ -203,6 +248,50 @@ const QDN_APPLY_COUNT = Ref(-1)
     c < 0 || (QDN_APPLY_COUNT[] = c + 1)
     return nothing
 end
+
+"""
+    QDN_TRIVIAL_MAX_BYTES :: Ref{Float64}
+
+Budget for MATERIALISING the trivial derivations of a rank-deficient mode as
+full operator tuples.  Default 256 MB.
+
+Why there is a budget at all.  A mode-`a` unfolding of rank `rank_a < d_a`
+gives a trivial space of dimension `(d_a - rank_a)·d_a` (see
+`_qdn_trivial_ders`), and one basis element written out is `n` matrices of
+`d_b x d_b`.  At d = 500 with a single degenerate mode that is 500 elements at
+6 MB each -- 3 GB, for a space whose complete description is one `d x
+(d - rank)` matrix of 2 MB.  So the factored description is always computed and
+always published (`QDN_TRIVIAL_FACTORED`), and only as many tuples as fit in
+this budget are written out; when that truncates, a `@warn` says so and names
+the field.
+
+`Inf` materialises everything, as the code did before the budget existed.
+"""
+const QDN_TRIVIAL_MAX_BYTES = Ref(256.0 * 2^20)
+
+"""
+    QDN_TRIVIAL_FACTORED :: Ref{Vector{<:NamedTuple}}
+
+The trivial derivations of the last `derTrOpsReduced` call, COMPLETE, in the
+only form that is affordable to write down: one entry `(; axis, K)` per
+rank-deficient axis, where `K` is `d_axis x p` with orthonormal columns and the
+meaning is
+
+    every `X_axis = K * v * transpose(e_q)`, for every `v` in `R^p` and every
+    basis vector `e_q` of `R^{d_axis}`, with the other axes' matrices zero,
+    is a derivation of Γ for every chisel
+
+-- a space of dimension `p · d_axis` per axis.  Empty (the usual case) when
+every mode unfolding had full rank.
+
+Set by the kernel, not by the caller, and reset at the start of every attempt,
+in the idiom `QDN_STAGE_TIMES` and `QDN_APPLY_COUNT` already use in this file.
+It is out of band because `derTrOpsReduced`'s return type is fixed by the
+`DerivationMethod` interface (`(Ω, expand_map, ders)`) and `ders` is a dense
+matrix of coordinate vectors -- which is exactly the representation that
+cannot hold this space at scale.
+"""
+const QDN_TRIVIAL_FACTORED = Ref{Vector{<:NamedTuple}}(NamedTuple[])
 
 """
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
@@ -325,39 +414,101 @@ M's FIRST index meets the tensor.  That is the convention `applyDerivation` and
 `embedITensors` use (an operator ITensor carries the frame index first), so
 nothing in this file ever transposes an operator at the ITensor boundary.
 
-Implemented as permutedims + reshape + `mul!`, i.e. one GEMM on the mode-`a`
-unfolding, and used for EVERY contraction in this file -- the sketches, the
-restricted solve, the lift right-hand sides and the verification -- so a later
-move to TensorOperations/Strided/Finch is a change to this function alone.
+Used for EVERY contraction in this file -- the sketches, the restricted solve,
+the lift right-hand sides, the verification and the trivial derivations -- so a
+later move to TensorOperations/Strided/Finch is a change to this function
+alone.
 
-IT IS ALSO THE WHOLE OF THE GPU PORT.  `permutedims`, `reshape`, `similar` and
-`mul!` are all implemented for `MtlArray`, so the function is written against
-`AbstractArray` and the output is allocated with `similar(G, ...)` rather than
-`Matrix{T}(undef, ...)`: hand it a device array and every intermediate stays on
-the device.  Nothing here indexes an element, which is what a GPU array
-forbids.  The one thing to keep in mind is the `Array(G)` fallback below: it is
-guarded on `DenseArray`, and `MtlArray <: AbstractGPUArray <: DenseArray`, so a
-device array never takes it (taking it would silently move `d^n` bytes to the
-host).
+NO `permutedims` OF THE INPUT, ever, and that is a memory result and not a
+style one.  A mode product on a `d^n` tensor with a `d x k` matrix produces
+`k/d` of the input's bytes, so the only large array it needs to touch is the
+one it was handed -- but the obvious "permute axis `a` to the front, one GEMM
+on the unfolding" route makes a full transposed COPY first.  At d = 1000
+valence 3 that copy is 8 GB, live while the GEMM runs and on top of the
+tensor itself; it is what put the lift's pair tensors (`_qdn_pair_tensor`,
+`n·(n-1)` mode products on the full tensor) out of reach of a 20 GB process,
+and measured on the d = 300 profile it is also the largest single allocation
+of a run.  Three cases, none of them permuting:
+
+- `a == 1`: the unfolding IS `reshape(G, d, :)`; one GEMM `Mᵗ · G_(1)`.
+- `a == N`: the unfolding with axis `a` LAST is `reshape(G, :, d)`; one GEMM
+  `G_(N)ᵗ · M`, and the result reshapes straight back.  This is the case the
+  old code paid a `d^n` permute for on every pair tensor.
+- `1 < a < N`: reshape to `(front, d, back)` and run `back` GEMMs of
+  `(front x d)·(d x k)` on contiguous slices.  `view(G3, :, :, b)` of a host
+  `Array` is a strided matrix BLAS takes directly, so this is the same
+  arithmetic with none of the traffic: it reads the tensor once and writes only
+  the (small) output. At valence 3 axis 2 and d = 1000 that is 1000 GEMMs of
+  1000 x 1000 x r, each large enough to keep BLAS's own threads busy.
+
+IT IS ALSO THE WHOLE OF THE GPU PORT.  `reshape`, `similar`, `mul!` and
+`permutedims` are all implemented for `MtlArray`, so the function is written
+against `AbstractArray` and the output is allocated with `similar(G, ...)`
+rather than `Matrix{T}(undef, ...)`: hand it a device array and every
+intermediate stays on the device.  Nothing here indexes an element, which is
+what a GPU array forbids.  The middle-axis case is the one place a device array
+still takes the permute route -- `back` separate kernel launches on device
+views would trade one transpose for a thousand launches -- so it keeps the old
+body; the two edge cases are now single GEMMs there too, which is a straight
+win for the device as well (`permutedims!` on Metal, not the GEMM, is the
+measured bottleneck).  The one thing to keep in mind is the `Array(G)` fallback
+below: it is guarded on `DenseArray`, and
+`MtlArray <: AbstractGPUArray <: DenseArray`, so a device array never takes it
+(taking it would silently move `d^n` bytes to the host).
 """
 function _qdn_ttm(G::AbstractArray{T,N}, M::AbstractMatrix{T}, a::Integer) where {T,N}
+    GA = G isa DenseArray ? G : Array(G)
+    out = similar(GA, T, ntuple(i -> i == a ? size(M, 2) : size(GA, i), N))
+    return _qdn_ttm!(out, GA, M, a)
+end
+
+"""
+    _qdn_ttm!(out, G, M, a) -> out
+
+`_qdn_ttm` writing into a caller-owned `out` of shape `size(G)` with axis `a`
+replaced by `size(M, 2)`.  `out` must not alias `G`.
+
+This is the form the memory-lean pipelines want.  A chain of mode products
+`Γ ×_1 M_1 ×_2 M_2 ⋯` with square `M_a` -- the harness's orthogonal scramble
+and its `nondeg` change of basis are both exactly that -- allocates a fresh
+`d^n` array per step through `_qdn_ttm`, so a valence-3 chain at d = 1000
+churns 48 GB and leans on the GC to keep two of those six 8 GB arrays live at
+a time.  With two buffers and this function it is 16 GB steady and no churn at
+all: `_qdn_ttm!(B, A, M, a); A, B = B, A`.
+"""
+function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
+                   M::AbstractMatrix{T}, a::Integer) where {T,N}
     d = size(G, a)
     size(M, 1) == d || throw(DimensionMismatch(
         "mode-$a product: matrix is $(size(M)) but axis $a has length $d"))
     k = size(M, 2)
-    GA = G isa DenseArray ? G : Array(G)
+    size(out) == ntuple(i -> i == a ? k : size(G, i), N) || throw(DimensionMismatch(
+        "mode-$a product: output is $(size(out)) but $(size(G)) with axis $a of " *
+        "length $k is $(ntuple(i -> i == a ? k : size(G, i), N))"))
+    # Explicit second extents, never `:`: an empty `M` (a saturated axis hands
+    # over a `d x 0` block) makes `0 x :` uninferable.
+    rest = length(G) ÷ max(d, 1)
     if a == 1
-        Gm = reshape(GA, d, :)
-        out = similar(GA, T, (k, size(Gm, 2)))
-        mul!(out, transpose(M), Gm)
-        return reshape(out, ntuple(i -> i == 1 ? k : size(GA, i), N))
+        mul!(reshape(out, k, rest), transpose(M), reshape(G, d, rest))
+    elseif a == N
+        mul!(reshape(out, rest, k), reshape(G, rest, d), M)
+    elseif G isa Array && out isa Array
+        front = prod(ntuple(i -> size(G, i), a - 1))
+        back = prod(ntuple(i -> size(G, a + i), N - a))
+        G3 = reshape(G, front, d, back)
+        O3 = reshape(out, front, k, back)
+        for b in 1:back
+            @views mul!(O3[:, :, b], G3[:, :, b], M)
+        end
+    else
+        perm = _qdn_front(N, a)
+        Gm = reshape(permutedims(G, perm), d, :)
+        tmp = similar(G, T, (k, size(Gm, 2)))
+        mul!(tmp, transpose(M), Gm)
+        permutedims!(out, reshape(tmp, ntuple(i -> i == 1 ? k : size(G, perm[i]), N)),
+                     invperm(collect(perm)))
     end
-    perm = _qdn_front(N, a)
-    Gm = reshape(permutedims(GA, perm), d, :)
-    out = similar(GA, T, (k, size(Gm, 2)))
-    mul!(out, transpose(M), Gm)
-    Op = reshape(out, ntuple(i -> i == 1 ? k : size(GA, perm[i]), N))
-    return permutedims(Op, invperm(collect(perm)))
+    return out
 end
 
 """
@@ -815,14 +966,26 @@ trusted: `ker(M_a)` contains the left null space of the unfolding and is equal
 to it only when the sketch preserved the rank.  The check costs one pass over Γ
 with a matrix of `d_a - rank` columns, and is only ever reached on a tensor
 that is actually degenerate.
+
+WHAT IS RETURNED AND WHAT IS PUBLISHED.  The complete answer is FACTORED and
+goes to `QDN_TRIVIAL_FACTORED`: the verified kernel columns per axis, from
+which every element of the space is `K v e_qᵗ`.  What this function RETURNS is
+that space written out as operator tuples, and only as much of it as
+`QDN_TRIVIAL_MAX_BYTES` allows -- `n` dense `d_b x d_b` matrices per basis
+element is 6 MB at d = 500, so a single degenerate mode there asks for 3 GB of
+zeros to describe a 2 MB matrix. Truncating warns and names the field. Nothing
+is lost that was not already unrepresentable: the caller's `ders` is a dense
+`globalDim(Ω) x k` matrix, which at d = 500 is 6 MB per column of its own.
 """
 function _qdn_trivial_ders(G::AbstractArray{T,N}, wh::Dict{Int, _QDNWhite{T}},
                            eaxes::Vector{Int}, dims::Vector{Int},
                            atol::Real) where {T,N}
     out = Vector{Vector{Matrix{T}}}()
+    QDN_TRIVIAL_FACTORED[] = NamedTuple[]
     any(a -> wh[a].rank < dims[a], eaxes) || return out
     gnorm = norm(G)
     bound = real(T)(atol) * max(gnorm, eps(real(T)))
+    factored = NamedTuple[]
     for a in eaxes
         K = wh[a].K
         size(K, 2) == 0 && continue
@@ -831,20 +994,36 @@ function _qdn_trivial_ders(G::AbstractArray{T,N}, wh::Dict{Int, _QDNWhite{T}},
         length(keep) == size(K, 2) || @warn "QuickDer(whiten): $(size(K,2) - length(keep)) " *
             "of $(size(K,2)) truncated directions on axis $a are not trivial derivations " *
             "-- the cross sketch lost rank there. Retry with a larger `sizes`." maxlog = 1
-        for p in keep, q in 1:dims[a]
-            Ms = Vector{Matrix{T}}(undef, N)
-            for b in 1:N
-                Ms[b] = zeros(T, dims[b], dims[b])
-            end
-            Ms[a][:, q] = K[:, p]
-            push!(out, Ms)
-        end
+        isempty(keep) && continue
+        push!(factored, (; axis = Int(a), K = K[:, keep]))
     end
-    isempty(out) || @info "QuickDer(whiten): Γ has a rank-deficient mode " *
+    QDN_TRIVIAL_FACTORED[] = factored
+    isempty(factored) && return out
+
+    total = sum(f -> size(f.K, 2) * dims[f.axis], factored)
+    per = float(sum(db -> db^2, dims)) * sizeof(T)         # one tuple, all axes
+    cap = max(1, floor(Int, QDN_TRIVIAL_MAX_BYTES[] / max(per, 1.0)))
+    for f in factored, p in axes(f.K, 2), q in 1:dims[f.axis]
+        length(out) >= cap && break
+        Ms = Vector{Matrix{T}}(undef, N)
+        for b in 1:N
+            Ms[b] = zeros(T, dims[b], dims[b])
+        end
+        Ms[f.axis][:, q] = view(f.K, :, p)
+        push!(out, Ms)
+    end
+    @info "QuickDer(whiten): Γ has a rank-deficient mode " *
         "(ranks $([wh[a].rank for a in eaxes]) of dims $(dims[eaxes])); its " *
-        "$(length(out)) trivial derivations (X_a ·_a Γ = 0) were kept out of the " *
+        "$(total) trivial derivations (X_a ·_a Γ = 0) were kept out of the " *
         "restricted solve, where they are a numerically-zero eigenvalue cluster, and " *
         "written down directly instead." maxlog = 1
+    length(out) < total && @warn "QuickDer(whiten): the trivial space of the " *
+        "rank-deficient mode is $(total)-dimensional and $(length(out)) of it was " *
+        "written out as operator tuples ($(round(per / 2^20; sigdigits = 3)) MB each, " *
+        "budget QDN_TRIVIAL_MAX_BYTES = " *
+        "$(round(QDN_TRIVIAL_MAX_BYTES[] / 2^20; sigdigits = 3)) MB). The COMPLETE " *
+        "space is in Dleto.QDN_TRIVIAL_FACTORED[] as (; axis, K) per axis, meaning " *
+        "X_axis = K*v*e_qᵗ for every v and q." maxlog = 1
     return out
 end
 
@@ -1074,6 +1253,27 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         tstage = _qdn_stage!(:solve, tstage)
     end
 
+    # THE ONE UNDETECTABLE FAILURE MODE, closed.  A null solver that did not
+    # converge and returned nothing is reporting "I failed", and on the
+    # spectrum alone that is indistinguishable from the legitimate answer
+    # "Γ conforms to no pattern for this chisel" -- both are "no values near
+    # zero".  `solve_nullspace` now carries the solver's own word as
+    # `verdict.status`, and here it decides: decline, so that `derTrOpsReduced`
+    # raises and `AutoDerMethod` falls back to SylverLining, which is exact.
+    #
+    # A NONZERO count from a non-converged solve is kept instead of declined:
+    # those vectors are then judged by the lift's consistency filter and by the
+    # Z-law check in `_qdn_verify`, which test the answer itself and are a
+    # stronger statement than any convergence flag.
+    if size(vecs, 2) == 0 && verdict.status !== :ok
+        error("QuickDer: the restricted null solve reported :$(verdict.status) and " *
+              "found no null directions in the $(_qdn_system_rows(m * R, ncols)) x " *
+              "$(ncols) restricted system. That is a FAILED solve, not an empty " *
+              "derivation space; smallest values seen (relative to the operator " *
+              "norm): $(verdict.above). Try `solver = :ArpackSolver` explicitly, a " *
+              "larger `sizes`, or fall back to :SylverLining.")
+    end
+
     # The trivial derivations the whitening truncation kept out of the solve.
     # Appended to whatever the solve returns, INCLUDING an empty answer, so
     # that whitened and unwhitened runs report the same space.
@@ -1099,6 +1299,10 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     Zv = Matrix{Matrix{T}}(undef, N, k)
     Rblocks = Matrix{T}[]
     scale = zero(real(T))
+    # `tlift` chains the per-axis substages `:lift1`, `:lift2`, ...; `:lift`
+    # below still carries the wall total (its `t0` is untouched), so only its
+    # BYTE entry becomes the remainder after the substages took their share.
+    tlift = tstage
     for a in lift
         Ua = Matrix(transpose(Uf[a]))                       # R_a x d_a
         Ra = size(Ua, 1)
@@ -1162,6 +1366,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # peak memory at one axis block instead of all of them.
         Rm = reshape(AZ .- B, (m * Ra) * ha, k)
         push!(Rblocks, size(Rm, 1) >= k ? Matrix(qr(Rm).R) : Matrix(Rm))
+        tlift = _qdn_stage!(Symbol("lift", a), tlift)
     end
 
     tstage = _qdn_stage!(:lift, tstage)
@@ -1363,6 +1568,7 @@ function derTrOpsReduced(
     # sketches, the pair tensors of the lift, the verification) then happens on
     # the device, and nothing sends `d^n` bytes back.
     _qdn_check_device(method.device, T)
+    _qdn_stage_reset!()
     tstage = time()
     Gk = method.device === :gpu ? to_gpu(G) : G
     tstage = _qdn_stage!(:upload, tstage)
