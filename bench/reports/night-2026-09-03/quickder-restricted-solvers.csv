@@ -1,0 +1,10 @@
+d,r1,r2,r3,branch,solver,seconds,nullity,residual,uncertified,status
+100,19,19,19,matrix-free,LSMRSolver,3.008922,2,8.263691e-16,false,ok
+100,19,19,19,matrix-free,ArpackSolver,5.977899,2,8.263691e-16,false,ok
+100,19,19,19,matrix-free,KrylovSolver,3.058719,2,8.263691e-16,false,ok
+100,19,19,19,matrix-free,CGSolver,4.355322,2,8.263691e-16,false,ok
+150,23,23,23,matrix-free,ArpackSolver,10.466295,2,9.486093e-15,false,ok
+150,23,23,23,matrix-free,KrylovSolver,76.058013,2,1.554777e-14,false,ok
+150,23,23,23,matrix-free,CGSolver,210.264851,2,1.184612e-11,false,ok
+200,26,26,26,matrix-free,ArpackSolver,48.856336,2,9.224611e-15,false,ok
+250,29,29,29,matrix-free,ArpackSolver,33.300502,2,1.571684e-14,false,ok

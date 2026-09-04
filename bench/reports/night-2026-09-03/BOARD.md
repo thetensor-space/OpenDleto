@@ -566,3 +566,126 @@ mul, opt-in Accelerate); Phase 2 restricted-solve algorithm (Kronecker-block
 preconditioner, Float32 syrk + Float64 Ritz) -- the d=130 cliff (32 s -> 417 s) lives
 here; Phase 3 native only behind a measured >=2x gate, Rust + C ABI via `Dleto_jll`
 (Yggdrasil), `:array` kept as fallback; Phase 4 GPU Float32-only, deferred.
+
+### frontier-cpu (2026-09-04, ~08:16)
+
+Raised-budget CPU frontier for the finished stack (`:Auto` = QuickDer-first with
+SylverLining fallback). New script `bench/Frontier.jl`; new CSVs `frontier-cpu.csv`,
+`video-cpu.csv`, `sparse-cpu.csv` (this dir). **Sections 1-3 below are 5-thread
+`bench/jl` timings** (now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS
+kill) -- do not compare against last night's 2-thread numbers directly. Session ended
+~08:16 for the raised-budget window close (08:30): v3 d=300 (frontier-cpu), video-cpu
+300x300x100, sparse-cpu v3 d=200/300, and a 5-thread rerun of the restricted-solver
+comparison were **not reached**; section 4 below reuses last night's 2-thread
+`quickder-restricted-solvers.csv` instead of a fresh run.
+
+**1. frontier-cpu** (`run_stratify(inp; method=:Auto)`, Float64, scrambled sphere
+octant, `SymmetricOp`, `bench/SphereHarness.jl build_sphere`):
+
+valence 4 (oracle nullity 4):
+
+| d | branch | r | seconds | maxrss_GB | nullity | lsq_err | fellback |
+|---|---|---|---|---|---|---|---|
+| 50 | dense | [7,7,7,7] | 0.38 (x2, reproduced) | 2.0 | **3** | 2.7e-08 | false |
+| 60 | dense | [8,8,8,8] | 0.78 | 2.7 | 4 | 1.7e-12 | false |
+| 80 | dense | [8,8,8,8] | 1.40 | 6.0 | 4 | 6.7e-12 | false |
+| **100** | dense | [9,9,9,9] | **11.32** | **11.4** | 4 | 6.2e-13 | false |
+
+valence 3 (oracle nullity 3):
+
+| d | branch | r | seconds | maxrss_GB | nullity | lsq_err | fellback |
+|---|---|---|---|---|---|---|---|
+| **100** | dense | [19,19,19] | **1.76** | 2.2 | 3 | 8.7e-12 | false |
+| 150 | matrix-free | [23,23,23] | 105.75 | 1.7 | 3 | 3.3e-13 | **true** |
+| 200 | matrix-free | [26,26,26] | **1295.51** | 2.5 | 3 | 4.0e-12 | **true** |
+
+STOPPED after d=200 -- 1295.5 s is ~21x the 4-minute sweep-stop rule; d=300 not run.
+Largest confirmed <60s: **valence 4, d=100** (11.3 s at 11.4 GB RSS); **valence 3,
+d=100** (1.76 s) -- the very next size (d=150) already costs 105.75 s, a cliff rather
+than a slope between d=100 and d=150 at valence 3 (matches last night's
+`native-core-plan` entry's independently-found "d=130 cliff").
+
+BUG (reproducible/deterministic, `src/` not touched, not fixed here). **v4 d=50
+returns nullity 3 against oracle 4**, lsq_err 2.7e-08 (over the 1e-8 bound) --
+reproduced twice, byte-identical. `branch=dense`, `r=[7,7,7,7]`, `ncols=4*50*7=1400 >=
+QDN_GRAM_MIN_COLS[](1000)`, so the dense route picked `:GramSolver`
+(`src/solvers/QuickDerN.jl:534`; solver body `src/solvers/NullSolvers.jl:1137`). d=60
+and d=80 (also routed to `:GramSolver`, ncols=1920/2560) are exact, so this is a narrow
+undercount, not a blanket GramSolver failure -- **this is the known GramSolver
+oversampling bug, already being fixed** (per the coordinator).
+
+FALLBACK, not a crash but a real cost. Both v3 d=150 and d=200 landed in the
+matrix-free branch and QuickDer's own Z-law verification declined its answer there, so
+`:Auto` fell back to `:SylverLining` -- correct both times (lsq_err 3.3e-13 / 4.0e-12)
+but 105.75 s / 1295.5 s instead of the single-digit-to-double-digit seconds section 4
+below suggests QuickDer itself should cost on this branch. Root cause: `QuickDerMethod`
+defaults to `solver = :AutoSolver` (`src/solvers/QuickDerN.jl:105`), which for a
+RECTANGULAR restricted map picks `:LSMRSolver` first (`matrix_free_solvers()`,
+`src/solvers/NullSolvers.jl:140-153`) -- matches last night's orchestrator entry's open
+item ("matrix-free restricted branch ... still LSMR-first and slow"). **The LSMR-first
+default on this branch is being replaced by an Arpack-first default** (per the
+coordinator; matches section 4's recommendation below).
+
+**2. video-cpu** (derivation only, `Dleto.derTrOpsReduced(get_derivation_method(:QuickDer),
+Ω, ch, Γ; tol=1e-6)`, `UniversalOp`, `UniversalChisel(4)`, `randn(T,H,W,F,3)`, oracle
+nullity 3):
+
+| H,W,F | T | branch | r | seconds | maxrss_GB | nullity | residual |
+|---|---|---|---|---|---|---|---|
+| 100,100,100 | Float64 | dense | [11,10,10,3] | 3.17 | 1.3 | 3 | 6.5e-15 |
+| 100,100,100 | Float32 | dense | [11,10,10,3] | 3.21 | 1.2 | 3 | 5.0e-06 |
+| **200,200,100** | Float32 | dense | [16,15,11,3] | **4.61** | 2.4 | 3 | 3.3e-06 |
+
+300,300,100 Float32 not run (session wrap-up). Largest confirmed <60s: **200x200x100
+Float32** (4.6 s) -- all three points ran well inside budget, nowhere near a 60s
+frontier.
+
+**3. sparse-cpu** (raw `sphere_octant(d; valence)`, `UniversalOp`, `:QuickDer` default,
+oracle nullity 13):
+
+| valence | d | branch | r | seconds | maxrss_GB | nullity | residual |
+|---|---|---|---|---|---|---|---|
+| 4 | 60 | dense | [8,8,8,8] | 3.00 | 2.1 | 13 | 2.9e-12 |
+| **4** | **100** | dense | [9,9,9,9] | **5.99** | 8.3 | 13 | 3.6e-16 |
+
+valence 3 d=200/300 not run (session wrap-up). Largest confirmed <60s: **v4, d=100**
+(6.0 s).
+
+**4. restricted-solvers** -- reused from last night's 2-thread run (NOT rerun at the
+5-thread budget; session ended before this queue came up), `bench/reports/
+night-2026-09-03/quickder-restricted-solvers.csv`, random `randn(d,d,d)`, `:QuickDer`:
+
+| d | r | solver | seconds | nullity | residual | uncertified |
+|---|---|---|---|---|---|---|
+| 100 | 19,19,19 | LSMR/Arpack/Krylov/CG | 3.01/5.98/3.06/4.36 | 2/2/2/2 | 8.3e-16 (all) | false |
+| 150 | 23,23,23 | Arpack/Krylov/CG | **10.47**/76.06/210.26 | 2/2/2 | 9.5e-15/1.6e-14/1.2e-11 | false |
+| 200 | 26,26,26 | Arpack only | 48.86 | 2 | 9.2e-15 | false |
+| 250 | 29,29,29 | Arpack only | 33.30 | 2 | 1.6e-14 | false |
+
+RECOMMENDATION: **`:ArpackSolver`** as `QuickDerMethod`'s matrix-free default (replacing
+`:AutoSolver`'s current LSMR-first pick). At d=150 Arpack is 7x faster than Krylov and
+20x faster than CG at comparable-or-better precision; at d>=150 only Arpack was cheap
+enough to still be running by d=200/250 (48.9 s / 33.3 s -- non-monotonic, consistent
+with this project's already-flagged Arpack run-time non-determinism, not a real
+d=250<d=200 speedup). LSMR itself was only measured at d=100 here (matches
+Arpack/Krylov/CG on precision, 3.0 s) -- nothing above d=100 explains why `:Auto`
+declined rather than succeeding via LSMR in section 1's d=150/200 rows; that gap is
+exactly what produced today's 105 s / 1295 s fallbacks and is why the LSMR-first
+default is being replaced.
+
+**Failures / bugs found this session (file:line, `src/` not touched):**
+- `src/solvers/QuickDerN.jl:534` + `src/solvers/NullSolvers.jl:1137` -- GramSolver
+  undercounts the derivation nullspace at valence 4, d=50 (nullity 3 vs oracle 4);
+  known, already being fixed.
+- `src/solvers/QuickDerN.jl:105` (default `solver=:AutoSolver`) +
+  `src/solvers/NullSolvers.jl:140-153` (`matrix_free_solvers` LSMR-first ordering for
+  rectangular maps) -- costs `:Auto` two SylverLining fallbacks (105 s, 1295 s) at
+  valence 3, d=150/200; being replaced by an Arpack-first default per section 4.
+- Operational, not a Dleto bug: several `bench/jl` background invocations from this
+  agent failed instantly with `bash: no such file or directory: bench/jl` (exit 127) --
+  an intermittent agent-harness cwd-reset issue between backgrounded Bash calls, not
+  tied to any one command pattern. Prefixing with `cd /Users/algeboy/CODE/OpenDleto &&`
+  fixed it every time it was tried; flagging in case another agent hits the same thing.
+
+Files: new `bench/Frontier.jl`; new `bench/reports/night-2026-09-03/{frontier-cpu,
+video-cpu,sparse-cpu}.csv`.
