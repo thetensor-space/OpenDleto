@@ -1391,6 +1391,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
                   GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
         (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
+                                                seed = method.seed,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     else
@@ -1406,8 +1407,15 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
                                                   method.solver
         tstage = _qdn_stage!(:restricted, tstage)
+        # `method.seed` is the run's one source of randomness -- the sketch and
+        # the verification slices already come from it -- and it now also fixes
+        # the null solver's random start.  Without that, ARPACK's start vector
+        # comes from a seed kept inside the Fortran library across calls, so
+        # two identical calls in one process could return DIFFERENT restricted
+        # null spaces (2, 3, 3 measured at d = 48 in Float32).
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = atol, nd = -1, progress = progress,
+                                                seed = method.seed,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     end

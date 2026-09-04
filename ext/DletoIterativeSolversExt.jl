@@ -6,11 +6,17 @@ using LinearAlgebra
 
 import IterativeSolvers: lobpcg, lsmr!
 using IterativeSolvers
+using Random
 
 export  LanczosSolver,  CGSolver, LSMRSolver
 
 struct LanczosSolver <: Dleto.NullSolver end
 struct CGSolver <: Dleto.NullSolver end
+
+# Takes `seed` and hands LOBPCG an explicit start block; without one LOBPCG
+# draws its own `X0` and a repeated call in one process resolves a multiple
+# eigenvalue differently (see `Dleto.wants_seed`).
+Dleto.wants_seed(::CGSolver) = true
 
 # ============================================================================
 # LSMRSolver -- smallest singular vectors WITHOUT squaring the operator
@@ -211,7 +217,8 @@ end
     `tol`, so `nv` was decorative.
 """
 function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
-                     maxiter::Integer = 500)
+                     maxiter::Integer = 500,
+                     seed::Union{Nothing,Integer} = nothing)
     println("Using CGSolver...")
     n = size(L, 2)
     @assert size(L, 1) == n "CGSolver needs a square map; pass AᵗA."
@@ -242,7 +249,14 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     # eigenpairs, which is the only end we want.
     while true
         try
-            res = lobpcg(L, false, blocksize; tol = tol, maxiter = maxiter)
+            # An explicit `X0` when a `seed` was given -- redrawn inside the
+            # loop because the halving below changes its width.  `nothing`
+            # keeps LOBPCG's own random block, which is the old behaviour.
+            res = seed === nothing ?
+                  lobpcg(L, false, blocksize; tol = tol, maxiter = maxiter) :
+                  lobpcg(L, false,
+                         randn(MersenneTwister(seed), eltype(L), size(L, 2), blocksize);
+                         tol = tol, maxiter = maxiter)
             blocksize < nv && @warn "CGSolver: LOBPCG block $blocksize of $nv " *
                 "requested (dim = $n); the basis returned may be partial."
             # Return the smallest `nv` of the enlarged block, smallest first:

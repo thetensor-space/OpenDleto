@@ -6,10 +6,14 @@ using LinearAlgebra
 
 import KrylovKit
 using KrylovKit: eigsolve
+using Random
 
 export KrylovSolver
 
 struct KrylovSolver <: Dleto.NullSolver end
+
+# Takes `seed` and draws its start block from it; see the `rng` line in `solve`.
+Dleto.wants_seed(::KrylovSolver) = true
 
 # Block Lanczos puts a block as wide as the request through the map on every
 # step, so its cost is close to linear in the request (bench/reports/
@@ -18,7 +22,7 @@ struct KrylovSolver <: Dleto.NullSolver end
 Dleto.initial_request(::KrylovSolver) = 4
 
 """
-    solve(::KrylovSolver, L; nv, tol, krylovdim, maxiter, blocksize)
+    solve(::KrylovSolver, L; nv, tol, krylovdim, maxiter, blocksize, seed)
 
     The `nv` smallest eigenpairs of the square symmetric map `L` by **block**
     Lanczos, with the block as wide as the request.
@@ -57,7 +61,8 @@ Dleto.initial_request(::KrylovSolver) = 4
 """
 function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real = 1e-12,
                      krylovdim::Union{Nothing,Integer} = nothing, maxiter::Integer = 200,
-                     blocksize::Union{Nothing,Integer} = nothing)
+                     blocksize::Union{Nothing,Integer} = nothing,
+                     seed::Union{Nothing,Integer} = nothing)
     println("Using KrylovSolver...")
     n = size(L, 1)
     @assert n == size(L, 2) "KrylovSolver needs a square map; pass AᵗA."
@@ -93,7 +98,13 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
                   converged = true)
     end
 
-    scale = Dleto.opnorm_estimate(L; iters = 10)
+    # The start block is arbitrary but it must be the SAME arbitrary block on a
+    # repeated call, or a multiple eigenvalue is resolved differently each time
+    # (see `Dleto.wants_seed`).  Without a `seed` this is the task-local
+    # default RNG, i.e. the old behaviour.
+    rng = seed === nothing ? Random.default_rng() : MersenneTwister(seed)
+
+    scale = Dleto.opnorm_estimate(L; iters = 10, rng = rng)
     # KrylovKit's `tol` is an absolute residual norm, and no Lanczos residual
     # gets below a small multiple of `eps(T) * ‖L‖`.  `1e-12` relative is
     # reachable in Float64 but 1e5 times below the Float32 floor, where block
@@ -107,7 +118,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
         bs = blocksize === nothing ? nev : clamp(blocksize, 1, nev)
         kd = krylovdim === nothing ? max(128, 8 * bs) : Int(krylovdim)
         kd = clamp(max(kd, nev), nev, max(nev, n - bs))
-        x0 = KrylovKit.Block([randn(T, n) for _ in 1:bs])
+        x0 = KrylovKit.Block([randn(rng, T, n) for _ in 1:bs])
         alg = KrylovKit.BlockLanczos(; krylovdim = kd, maxiter = maxiter, tol = atol,
                                      verbosity = 0)
         # `BlockLanczos` normalizes its block through a Cholesky-type step, and
@@ -130,13 +141,13 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
                   "($(first(split(sprint(showerror, err), '\n')))); retrying with " *
                   "single-vector Arnoldi, which may undercount a repeated " *
                   "eigenvalue. Consider :ArpackSolver or Float64." maxlog = 1
-            eigsolve(L, randn(T, n), nev, :SR;
+            eigsolve(L, randn(rng, T, n), nev, :SR;
                      krylovdim = clamp(max(kd, nev), nev, n),
                      maxiter = maxiter, tol = atol, verbosity = 0)
         end
     else
         kd = krylovdim === nothing ? min(n, max(64, 4 * nev)) : min(n, Int(krylovdim))
-        vals_a, vecs_a, info = eigsolve(L, randn(T, n), nev, :SR;
+        vals_a, vecs_a, info = eigsolve(L, randn(rng, T, n), nev, :SR;
                                         krylovdim = kd, maxiter = maxiter, tol = atol,
                                         verbosity = 0)
     end
