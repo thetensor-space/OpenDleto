@@ -156,6 +156,12 @@ is what puts d = 1000 (8 GB per copy) out of reach of a 12 GB process, and it
 is a memory problem in the HARNESS and the sketch pass, no longer a convergence
 problem in the solver.
 
+**Part 2 below measures that claim and half of it is wrong.**  The peak is
+indeed the harness, but the dominant term is `nondeg`'s per-axis SVD, not the
+three copies; `_qdn_pair_tensor`'s transpose is 80 MB at this size (it is 8 GB
+at d = 1000); and the largest single item on the video shapes is the
+BENCHMARK's own Z-law check.
+
 Note what the ratio column does at d = 300: the whitened run uses MORE applies
 (77482) than the failed plain run (66604).  That is not a regression, it is the
 plain count being a cap rather than a convergence cost -- which is exactly why
@@ -244,3 +250,243 @@ nondeg tensor at once (≈3 copies):
 So the valence-4 sweep the brief asked for (d = 100, 150, 200) is capped at
 d = 100 in Float64 by the TENSOR, not by the solver: a `d^4` Float64 array is
 1.6e9 entries at d = 200.
+
+# Part 2 (afternoon): the memory wall
+
+The morning above moved the frontier to d = 500 and left a MEMORY wall.  This
+half measures that wall, removes it, and takes valence 3 to d = 1000.  Raw
+numbers in the same `whitened.csv`; the stage-by-stage memory comes from
+`bench/MemoryProfile.jl`.
+
+## Memory: where the frontier's bytes actually were
+
+After the whitening the matrix-free branch converges and the wall is memory.
+The morning's numbers said d = 500 peaked at 11.4 GB and projected ~22 GB at
+d = 1000, and named two suspects from reading the code: `build_sphere` holding
+three copies of the tensor, and `_qdn_pair_tensor` doing a full `permutedims`
+of it once per lift axis.  `bench/MemoryProfile.jl` measures instead of
+guessing -- a stage boundary between every step, and three numbers per stage,
+because they disagree and each is needed:
+
+* **alloc** `Base.gc_bytes()` over the stage: every allocation, survivor or
+  not.  CHURN.
+* **live** `Base.gc_live_bytes()` at the end of it: what is still reachable.
+  RETENTION.
+* **peak** `Sys.maxrss()`, the process high-water mark, monotone across
+  stages.  The stage where it first reaches its final value is the one that
+  set the peak, and the peak is the kill-line number.
+
+### Before: d = 500 valence 3, one copy = 0.93 GB
+
+| stage | alloc GB | live GB | peak GB |
+|---|---|---|---|
+| `sphere_octant` | 1.878 | 1.928 | 2.799 |
+| nonzero count | 1.863 | 2.859 | 3.731 |
+| `randomize_tensor` | 2.828 | 3.796 | 5.623 |
+| `nondeg` | 25.214 | 6.605 | **10.299** |
+| convert + ops | 0.000 | 6.605 | 10.299 |
+| (after a full GC) | 0.000 | 4.736 | 10.299 |
+| sketches + whitening + solve (all of QuickDer) | 243.1 | | **12.141** |
+
+**The peak is the harness, and the entire solve adds 1 GB on top of it.**  Six
+copies live at the worst moment for a pipeline that needs one.  Where they go:
+`Array(S, fr...)` for the nonzero count is a second full copy, `ITensor(A,
+frames...)` copies the array it is handed, `randomize_tensor` contracts three
+`ITensor`s in sequence, and `nondeg` -- a full `d^{n-1} x d` SVD per axis,
+which forms the unfolding AND its left factor -- churns 25 GB and adds 4.7 GB
+of peak by itself.
+
+Both of the named suspects were half right.  `build_sphere` does hold copies,
+but the dominant one is `nondeg`'s SVD, not the three tensors.  And
+`_qdn_pair_tensor`'s transpose is 80 MB at d = 500 -- invisible here.  It is
+real, and it is fatal, only at d = 1000, where the same transpose is 8 GB.
+
+### The fixes
+
+| what | where | why |
+|---|---|---|
+| no `permutedims` of the input, ever | `_qdn_ttm` | axis 1 and axis `N` ARE reshapes of the tensor, so they are single GEMMs; a middle axis runs `back` GEMMs on contiguous `(front, d, back)` slices, reading the tensor once and writing only the small output |
+| `_qdn_ttm!(out, G, M, a)` | new | a chain of mode products in two buffers instead of a fresh `d^n` array per step |
+| `_qdn_ttm_square!(G, M, a)` | new | the same chain in ONE buffer when the matrices are square, which the scramble and the `nondeg` change of basis both are: a block of slices into a 64 MB buffer and copy back |
+| `_tsqr_axis_basis` | `bench/SphereHarness.jl` | the `nondeg` axis basis by tall-skinny QR: `R` is `d x d`, the working set is one 64 MB block rather than three copies of the tensor, `svd(R)` gives `V` and the singular values at full precision, and it is `2 m d²` flops against `gesdd`'s `8 m d²` |
+| `itensor`, not `ITensor` | `build_sphere_lean` | the capitalised constructor copies the array it is handed |
+| nonzero count off the array | `build_sphere` | `ITensors.array` in storage order is a view |
+| `keep_S = false` | `build_sphere` | `reconstruction` needs the original tensor and no frontier run scores |
+| the trivial space FACTORED, capped at 256 MB | `_qdn_trivial_ders`, `QDN_TRIVIAL_FACTORED` | `(d - rank)·d` operator tuples of `n` dense `d x d` matrices is 3 GB at d = 500 with one degenerate mode, to describe a `d x (d - rank)` matrix |
+
+Above `SPHERE_LEAN_BYTES` (256 MB per copy) `build_sphere` takes the lean
+path.  It is the same input family and NOT the same array -- the SVD's sign
+ambiguity, and `nondeg` applies its basis transposed (`Array(V, r, a)` is
+`(link) x (a)` and it is handed to `ITensor(_, a, a_nondeg)`), where this path
+applies the `V` that actually diagonalises the unfolding.  Both are per-axis
+orthogonal, so nullity, verdict and the ORDER of the Z-law residual carry over
+while the iteration count and the residual's digits do not.  `-lean` in a case
+name marks those rows.  `bench/jl bench/MemoryProfile.jl compare <d>` checks
+the TSQR singular values against `ITensors.svd` (agreeing to 1.2e-14) and the
+two builds' nullity side by side.
+
+## Honesty: three gaps closed and one diagnosis corrected
+
+### A failed iterative solve now says so
+
+`solve_nullspace`'s bracket rule cannot tell "found the whole null space and
+then some" from "converged to nothing at all" -- both look like values above
+the cut -- so a non-converging iterative solver reported an empty null space
+rather than a failure, silently.  Measured on the whitened restricted map,
+matrix-free, valence 3: block Lanczos converges NOTHING at d = 300 and d = 500,
+returns its sixteen Ritz values stalled at 1.1e-9 relative, and the gap test
+reads that spectrum -- correctly, on its own terms -- as `nullity 0,
+certified`.  Since nullity 0 is a legitimate answer it cannot be escalated
+away; the only defence is for the solver to say whether it converged.
+
+So it does: `ArpackSolver` from ARPACK's `nconv`, `CGSolver` from LOBPCG's own
+flag, `KrylovSolver` from `info.converged`.  `NullVerdict` carries it as
+`status` (`:ok` / `:unconverged` / `:capped`), deliberately separate from
+`certified`, which is and stays a statement about the spectrum alone -- the
+whole point is that a stalled solve produces a spectrum with a clean gap in it.
+`_qdn_solve_and_lift` declines a non-`:ok` solve that returned nothing, so
+`AutoDerMethod` falls back to SylverLining instead of reporting "no
+derivations"; a nonzero count from a non-converged solve is kept and judged on
+its own Z-law residual, which is the stronger test.
+
+### The d = 300 apply anomaly is not the nv escalation
+
+d = 300 uses 76810 applies where d = 500 uses 51116, and the standing
+suspicion was the escalation loop doubling one extra time there.  It does
+double one extra time -- requests `[16, 32]` at d = 200 and d = 500 against
+`[16, 32, 64]` at d = 300 -- but that is a symptom.  The trace (one `@debug`
+line per request, and `bench/WhitenedRestriction.jl` reports the sequence on
+every row) reads
+
+    request 16 -> nullity 10 of 16    request 22 -> nullity 12 of 22
+    request 27 -> nullity 13 of 27    request 33 -> nullity 13 of 33
+
+The RESTRICTED system at d = 300 has a 13-dimensional numerical near-null space
+against 3 true derivations; the loop chases it correctly and the lift's
+consistency filter cuts 13 down to 3.  So the cost is that spurious dimension
+and the escalation rule's only job is to get past it in as few solves as it
+can: measured both ways, a gentler `k + max(4, k÷4)` step takes FOUR solves and
+99170 applies where doubling takes three and 76810.  Doubling stays.  The lever
+on d = 300 is the restriction size (its system is 29791 x 27900, 6.8%
+overdetermined, against d = 200's 12.7%) or the null threshold -- not `nv`.
+
+### The lift filter cuts on a gap; and the Float32 undercount is elsewhere
+
+The filter took a null space of the lift-residual matrix at a hard relative
+cutoff, `atol = max(tol, sqrt(eps(T)))`.  That is the level a lift residual
+BOTTOMS OUT at -- the accuracy of the triangular solve that produced `Z`,
+measured at 1.3 to 2.9 times `sqrt(eps(Float32))` for genuine directions -- so
+the cutoff sits inside the population it is meant to keep, and in Float32 it
+cuts into it (at d = 140 the spectrum reaches 1.1e-3 against a cutoff of
+3.5e-4).  The rule now uses the same constant as a FLOOR and cuts at the
+largest consecutive ratio above it, `gap_verdict`'s rule, with a ceiling of
+`32*sqrt(eps(T))` bounding eligibility.  The floor has to be `sqrt(eps)` and
+not `100*eps`: with the tighter floor the genuine cluster spans decades above
+it, its internal ratios clear `gap_ratio`, and the cut lands inside the
+cluster -- measured, that undercounts the raw sphere at 11 of 13 in Float64.
+
+It is not, however, where the Float32 undercount lives.  At d = 48 Float32,
+matrix-free, fresh process:
+
+    restricted solve   nullity 13 (uncertified)
+    lift filter        cut 13 of 13   -- under BOTH the old rule and the new
+    restrict_to_ops    13 -> 2
+
+The filter passes everything it is given; the loss is in
+`_fastder_restrict_to_ops`, cutting 13 universal derivations down to the
+SymmetricOp space.  Fresh process, one call each: old rule 2, new rule 2.
+
+**And any before/after table on those sizes measures noise.**  ARPACK's start
+vector comes from a seed SAVED inside the library across calls, so the same
+input, the same `Random.seed!` and the same knobs give different restricted
+null spaces on repeated calls in one process.  The control -- the same setting
+three times -- reads
+
+| case | same setting, x3 (old rule) | same setting, x3 (new rule) |
+|---|---|---|
+| scrambled v3 d = 48 Float32 | 2, 3, 3 | 2, 2, 3 |
+| scrambled v3 d = 64 Float32 | 2, 3, 3 | 3, 3, 2 |
+| scrambled v3 d = 48, 64 Float64 | 3, 3, 3 | 3, 3, 3 |
+| raw sphere d = 24, 40, both eltypes | 13, 13, 13 | 13, 13, 13 |
+
+Every Float64 and every raw-sphere case is stable; the Float32 matrix-free ones
+are not.  Measure them one data point per PROCESS, or with a deterministic
+solver.  On the dense branch with `SVDSolver` -- no randomised subspace and no
+ARPACK saved state -- both rules give the oracle at d = 48, 64, 100 in both
+eltypes and 13 for the raw sphere at d = 24, 40, which is what the new test
+pins.
+
+## The frontier, part 2
+
+Whitened, ARPACK, Float64 unless said otherwise, matrix-free, after the memory
+work.  `-lean` rows were built by `build_sphere_lean` (the same input family up
+to a per-axis orthogonal change of basis, so their applies and residual digits
+are not comparable with a classic row at the same d; their nullity and verdict
+are).  `nv` is `solve_nullspace`'s request sequence.
+
+| case | restricted system | r | applies | nv | seconds | peak RSS | nullity | residual |
+|---|---|---|---|---|---|---|---|---|
+| v3 d = 200 | 17576 x 15600 | 26 | 38262 | 16, 32 | 20.6 | 2.06 GB | 3 | 3.25e-10 |
+| v3 d = 300 | 29791 x 27900 | 31 | 76810 | 16, 32, 64 | 118.2 | 4.49 GB | 3 | 1.88e-11 |
+| **v3 d = 700** -lean | 103823 x 98700 | 47 | 103982 | 16, 32, 64 | 546.0 | 17.04 GB | 3 | 7.45e-13 |
+| v3 d = 500 -lean | 64000 x 60000 | 40 | 49556 | 16, 32 | 204.4 | **3.87 GB** | 3 | 2.38e-11 |
+| **v3 d = 1000** -lean | 178752 x 168000 | 57,56,56 | 56388 | 16, 32 | 552.6 | **13.70 GB** | 3 | 7.19e-13 |
+| **v4 d = 150** -lean | 10000 x 6000 | 10 | 16024 | 16, 32 | 31.0 | 7.29 GB | 4 | 1.63e-13 |
+| video 640x480x90x3 F32 | 7920 x 25680 | 20,20,11,3 | 19482 | -- | 26.3 | 2.03 GB | 3 | 9.7e-6 |
+| video 640x480x300x3 F32 | 13200 x 30000 | 20,20,11,3 | 26554 | -- | 43.9 | 4.06 GB | 3 | 1.5e-5 |
+
+**d = 1000 at valence 3 and d = 150 at valence 4 are new**, against the
+morning's d = 500 and d = 100.  d = 1000 answers in 9.2 minutes at a Z-law
+residual of 7.2e-13 and a peak of 13.7 GB -- the goal set for this size was
+"500..1000 within an hour", and the morning's own estimate for the BUILD alone
+was 22.4 GB.  Note that d = 1000 costs FEWER applies than d = 700 (56388
+against 103982) and less peak (13.7 GB against 17.0): both differences are the
+preallocated apply and the rewritten Z-law check, which landed between the two
+rows, plus d = 1000's request sequence stopping at [16, 32] where d = 700's
+went to 64.  The valence-4 ceiling moved for the same reason it was there:
+`build_sphere` held six copies of a 3.8 GB tensor and then the Z-law check
+asked for `2(n+1)` more.
+
+The requirement this half was set was that d = 500 drop "well below" the
+morning's 11.4 GB: it is 3.87 GB, a 2.9x cut, with the same nullity, the same
+verdict and a residual of the same order (2.4e-11 against 3.2e-13 -- the lean
+build is a different member of the family, so the digits differ).
+
+d = 200 reproduces the morning's row to the digit (38262 applies, 3.25e-10),
+which is the regression check on every change in this half -- the mode-product
+rewrite, the in-place kernels and the preallocated matrix-free apply are all
+numerically identical, not merely close.  The two video rows are the shape the
+user actually cares about: at F = 300 the morning's harness was killed at
+13.1 GB and this one peaks at 4.06 GB.
+
+The d = 700 row was taken before the matrix-free apply got its preallocated
+scratch and before the Z-law check was rewritten; its 17 GB is mostly GC slack
+and one Float64 promotion, not a live set (the same measurement's live set is
+under 8 GB).  Read it as the frontier's REACH at the time, not as its cost now.
+
+### d = 1000 at valence 3
+
+The build fits comfortably.  `bench/MemoryProfile.jl sphere 1000 3`, one copy
+= 7.45 GB:
+
+| stage | alloc GB | live GB | peak GB |
+|---|---|---|---|
+| lattice array | 7.517 | 7.570 | 8.335 |
+| nonzero count | 0.000 | 7.570 | 8.335 |
+| scramble, in place | 0.245 | 7.816 | 8.604 |
+| `nondeg` bases (TSQR) | 62.266 | 7.833 | 9.152 |
+| `nondeg` apply, in place | 0.132 | 7.965 | 9.152 |
+| convert + ops | 0.045 | 8.010 | 9.190 |
+| after a full GC | 0.000 | **7.571** | 9.190 |
+
+`live` at the end is 7.571 GB against a 7.451 GB tensor: ONE copy, which is the
+floor.  The morning's estimate for the same build was 22.4 GB and the classic
+path would in fact have wanted more than 40.
+
+And the whole run fits: 13.70 GB peak, 552.6 s, nullity 3, residual 7.19e-13.
+It did not fit on the first three tries, and the three things that closed the
+gap are worth naming because they are all the same mistake in different
+places -- 25.7 GB with fresh temporaries in the lift's residual, 21.3 GB after
+`AZ .-= B`, and 13.7 GB once the matrix-free apply stopped allocating ~13 MB
+per apply-pair and the Z-law check stopped promoting a full copy to Float64.
+Between them, RSS was tracking the GC's heap target and not the live set.
