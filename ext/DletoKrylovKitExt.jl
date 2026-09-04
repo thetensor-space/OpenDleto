@@ -89,7 +89,8 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
     if n <= max(32, dense_gate)
         E = eigen(Symmetric(Matrix(L)))
         take = min(nev, n)
-        return (; vals = RT.(E.values[1:take]), vecs = T.(E.vectors[:, 1:take]))
+        return (; vals = RT.(E.values[1:take]), vecs = T.(E.vectors[:, 1:take]),
+                  converged = true)
     end
 
     scale = Dleto.opnorm_estimate(L; iters = 10)
@@ -140,6 +141,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
                                         verbosity = 0)
     end
 
+    converged = info.converged >= nev
     info.converged < nev && @warn "KrylovSolver: $(info.converged) of $nev eigenvalues " *
         "converged to relative tolerance $tol in $(info.numiter) restarts " *
         "($(info.numops) map applications); returning the Ritz pairs as computed."
@@ -148,7 +150,13 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
     ord = sortperm(λ)
     # Contract: `vecs` is a matrix whose COLUMNS are the vectors.
     V = isempty(vecs_a) ? zeros(T, n, 0) : reduce(hcat, (real.(vecs_a[j]) for j in ord))
-    return (; vals = λ[ord], vecs = V)
+    # `converged` travels with the answer, not only into a warning: block
+    # Lanczos that converged NOTHING still returns Ritz values, and on the
+    # whitened restricted map at d = 300..500 those stall at 1e-9 relative and
+    # read as a clean, certified nullity of 0.  `solve_nullspace` needs the
+    # flag to call that what it is (see `NullVerdict`'s `status`).
+    return (; vals = λ[ord], vecs = V, converged = converged,
+              nconverged = Int(info.converged), restarts = Int(info.numiter))
 end
 
 function __init__()

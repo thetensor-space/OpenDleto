@@ -77,7 +77,15 @@ function timed_quickder(Ω, ch, Γ; whiten::Bool, solver::Symbol, tol::Real = 1e
     method = Dleto.get_derivation_method(:QuickDer; whiten = whiten, solver = solver,
                                          verify = :random, seed = 20260904)
     io = IOBuffer()
-    logger = Logging.ConsoleLogger(io, Logging.Info)
+    # DEBUG level, not Info: `solve_nullspace` logs one line per request in its
+    # escalation loop, and that sequence is what `nv_requests` below reports.
+    # An iterative solve is superlinear in the request and this loop can solve
+    # the same system two or three times, so "how many times, and how big" is
+    # the first thing to ask of an apply count that does not scale (d = 300's
+    # 77482 against d = 500's 51116).  Affordable: the other `@debug` sites in
+    # QuickDer are per-run, and the one that computes anything (the lift
+    # residual spectrum) is a thin SVD of a k-column matrix.
+    logger = Logging.ConsoleLogger(io, Logging.Debug)
     status = "ok"
     nullity = 0
     resid = NaN
@@ -104,7 +112,12 @@ function timed_quickder(Ω, ch, Γ; whiten::Bool, solver::Symbol, tol::Real = 1e
     Dleto.QDN_APPLY_COUNT[] = -1
     Dleto.QDN_STAGE_TIMES[] = nothing
     logtxt = String(take!(io))
+    nv_requests = [parse(Int, m.captures[1])
+                   for m in eachmatch(r"quickder restricted: request (\d+) of", logtxt)]
     return (; seconds = st.time, bytes = st.bytes, applies, nullity, resid, status,
+              nv_requests,
+              solver_status = match(r"reported :(\w+)", logtxt) === nothing ? "ok" :
+                              match(r"reported :(\w+)", logtxt).captures[1],
               uncertified = occursin("UNCERTIFIED", logtxt),
               trivial = occursin("rank-deficient mode", logtxt),
               solve_s = get(stages, :solve, NaN), whiten_s = get(stages, :whiten, 0.0),
@@ -125,10 +138,11 @@ function record!(case, dims, r, T, whiten, solver, oracle, res)
     cols = sum(Int[dims[a] * r[a] for a in 1:n if eng[a]])
     @printf("%-22s dims=%-18s T=%-7s whiten=%d solver=%-13s r=%-16s applies=%-7d \
 seconds=%8.2f solve=%8.2f whiten_s=%6.3f maxrss=%.2fGB nullity=%d(oracle=%d) \
-resid=%.2e uncert=%s status=%s\n",
+resid=%.2e uncert=%s nv=%s solver=%s status=%s\n",
             case, string(dims), T, whiten, solver, string(r), res.applies, res.seconds,
             res.solve_s, res.whiten_s, res.maxrss_GB, res.nullity, oracle, res.resid,
-            res.uncertified, res.status)
+            res.uncertified, string(get(res, :nv_requests, Int[])),
+            get(res, :solver_status, "ok"), res.status)
     flush(stdout)
     open(WCSV, "a") do io
         @printf(io, "%s,\"%s\",%d,%s,%d,%s,\"%s\",%d,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,\
@@ -159,7 +173,13 @@ function sphere_case(valence::Int, d::Int, whiten::Bool, solver::Symbol, T::Type
     dims = collect(inp.dims)
     r = Dleto._qdn_restriction_sizes(dims, Dleto.engaged(Matrix{Float64}(inp.ch)), valence)
     res = timed_quickder(inp.Ω, inp.ch, inp.Γ; whiten, solver)
-    record!("sphere-v$valence-d$d", dims, r, T, whiten, solver, valence, res)
+    # `-lean` in the case name, not a new column: above `SPHERE_LEAN_BYTES`
+    # `build_sphere` takes its memory-lean path, which is the same input family
+    # up to a per-axis orthogonal change of basis but NOT the same array -- so
+    # the applies and the residual digits of a `-lean` row are not comparable
+    # with a classic row at the same d, while the nullity and verdict are.
+    record!("sphere-v$valence-d$d" * (inp.lean ? "-lean" : ""),
+            dims, r, T, whiten, solver, valence, res)
     return nothing
 end
 

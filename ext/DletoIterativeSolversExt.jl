@@ -248,8 +248,18 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
             # Return the smallest `nv` of the enlarged block, smallest first:
             # the extra vectors were search space, not answers, and the caller
             # counts how many fall below tolerance.
+            #
+            # `converged` is the point of this solver reporting anything at
+            # all.  Unpreconditioned LOBPCG on `AᵗA` is the measured worst
+            # case for a SILENT wrong answer -- at d >= 100 on the whitened
+            # restricted map it returns nullity 0 while reporting success --
+            # and its own flag is what lets `solve_nullspace` call that a
+            # failed solve instead of an empty null space.  A block it had to
+            # halve past the request is not a full answer either.
             ord = sortperm(res.λ)[1:min(nv, length(res.λ))]
-            return (; vals = res.λ[ord], vecs = res.X[:, ord])
+            return (; vals = res.λ[ord], vecs = res.X[:, ord],
+                      converged = res.converged && blocksize >= nv,
+                      iterations = res.iterations)
         catch e
             e isa PosDefException || rethrow()
             blocksize == 1 && rethrow()
