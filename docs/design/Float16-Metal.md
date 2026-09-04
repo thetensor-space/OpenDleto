@@ -9,6 +9,15 @@ on the sketch/lift contraction `A (m x k) * W (k x r)`, in throughput and in
 accuracy, given the movie regime will store tensors in Float16
 (640x480x1800x3: 6.6 GB Float32, 3.3 GB Float16).
 
+
+> **Parent's correction (2026-09-04).** The time projection in (d) below assumes ~105 s of
+> CPU eigensolve for the one-minute movie. That is wrong: on the 640 x 480 shape the eigensolve
+> is the ~20 s *intercept* of the measured fit (`labs/MovieRuntime.ipynb`), flat in frame count;
+> the ~150 s that grows with frames is the tensor stages this benchmark targets. Moving those to
+> the GPU at the 6-17x measured for the dense kernel puts them at ~10-25 s, so the honest
+> projection is **~30-45 s for the minute**, not 115-130 s. The measurements and answers (a)-(c)
+> stand as written.
+
 ## Results table
 
 ### GEMM throughput (`Metal.@sync mul!(C, A, W)`, median of 5)
