@@ -233,7 +233,7 @@ function stratify(
         nd=-1,
         progress=false,
         method::Union{DerivationMethod, Symbol}=:Auto,
-        ivec::Int=0,
+        ivec::Int=-1,
         method_kwargs...
     )
     selected_method = method isa Symbol ? get_derivation_method(method; method_kwargs...) : method
@@ -282,7 +282,7 @@ function stratify(
     progress=false,
     method::Union{DerivationMethod, Symbol}=:Auto,
     reduced=false,
-    ivec::Int=0,
+    ivec::Int=-1,
     method_kwargs...
     )
     # Use universal chisel and transverse ops
