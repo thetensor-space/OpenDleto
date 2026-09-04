@@ -45,6 +45,10 @@ Factory for selecting a derivation strategy by name.
 
 Supported symbols:
 
+- `:Auto` -- `:QuickDer` when the setting allows it (`IndTransverseOps`, an
+  engaged axis, a tensor above `AUTODER_MIN_ENTRIES` entries), `:SylverLining`
+  otherwise or whenever QuickDer's own verification rejects its answer
+  (`src/solvers/AutoDer.jl`).  The default for `stratify`.
 - `:SylverLining` -- the general method: build the derivation--densor operator
   as a `LinearMap` and hand it to a null solver.  Any chisel, any valency, any
   operator space.
@@ -71,7 +75,9 @@ the general method, and the transcription answers to `:QuickDer3` (and still to
 both apply.
 """
 function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
-    if method === :SylverLining
+    if method === :Auto
+        return AutoDerMethod(; kwargs...)
+    elseif method === :SylverLining
         return SylverLiningMethod(; kwargs...)
     elseif method === :QuickDer
         return QuickDerMethod(; kwargs...)
@@ -81,7 +87,7 @@ function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
         return QuickSylverMethod(; kwargs...)
     end
     error("Unknown derivation method symbol: $method. " *
-          "Known: :SylverLining, :QuickDer, :QuickDer3 (alias :FastDer3Valent), " *
+          "Known: :Auto, :SylverLining, :QuickDer, :QuickDer3 (alias :FastDer3Valent), " *
           ":QuickSylver.")
 end
 

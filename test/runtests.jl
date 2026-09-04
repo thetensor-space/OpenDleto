@@ -22,6 +22,7 @@ include( "TestTensorSynthesis.jl" )
 include( "TestTensorDensity.jl" )
 include( "TestFastDer3Valent.jl" )
 include( "TestQuickDerN.jl" )
+include( "TestAutoDer.jl" )
 include( "TestDerivationLaws.jl" )
 include( "TestNullVerdict.jl" )
 

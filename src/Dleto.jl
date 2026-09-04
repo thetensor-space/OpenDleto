@@ -86,6 +86,8 @@ include("DletoBase.jl")
     include("solvers/FastDer3Valent.jl")
     # QuickDer: the same solve-and-lift generalised to any valence
     include("solvers/QuickDerN.jl")
+    # AutoDer: QuickDer when the setting allows it, SylverLining otherwise
+    include("solvers/AutoDer.jl")
     # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels
     include("solvers/QuickSylver.jl")
     include("solvers/SolverProgress.jl")

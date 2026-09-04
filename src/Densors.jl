@@ -232,7 +232,7 @@ function stratify(
         tol::Float64=1e-6,
         nd=-1,
         progress=false,
-        method::Union{DerivationMethod, Symbol}=:SylverLining,
+        method::Union{DerivationMethod, Symbol}=:Auto,
         method_kwargs...
     )
     selected_method = method isa Symbol ? get_derivation_method(method; method_kwargs...) : method
@@ -270,7 +270,7 @@ function stratify(
         tol::Float64=1e-6,
     nd=-1,
     progress=false,
-    method::Union{DerivationMethod, Symbol}=:SylverLining,
+    method::Union{DerivationMethod, Symbol}=:Auto,
     reduced=false,
     method_kwargs...
     )
@@ -294,7 +294,7 @@ function stratify(
         tol::Float64=1e-6,
         nd=-1,
         progress=false,
-        method::Union{DerivationMethod, Symbol}=:SylverLining,
+        method::Union{DerivationMethod, Symbol}=:Auto,
         method_kwargs...
     )
     return stratify(__ITensor(Γ); tol=tol, nd=nd, progress=progress, method=method, method_kwargs...)
