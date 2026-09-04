@@ -1,8 +1,40 @@
 # OpenDleto — working context for AI chats
 
 Purpose: hand this file to a new chat so it starts with the context of prior sessions.
-Keep it updated as work progresses. Last updated 2026-09-02 (session 2: Phase 0 + densor +
-solver repair).
+Keep it updated as work progresses. Last updated 2026-09-03 (session 3: valence-n stratification,
+in progress -- see the section of that name).
+
+## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
+
+Branch `aint-no-mountain-high-enough/valence-n-stratify`.  Coordination board with every
+agent's findings: `bench/reports/night-2026-09-03/BOARD.md`.  Goals set by the user: 4-D
+sphere as the test input; two regimes (sparse tensors where contraction is cheap; dense
+video-like tensors H x W x T x 3); dims 10..100 under a minute now, 500..1000 within an hour
+later; find the right auto-selection of solvers / QuickDer options; verify every derivation by
+the Z-law.  Compute budget: Julia only through `bench/jl` (2 procs x 2 threads, 4G heap hint,
+5 GB RSS kill) because another job shares the machine.
+
+Work items and where they live:
+
+| item | files | status |
+|---|---|---|
+| Sphere harness for any valence (`build_sphere(d; valence)`, `reconstruction` for n axes, `bench/HypersphereBaseline.jl`) | `bench/SphereHarness.jl` | in progress |
+| QuickDer for any valence: sketch-restrict / solve / lift / verify | design `docs/design/QuickDer-valence-n.md`; code `src/solvers/QuickDerN.jl`; `:QuickDer` -> new, `:QuickDer3`/`:FastDer3Valent` -> old | in progress |
+| `sylvesterLM` over plain arrays, zero-alloc apply, sparse branch | `src/SylverLining/SylverLining.jl` | in progress |
+| Oracle tests at valence 3/4/5 | `test/TestQuickDerN.jl` | in progress |
+| Contraction backend research | `bench/reports/night-2026-09-03/contraction-options.md` | done |
+| Auto-selection policy from measurements | TBD | not started |
+
+Key design decision (QuickDer-n): restrict by *sketching* each output axis with a random
+orthogonal `W_a` (d_a x r_a) rather than by a corner slice.  The corner is a special case
+(`W_a = I[:, 1:r_a]`) and is what breaks on structured tensors -- the unscrambled sphere's
+corner is all zeros.  The restricted system is `sum_a P[rho,a] (S_a x_a Y_a) = 0` with cross
+sketches `S_a = Gamma x_{b != a} W_b` and unknowns `Y_a = M_a W_a`; it has `prod r` equations and
+`sum d_a r_a` unknowns, so at d = 1000 valence 3 it is ~6000x cheaper per apply than the full
+operator and is handed to `solve_nullspace` (dense SVD when small, LSMR/Arpack when not).
+The lift is one least-squares solve per axis with a shared QR; a linear consistency filter
+removes restricted solutions that are not restrictions of true derivations, and the Z-law on
+random output slices verifies the result.
 
 ## What this package is
 

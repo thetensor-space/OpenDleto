@@ -1,0 +1,14 @@
+# timings are 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads)
+d,seed,valence,solver,seconds,bytes,nullity,lsq_err,status
+10,10,3,AutoSolver,0.012810,35872944,3,1.675181e-14,"ok"
+10,10,3,ArpackSolver,0.000395,49696,0,NaN,"error: KeyError: key :ArpackSolver not found"
+10,10,3,SVDSolver,0.012373,35866896,3,3.204369e-14,"ok"
+10,10,3,QuickDer,0.046007,19126816,3,1.539726e-13,"ok"
+20,20,3,AutoSolver,0.390035,579049296,3,2.010729e-13,"ok"
+20,20,3,ArpackSolver,0.000336,49920,0,NaN,"error: KeyError: key :ArpackSolver not found"
+20,20,3,SVDSolver,0.371288,579043248,3,4.066689e-14,"ok"
+20,20,3,QuickDer,0.103469,89077184,3,3.899085e-14,"ok"
+30,30,3,AutoSolver,4.447983,3927912608,3,3.495516e-14,"ok"
+30,30,3,ArpackSolver,0.000316,49920,0,NaN,"error: KeyError: key :ArpackSolver not found"
+30,30,3,SVDSolver,4.545966,3927906560,3,4.019492e-14,"ok"
+30,30,3,QuickDer,0.363568,313440784,3,6.380722e-14,"ok"

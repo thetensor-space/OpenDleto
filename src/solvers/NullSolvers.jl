@@ -99,8 +99,14 @@ function dense_is_cheap(L; dense_limit::Integer = DENSE_LIMIT,
     if m == n && !isempty(matrix_free_solvers(L))
         return n <= square_dense_limit
     end
-    return min(m, n) <= dense_limit ||
-           sizeof(eltype(L)) * m * n <= dense_budget_bytes
+    # Bytes decide; the dimension shortcut only applies when the bytes agree.
+    # It used to be an `||`, and that densified a 160000x840 derivation map
+    # (d = 20, valence 4) because 840 <= DENSE_LIMIT -- 1 GB for the matrix
+    # and several more for the SVD workspace, past the machine's budget.  A
+    # small side does not make a matrix small; the byte test already admits
+    # every case the shortcut was meant for (1083x1083 is 9 MB).
+    # `dense_limit` is kept in the signature for callers that pass it.
+    return sizeof(eltype(L)) * m * n <= dense_budget_bytes
 end
 
 """
@@ -696,8 +702,14 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     end
 end
 
-solve_nullspace(L, solver::Symbol = :AutoSolver; kwargs...) =
-    solve_nullspace(L, SOLVER_REGISTRY[solver]; kwargs...)
+function solve_nullspace(L, solver::Symbol = :AutoSolver; kwargs...)
+    haskey(SOLVER_REGISTRY, solver) || error(
+        "solve_nullspace: no solver :$solver is registered. Available: " *
+        join(string.(available_solvers()), ", ") * ". Extension solvers " *
+        "(:ArpackSolver, :KrylovSolver, :LanczosSolver, :CGSolver, :LSMRSolver) " *
+        "register when their package is loaded (`using Arpack`, ...).")
+    return solve_nullspace(L, SOLVER_REGISTRY[solver]; kwargs...)
+end
 
 # ---------------------------------------------------- spectral transform
 #

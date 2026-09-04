@@ -21,6 +21,7 @@ include( "TestTransverseOps.jl" )
 include( "TestTensorSynthesis.jl" )
 include( "TestTensorDensity.jl" )
 include( "TestFastDer3Valent.jl" )
+include( "TestQuickDerN.jl" )
 include( "TestDerivationLaws.jl" )
 include( "TestNullVerdict.jl" )
 

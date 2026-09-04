@@ -3,7 +3,8 @@
 #
 # `include` this file from a bench script or a REPL.  It gives:
 #
-#   build_sphere(d; T, seed, mode, ops)  the scrambled, nondegenerate sphere
+#   build_sphere(d; valence, T, seed, mode, ops)
+#                                        the scrambled, nondegenerate sphere
 #                                        octant and everything needed to score
 #                                        a stratification of it
 #   run_stratify(inp; solver, method, tol, nd, ...)
@@ -11,17 +12,23 @@
 #   reconstruction(inp, Σ, Zs)           least-squares recovery score
 #   warmup!(...)                         JIT warm-up so timings are full runs
 #
-# THE INPUT.  A sphere octant x^2 + y^2 + z^2 = r^2 sampled from the densor
-# space as labs/SphereLab.ipynb section 3 does: axis values u[i] = x_i^2 - r^2/3
-# and support where u + v + w = 0.  The default `:densor` sampling takes
-# x_i^2 = r^2 i/(d-1), so the equation is exact on the lattice (support
-# i + j + k = d-1, about d^2/2 points, every axis index used), the tensor is
-# nondegenerate, and the derivation space with symmetric operators is exactly
-# the two scalar derivations plus the sphere derivation: nullity 3, distinct
+# THE INPUT.  A hypersphere octant x_1^2 + ... + x_n^2 = r^2 (n = `valence`,
+# default 3) sampled from the densor space as labs/SphereLab.ipynb section 3
+# does for n = 3: axis values u[i] = x_i^2 - r^2/n and support where the u's
+# sum to ~0.  The default `:densor` sampling takes x_i^2 = r^2 i/(d-1), so the
+# equation is exact on the lattice (support i_1 + ... + i_n = d-1, about
+# d^(n-1)/(n-1)! points, every axis index used), the tensor is nondegenerate,
+# and the derivation space with symmetric operators is exactly the (n-1)
+# scalar derivations plus the sphere/Euler derivation: nullity n, distinct
 # eigenvalues, so a perfect stratification returns the input up to per-axis
-# signed permutation.  `:lattice` is SphereLab's literal x_i = i shell, which is
-# a curve's worth of points at these sizes and ill-posed after `nondeg`; kept
-# for reference only.
+# signed permutation.  `:lattice` is SphereLab's literal x_i = i shell (n = 3
+# only), which is a curve's worth of points at these sizes and ill-posed after
+# `nondeg`; kept for reference only.
+#
+# Built directly as a dense `Array{Float64}` by enumerating the lattice
+# (compositions of d-1 into n nonnegative parts) rather than looping every
+# CartesianIndex of a d^n tensor the way `randTensorChisel`/`rand_den` do --
+# that loop is O(d^n) and far too slow once d^n is large (d^4 >= 10^7).
 #
 # The tensor is scrambled by random ORTHOGONAL matrices and passed through
 # `nondeg` (SVD bases, so still orthogonal).  An orthogonal conjugate of a
@@ -41,7 +48,7 @@
 # argmaxes give the permutations, its monomial part seeds per-axis diagonal
 # scalings, and alternating least squares refines them.  Reported:
 #
-#   lsq_err   |Σ - S[π]·(D1,D2,D3)| / |Σ|     0 = perfect, ~1 = nothing
+#   lsq_err   |Σ - S[π]·(D1,...,Dn)| / |Σ|     0 = perfect, ~1 = nothing
 #   support   energy fraction of Σ on the permuted support of S (tensor-only)
 #   perm_ok   whether the argmax columns form a genuine permutation
 #
@@ -54,14 +61,55 @@ using Random
 # ---------------------------------------------------------------- the tensor
 
 """
-    sphere_octant(d; mode = :densor, cutoff = 1.5) -> ITensor
+    _fill_sum_lattice!(A, d) -> A
+
+Fill the `n`-dimensional (`n = ndims(A)`, all axes length `d`) array `A` with
+independent `randn()` entries on the lattice `i_1 + ... + i_n = d - 1`
+(0-based per-axis indices), leaving every other entry zero.  Enumerates the
+lattice directly (compositions of `d-1` into `n` nonnegative parts, each
+automatically <= d-1, about `d^(n-1)/(n-1)!` of them) instead of looping over
+all `d^n` `CartesianIndex`es, which is what makes this usable at valence 4-5.
 """
-function sphere_octant(d::Integer; mode::Symbol = :densor, cutoff::Real = 1.5)
+function _fill_sum_lattice!(A::AbstractArray{Float64,N}, d::Integer) where {N}
+    n = N
+    idx = Vector{Int}(undef, n)
+    function rec(axis::Int, remaining::Int)
+        if axis == n
+            idx[n] = remaining
+            @inbounds A[(idx .+ 1)...] = randn()
+            return
+        end
+        # bound v so the still-unassigned axes (axis+1 .. n-1, that is
+        # n - axis of them) can still absorb the rest of `remaining`
+        # within their own 0:d-1 range.
+        lo = max(0, remaining - (d - 1) * (n - axis))
+        hi = min(d - 1, remaining)
+        for v in lo:hi
+            idx[axis] = v
+            rec(axis + 1, remaining - v)
+        end
+    end
+    rec(1, d - 1)
+    return A
+end
+
+"""
+    sphere_octant(d; valence = 3, mode = :densor, cutoff = 1.5) -> ITensor
+
+The hypersphere octant of valence `valence` (any `n >= 2`).  `:lattice` mode
+is only implemented for `valence = 3` (SphereLab's literal shell, kept for
+reference).
+"""
+function sphere_octant(d::Integer; valence::Integer = 3, mode::Symbol = :densor,
+                       cutoff::Real = 1.5)
+    n = valence
     if mode === :densor
-        r2 = (d - 1.0)^2
-        Us = [(0:d-1)...] .|> i -> r2 * (i / (d - 1) - 1 / 3)
-        return randSurfaceTensor(Us, Us, Us, 1e-9 * r2)
+        A = zeros(Float64, ntuple(_ -> d, n))
+        _fill_sum_lattice!(A, d)
+        frames = [Index(d, "a$a") for a in 1:n]
+        return ITensor(A, frames...)
     elseif mode === :lattice
+        n == 3 || error(":lattice mode is only implemented for valence 3, got $n")
         r = d - 2.0
         Us = [(0:d-1)...] .|> i -> (i^2 - r^2 / 3.0)
         return randSurfaceTensor(Us, Us, Us, cutoff)
@@ -70,7 +118,8 @@ function sphere_octant(d::Integer; mode::Symbol = :densor, cutoff::Real = 1.5)
 end
 
 """
-    build_sphere(d; T = Float64, seed = d, mode = :densor, ops = SymmetricOp())
+    build_sphere(d; valence = 3, T = Float64, seed = d, mode = :densor,
+                 ops = SymmetricOp())
 
 The input for dimension `d`.  Fields:
 
@@ -81,11 +130,11 @@ The input for dimension `d`.  Fields:
 - `Ω`, `ch`        operator space on Γ's frame, and the universal chisel
 - `dims`           Γ's axis dimensions
 """
-function build_sphere(d::Integer; T::Type = Float64, seed::Integer = d,
+function build_sphere(d::Integer; valence::Integer = 3, T::Type = Float64, seed::Integer = d,
                       mode::Symbol = :densor, cutoff::Real = 1.5,
                       ops::Operator = SymmetricOp())
     Random.seed!(seed)
-    S = sphere_octant(d; mode, cutoff)
+    S = sphere_octant(d; valence, mode, cutoff)
     fr = collect(inds(S))
     nnz = count(!=(0), Array(S, fr...))
     rn = randomize_tensor(S; type = :orthogonal)
@@ -93,7 +142,7 @@ function build_sphere(d::Integer; T::Type = Float64, seed::Integer = d,
     fr_nd = collect(inds(nd.Δ))
     Γ = T === Float64 ? nd.Δ : ITensor(Array{T}(Array(nd.Δ, fr_nd...)), fr_nd...)
     Ω = IndTransverseOps(fr_nd, ops)
-    ch = UniversalChisel(3)
+    ch = UniversalChisel(valence)
     return (; S, fr, nnz, Xs = rn.Xs, Es = nd.Es, Γ, Ω, ch,
               dims = ITensors.dim.(fr_nd), T)
 end
@@ -116,6 +165,29 @@ function axis_chain(i0::Index, lists...)
         cur = nxt
     end
     return T, cur
+end
+
+"""
+    _axis_reshape(v, a, val) -> Array
+
+Reshape vector `v` to a `val`-dimensional array that is singleton in every
+axis except `a`, so that broadcasting it against a `val`-dimensional array
+scales along axis `a` only.  Generalises the hard-coded 3-axis
+`reshape(v, :, 1, 1)` / `reshape(v, 1, :, 1)` / `reshape(v, 1, 1, :)` to any
+number of axes.
+"""
+_axis_reshape(v::AbstractVector, a::Integer, val::Integer) =
+    reshape(v, ntuple(k -> k == a ? length(v) : 1, val))
+
+"""
+    _scaling_array(ds) -> Array
+
+The outer product of the per-axis diagonal scalings `ds` (one vector per
+axis), as a dense array the same shape as the tensor they scale.
+"""
+function _scaling_array(ds::AbstractVector{<:AbstractVector})
+    val = length(ds)
+    return reduce((x, y) -> x .* y, (_axis_reshape(ds[a], a, val) for a in 1:val))
 end
 
 """
@@ -150,10 +222,10 @@ function reconstruction(inp, Σ::ITensor, Zs)
     # ALS for the diagonal scalings, seeded from the monomial part of the
     # solver's own transform: a sign-pattern fit is non-convex and an all-ones
     # start stalls in a poor local fit.
-    scaled() = Sp .* reshape(ds[1], :, 1, 1) .* reshape(ds[2], 1, :, 1) .* reshape(ds[3], 1, 1, :)
+    scaled() = Sp .* _scaling_array(ds)
     for _ in 1:6, a in 1:val
         others = copy(ds); others[a] = ones(size(Sp, a))
-        B = Sp .* reshape(others[1], :, 1, 1) .* reshape(others[2], 1, :, 1) .* reshape(others[3], 1, 1, :)
+        B = Sp .* _scaling_array(others)
         for c in axes(Sp, a)
             bs = selectdim(B, a, c); ss = selectdim(Σarr, a, c)
             nb = sum(abs2, bs)
@@ -216,15 +288,15 @@ function run_stratify(inp; method::Symbol = :SylverLining, solver::Symbol = :Aut
 end
 
 """
-    warmup!(configs; d = 8, T = Float64, passes = 2)
+    warmup!(configs; d = 8, valence = 3, T = Float64, passes = 2)
 
 Run every `(method, solver)` pair in `configs` on a small input so later
 timings are full runs of compiled code.  Each config is a NamedTuple of
 `run_stratify` keywords, e.g. `(; solver = :ArpackSolver)`.
 """
-function warmup!(configs; d::Integer = 8, T::Type = Float64, passes::Integer = 2,
-                 ops::Operator = SymmetricOp())
-    inp = build_sphere(d; T, ops)
+function warmup!(configs; d::Integer = 8, valence::Integer = 3, T::Type = Float64,
+                 passes::Integer = 2, ops::Operator = SymmetricOp())
+    inp = build_sphere(d; valence, T, ops)
     for _ in 1:passes, cfg in configs
         run_stratify(inp; cfg...)
     end
