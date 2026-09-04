@@ -297,6 +297,13 @@ end
 
 # --------------------------------------------------------------- CLI
 
+# Element type from the command line: Float16, Float32 or Float64 (default).  Float16 is
+# stored as Float16 and computed in Float32 by the precision policy (src/solvers/Precision.jl).
+function eltype_arg(args, i)
+    length(args) >= i || return Float64
+    args[i] == "Float16" ? Float16 : args[i] == "Float32" ? Float32 : Float64
+end
+
 function wmain(args)
     isempty(args) && error("first argument must be estimate, sphere, video, random " *
                            "or degenerate")
@@ -304,15 +311,15 @@ function wmain(args)
     if task == "estimate"
         estimate()
     elseif task == "sphere"
-        T = length(args) >= 6 && args[6] == "Float32" ? Float32 : Float64
+        T = eltype_arg(args, 6)
         sphere_case(parse(Int, args[2]), parse(Int, args[3]), args[4] == "1",
                     Symbol(args[5]), T)
     elseif task == "video"
-        T = args[7] == "Float32" ? Float32 : Float64
+        T = eltype_arg(args, 7)
         video_case(parse(Int, args[2]), parse(Int, args[3]), parse(Int, args[4]),
                    args[5] == "1", Symbol(args[6]), T)
     elseif task == "random"
-        T = length(args) >= 5 && args[5] == "Float32" ? Float32 : Float64
+        T = eltype_arg(args, 5)
         random_case(parse(Int, args[2]), args[3] == "1", Symbol(args[4]), T)
     elseif task == "degenerate"
         degenerate_case(parse(Int, args[2]), args[3] == "1", Symbol(args[4]))
