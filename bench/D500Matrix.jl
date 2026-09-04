@@ -243,7 +243,14 @@ function sparse_case(T::Type, device::Symbol; valence::Int = 3, d::Int = 500,
     dims = collect(ITensors.dim.(fr))
     r = Dleto._qdn_restriction_sizes(dims, Dleto.engaged(Matrix{Float64}(ch)), valence)
     res = timed_quickder2(Ω, ch, Γ; whiten, solver, device)
-    record!("sphere-v$valence-d$d-sparse", dims, r, T, whiten, solver, valence, device,
+    # Oracle is 13, not `valence`: a small-d probe (d = 12..100, all landing in
+    # the dense branch there) found the RAW sphere_octant -- never passed
+    # through `nondeg` -- has a certified nullity of 13 at every size tried
+    # (residual ~1e-16, not uncertified, not trivial_reinjected).  `nondeg`'s
+    # own job is to remove exactly the extra degenerate directions a raw,
+    # un-scrambled lattice tensor has, so 3 is the oracle for the NONDEG'D
+    # sphere (build_sphere), not for sphere_octant on its own.
+    record!("sphere-v$valence-d$d-sparse", dims, r, T, whiten, solver, 13, device,
             "sparse-structured", res)
     return nothing
 end
