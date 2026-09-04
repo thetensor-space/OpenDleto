@@ -24,7 +24,38 @@ Work items and where they live:
 | Oracle tests at valence 3/4/5 | `test/TestQuickDerN.jl`, `test/TestAutoDer.jl` | done |
 | Contraction backend research | `bench/reports/night-2026-09-03/contraction-options.md` | done |
 | Auto-selection: `:Auto` = QuickDer when applicable, SylverLining otherwise/on failure; `stratify` default | `src/solvers/AutoDer.jl` | done; thresholds pending the scaling sweeps |
-| Scaling sweeps (valence 4 dense/sparse/video; valence 3 to d = 500) and restricted-map solver choice | `bench/QuickDerScaling.jl`, `bench/QuickDerLargeD.jl`, CSVs in `bench/reports/night-2026-09-03/` | in progress |
+| Scaling sweeps (valence 4 dense/sparse/video; valence 3 to d = 250) and restricted-map solver choice | `bench/QuickDerScaling.jl`, `bench/QuickDerLargeD.jl`, `bench/Frontier.jl`, CSVs in `bench/reports/night-2026-09-03/` | done; Arpack-first on the matrix-free branch |
+| `:GramSolver` for the dense restricted solve (Gram + Cholesky-shifted, oversampled subspace iteration + Rayleigh-Ritz on the unsquared matrix) | `src/solvers/NullSolvers.jl` | done; 3 s vs 52 s SVD at d = 100 |
+| Apple-GPU backend (Metal.jl weakdep): `backend=:metal` for `sylvesterLM`, `device=:gpu` for QuickDer | `ext/DletoMetalExt.jl`, `ext/DletoMetalSylver.jl`, `ext/DletoMetalQuickDer.jl` | done (2026-09-04 morning) |
+| Native-core (Rust/C++) study | `docs/design/Native-Core-Plan.md` | done: do not port now |
+
+Frontier reached (5 CPU threads, Float64, `:Auto`): valence-4 scrambled sphere stratified at
+d = 100 in 11 s (d = 50 in 0.4 s, d = 80 in 1.4 s); valence-3 sphere d = 100 in 1.8 s;
+video-shaped 100x100x100x3 derivations in 3.2 s; sparse raw valence-4 sphere d = 100 (nullity 13)
+in 6 s.  Every result verified by the Z-law.
+
+GPU (M4 Max, 40 cores; Metal is Float32-only so GPU runs are exploratory, Float64 CPU certifies):
+- `sylvesterLM(...; backend=:metal)` applies the derivation operator 10-25x faster than 5 CPU
+  threads on dense tensors (100^3x3: 49.5 -> 5.0 ms; 400^3: 2.13 s -> 85 ms; 300^3x3: 2.09 s ->
+  0.44 s).  This is the dense-video regime: an eigensolve of ~500 applies at 400^3 goes from
+  ~18 min to under a minute.
+- QuickDer `device=:gpu` is a hybrid -- Gram and M*X on the device (11.6x), Cholesky/qr/svd on the
+  host because Metal's MPS Cholesky is 4.5x slower than the CPU's -- 2.6x end to end at d = 200.
+  QuickDer's work is small by design, so the GPU pays less there.
+- Extension pitfall: an extension may only ADD methods; redefining a core method (even a
+  zero-argument hook) is method overwriting and silently blocks the extension's precompilation on
+  Julia 1.12.  The GPU hooks are therefore `Ref`s set in `__init__`.
+
+Native core (`docs/design/Native-Core-Plan.md`): measured at d = 100 the dense branch spends its
+time in `syrk` and Cholesky at the hardware rate, so a Rust/C++ kernel calling the same BLAS gains
+nothing; the walls beyond d ~ 130 are iteration counts.  Native kernels only behind a measured 2x
+gate, as a `Dleto_jll` weakdep extension so a `git clone` never breaks.
+
+Robustness fixes from the sweeps: `solve_nullspace` confirms an iterative solver's nullity with a
+doubled request before trusting it (Krylov methods returned 4..11 of a 13-fold zero eigenvalue);
+`GramSolver` oversamples its subspace (a true derivation dropped out at valence 4, d = 50);
+`nullspace()` on a tall residual matrix took the full SVD (7 GB `U`).  Eigensolver run-time
+outliers (Arpack 127-346 s on cases that otherwise take seconds) remain unexplained.
 
 Bugs fixed along the way: `dense_is_cheap` densified a 160000x840 map because a small side
 short-circuited the byte budget (now bytes decide); `SVDSolver` used the thin SVD and so lost the
