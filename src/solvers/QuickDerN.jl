@@ -50,6 +50,14 @@ using Random
 # ---------------------------------------------------------------------------
 
 """
+Restricted systems with at least this many unknowns take the Gram route
+(`:GramSolver`) instead of a full SVD in the dense branch.  Below it the SVD
+costs well under a second and keeps full precision.  A `Ref` so benchmarks can
+flip the route (`QDN_GRAM_MIN_COLS[] = typemax(Int)` forces the SVD).
+"""
+const QDN_GRAM_MIN_COLS = Ref(1000)
+
+"""
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
                      verify = :random, nslices = 4, seed = nothing)
 
@@ -516,9 +524,15 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     # `m·∏r` except in the padded wide case (`_qdn_system_rows`), and it is the
     # count actually allocated that has to fit.
     dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(T)
-    if dense_bytes <= DENSE_BUDGET_BYTES / 4
+    if dense_bytes <= DENSE_BUDGET_BYTES / 2
         Mres = _qdn_restricted_matrix(Uf, P, eaxes, r, dims, coff, ncols)
-        (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), :SVDSolver;
+        # The SVD is O(m n²) and at d = 100 (6859 x 5700) already 52 s; the
+        # Gram route (`:GramSolver`, n x n, Cholesky-shifted subspace
+        # iteration) is 3.8 s there at half the precision, which the lift's
+        # consistency filter and the Z-law check can afford.  Small systems
+        # keep the SVD's full precision for free.
+        dsolver = ncols >= QDN_GRAM_MIN_COLS[] ? :GramSolver : :SVDSolver
+        (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 label = "quickder restricted")
     else
@@ -529,6 +543,7 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     end
 
     k = size(vecs, 2)
+    @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) rss_GB = Sys.maxrss() / 2^30
     k == 0 && return Vector{Vector{Matrix{T}}}()
 
     Yv = Matrix{Matrix{T}}(undef, N, k)
@@ -615,7 +630,9 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
         C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
     else
         sc = max(scale, eps(real(T)))
-        C = nullspace(vcat(Rblocks...) ./ sc; atol = real(T)(atol), rtol = zero(real(T)))
+        Rall = vcat(Rblocks...) ./ sc
+        @debug "QuickDer lift residual spectrum" k svals = string(round.(svdvals(Rall); sigdigits = 3)) atol
+        C = nullspace(Rall; atol = real(T)(atol), rtol = zero(real(T)))
         size(C, 2) == 0 && return nothing
     end
 
@@ -809,7 +826,9 @@ function derTrOpsReduced(
         "this restriction; try `sizes = $(dims)`, `restriction = :random` if it " *
         "was :corner, or fall back to :SylverLining.")
 
+    @debug "QuickDer after lift" nbasis = length(mats) rss_GB = Sys.maxrss() / 2^30
     _qdn_verify(G, Pm, eng, mats, method, atol, r, rng)
+    @debug "QuickDer after verify" rss_GB = Sys.maxrss() / 2^30
 
     isempty(mats) && return (Ω,
         LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
@@ -818,6 +837,7 @@ function derTrOpsReduced(
 
     # Universal derivations, cut down to the ones that live in Ω.
     ders = _fastder_restrict_to_ops(Ω, mats, atol)
+    @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
     if nd > 0 && size(ders, 2) > nd
         ders = ders[:, 1:floor(Int, nd)]
     end

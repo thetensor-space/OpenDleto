@@ -203,10 +203,44 @@ initial_request(solver::NullSolver, L) = initial_request(solver)
 struct SVDSolver <: NullSolver end
 struct LUSolver <: NullSolver end
 
+"""
+    GramSolver
+
+Dense null space at the cost of the GRAM matrix, with the precision of the
+rectangular one.  Two stages:
+
+1. FIND the subspace.  Form `G = MᵗM` (one BLAS-3 `syrk`, `n x n` instead of
+   `m x n`), factor `G + εI` by Cholesky, and run a few steps of subspace
+   iteration with that inverse.  Directions with `σ² ≲ ε` are amplified by
+   `σ_next²/ε` per step -- hundreds to millions -- so three steps capture
+   every null and near-null direction among `nv` vectors.
+2. MEASURE it on `M`, not on `G`.  Rayleigh--Ritz: the SVD of the small
+   `M·X` (m x k) gives the singular values of `M` restricted to the subspace,
+   and rotating `X` by its right singular vectors separates the null
+   directions from the near-null ones.  Reported values are `σ`, exactly as
+   `SVDSolver` reports them, at `eps·‖M‖` precision.
+
+Why the second stage is not optional.  On the scrambled sphere (d = 60) the
+restricted system has a near-derivation at `σ = 1.9e-6`; on `G` that is
+`σ² = 3.5e-12`, which is the ROUNDOFF of a 2700 x 2700 Gram matrix
+(`n·eps ≈ 1e-12`).  Rayleigh quotients on `G` therefore cannot tell the 13
+null directions from the near-null one, the cut landed at 2, and the
+escalation in `solve_nullspace` ran the request up to the full dimension --
+8 GB of subspace vectors before the watchdog stopped it.  Measured on `M`
+the same directions read `1e-15 | 1.9e-6 | 2.5e-4`: unambiguous.
+
+Why it exists at all.  `SVDSolver` on QuickDer's restricted system at d = 100
+(6859 x 5700) takes 52 s at two threads; this takes ~4 s (2.7 s for `G`,
+about a second for Cholesky, iteration and the Ritz step).
+"""
+struct GramSolver <: NullSolver end
+
 wants_square(::SVDSolver) = false
 wants_square(::LUSolver) = false
+wants_square(::GramSolver) = false
 densifies(::SVDSolver, L) = true
 densifies(::LUSolver, L) = true
+densifies(::GramSolver, L) = true
 
 """
     AutoSolver
@@ -281,6 +315,7 @@ end
 
 register_solver!(:SVDSolver, SVDSolver())
 register_solver!(:LUSolver, LUSolver())
+register_solver!(:GramSolver, GramSolver())
 register_solver!(:AutoSolver, AutoSolver())
 
 """
@@ -1049,4 +1084,49 @@ function solve(::LUSolver, L::LinearMap; nv::Integer = 10, tol = nothing)
     Q = Matrix(qr(V).Q)[:, 1:k]
     vals = [norm(M * view(Q, :, c)) for c in 1:k]
     return (; vals, vecs = Q)
+end
+
+"""
+Shift of the Gram matrix relative to its 1-norm.  Must sit above the roundoff
+of the null eigenvalues (~`n·eps`) and below the square of the smallest
+nonzero singular value to be resolved: 1e-10 leaves 1e-6 of headroom on each
+side in Float64 for a spectrum whose gap is 1e-5 in σ.
+"""
+const GRAM_SHIFT_REL = 1e-10
+
+function solve(::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing, steps::Integer = 3)
+    M = Matrix(L)
+    T = eltype(M)
+    m, n = size(M)
+    k = min(nv, n)
+    k <= 0 && return (; vals = real(T)[], vecs = zeros(T, n, 0))
+    RT = real(T)
+
+    # Stage 1: the Gram (one syrk, half the flops of a GEMM), shifted, factored;
+    # subspace iteration with its inverse.  The shift scale is the largest
+    # diagonal entry -- within a factor n of ‖G‖ and O(n) to read; `opnorm` on
+    # a Symmetric takes a generic path that cost minutes at n = 5700.
+    Gm = T <: LinearAlgebra.BlasFloat ? BLAS.syrk('U', 'T', one(T), M) : M' * M
+    G = Symmetric(Gm, :U)
+    shift = RT(GRAM_SHIFT_REL) * max(maximum(abs, diag(Gm)), eps(RT))
+    for i in 1:n
+        Gm[i, i] += shift
+    end
+    C = cholesky(G)
+    for i in 1:n
+        Gm[i, i] -= shift
+    end
+    X = randn(RT, n, k)
+    for _ in 1:steps
+        X = C \ X
+        X = Matrix(qr(X).Q)
+    end
+
+    # Stage 2: Rayleigh--Ritz on M itself.  `svd(M X)` has the singular
+    # values of M on span(X); rotating X by V makes each column a Ritz vector
+    # with its own σ.  Ascending, so the null space leads.
+    F = svd(M * X)
+    vals = reverse(F.S)
+    vecs = X * F.V[:, end:-1:1]
+    return (; vals, vecs)
 end

@@ -25,6 +25,7 @@
 
 using LinearAlgebra
 using LinearMaps
+using Random
 
 """
     FastDer3ValentMethod
@@ -382,17 +383,46 @@ function _fastder_projector(op::Operator, n::Integer, ::Type{T}) where {T}
     if ld == 0
         return (coords = M -> zeros(T, 0), embed = embed)
     end
-    G = zeros(T, ld, ld)
     e = zeros(T, ld)
-    for j in 1:ld
-        e[j] = one(T)
-        G[:, j] = unsafe_transposeEmbed(op, embed(e))
-        e[j] = zero(T)
+    unit(j) = (fill!(e, zero(T)); e[j] = one(T); embed(e))
+    # Every operator in src/ops/OperatorImpls.jl has a DIAGONAL Gram matrix
+    # (its basis matrices are orthogonal), known in closed form for the
+    # built-in ones.  Building it by embedding each basis element was 2.5 GB
+    # of churn per axis for SymmetricOp at d = 100 (ld = 5050), which the GC
+    # let sit until the process passed its memory budget.  An operator without
+    # a closed form still gets the full Gram and a Cholesky factorisation.
+    known = _fastder_gram_diag(op, n, T)
+    Gf = if known !== nothing
+        Diagonal(known)
+    else
+        G = zeros(T, ld, ld)
+        for j in 1:ld
+            G[:, j] = unsafe_transposeEmbed(op, unit(j))
+        end
+        isdiag(G) ? Diagonal(diag(G)) : cholesky(Symmetric(G))
     end
-    Gf = isdiag(G) ? Diagonal(diag(G)) : cholesky(Symmetric(G))
     coords(M) = Gf \ Vector{T}(unsafe_transposeEmbed(op, M))
     return (coords = coords, embed = embed)
 end
+
+"""
+    _fastder_gram_diag(op, n, T) -> Vector or nothing
+
+The diagonal of the Gram matrix `EᵗE` of the operator's coordinate basis, for
+the operators whose basis is orthogonal and whose norms are known in closed
+form: a coordinate shared by two matrix entries (the off-diagonal ones of a
+symmetric or antisymmetric matrix) has norm² 2, every other coordinate 1.  The
+order follows `unsafe_coordinates`: column by column, `M[1:i, i]` for
+`SymmetricOp`, `M[1:i-1, i]` for `AntiSymmetricOp`.  Returns `nothing` for an
+operator without a closed form, which then gets the general build.
+"""
+_fastder_gram_diag(::Operator, n::Integer, ::Type{T}) where {T} = nothing
+_fastder_gram_diag(::UniversalOp, n::Integer, ::Type{T}) where {T} = ones(T, n * n)
+_fastder_gram_diag(::DiagonalOp, n::Integer, ::Type{T}) where {T} = ones(T, n)
+_fastder_gram_diag(::SymmetricOp, n::Integer, ::Type{T}) where {T} =
+    T[i == j ? 1 : 2 for j in 1:n for i in 1:j]
+_fastder_gram_diag(::AntiSymmetricOp, n::Integer, ::Type{T}) where {T} =
+    fill(T(2), (n * (n - 1)) ÷ 2)
 
 """
     _fastder_restrict_to_ops(Ω, basis, atol) -> Matrix
@@ -452,7 +482,7 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
         Da = mats[i][a]
         Res[(rows[a] + 1):rows[a + 1], i] = vec(Da - projs[a].embed(projs[a].coords(Da)))
     end
-    C = nullspace(Res; atol=Tnum(atol), rtol=zero(Tnum))
+    C = _fastder_tall_nullspace(Res, Tnum(atol))
     nc = size(C, 2)
 
     ders = zeros(Tnum, globalDim(Ω), nc)
@@ -465,6 +495,26 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
         end
     end
     return ders
+end
+
+"""
+    _fastder_tall_nullspace(A, atol) -> Matrix
+
+Null space of a TALL matrix (m >= n) from its thin SVD: the right singular
+vectors whose singular value is at most `atol`.  `LinearAlgebra.nullspace`
+computes `svd(A; full = true)`, whose `U` is m x m -- for the 30000 x 13
+residual matrix of the sphere at d = 100 that is a 7 GB array for 13 columns
+of answer, and it is what took the process past its memory budget.  For a
+wide matrix the thin SVD has no room for the null space, so that case keeps
+`nullspace`.
+"""
+function _fastder_tall_nullspace(A::AbstractMatrix, atol::Real)
+    m, n = size(A)
+    m < n && return nullspace(A; atol = atol, rtol = zero(atol))
+    n == 0 && return zeros(eltype(A), 0, 0)
+    F = svd(A)
+    keep = F.S .<= atol
+    return F.V[:, keep]
 end
 
 """
