@@ -84,6 +84,72 @@ Examples: (100,100,100,3) → r = (11,11,11,3); (100,100,100) → r = 19;
 Both return `(vals, vecs, verdict)`; `vecs` columns are restricted solutions
 `y`.  Use the caller's `tol`; the verdict's `certified` flag is reported.
 
+## 2a. Whitened restriction (`whiten = true`, "QuickDer-W")
+
+Added 2026-09-04.  The matrix-free branch of section 2 is the only branch above
+d ≈ 200 at valence 3, and on a STRUCTURED tensor it did not converge there:
+ARPACK exhausted its iteration cap on the scrambled sphere at d = 150 and 200,
+where the dense route answers in seconds.  The cause is almost entirely
+sketch-induced, and it can be removed exactly.
+
+**The structure.**  Write `M_a := S_a(a)ᵗ` (the transposed mode-`a` unfolding of
+the cross sketch, `R_a × d_a` with `R_a = ∏_{b≠a} r_b`).  In the code's
+convention the unknown `Y_a` is `d_a × r_a` and `vec` stacks its columns, so
+`A_a vec(Y_a) = vec(M_a Y_a)`, i.e.
+
+    A_a = I_{r_a} ⊗ M_a                    (up to the row permutation Perm_a)
+
+Therefore the DIAGONAL blocks of the Gram of `A = [A_1 ⋯ A_n]` are Kronecker:
+
+    A_aᵗ A_a = c_a · (I_{r_a} ⊗ M_aᵗ M_a),     c_a = Σ_ρ P[ρ,a]²
+
+All of the conditioning contributed by the tensor's own mode unfoldings lives in
+`d_a × d_a` Grams -- tiny -- while the OFF-diagonal blocks `A_aᵗ A_b`, which are
+contractions of two cross sketches and are what actually encodes the derivation
+condition, are untouched by any per-axis change of variables.  Verified
+numerically to 5e-16 at valence 3 and 4 for the universal, centroid and adjoint
+chisels (`test/TestQuickDerN.jl`, "whiten: the restricted Gram has Kronecker
+diagonal blocks").
+
+**The substitution.**  Thin QR `M_a = Q_a R_a` and solve for `Ỹ_a := R_a Y_a`
+instead of `Y_a`.  Then `A_a Y_a = (I ⊗ Q_a) Ỹ_a`, every diagonal Gram block is
+exactly `c_a·I`, `‖A‖ ≤ sqrt(Σ_a c_a)`, and the null space is unchanged
+(`Y_a = R_a⁻¹ Ỹ_a`).  Cost: `n` QRs of `R_a × d_a` -- 3200 × 1000 at d = 1000,
+negligible against one pass over `d^n`; measured at 0.01 s of an 18 s solve at
+valence 3, d = 200.
+
+The plumbing is one repackaging, so neither solve branch changes: `Q_aᵗ`
+replaces the unfolded cross sketch, its fold (`_qdn_fold`, the inverse of
+`_qdn_unfold`) replaces the sketch tensor the matrix-free map contracts, and
+`rank_a` replaces `d_a` in the column bookkeeping.
+
+**Degenerate modes.**  If `M_a` is rank deficient -- the mode-`a` unfolding of
+`Γ` has rank below `d_a`, which a smooth or separable tensor routinely does --
+`R_a` is singular and there is no substitution.  Truncate instead: an SVD at the
+standard `min(size)·eps` relative cut, keep the range, and hand back the dropped
+directions.  Those are the trivial derivations `X_a ×_a Γ = 0` that every
+degenerate tensor has, of dimension `(d_a − rank_a)·d_a` per axis; each candidate
+is checked against Γ itself (`‖Γ ×_a K[:,p]‖ ≤ atol·‖Γ‖`, the bound
+`_qdn_verify` uses) rather than trusted, because `ker(M_a)` equals the left null
+space of the unfolding only when the sketch preserved the rank.
+
+They are written down exactly rather than left in the restricted solve, where
+they are a numerically-zero eigenvalue cluster that no iterative method should
+be asked to resolve.  That is also a correctness FIX: the unwhitened branch sees
+them only as `Y_a` with columns in `ker(M_a)`, i.e. `X_a = Y_a W_aᵗ`, and its
+lift -- a least-squares solve against a rank-deficient operator -- returns the
+minimum-norm `Z_a`, which has no kernel component at all.  Measured on a 12³
+tensor with a mode-1 rank of 10: the true derivation space is 26-dimensional
+(2 scalars + 2·12 trivial) and the unwhitened branch reports an arbitrary
+`W`-dependent 16 of it, the whitened branch all 26.
+
+**API.**  `QuickDerMethod(; whiten = true)`, and therefore
+`get_derivation_method(:QuickDer; whiten = ...)` and
+`get_derivation_method(:Auto; whiten = ...)`, which passes it through.
+`Dleto.QDN_APPLY_COUNT[] = 0` before a call counts the matrix-free applies
+(forward + adjoint) the solve took, since iteration count is the only lever left
+on that branch.
+
 ## 3. The lift
 
 For engaged axis `a` with `r_a < d_a`, the unknown part is `Z_a := M_a W_a⊥`
