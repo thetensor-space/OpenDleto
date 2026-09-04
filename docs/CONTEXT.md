@@ -42,6 +42,21 @@ ARPACK, Float64, 5 threads; every whitened result Z-law verified):
 | sphere v3 d = 200 | 65182 / ARPACK cap, nullity 0  | 38262 / nullity 3, 3.3e-10 |
 | randn 150^3 | 14618 / nullity 2, ok | 10156 / nullity 2, ok (1.44x) |
 | randn 250^3 | 22974 / nullity 2, ok | 15712 / nullity 2, ok (1.46x) |
+| sphere v4 d = 60  | 61994 / ARPACK cap, nullity 0 | 12808 / nullity 4, 1.1e-13 (4.8x) |
+| sphere v4 d = 80  | 64584 / ARPACK cap, nullity 0 | 19718 / nullity 4, 2.4e-13 (3.3x) |
+| sphere v4 d = 100 | 65858 / ARPACK cap, nullity 0 | 13188 / nullity 4, 3.7e-13 (5.0x) |
+| video 200x200x100x3 Float32 | 56980 / ARPACK cap, nullity 0 | 11182 / nullity 3, 1.7e-5 (5.1x) |
+| degenerate 40^3, mode-1 rank 38 | 59640 / nullity **26** of 82 | 4024 / nullity **82**, 8.4e-16 (14.8x) |
+
+**FRONTIER MOVED.**  Whitened, matrix-free, ARPACK, Float64, scrambled sphere:
+valence 3 d = 200 in 18.4 s (2.1 GB peak, no restricted matrix at all -- session 3's
+dense Gram route needed 22 s, an 8 GB peak and a 2.2 GB matrix), **d = 300 in 105 s**
+(3.8 GB) and **d = 500 in 136 s** (11.4 GB, residual 3.2e-13).  Valence 4 reaches
+d = 100 in 7.2 s (11.7 GB).  The user's goal for this size was "500..1000 within an
+hour"; d = 500 is 2.3 minutes.  What now stands between here and d = 1000 is MEMORY in
+the harness and the sketch pass -- `build_sphere` holds three copies of the tensor and
+`_qdn_pair_tensor` `permutedims` the full tensor once per lift axis, so d = 1000 needs
+~22 GB against a 12 GB kill line -- and no longer convergence in the solver.
 
 The generic-tensor row is the control and it agrees with the analysis: a random tensor's
 mode unfoldings are already well conditioned (`cond(M_a) ≈ 3` against 20..150 on the
