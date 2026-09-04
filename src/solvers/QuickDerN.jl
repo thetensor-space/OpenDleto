@@ -1473,7 +1473,7 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
 end
 
 """
-    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress)
+    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress, store)
         -> Vector{Vector{Matrix}} or nothing
 
 One attempt at the whole kernel: sketch, restricted solve, lift, consistency
@@ -1494,10 +1494,20 @@ memory-bound scatter of `kron(I, S_a(a)ᵗ)`, the lift is a QR, the consistency
 filter is a `nullspace`, and the answer has to be host matrices for
 `_fastder_restrict_to_ops`.  The one big piece that does go to the device is
 the restricted solve, through `GramSolver(device = :gpu)`.
+
+`store` is the type the TENSOR WAS HANDED IN AS, which is not `T` here: `G`
+arrives already promoted to `compute_eltype`, so `T` is the arithmetic's type
+and `real(T)` would tell `solve_nullspace` that a Float16 tensor resolves to
+`eps(Float32)`.  It is passed explicitly, and positionally, because the wrong
+answer to this question is silent: `data_floor(Float32) = 1.2e-7` never binds,
+so the verdict on a Float16 tensor certified a cut whose first value above it
+sat *inside* the rounding of the input (measured on a 40x40x40 Float16 luma
+block: `above = [4.21e-4, ...]` against `eps(Float16) = 9.8e-4`, reported
+`certified = true`).  See `Dleto.data_floor` and `NullVerdict`'s `undecidable`.
 """
 function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
-                             atol::Real, progress) where {T,N}
+                             atol::Real, progress, store::Type) where {T,N}
     dims = collect(size(G))
     m = size(P, 1)
     eaxes = [a for a in 1:N if engaged[a]]
@@ -1558,6 +1568,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 seed = method.seed,
+                                                store_eltype = store,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     else
@@ -1582,6 +1593,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 seed = method.seed,
+                                                store_eltype = store,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     end
@@ -1616,7 +1628,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
            _qdn_trivial_ders(G, wh[1], eaxes, dims, atol)
 
     k = size(vecs, 2)
-    @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) rss_GB = Sys.maxrss() / 2^30
+    @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) data_floor = verdict.data_floor undecidable = verdict.undecidable rss_GB = Sys.maxrss() / 2^30
     k == 0 && return triv
 
     # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
@@ -2044,7 +2056,7 @@ function derTrOpsReduced(
     mats = nothing
     while true
         push!(tried, copy(r))
-        mats = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress)
+        mats = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress, T)
         mats === nothing || break
         length(tried) >= 2 && break
         bumped = [min(dims[a], max(r[a] + 1, ceil(Int, 1.5 * r[a]))) for a in 1:n]
