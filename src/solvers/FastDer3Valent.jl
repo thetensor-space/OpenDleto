@@ -397,9 +397,18 @@ end
 """
     _fastder_restrict_to_ops(Ω, basis, atol) -> Matrix
 
-Intersect the universal derivation space spanned by `basis` (solution triples
-from the kernel) with the operator space `Ω`, and return the result as columns
-of `Ω`-coordinates, i.e. exactly what `derTrOpsReduced` on `Ω` returns.
+Intersect the universal derivation space spanned by `basis` with the operator
+space `Ω`, and return the result as columns of `Ω`-coordinates, i.e. exactly
+what `derTrOpsReduced` on `Ω` returns.
+
+`basis` is a vector of derivations, each given as one operator matrix PER AXIS
+in the `embedITensors` convention (frame index first, i.e. the index that meets
+the tensor).  Any valency: `QuickDerN` hands in `Vector{Matrix}` of length
+`valency(Ω)` directly.  The valence-3 kernel's `(X, Y, Z)` triples are accepted
+too, through the method below that runs them past `_fastder_triple_matrices`
+first -- that kernel's `X` acts by LEFT multiplication and so needs a
+transpose, which is exactly the transposing this function must not do for
+anyone else.
 
 A combination `Σ_i c_i D^{(i)}` lies in `Ω` iff on every axis `a` its component
 is fixed by the projector onto `Ω`'s local space: `(I - Π_a) Σ_i c_i D_a^{(i)} = 0`.
@@ -410,14 +419,21 @@ meaningful as an absolute threshold on the residual, and `rtol` is zero
 because when every basis element already lies in `Ω` the residual matrix is
 pure roundoff and a relative threshold would keep none of it.
 """
-function _fastder_restrict_to_ops(Ω::IndTransverseOps, basis, atol::Real)
+function _fastder_restrict_to_ops(Ω::IndTransverseOps,
+                                  basis::AbstractVector{<:AbstractVector{<:AbstractMatrix}},
+                                  atol::Real)
     val = valency(Ω)
     dims = axisDims(Ω)
     k = length(basis)
     Tnum = k == 0 ? Float64 : promote_type(map(eltype, first(basis))...)
     k == 0 && return zeros(Tnum, globalDim(Ω), 0)
+    all(m -> length(m) == val, basis) ||
+        error("_fastder_restrict_to_ops: every basis element needs one matrix per " *
+              "axis (valency $(val)).")
 
-    mats = [_fastder_triple_matrices(X, Y, Z) for (X, Y, Z) in basis]
+    # `collect` so the normalisation below cannot write through to the caller's
+    # own matrices.
+    mats = [collect(m) for m in basis]
     for m in mats
         s = sqrt(sum(M -> sum(abs2, M), m))
         s > 0 && for a in 1:val; m[a] = m[a] ./ s; end
@@ -450,6 +466,17 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps, basis, atol::Real)
     end
     return ders
 end
+
+"""
+The valence-3 kernel's own form: solution triples `(X, Y, Z)` in which `X` acts
+by left multiplication.  `_fastder_triple_matrices` puts all three into the
+one-matrix-per-axis convention above.
+"""
+_fastder_restrict_to_ops(Ω::IndTransverseOps,
+                         basis::AbstractVector{<:NTuple{3, AbstractMatrix}},
+                         atol::Real) =
+    _fastder_restrict_to_ops(Ω, [_fastder_triple_matrices(X, Y, Z) for (X, Y, Z) in basis],
+                             atol)
 
 function _fastder_validate_compatibility(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     ndims(Γ) == 3 || error("FastDer3ValentMethod currently supports only valency-3 tensors.")

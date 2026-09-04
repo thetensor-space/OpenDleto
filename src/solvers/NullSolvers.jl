@@ -886,9 +886,16 @@ function solve(::SVDSolver, L::LinearMap; nv::Integer = 10)
     # Use LinearAlgebra to compute the null space of L.
     println("Converting LinearMap to Matrix for SVD...")
     M = Matrix(L)
-    svds = LinearAlgebra.svd(M)
-    nvals = min(nv, length(svds.S))
-    return (;vals=svds.S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
+    m, n = size(M)
+    # A WIDE map (m < n) has at least n - m null directions, and the thin SVD
+    # cannot express them: `V` then has only m columns.  Ask for the full `V`
+    # and extend `S` with the n - m exact zeros those columns belong to.  Found
+    # by QuickDer on a valence-2 tensor (7x5, 35 equations, 74 unknowns):
+    # SylverLining reported nullity 0 where the true nullity is 39.
+    svds = LinearAlgebra.svd(M; full = m < n)
+    S = m < n ? vcat(svds.S, zeros(eltype(svds.S), n - m)) : svds.S
+    nvals = min(nv, length(S))
+    return (;vals=S[end:-1:(end-nvals+1)], vecs=svds.V[:, end:-1:(end-nvals+1)])
 end
 
 """

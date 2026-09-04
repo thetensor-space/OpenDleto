@@ -379,9 +379,12 @@ end
         end
     end
 
-    # `:QuickDer` is the name for Liu's derivation solve-and-lift;
-    # `:FastDer3Valent` is kept as an alias and must resolve to the same thing.
-    @test get_derivation_method(:QuickDer) == get_derivation_method(:FastDer3Valent)
+    # `:QuickDer` now names the ANY-VALENCE solve-and-lift (QuickDerN.jl); the
+    # valence-3 transcription it grew out of stays reachable as `:QuickDer3`,
+    # with `:FastDer3Valent` as its alias, so the two can be compared.
+    @test get_derivation_method(:QuickDer3) == get_derivation_method(:FastDer3Valent)
+    @test get_derivation_method(:QuickDer) isa QuickDerMethod
+    @test get_derivation_method(:QuickDer3) isa FastDer3ValentMethod
 end
 
 # --- progress reporting is optional, tagged, and inert -----------------------

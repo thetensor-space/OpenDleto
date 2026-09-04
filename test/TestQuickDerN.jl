@@ -311,12 +311,17 @@ end
                 @test der_residual(Γ, D, P) < RESID64
             end
 
-            # :corner sees an all-zero corner sketch on this support (spec
-            # section 1); it must either error out, or be filtered down to
-            # strictly fewer than the true nullity -- never silently report a
-            # wrong 13-dimensional basis as if it were right.
+            # :corner on a structured support.  The design note expected the
+            # corner sketch to be degenerate here; in the cross-sketch
+            # formulation each S_a keeps axis a full, so the corner still meets
+            # the support and only the LIFT can degenerate (from d = 16 up),
+            # where the min-norm fallback plus the consistency filter recover.
+            # What must never happen is a silently WRONG answer: :corner either
+            # errors out, or every vector it returns is a genuine derivation
+            # and the count does not exceed the oracle.
             corner_ok = try
-                length(der(corner_method, Ω, P, Γ; tol=QD_TOL)) < 13
+                cb = der(corner_method, Ω, P, Γ; tol=QD_TOL)
+                length(cb) <= 13 && all(D -> der_residual(Γ, D, P) < RESID64, cb)
             catch
                 true
             end

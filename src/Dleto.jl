@@ -82,8 +82,10 @@ include("DletoBase.jl")
     include("ops/TransverseOpsSymmetries.jl")
     # Sylver Lining Derivation Method
     include("SylverLining/SylverLining.jl")
-    # Fast derivation strategy (3-valent, universal setup)
+    # Fast derivation strategy (3-valent, universal setup) -- the reference oracle
     include("solvers/FastDer3Valent.jl")
+    # QuickDer: the same solve-and-lift generalised to any valence
+    include("solvers/QuickDerN.jl")
     # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels
     include("solvers/QuickSylver.jl")
     include("solvers/SolverProgress.jl")

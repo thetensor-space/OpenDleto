@@ -48,32 +48,41 @@ Supported symbols:
 - `:SylverLining` -- the general method: build the derivation--densor operator
   as a `LinearMap` and hand it to a null solver.  Any chisel, any valency, any
   operator space.
-- `:QuickDer` -- Liu's *derivation* solve-and-lift (`quick-der-lib.jl`):
-  restrict all three axes to a block that is generically full column rank,
-  solve that small dense system, then lift each restricted basis vector to the
-  full axes by three least-squares solves.  Valency 3, one-row fully engaged
-  chisel, universal operators.  Alias: `:FastDer3Valent`.
+- `:QuickDer` -- the *derivation* solve-and-lift at ANY valence
+  (`src/solvers/QuickDerN.jl`, docs/design/QuickDer-valence-n.md): sketch every
+  axis down to a block that is generically full column rank, solve that small
+  system, lift each restricted basis vector back to the full axes by one
+  least-squares solve per axis, filter the combinations that do not lift
+  consistently, and verify the answer against the defining equation.  Any
+  valence `n >= 2`, any dimensions, any chisel with at least one engaged axis,
+  any `IndTransverseOps`.
+- `:QuickDer3` -- the valence-3 transcription of Liu's `quick-der-lib.jl`, kept
+  as the reference oracle for `:QuickDer`.  Valency 3, one-row fully engaged
+  chisel, corner restriction, dense solve.  Alias: `:FastDer3Valent`.
 - `:QuickSylver` -- Liu's *Sylvester* solve-and-lift (`quicksylver-lib.jl`):
   the same idea for `XR + SY = T`, restricting two axes and lifting an affine
   frame.  Chisels with exactly two engaged axes, e.g. `AdjointChisel`.
 
-Both lift solvers come from the same repository and both are "solve-and-lift";
-they differ in how many axes get restricted (three vs two) and therefore in
-which chisels they can handle.  `:QuickDer` is the name for the derivation one,
-matching Liu's own `quick-der` / `quicksylver` split, because `:FastDer3Valent`
-made it sound like a different family from `:QuickSylver` when it is the
-flagship derivation member of the same one.
+All three lift solvers are "solve-and-lift"; they differ in how many axes get
+restricted and therefore in which chisels and valencies they can handle.
+`:QuickDer` used to be an alias for the valence-3 transcription; it now names
+the general method, and the transcription answers to `:QuickDer3` (and still to
+`:FastDer3Valent`) so that the two can be compared on the valence-3 cases where
+both apply.
 """
 function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
     if method === :SylverLining
         return SylverLiningMethod(; kwargs...)
-    elseif method === :QuickDer || method === :FastDer3Valent
+    elseif method === :QuickDer
+        return QuickDerMethod(; kwargs...)
+    elseif method === :QuickDer3 || method === :FastDer3Valent
         return FastDer3ValentMethod(; kwargs...)
     elseif method === :QuickSylver
         return QuickSylverMethod(; kwargs...)
     end
     error("Unknown derivation method symbol: $method. " *
-          "Known: :SylverLining, :QuickDer (alias :FastDer3Valent), :QuickSylver.")
+          "Known: :SylverLining, :QuickDer, :QuickDer3 (alias :FastDer3Valent), " *
+          ":QuickSylver.")
 end
 
 """
