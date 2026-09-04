@@ -438,6 +438,70 @@ others in their original order.  Its inverse puts it back.
 _qdn_front(N::Integer, a::Integer) =
     ntuple(i -> i == 1 ? Int(a) : (i - 1 < a ? i - 1 : i), N)
 
+# ---------------------------------------------------------------------------
+# What a mode product COSTS on the device -- the three numbers that decide the
+# two choices below (which route `_qdn_ttm!` takes on a middle axis, and which
+# order `_qdn_cross_sketches` and `_qdn_pair_tensor` apply their sketches in)
+# ---------------------------------------------------------------------------
+#
+# All three are measured on the M4 Max in docs/design/Float16-Metal.md, on the
+# movie shape this exists for (640 x 480 x F x 3):
+#
+#   * a GEMM streaming the tensor once runs at 100-220 GB/s of operand traffic
+#     (the unfold-1 and unfold-3 rows).  200 GB/s is the optimistic end and
+#     that is the right side to err on here: it makes the model reluctant to
+#     pay a permute, which is the thing being avoided.
+#   * `permutedims` of the 331 MB Float32 movie tensor takes 0.0155 s, i.e.
+#     ~21 GB/s counted once over the input, ~10 GB/s counted over the read AND
+#     the write.  The round-trip figure is the one to charge, since the copy is
+#     pure traffic with no arithmetic hiding behind it.
+#   * a kernel dispatch costs ~60 us.  This is the number the "one transpose
+#     versus a thousand launches" remark in `_qdn_ttm` was worried about, and
+#     it is the only one of the three that is a guess rather than a row in the
+#     table -- but the decision it drives is a comparison against a permute
+#     that costs tens of milliseconds, so it only has to be right to a factor
+#     of a few.
+#
+# `const`, not `Ref`: these are facts about the device, not policy knobs, and
+# the two functions below turn them into a decision rather than a threshold --
+# which matters because the right answer genuinely flips with the shape.  On
+# the movie tensor at F = 90, contracting axis 2 costs 270 launches (16 ms)
+# against a 35 ms permute, so the slabs win; contracting axis 3 costs 3
+# launches, so they win by two orders of magnitude; and on the 10x10x10x3
+# warm-up tensor the permute is 2.4 us against 30 launches, so it wins.
+const QDN_GPU_STREAM_BW  = 200.0e9    # B/s, a GEMM reading the tensor once
+const QDN_GPU_PERMUTE_BW = 10.0e9     # B/s, `permutedims` read + write
+const QDN_GPU_LAUNCH_S   = 60.0e-6    # s, one kernel dispatch
+
+"""
+    _qdn_slab_is_cheap(G, a, k, N) -> Bool
+
+Should the mode-`a` product on a DEVICE array `G` be done as one GEMM per
+slab of the trailing axes, rather than by permuting axis `a` to the front?
+
+A middle axis is the one case a mode product cannot express as a single GEMM.
+The two ways out both cost one streaming pass over `G` plus an overhead:
+`back` kernel launches for the slab route, or a permuted `d^n` copy in and a
+smaller one out for the permute route.  This compares those overheads with the
+constants above; the streaming pass is common to both and cancels, but it is
+kept in so the numbers read as seconds.
+
+The answer is NOT a threshold on `back`.  What decides it is whether a slab is
+big enough to be worth a dispatch, and that is a statement about `front * d`
+as much as about `back` -- the frame axis of a movie has `back = 3` and the
+column axis `back = 3F`, and both are the same tensor.
+"""
+function _qdn_slab_is_cheap(sz::NTuple{N,Int}, a::Integer, k::Integer,
+                            ::Type{T}) where {N,T}
+    d = sz[a]
+    bytes = float(prod(sz)) * sizeof(T)
+    back = prod(ntuple(i -> sz[a + i], N - a))
+    slab_s = float(back) * QDN_GPU_LAUNCH_S
+    # The permute route copies `G` in and the (k/d)-sized result back out.
+    permute_s = bytes * (1 + k / max(d, 1)) / QDN_GPU_PERMUTE_BW
+    return slab_s <= permute_s
+end
+
 """
     _qdn_ttm(G, M, a) -> Array
 
@@ -481,12 +545,17 @@ IT IS ALSO THE WHOLE OF THE GPU PORT.  `reshape`, `similar`, `mul!` and
 against `AbstractArray` and the output is allocated with `similar(G, ...)`
 rather than `Matrix{T}(undef, ...)`: hand it a device array and every
 intermediate stays on the device.  Nothing here indexes an element, which is
-what a GPU array forbids.  The middle-axis case is the one place a device array
-still takes the permute route -- `back` separate kernel launches on device
-views would trade one transpose for a thousand launches -- so it keeps the old
-body; the two edge cases are now single GEMMs there too, which is a straight
-win for the device as well (`permutedims!` on Metal, not the GEMM, is the
-measured bottleneck).  The one thing to keep in mind is the `Array(G)` fallback
+what a GPU array forbids.  The middle-axis case used to be the one place a
+device array still permuted -- "`back` separate kernel launches would trade one
+transpose for a thousand" -- but `_qdn_slab_is_cheap` says that trade is worth
+making far more often than that reading suggests: on the movie tensor the frame
+axis has `back = 3`, so the slab route is three dispatches against a 35 ms
+permute, and even the column axis's `3F` dispatches come in under it.  Metal.jl
+takes a contiguous `view(G3, :, :, b)` of a device array as a GEMM operand
+(`MtlMatrixRangeView`), so the slab loop is the SAME body the host uses.  The
+permute route is kept for the shapes where the model says it wins (small
+tensors with many trailing slabs, where a dispatch costs more than the copy).
+The one thing to keep in mind is the `Array(G)` fallback
 below: it is guarded on `DenseArray`, and
 `MtlArray <: AbstractGPUArray <: DenseArray`, so a device array never takes it
 (taking it would silently move `d^n` bytes to the host).
@@ -516,8 +585,9 @@ all: `_qdn_ttm!(B, A, M, a); A, B = B, A`.
 `Σ_a P[ρ,a]·(Γ ×_a M_a)`, which is the derivation equation itself -- can be
 accumulated into one array instead of one temporary per term.  On a `d^n`
 tensor that is the difference between one extra copy and `n + 1` of them.  The
-device fall-through below cannot accumulate (it has to permute its result into
-place) and refuses a nonzero `β`.
+device PERMUTE fall-through below cannot accumulate (it has to permute its
+result into place) and refuses a nonzero `β`; every other branch, the device
+slab route included, passes `α`/`β` straight to `mul!`.
 """
 function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
                    M::AbstractMatrix{T}, a::Integer,
@@ -536,7 +606,7 @@ function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
         mul!(reshape(out, k, rest), transpose(M), reshape(G, d, rest), α, β)
     elseif a == N
         mul!(reshape(out, rest, k), reshape(G, rest, d), M, α, β)
-    elseif G isa Array && out isa Array
+    elseif (G isa Array && out isa Array) || _qdn_slab_is_cheap(size(G), a, k, T)
         front = prod(ntuple(i -> size(G, i), a - 1))
         back = prod(ntuple(i -> size(G, a + i), N - a))
         G3 = reshape(G, front, d, back)
@@ -861,6 +931,72 @@ _qdn_modeWp(G::AbstractArray{T,N}, ax::_QDNAxis{T}, a::Integer) where {T,N} =
     ax.ident ? _qdn_slice(G, a, (ax.r + 1):ax.d) : _qdn_ttm(G, ax.Wp, a)
 
 """
+    _qdn_mode_cost(sz, ax, a, T) -> Float64
+
+Seconds for the pass `_qdn_modeW` would make over an array of shape `sz` and
+element type `T` when it applies the axis-`a` sketch, under the same model,
+DIVIDED by the fraction of the data that pass removes -- a chain wants the axis
+that buys the most shrinkage per second first, because every later pass is
+charged the size this one leaves behind.
+
+`Inf` for an axis that removes nothing (a saturated `ident` axis, whose mode
+product is the identity), so that ordering by cost never puts one first.
+"""
+function _qdn_mode_cost(sz::NTuple{N,Int}, ax::_QDNAxis, a::Integer,
+                        ::Type{T}) where {N,T}
+    d = sz[a]
+    ax.r >= d && return Inf                       # nothing to remove
+    bytes = float(prod(sz)) * sizeof(T)
+    stream_s = bytes / QDN_GPU_STREAM_BW
+    # An `ident` axis is a slice, an edge axis is one GEMM: no copy either way.
+    extra_s = (ax.ident || a == 1 || a == N) ? 0.0 :
+              _qdn_slab_is_cheap(sz, a, ax.r, T) ?
+              float(prod(ntuple(i -> sz[a + i], N - a))) * QDN_GPU_LAUNCH_S :
+              bytes * (1 + ax.r / d) / QDN_GPU_PERMUTE_BW
+    return (stream_s + extra_s) / (1 - ax.r / d)
+end
+
+"""
+    _qdn_mode_order(G, axs, cand) -> Vector{Int}
+
+The order in which to apply the axis sketches `cand` to `G`.  Mode products on
+distinct axes COMMUTE, so this is free to choose -- and on the device the
+choice is worth more than anything else in this file.
+
+HOST ARRAYS KEEP THE NATURAL ORDER, and that is deliberate: on the host every
+axis is one pass with no copy (`_qdn_ttm`'s middle-axis case runs strided GEMMs
+BLAS takes directly), so there is nothing to win, and reordering would change
+the rounding of every existing CPU result for no gain.
+
+On the device there is one pass over the FULL tensor in each chain and the rest
+run on something already small, so what this really decides is which single
+axis meets `d^n`.  Greedy on `_qdn_mode_cost`, re-evaluated after each step
+because contracting a trailing axis shrinks the `back` of the ones before it.
+On a 640 x 480 x F x 3 movie the greedy answer is axis 1 first (an edge axis,
+one GEMM) and the FRAME axis second (a middle axis, but with `back = 3`); the
+cross sketch of axis 1, which cannot use axis 1, therefore meets the full
+tensor on the frame axis rather than on the column axis, trading `3F` launches
+for 3.
+"""
+function _qdn_mode_order(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
+                         cand) where {T,N}
+    order = Int[c for c in cand]
+    (G isa Array || length(order) <= 1) && return order
+    # Only the SHAPE feeds the cost, so the chain is walked as a size tuple and
+    # nothing is contracted twice.
+    sz = size(G)
+    picked = Int[]
+    while !isempty(order)
+        i = argmin([_qdn_mode_cost(sz, axs[c], c, T) for c in order])
+        c = order[i]
+        push!(picked, c)
+        deleteat!(order, i)
+        sz = ntuple(j -> j == c ? min(axs[c].r, sz[j]) : sz[j], N)
+    end
+    return picked
+end
+
+"""
     _qdn_assemble(ax, Y, Z) -> Matrix
 
 `M_a` from its two halves: `M_a = [Y_a Z_a] Q_aᵗ = Y_a W_aᵗ + Z_a W_a⊥ᵗ`.
@@ -884,12 +1020,15 @@ equation of axis `a`.  The small `W_c` go on FIRST and `W_a⊥` last: contractin
 `Γ ×_a W_a⊥` up front would cost `O(d^{n+1})` on the full tensor, while this
 order pays `O(r·d^n)` for the first pass and then works on a tensor that is
 already `r` in every axis but two.
+
+WHICH of the `W_c` goes first is `_qdn_mode_order`'s call on the device (the
+natural order on the host), for the same reason: exactly one of these passes
+meets the full tensor, so it is the one that has to be a copy-free GEMM.
 """
 function _qdn_pair_tensor(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
                           a::Integer, b::Integer)::AbstractArray{T,N} where {T,N}
     X = G
-    for c in 1:N
-        (c == a || c == b) && continue
+    for c in _qdn_mode_order(G, axs, (c for c in 1:N if c != a && c != b))
         X = _qdn_modeW(X, axs[c], c)
     end
     return _qdn_modeWp(X, axs[a], a)
@@ -899,26 +1038,36 @@ end
     _qdn_cross_sketches(G, axs, engaged) -> Dict{Int,Array}
 
 `S_a = Γ ×_{b≠a} W_b` for every engaged axis `a`, built through a shared prefix
-chain (`Γ ×_1 W_1 ⋯ ×_{a-1} W_{a-1}`) so the total cost stays about `2·r·d^n`
-rather than the `n²/2` passes the definition suggests.  Disengaged axes carry
-no unknown and so need no cross sketch -- but they are still sketched, i.e.
-their `W_b` is applied inside every other axis's `S_a`.
+chain (`Γ ×_{π_1} W_{π_1} ⋯`) so the total cost stays about `2·r·d^n` rather
+than the `n²/2` passes the definition suggests.  Disengaged axes carry no
+unknown and so need no cross sketch -- but they are still sketched, i.e. their
+`W_b` is applied inside every other axis's `S_a`.
+
+`π` is `_qdn_mode_order`'s ordering: `1:N` on the host, and on the device the
+one that keeps the full tensor away from a `permutedims`.  The prefix structure
+does not care which order it is -- `pre[i] = Γ ×_{π_1} ⋯ ×_{π_{i-1}}` and
+`S_{π_i} = pre[i] ×_{π_{i+1}} ⋯ ×_{π_N}` for ANY permutation, because mode
+products on distinct axes commute -- and exactly two passes here meet `d^n`:
+`pre[2]`, which applies `π_1`, and `S_{π_1}`, which applies `π_2`.  Ordering by
+`_qdn_mode_cost` is therefore precisely the statement "let those two be the
+cheapest passes available".
 """
 function _qdn_cross_sketches(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
                              engaged::AbstractVector{Bool}) where {T,N}
+    ord = _qdn_mode_order(G, axs, 1:N)
     pre = Vector{AbstractArray{T,N}}(undef, N)
     pre[1] = G
-    for a in 2:N
-        pre[a] = _qdn_modeW(pre[a - 1], axs[a - 1], a - 1)
+    for i in 2:N
+        pre[i] = _qdn_modeW(pre[i - 1], axs[ord[i - 1]], ord[i - 1])
     end
     S = Dict{Int, AbstractArray{T,N}}()
-    for a in 1:N
-        engaged[a] || continue
-        X = pre[a]
-        for b in (a + 1):N
-            X = _qdn_modeW(X, axs[b], b)
+    for i in 1:N
+        engaged[ord[i]] || continue
+        X = pre[i]
+        for j in (i + 1):N
+            X = _qdn_modeW(X, axs[ord[j]], ord[j])
         end
-        S[a] = X
+        S[ord[i]] = X
     end
     return S
 end
