@@ -25,6 +25,7 @@ include( "TestQuickDerN.jl" )
 include( "TestAutoDer.jl" )
 include( "TestDerivationLaws.jl" )
 include( "TestNullVerdict.jl" )
+include( "TestPrecision.jl" )
 
 
 include( "TestSylverLining.jl" )
