@@ -529,3 +529,25 @@ Files: `bench/HypersphereBaseline.jl` (+`:KrylovSolver` in `CONFIGS`), new
 `bench/SparseSphereDer.jl`, new `bench/VideoDenseBench.jl` (unrun), new
 `bench/reports/night-2026-09-03/{v4-dense-sylver,v3-dense-sylver,
 sparse-sphere-der}.csv`.
+
+### orchestrator (2026-09-04, ~05:30)
+Merged tonight: harness valence n; `sylvesterLM` array kernel (bit-identical, ~400 B/apply,
+sparse branch); `:QuickDer` any valence (QuickDerN.jl); `:Auto` = QuickDer-first with
+SylverLining fallback, now `stratify`'s default; tests TestQuickDerN/TestAutoDer.
+Fixes prompted by the board: byte-only dense gate; SVDSolver thin-SVD on wide maps; Arpack via
+`@dleto-bench` env; KrylovKit/IterativeSolvers extensions auto-register; **confirmation pass**
+in `solve_nullspace` (re-solve once with doubled request before trusting an iterative count) —
+raw sphere nullity 13 now from every solver (was 7/11/4).
+Path to d = 100 at valence 3 with QuickDer (was 57 s / killed at 8 GB):
+- `:GramSolver` for the restricted system (syrk Gram + Cholesky-shifted subspace iteration +
+  Rayleigh–Ritz on the unsquared matrix): 3 s vs 52 s SVD at 6859x5700. Rayleigh quotients on
+  the Gram alone mis-cut the sphere (near-derivation σ=1.9e-6 sits at the Gram's roundoff).
+- `_fastder_projector`: closed-form Gram diagonals (was 2.5 GB churn/axis for SymmetricOp).
+- `_fastder_restrict_to_ops`: `nullspace()` = full SVD → 7 GB `U` for a 30000x13 matrix; thin SVD.
+- `opnorm(::Symmetric,1)` generic path (minutes); shift scaled by max diagonal instead.
+- bench/jl heap hint 3G (GC drift vs the 5 GB watchdog).
+Result (2 threads): scrambled sphere v3 d=100 stratify **6.6 s**, lsq_err 9e-12, RSS 2.1 GB;
+v4 d=40 **1.0 s**. Random v3 d=100 der 4.4 s, d=120 7.2 s.
+Open: matrix-free restricted branch (d ≳ 130 at valence 3) still LSMR-first and slow — the
+restricted-solver comparison (quickder-large-d) decides its default; eigensolver run-time
+outliers (Arpack 127–346 s on cases that take 2–5 s) are non-deterministic and unexplained.

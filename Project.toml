@@ -21,11 +21,13 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [weakdeps]
 Arpack = "7d9fca2a-8960-54d3-9f78-7d1dccf2cb97"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 
 [extensions]
 DletoArpackExt = "Arpack"
 DletoIterativeSolversExt = "IterativeSolvers"
 DletoKrylovKitExt = "KrylovKit"
+DletoMetalExt = "Metal"
 DletoPlotsExt = "Plots"
 
 [compat]

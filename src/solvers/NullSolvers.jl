@@ -772,6 +772,46 @@ function solve_nullspace(L, solver::Symbol = :AutoSolver; kwargs...)
     return solve_nullspace(L, SOLVER_REGISTRY[solver]; kwargs...)
 end
 
+
+# ------------------------------------------------------------- GPU hooks
+#
+# The kernels (`sylvesterLM`'s array backend, QuickDer's mode products and
+# Gram) run on whatever array type they are handed.  These three functions
+# are the only place a device is named; ext/DletoMetalExt.jl adds methods
+# for Apple GPUs when `using Metal` is in effect.  Metal is Float32-only, so
+# a GPU run is an exploratory Float32 run; Float64 certification stays on
+# the CPU.
+
+"""
+    gpu_available() -> Bool
+
+Whether a GPU backend extension is loaded and functional.
+"""
+gpu_available() = false
+
+"""
+    to_gpu(x::AbstractArray) -> AbstractArray
+
+Copy `x` to the GPU as Float32 (or ComplexF32).  Identity when no GPU backend
+is loaded, so kernels can call it unconditionally.
+"""
+to_gpu(x::AbstractArray) = x
+
+"""
+    to_cpu(x::AbstractArray) -> Array
+
+Copy a device array back to host memory; identity for host arrays.
+"""
+to_cpu(x::AbstractArray) = x
+to_cpu(x::Array) = x
+
+"""
+    gpu_sync(f) 
+
+Run `f()` and wait for the device to finish; plain `f()` on the CPU.
+"""
+gpu_sync(f) = f()
+
 # ---------------------------------------------------- spectral transform
 #
 # Every black-box iterative eigensolver converges to the *extremes* of the
