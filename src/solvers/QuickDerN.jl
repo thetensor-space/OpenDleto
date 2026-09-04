@@ -35,10 +35,16 @@
 # generic for any Γ, with no such cliff.  Both are available; `:corner` is kept
 # because it is genuinely cheaper when the tensor is dense and generic.
 #
-# THE KERNEL IS PLAIN ARRAYS.  ITensors appear only at the boundary, and every
-# contraction goes through `_qdn_ttm`, so swapping in TensorOperations,
-# Strided, Finch or a GPU backend is one function (see the contraction study in
-# bench/reports/night-2026-09-03/contraction-options.md).
+# THE KERNEL IS PLAIN ARRAYS -- OF WHATEVER KIND.  ITensors appear only at the
+# boundary, and every contraction goes through `_qdn_ttm`, so swapping in
+# TensorOperations, Strided or Finch is one function (see the contraction study
+# in bench/reports/night-2026-09-03/contraction-options.md).  `device = :gpu`
+# uses that same property from the other side: `_qdn_ttm`, `_qdn_unfold` and
+# `_qdn_slice` are written against `AbstractArray` and allocate with
+# `similar(G, ...)`, so handing them an `MtlArray` keeps every pass over the
+# `d^n` tensor on the GPU with no second implementation.  Apple GPUs have no
+# Float64, so that path is Float32 and exploratory; the certified answer is the
+# Float64 CPU one.
 #
 
 using LinearAlgebra
@@ -58,8 +64,119 @@ flip the route (`QDN_GRAM_MIN_COLS[] = typemax(Int)` forces the SVD).
 const QDN_GRAM_MIN_COLS = Ref(1000)
 
 """
+Byte budget for the DENSE restricted matrix on the host route.  Mirrors
+`DENSE_BUDGET_BYTES / 2` (`NullSolvers.jl`): the matrix plus the Gram plus the
+Cholesky factor all have to fit, so filling the whole null-solver budget with
+the matrix alone would leave nothing for the solve.  A `Ref` because it is a
+policy number, not a fact about the machine -- benchmarks that want the dense
+route at a size the default declines (a Float32 CPU run being compared against
+a Float32 GPU run, say) raise it explicitly.
+
+Not a `const` expression of `DENSE_BUDGET_BYTES`: `QuickDerN.jl` is included
+before `NullSolvers.jl`, so that name does not exist yet at load time.
+"""
+const QDN_DENSE_BUDGET_BYTES = Ref(2.5 * 2^30)
+# 2.5 GB, not 0.5: the matrix-free branch is the weak spot.  On a STRUCTURED
+# tensor its spectrum is clustered and Arpack hits its iteration cap
+# (XYAUPD_Exception(1)) on the scrambled sphere at d = 150 and 200, where the
+# dense Gram route answers in seconds; random tensors converge there
+# (bench/reports/night-2026-09-03/quickder-restricted-solvers.csv).  At 2.5 GB
+# the Gram route reaches d = 200 at valence 3 (17576 x 15600, 2.2 GB) with a
+# peak of ~3x the matrix, under the machine's 10 GB default budget.
+
+"""
+Byte budget for the dense restricted matrix on the DEVICE route
+(`device = :gpu`).  Larger than the host budget because the device this was
+written for has a 52 GB recommended working set while the process that feeds
+it has a 16 GB cap: at valence 3 Float32 the matrix is 0.16 GB at d = 100,
+1.1 GB at d = 200 and 3.3 GB at d = 300, and only the last is close to the
+host-side ceiling (host copy + device copy + device Gram).
+"""
+const QDN_GPU_DENSE_BUDGET_BYTES = Ref(6.0 * 2^30)
+
+"""
+    _qdn_default_free_solver() -> Symbol
+
+Null solver for the MATRIX-FREE restricted branch when the caller left
+`solver = :AutoSolver`.
+
+`:AutoSolver` puts LSMR first for a rectangular map, which is right for
+`den`'s ill-conditioned densor map and wrong for this one.  Measured on the
+matrix-free restricted branch (random `d^3`, 2 threads,
+`bench/reports/night-2026-09-03/quickder-restricted-solvers.csv`):
+
+| d | Arpack | Krylov | CG | LSMR |
+|---|---|---|---|---|
+| 150 | 10.5 s | 76 s | 210 s | did not finish |
+| 200 | 49 s | - | - | - |
+| 250 | 33 s | - | - | - |
+
+So ARPACK when its package is loaded, `:KrylovSolver` otherwise (the KrylovKit
+extension registers itself unconditionally).  An explicit `solver =` still
+wins -- this only replaces the *default*.
+"""
+_qdn_default_free_solver() =
+    haskey(SOLVER_REGISTRY, :ArpackSolver) ? :ArpackSolver : :KrylovSolver
+
+"""
+    QDN_STAGE_TIMES :: Ref{Union{Nothing, Dict{Symbol,Float64}}}
+
+Opt-in per-stage wall clock, for benchmarking only.  Set it to an empty `Dict`
+and the next `derTrOpsReduced` accumulates seconds under `:upload`, `:sketch`,
+`:restricted` (dense matrix assembly), `:solve`, `:lift`, `:filter`, `:verify`
+and `:restrict_ops`; leave it `nothing` (the default) and the cost is one `Ref`
+load per stage.  `GramSolver` adds `:gram`, `:cholesky`, `:subspace` and
+`:ritz` through the same dictionary.
+
+Measuring a GPU stage needs a synchronisation point, and every stage here
+already ends at one -- a `to_cpu`, or a scalar read like `norm(E)` or
+`maximum(abs, diag(G))` -- because the next stage is host work that needs the
+device's answer.  That is why the boundaries below sit *after* the transfer
+rather than after the last kernel launch: an asynchronous launch would
+otherwise charge its time to whichever stage happened to block first.
+"""
+const QDN_STAGE_TIMES = Ref{Union{Nothing, Dict{Symbol,Float64}}}(nothing)
+
+"""
+    _qdn_stage!(name, t0) -> Float64
+
+Charge `time() - t0` to stage `name` when stage timing is on, and return the
+current time so consecutive stages can chain (`t0 = _qdn_stage!(:sketch, t0)`).
+"""
+function _qdn_stage!(name::Symbol, t0::Float64)
+    t = time()
+    d = QDN_STAGE_TIMES[]
+    d === nothing || (d[name] = get(d, name, 0.0) + (t - t0))
+    return t
+end
+
+"""
+    _qdn_check_device(device, T)
+
+`device` is `:cpu` or `:gpu`; `:gpu` additionally needs a functional GPU
+backend extension (`using Metal` alongside `using Dleto`) and a Float32
+tensor, because Apple GPUs have no Float64 at all.  A GPU run is therefore an
+exploratory Float32 run; Float64 certification stays on the CPU.
+"""
+function _qdn_check_device(device::Symbol, ::Type{T}) where {T}
+    device === :cpu && return :cpu
+    device === :gpu || error(
+        "QuickDerMethod: device must be :cpu or :gpu, got :$device.")
+    gpu_available() || error(
+        "QuickDerMethod(device = :gpu): no GPU backend is loaded or functional. " *
+        "Load one alongside Dleto (`using Metal` on Apple silicon) and check " *
+        "`Dleto.gpu_available()`.")
+    T === Float32 || error(
+        "QuickDerMethod(device = :gpu): the GPU path is Float32 only (Apple GPUs " *
+        "have no Float64), but eltype(Γ) is $T. Convert Γ to Float32 for an " *
+        "exploratory run, or keep device = :cpu for the certified one.")
+    return :gpu
+end
+
+"""
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
-                     verify = :random, nslices = 4, seed = nothing)
+                     verify = :random, nslices = 4, seed = nothing,
+                     device = :cpu)
 
 Solve-and-lift derivations for a tensor of any valence `n >= 2`, any per-axis
 dimensions, any chisel with at least one engaged axis, and any
@@ -74,15 +191,28 @@ dimensions, any chisel with at least one engaged axis, and any
   `:random` is the default.
 - `sizes`        override the restriction sizes `r_1..r_n` (see
   `_qdn_restriction_sizes` for what is chosen otherwise and why).
-- `solver`       null solver for the MATRIX-FREE restricted solve.  The dense
-  branch always uses `:SVDSolver`, because when the restricted matrix fits in
-  memory a real SVD is both faster and more accurate than any iterative
-  method at these sizes.
+- `solver`       null solver for the MATRIX-FREE restricted solve.  Left at
+  `:AutoSolver` it means "pick the one that is fastest on THIS map", which is
+  `_qdn_default_free_solver()`, not `AutoSolver`'s own LSMR-first rule.  The
+  dense branch picks between `SVDSolver` and `GramSolver` by size and ignores
+  this (`QDN_GRAM_MIN_COLS`).
 - `verify`       `:random` (default) checks the defining equation on `nslices`
   output slices of the largest engaged axis; `:full` checks all of it when
   `prod(dims) <= 2e7`; `:none` skips the check and is for benchmarking only.
 - `seed`         makes the sketch (and the choice of verification slices)
   reproducible.  Without it the global RNG is used.
+- `device`       `:cpu` (default) or `:gpu`.  `:gpu` needs a functional GPU
+  backend extension and a **Float32** tensor (Apple GPUs have no Float64), and
+  errors clearly when either is missing.  What moves to the device is the work
+  that scales with `d^n` or with the restricted matrix: the cross sketches, the
+  pair tensors of the lift, the Gram/Cholesky/subspace stage of the restricted
+  solve (`GramSolver(device = :gpu)`) and the verification.  What stays on the
+  host is the small linear algebra the device has no kernels for -- the
+  restricted matrix assembly (`kron` + row permutation, a memory-bound scatter
+  of a `d_a x R_a` block), the per-axis lift QR, the consistency filter, and the
+  `qr`/`svd` inside `GramSolver` (Metal.jl has neither).  A `:gpu` run is
+  exploratory: Float32 is its ceiling, and the certified answer is the Float64
+  CPU one.
 
 Element type follows `eltype(Γ)`; `tol` is relative and floored at
 `sqrt(eps(T))` by `_qd_tolerance`, as in `FastDer3ValentMethod`.
@@ -99,20 +229,24 @@ struct QuickDerMethod <: DerivationMethod
     verify::Symbol
     nslices::Int
     seed::Union{Nothing, Int}
+    device::Symbol
 end
 
 function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
                         solver::Symbol = :AutoSolver, verify::Symbol = :random,
-                        nslices::Integer = 4, seed = nothing)
+                        nslices::Integer = 4, seed = nothing,
+                        device::Symbol = :cpu)
     restriction in (:random, :corner) ||
         error("QuickDerMethod: restriction must be :random or :corner, got :$restriction.")
     verify in (:random, :full, :none) ||
         error("QuickDerMethod: verify must be :random, :full or :none, got :$verify.")
     nslices >= 1 || error("QuickDerMethod: nslices must be at least 1, got $nslices.")
+    device in (:cpu, :gpu) ||
+        error("QuickDerMethod: device must be :cpu or :gpu, got :$device.")
     return QuickDerMethod(restriction,
                           sizes === nothing ? nothing : Int[Int(s) for s in sizes],
                           solver, verify, Int(nslices),
-                          seed === nothing ? nothing : Int(seed))
+                          seed === nothing ? nothing : Int(seed), device)
 end
 
 # ---------------------------------------------------------------------------
@@ -142,28 +276,63 @@ nothing in this file ever transposes an operator at the ITensor boundary.
 Implemented as permutedims + reshape + `mul!`, i.e. one GEMM on the mode-`a`
 unfolding, and used for EVERY contraction in this file -- the sketches, the
 restricted solve, the lift right-hand sides and the verification -- so a later
-move to TensorOperations/Strided/Finch or a GPU is a change to this function
-alone.
+move to TensorOperations/Strided/Finch is a change to this function alone.
+
+IT IS ALSO THE WHOLE OF THE GPU PORT.  `permutedims`, `reshape`, `similar` and
+`mul!` are all implemented for `MtlArray`, so the function is written against
+`AbstractArray` and the output is allocated with `similar(G, ...)` rather than
+`Matrix{T}(undef, ...)`: hand it a device array and every intermediate stays on
+the device.  Nothing here indexes an element, which is what a GPU array
+forbids.  The one thing to keep in mind is the `Array(G)` fallback below: it is
+guarded on `DenseArray`, and `MtlArray <: AbstractGPUArray <: DenseArray`, so a
+device array never takes it (taking it would silently move `d^n` bytes to the
+host).
 """
 function _qdn_ttm(G::AbstractArray{T,N}, M::AbstractMatrix{T}, a::Integer) where {T,N}
     d = size(G, a)
     size(M, 1) == d || throw(DimensionMismatch(
         "mode-$a product: matrix is $(size(M)) but axis $a has length $d"))
     k = size(M, 2)
-    GA = G isa Array{T,N} ? G : Array(G)
+    GA = G isa DenseArray ? G : Array(G)
     if a == 1
         Gm = reshape(GA, d, :)
-        out = Matrix{T}(undef, k, size(Gm, 2))
+        out = similar(GA, T, (k, size(Gm, 2)))
         mul!(out, transpose(M), Gm)
         return reshape(out, ntuple(i -> i == 1 ? k : size(GA, i), N))
     end
     perm = _qdn_front(N, a)
     Gm = reshape(permutedims(GA, perm), d, :)
-    out = Matrix{T}(undef, k, size(Gm, 2))
+    out = similar(GA, T, (k, size(Gm, 2)))
     mul!(out, transpose(M), Gm)
     Op = reshape(out, ntuple(i -> i == 1 ? k : size(GA, perm[i]), N))
     return permutedims(Op, invperm(collect(perm)))
 end
+
+"""
+    _qdn_slice(G, a, idx) -> array
+
+`selectdim(G, a, idx)` materialised on the device `G` lives on.  `copy` of a
+view does that for both `Array` and `MtlArray` (GPUArrays lowers it to a
+kernel), where `Array(view)` would have moved a device slice to the host.
+"""
+_qdn_slice(G::AbstractArray, a::Integer, idx) = copy(selectdim(G, a, idx))
+
+"""
+    _qdn_host(x) -> Array
+
+`x` as a host `Array`, without a copy when it is one already.  Every result
+this file hands back to `_fastder_restrict_to_ops`, to a null solver or to a
+host least-squares solve goes through here.
+"""
+_qdn_host(x::AbstractArray{T,N}) where {T,N} = x isa Array{T,N} ? x : Array(to_cpu(x))
+
+"""
+    _qdn_zeros_like(G, dims) -> array
+
+A zero array of shape `dims` on the same device as `G`.
+"""
+_qdn_zeros_like(G::AbstractArray{T}, dims::Tuple) where {T} =
+    fill!(similar(G, T, dims), zero(T))
 
 """
     _qdn_unfold(G, a) -> Matrix
@@ -172,9 +341,13 @@ The mode-`a` unfolding of `G`: a `size(G,a) x prod(other dims)` matrix whose
 columns run over the other axes in their natural order, column-major.  That
 column order is the one every row permutation and every lift right-hand side in
 this file assumes.
+
+Device-preserving, like `_qdn_ttm`: an `MtlArray` in gives an `MtlMatrix` out
+(`reshape` and `permutedims` both keep the array type), and only a
+non-`DenseArray` takes the host fallback.
 """
 function _qdn_unfold(G::AbstractArray{T,N}, a::Integer) where {T,N}
-    GA = G isa Array{T,N} ? G : Array(G)
+    GA = G isa DenseArray ? G : Array(G)
     d = size(GA, a)
     a == 1 && return reshape(GA, d, :)
     return reshape(permutedims(GA, _qdn_front(N, a)), d, :)
@@ -279,13 +452,19 @@ Per-axis restriction data: `W` (d x r) and its orthogonal complement `Wp`
 case both are left empty and every contraction with them is a slice.  A
 saturated axis (`r == d`) is always `ident`, so `Q = I` and its operator needs
 no rotation back.
+
+`W` and `Wp` are typed `AbstractMatrix` rather than `Matrix` so the same struct
+can carry device copies for the `d^n` contractions (`_qdn_axes_device`) while
+the host copies stay behind for `_qdn_assemble`, which builds the answer the
+caller gets.  Both are `d x r`-ish and tiny; the type looseness costs a dynamic
+dispatch per mode product, against a GEMM.
 """
 struct _QDNAxis{T}
     d::Int
     r::Int
     ident::Bool
-    W::Matrix{T}
-    Wp::Matrix{T}
+    W::AbstractMatrix{T}
+    Wp::AbstractMatrix{T}
 end
 
 function _qdn_axis(::Type{T}, d::Integer, r::Integer, restriction::Symbol, rng) where {T}
@@ -294,17 +473,30 @@ function _qdn_axis(::Type{T}, d::Integer, r::Integer, restriction::Symbol, rng) 
     end
     # A full square QR gives W and W⊥ from one factorisation, and they are
     # exactly orthogonal to each other -- which the lift relies on when it
-    # reassembles M_a = [Y_a Z_a] Qᵗ.
+    # reassembles M_a = [Y_a Z_a] Qᵗ.  Formed on the HOST even for a device
+    # run: Metal.jl has no `qr`, and this is `d x d` once per axis.
     Q = Matrix(qr(randn(rng, T, d, d)).Q)
     return _QDNAxis{T}(d, r, false, Q[:, 1:r], Q[:, (r + 1):d])
 end
 
+"""
+    _qdn_axes_device(axs) -> Vector{_QDNAxis}
+
+The same axes with `W`/`Wp` resident on the GPU, so that every mode product
+against the full tensor is a device GEMM.  An `ident` axis is left alone: its
+matrices are empty (`d x 0`) and never contracted -- the slice path is used
+instead -- and a zero-length device buffer is a needless special case.
+"""
+_qdn_axes_device(axs::Vector{_QDNAxis{T}}) where {T} =
+    _QDNAxis{T}[ax.ident ? ax : _QDNAxis{T}(ax.d, ax.r, false, to_gpu(ax.W), to_gpu(ax.Wp))
+                for ax in axs]
+
 _qdn_modeW(G::AbstractArray{T,N}, ax::_QDNAxis{T}, a::Integer) where {T,N} =
-    ax.ident ? (ax.r == size(G, a) ? G : Array(selectdim(G, a, 1:ax.r))) :
+    ax.ident ? (ax.r == size(G, a) ? G : _qdn_slice(G, a, 1:ax.r)) :
                _qdn_ttm(G, ax.W, a)
 
 _qdn_modeWp(G::AbstractArray{T,N}, ax::_QDNAxis{T}, a::Integer) where {T,N} =
-    ax.ident ? Array(selectdim(G, a, (ax.r + 1):ax.d)) : _qdn_ttm(G, ax.Wp, a)
+    ax.ident ? _qdn_slice(G, a, (ax.r + 1):ax.d) : _qdn_ttm(G, ax.Wp, a)
 
 """
     _qdn_assemble(ax, Y, Z) -> Matrix
@@ -332,7 +524,7 @@ order pays `O(r·d^n)` for the first pass and then works on a tensor that is
 already `r` in every axis but two.
 """
 function _qdn_pair_tensor(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
-                          a::Integer, b::Integer) where {T,N}
+                          a::Integer, b::Integer)::AbstractArray{T,N} where {T,N}
     X = G
     for c in 1:N
         (c == a || c == b) && continue
@@ -350,14 +542,14 @@ rather than the `n²/2` passes the definition suggests.  Disengaged axes carry
 no unknown and so need no cross sketch -- but they are still sketched, i.e.
 their `W_b` is applied inside every other axis's `S_a`.
 """
-function _qdn_cross_sketches(G::Array{T,N}, axs::Vector{_QDNAxis{T}},
+function _qdn_cross_sketches(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
                              engaged::AbstractVector{Bool}) where {T,N}
-    pre = Vector{Array{T,N}}(undef, N)
+    pre = Vector{AbstractArray{T,N}}(undef, N)
     pre[1] = G
     for a in 2:N
         pre[a] = _qdn_modeW(pre[a - 1], axs[a - 1], a - 1)
     end
-    S = Dict{Int, Array{T,N}}()
+    S = Dict{Int, AbstractArray{T,N}}()
     for a in 1:N
         engaged[a] || continue
         X = pre[a]
@@ -498,17 +690,36 @@ system already has no null space -- a legitimate answer, "Γ conforms to no
 pattern for this chisel" -- or `nothing` when there were restricted solutions
 but the consistency filter rejected every one of them, which is the caller's
 cue to retry with a larger `r`.
+
+WHERE THE WORK RUNS.  `G` arrives on whichever device the caller put it on
+(`method.device`).  Everything that touches it -- the cross sketches and the
+pair tensors of the lift -- runs there, against the device copies of `W`/`W⊥`.
+Everything downstream of the sketches is small (`S_a` is `r^{n-1} x d_a`, a few
+MB even at d = 300) and is pulled back to the host, because that is where the
+rest of the linear algebra has to happen anyway: the restricted matrix is a
+memory-bound scatter of `kron(I, S_a(a)ᵗ)`, the lift is a QR, the consistency
+filter is a `nullspace`, and the answer has to be host matrices for
+`_fastder_restrict_to_ops`.  The one big piece that does go to the device is
+the restricted solve, through `GramSolver(device = :gpu)`.
 """
-function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
+function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
                              atol::Real, progress) where {T,N}
     dims = collect(size(G))
     m = size(P, 1)
     eaxes = [a for a in 1:N if engaged[a]]
-    axs = [_qdn_axis(T, dims[a], r[a], method.restriction, rng) for a in 1:N]
+    on_gpu = method.device === :gpu
+    haxs = [_qdn_axis(T, dims[a], r[a], method.restriction, rng) for a in 1:N]
+    # Host axes build the answer (`_qdn_assemble`); device axes do the d^n work.
+    axs = on_gpu ? _qdn_axes_device(haxs) : haxs
 
+    tstage = time()
     S = _qdn_cross_sketches(G, axs, engaged)
-    Uf = Dict{Int, Matrix{T}}(a => _qdn_unfold(S[a], a) for a in eaxes)  # d_a x R_a
+    # d_a x R_a, and small: unfold on the device, then keep the host copy that
+    # the restricted matrix, the lift operator and the adjoint all need.  This
+    # is also the synchronisation point of the sketch stage on a device run.
+    Uf = Dict{Int, Matrix{T}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
+    tstage = _qdn_stage!(:sketch, tstage)
 
     coff = Dict{Int, Int}()
     ncols = 0
@@ -522,24 +733,44 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     # the SVD needs the matrix plus its factors, so filling the whole budget
     # with the matrix alone would leave nothing for the solve.  The row count is
     # `m·∏r` except in the padded wide case (`_qdn_system_rows`), and it is the
-    # count actually allocated that has to fit.
+    # count actually allocated that has to fit.  The GPU route gets its own,
+    # larger budget: the Gram and the Cholesky live on a device with a 52 GB
+    # working set, so the binding constraint there is the HOST copy, not the
+    # solve (`QDN_GPU_DENSE_BUDGET_BYTES`).
     dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(T)
-    if dense_bytes <= DENSE_BUDGET_BYTES / 2
+    dense_budget = on_gpu ? QDN_GPU_DENSE_BUDGET_BYTES[] : QDN_DENSE_BUDGET_BYTES[]
+    if dense_bytes <= dense_budget
         Mres = _qdn_restricted_matrix(Uf, P, eaxes, r, dims, coff, ncols)
+        tstage = _qdn_stage!(:restricted, tstage)
         # The SVD is O(m n²) and at d = 100 (6859 x 5700) already 52 s; the
-        # Gram route (`:GramSolver`, n x n, Cholesky-shifted subspace
+        # Gram route (`GramSolver`, n x n, Cholesky-shifted subspace
         # iteration) is 3.8 s there at half the precision, which the lift's
         # consistency filter and the Z-law check can afford.  Small systems
-        # keep the SVD's full precision for free.
-        dsolver = ncols >= QDN_GRAM_MIN_COLS[] ? :GramSolver : :SVDSolver
+        # keep the SVD's full precision for free.  `GramSolver` is the one
+        # solver that carries the device through: it forms the Gram, the
+        # Cholesky and the subspace solves on the GPU when asked.
+        dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
+                  GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
         (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 label = "quickder restricted")
+        tstage = _qdn_stage!(:solve, tstage)
     else
-        L = _qdn_restricted_map(S, Uf, P, eaxes, r, dims, coff, ncols)
-        (vals, vecs, verdict) = solve_nullspace(L, method.solver;
+        # Matrix free stays on the HOST whatever `device` says: the null
+        # solvers here iterate with host vectors, and one apply is
+        # `∏r · Σd` flops on sketches of a few MB -- the measured cost at
+        # d = 100 is 0.12 ms per apply, i.e. the iteration count is the whole
+        # story (see the native-core-plan entry on the night board), and a
+        # device round trip per apply would only add latency.
+        Sh = Dict{Int, Array{T,N}}(a => _qdn_host(S[a]) for a in eaxes)
+        L = _qdn_restricted_map(Sh, Uf, P, eaxes, r, dims, coff, ncols)
+        fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
+                                                  method.solver
+        tstage = _qdn_stage!(:restricted, tstage)
+        (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 label = "quickder restricted")
+        tstage = _qdn_stage!(:solve, tstage)
     end
 
     k = size(vecs, 2)
@@ -563,7 +794,12 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
         da = dims[a]
         ha = da - r[a]
         A = vcat([P[rho, a] .* Ua for rho in 1:m]...)       # (m R_a) x d_a
-        Hs = Dict{Int, Array{T,N}}(b => _qdn_pair_tensor(G, axs, a, b)
+        # The pair tensors are the last pass over the full tensor, so they are
+        # built on the device; the results are `r^{n-2} x d_b x (d_a - r_a)`
+        # (a few MB even at d = 300) and everything downstream of them -- the
+        # right-hand sides, the QR, the residual filter -- is host work, so
+        # they come back here.
+        Hs = Dict{Int, Array{T,N}}(b => _qdn_host(_qdn_pair_tensor(G, axs, a, b))
                                    for b in eaxes if b != a)
 
         B = zeros(T, m * Ra, k * ha)
@@ -617,6 +853,8 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
         push!(Rblocks, size(Rm, 1) >= k ? Matrix(qr(Rm).R) : Matrix(Rm))
     end
 
+    tstage = _qdn_stage!(:lift, tstage)
+
     # ---- consistency filter
     #
     # A restricted solution that is not the restriction of a true derivation
@@ -636,6 +874,8 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
         size(C, 2) == 0 && return nothing
     end
 
+    tstage = _qdn_stage!(:filter, tstage)
+
     kc = size(C, 2)
     out = Vector{Vector{Matrix{T}}}(undef, kc)
     for j in 1:kc
@@ -654,13 +894,13 @@ function _qdn_solve_and_lift(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                 Yc .+= C[i, j] .* Yv[a, i]
             end
             if r[a] == dims[a]
-                Ms[a] = _qdn_assemble(axs[a], Yc, zeros(T, dims[a], 0))
+                Ms[a] = _qdn_assemble(haxs[a], Yc, zeros(T, dims[a], 0))
             else
                 Zc = zeros(T, dims[a], dims[a] - r[a])
                 for i in 1:k
                     Zc .+= C[i, j] .* Zv[a, i]
                 end
-                Ms[a] = _qdn_assemble(axs[a], Yc, Zc)
+                Ms[a] = _qdn_assemble(haxs[a], Yc, Zc)
             end
         end
         out[j] = Ms
@@ -689,8 +929,13 @@ whole tensor, and it needs only the selected columns of `M_â`.
 The residual is measured against `‖Γ‖·Σ_a‖M_a‖`, the size of the data the
 equation is built from, so the test is invariant to how Γ and the basis happen
 to be scaled.
+
+Runs wherever `G` lives.  On a device run the answer's matrices are host
+arrays (that is what the caller gets), so they are uploaded once here; the
+accumulator, the mode products and the `norm` are all device operations, and
+only the two scalars per check come back.
 """
-function _qdn_verify(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
+function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                      mats::Vector{Vector{Matrix{T}}}, method::QuickDerMethod,
                      atol::Real, r::Vector{Int}, rng) where {T,N}
     (method.verify === :none || isempty(mats)) && return nothing
@@ -698,6 +943,7 @@ function _qdn_verify(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     m = size(P, 1)
     gnorm = norm(G)
     RT = real(T)
+    up = method.device === :gpu ? to_gpu : identity
 
     fail(res, bound) = error(
         "QuickDer: the lifted solution does not satisfy the derivation equation " *
@@ -709,13 +955,15 @@ function _qdn_verify(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     if method.verify === :full && prod(dims) <= 2e7
         for Ms in mats
             bound = atol * gnorm * max(sum(norm, Ms), eps(RT))
+            Md = [engaged[a] ? up(Ms[a]) : Ms[a] for a in 1:N]
             for rho in 1:m
-                E = zeros(T, size(G))
+                E = _qdn_zeros_like(G, size(G))
                 for a in 1:N
                     (!engaged[a] || iszero(P[rho, a])) && continue
-                    E .+= P[rho, a] .* _qdn_ttm(G, Ms[a], a)
+                    E .+= P[rho, a] .* _qdn_ttm(G, Md[a], a)
                 end
-                norm(E) <= bound || fail(norm(E), bound)
+                res = norm(E)
+                res <= bound || fail(res, bound)
             end
         end
         return nothing
@@ -724,19 +972,24 @@ function _qdn_verify(G::Array{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     ahat = argmax([engaged[a] ? dims[a] : -1 for a in 1:N])
     ns = min(method.nslices, dims[ahat])
     sel = randperm(rng, dims[ahat])[1:ns]
-    Gslice = Array(selectdim(G, ahat, sel))
+    Gslice = _qdn_slice(G, ahat, sel)
     for Ms in mats
         bound = atol * gnorm * max(sum(norm, Ms), eps(RT))
+        # `Ms[ahat][:, sel]` is selected on the HOST and uploaded: a device
+        # `getindex` with an index vector is a kernel launch for what is a
+        # `d x nslices` copy.
+        Md = [engaged[a] ? up(a == ahat ? Ms[a][:, sel] : Ms[a]) : Ms[a] for a in 1:N]
         for rho in 1:m
-            E = zeros(T, size(Gslice))
+            E = _qdn_zeros_like(Gslice, size(Gslice))
             if !iszero(P[rho, ahat])
-                E .+= P[rho, ahat] .* _qdn_ttm(G, Ms[ahat][:, sel], ahat)
+                E .+= P[rho, ahat] .* _qdn_ttm(G, Md[ahat], ahat)
             end
             for a in 1:N
                 (a == ahat || !engaged[a] || iszero(P[rho, a])) && continue
-                E .+= P[rho, a] .* _qdn_ttm(Gslice, Ms[a], a)
+                E .+= P[rho, a] .* _qdn_ttm(Gslice, Md[a], a)
             end
-            norm(E) <= bound || fail(norm(E), bound)
+            res = norm(E)
+            res <= bound || fail(res, bound)
         end
     end
     return nothing
@@ -795,6 +1048,14 @@ function derTrOpsReduced(
     T = eltype(G0)
     G = G0 isa Array{T} ? G0 : Array(G0)
 
+    # One upload for the whole run: every pass over the full tensor (the cross
+    # sketches, the pair tensors of the lift, the verification) then happens on
+    # the device, and nothing sends `d^n` bytes back.
+    _qdn_check_device(method.device, T)
+    tstage = time()
+    Gk = method.device === :gpu ? to_gpu(G) : G
+    tstage = _qdn_stage!(:upload, tstage)
+
     atol = _qd_tolerance(T, tol)
     dims = collect(size(G))
     n = length(dims)
@@ -813,7 +1074,7 @@ function derTrOpsReduced(
     mats = nothing
     while true
         push!(tried, copy(r))
-        mats = _qdn_solve_and_lift(G, Pm, eng, r, method, rng, atol, progress)
+        mats = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress)
         mats === nothing || break
         length(tried) >= 2 && break
         bumped = [min(dims[a], max(r[a] + 1, ceil(Int, 1.5 * r[a]))) for a in 1:n]
@@ -827,7 +1088,9 @@ function derTrOpsReduced(
         "was :corner, or fall back to :SylverLining.")
 
     @debug "QuickDer after lift" nbasis = length(mats) rss_GB = Sys.maxrss() / 2^30
-    _qdn_verify(G, Pm, eng, mats, method, atol, r, rng)
+    tstage = time()
+    _qdn_verify(Gk, Pm, eng, mats, method, atol, r, rng)
+    tstage = _qdn_stage!(:verify, tstage)
     @debug "QuickDer after verify" rss_GB = Sys.maxrss() / 2^30
 
     isempty(mats) && return (Ω,
@@ -837,6 +1100,7 @@ function derTrOpsReduced(
 
     # Universal derivations, cut down to the ones that live in Ω.
     ders = _fastder_restrict_to_ops(Ω, mats, atol)
+    tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
     if nd > 0 && size(ders, 2) > nd
         ders = ders[:, 1:floor(Int, nd)]

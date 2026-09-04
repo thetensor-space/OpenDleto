@@ -689,3 +689,518 @@ default is being replaced.
 
 Files: new `bench/Frontier.jl`; new `bench/reports/night-2026-09-03/{frontier-cpu,
 video-cpu,sparse-cpu}.csv`.
+
+### quickder-metal (2026-09-04)
+
+Apple-GPU (Metal.jl 1.10.3, M4 Max, 40 cores, 51.8 GB recommended working set)
+paths for QuickDer. New: `device = :cpu | :gpu` on `QuickDerMethod`;
+`GramSolver(; device)`; `ext/DletoMetalQuickDer.jl`;
+`bench/QuickDerMetalBench.jl` -> `quickder-metal.csv`. Metal is Float32-only
+(Apple GPUs have no fp64 at all), so `:gpu` errors clearly on `Float64` or
+`!gpu_available()` and every number below is Float32 on BOTH devices -- the
+comparison is device-vs-device, not also precision-vs-precision. The certified
+answer remains the Float64 CPU one.
+
+**HEADLINE.** The GPU wins exactly one stage, and it is the one that dominates
+the CPU: the Gram `MᵗM`, 7-12x. Everything else is either a wash or worse on
+the device, and MPS's Cholesky/triangular-solve kernels are 4-8x SLOWER than 5
+CPU threads. So `GramSolver(device = :gpu)` is now a HYBRID -- Gram and `M·X`
+on the GPU, factorisation/subspace solves/`qr`/`svd` on the host -- and the
+end-to-end win at valence 3 is 2.6x at d = 200, not the 9-14x the raw GEMM
+ratio suggests. `GRAM_GPU_FACTOR[] = true` puts the factorisation back on the
+device and reproduces the measurement.
+
+**1. Stage times** (Float32, 5 threads via `bench/jl`, uncontended, second of
+two passes; `bench/reports/night-2026-09-03/quickder-metal.csv`). Bold = the
+stage that dominates that row. `chol`/`sub`/`ritz` are parts of the restricted
+solve; `rmat` is the dense restricted-matrix assembly (host on both devices).
+
+| case | dev | total | sketch | rmat | gram | chol | sub | ritz | lift | verify | nullity |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| v3 random d=100 | cpu | 0.67 | 0.001 | 0.002 | **0.427** | 0.137 | 0.053 | 0.008 | 0.009 | 0.002 | 2 |
+| | gpu | **0.46** | 0.002 | 0.003 | 0.061 | **0.135** | 0.053 | 0.004 | 0.008 | 0.147 | 2 |
+| v3 random d=200 | cpu | 11.29 | 0.009 | 0.015 | **8.06** | 2.52 | 0.393 | 0.046 | 0.074 | 0.012 | 2 |
+| | gpu | **4.29** | 0.008 | 0.015 | 0.861 | **2.50** | 0.387 | 0.019 | 0.040 | 0.149 | 2 |
+| v3 random d=300 | cpu | 59.87 | 0.037 | 0.189 | **43.51** | 14.04 | 1.23 | 0.131 | 0.254 | 0.039 | 2 |
+| | gpu | skipped, est. 12.4 GB > 11 GB budget (see 4) | | | | | | | | | |
+| v4 random (100,100,100,3) | cpu | 0.150 | 0.003 | 0.001 | **0.063** | 0.026 | 0.018 | 0.003 | 0.021 | 0.007 | 3 |
+| | gpu | **0.128** | 0.005 | 0.001 | 0.023 | **0.026** | 0.017 | 0.003 | 0.022 | 0.013 | 3 |
+| v4 random (200,200,100,3) | cpu | 1.39 | 0.010 | 0.005 | **0.809** | 0.273 | 0.084 | 0.011 | 0.131 | 0.021 | 3 |
+| | gpu | **0.615** | 0.007 | 0.004 | 0.107 | **0.273** | 0.085 | 0.004 | 0.055 | 0.011 | 3 |
+| sphere d=100 | cpu | 0.70 | 0.001 | 0.002 | **0.432** | 0.136 | 0.053 | 0.008 | 0.026 | 0.006 | **1**, lsq 9.6e-4 |
+| | gpu | 0.59 | 0.002 | 0.003 | 0.064 | **0.133** | 0.052 | 0.007 | 0.026 | 0.246 | **0** (errors) |
+| sphere d=200 | cpu | 11.48 | 0.009 | 0.014 | **8.07** | 2.52 | 0.378 | 0.045 | 0.199 | 0.031 | **2**, lsq 7.3e-4 |
+| | gpu | **4.28** | 0.005 | 0.016 | 0.850 | **2.46** | 0.389 | 0.019 | 0.191 | 0.027 | **2**, lsq 8.4e-4 |
+
+WHICH STAGE DOMINATES: **on the CPU it is always the Gram** (71 % of the total
+at v3 d=200, 73 % at d=300, 58 % at v4 (200,200,100,3)); **on the GPU it is
+always the Cholesky**, which now runs on the host (58 % at v3 d=200, 44 % at
+v4 (200,200,100,3)). Nothing else is close: sketch + restricted matrix + lift +
+verify together are under 3 % of any valence-3 row. End-to-end speedup 1.2-1.5x
+at the small sizes (latency-bound) and 2.3-2.7x from d = 200 up.
+
+**2. Where the pieces went, and why** (Float32; `n x n` Gram of an `m x n`
+restricted matrix; the two sizes are QuickDer at v3 d = 100 and d = 200):
+
+| piece | GPU | CPU (5 thr) | winner | placement |
+|---|---|---|---|---|
+| Gram `MᵗM`, 6859x5700 | 0.056 + 0.049 back | 0.664 | GPU 6.3x | **GPU** |
+| Gram `MᵗM`, 17576x15600 | 0.74 | 8.59 | GPU 11.6x | **GPU** |
+| `M·X`, 6859x5700 by 32 | 0.001 | 0.016 | GPU 16x | **GPU** |
+| Cholesky of `G+εI`, n=5700 | 1.82 | 0.233 | CPU 7.8x | **CPU** |
+| Cholesky of `G+εI`, n=15600 | 12.73 | 2.80 | CPU 4.5x | **CPU** |
+| 4 x 32-col triangular solves, n=5700 | 0.137 | 0.023 | CPU 6.0x | **CPU** |
+| 4 x 32-col triangular solves, n=15600 | 3.52 | 0.454 | CPU 7.7x | **CPU** |
+| `qr(X)` (re-orthonormalize), `svd(M·X)` | NO KERNEL | - | - | **CPU** |
+| per-axis `qr(randn(d,d))` for the sketch bases | NO KERNEL | - | - | **CPU** |
+| restricted matrix assembly (`kron` + row perm) | - | 0.015 (d=200) | - | **CPU** |
+| per-axis lift least squares, consistency filter | NO `qr`/`svd` | - | - | **CPU** |
+
+Metal.jl DOES have `cholesky`, `lu` and triangular solves (through MPS) -- they
+are simply slow. Everything on the "CPU" side of that table is either a missing
+kernel or a measured loss, and the transfers that buy it are one `n x n` Gram
+(973 MB at d = 200, 0.05-0.15 s) plus `n x (k+p)` per subspace step (under a
+megabyte).
+
+**3. Correctness** (`:gpu` vs `:cpu`, Float32, Z-law residual against
+`‖Γ‖·Σ‖M_a‖`):
+
+| case | cpu | gpu | required |
+|---|---|---|---|
+| random (40,40,40) | nullity 2, 5.3e-7 | 2, 5.1e-7 | same nullity, res <= 1e-4 |
+| random (20,20,20,3) | 3, 2.8e-7 | 3, 2.9e-7 | same |
+| both, `QDN_GRAM_MIN_COLS[]=0` (GramSolver forced) | 2 / 3, <=5.9e-7 | 2 / 3, <=5.9e-7 | same |
+| `build_sphere(40; T=Float32)`, SymmetricOp, `run_stratify` | 3, lsq 1.5e-4 | 3, lsq 2.5e-4 | nullity 3, lsq <= 1e-3 |
+
+All met. `test/TestQuickDerN.jl` + `TestAutoDer.jl` + `TestNullVerdict.jl`
+through `bench/jl`: **270 pass, 0 fail, 0 error, 0 broken**, 35 s.
+
+**4. THE FLOAT32 CEILING ON THE SPHERE, and it is not the GPU's fault.** The
+scrambled sphere in Float32 loses derivations from d = 100 up, on the CPU,
+with every dense solver (each row is `run_stratify(build_sphere(d; T); method
+= :QuickDer)`, CPU):
+
+| d | Float32 GramSolver | Float32 SVDSolver | Float64 GramSolver |
+|---|---|---|---|
+| 40 | 3, lsq 1.5e-4 | 3, lsq 2.1e-5 | 3, lsq 2.1e-13 |
+| 100 | **1**, lsq 9.6e-4, 1.6 s | **2**, lsq 1.3e-4, **806 s** | 3, lsq 9.9e-13 |
+
+The exact null directions of the d = 40 restricted matrix sit at
+`σ/σmax = 1.2e-7` in Float32 -- i.e. AT `eps(Float32)` -- against a cut of
+`100·eps = 1.2e-5`; by n = 15600 the `sqrt(n)·eps` noise floor has climbed to
+1.5e-5 and passes it. So the answer is "Float32 tops out on this tensor
+somewhere between d = 40 and d = 100", which is why the sphere rows in table 1
+report nullity 1-2 (and 0 on one device at d = 100, where CPU and GPU land on
+opposite sides of the same cliff). GramSolver is the worse of the two Float32
+solvers (1 vs SVD's 2 at d = 100) and 500x faster. **Anyone who needs the
+sphere's stratification at d >= 100 must use the Float64 CPU path**; the GPU
+path is for exploration, exactly as its docstring says. Not chased further --
+fixing it means a mixed-precision Gram, which Metal cannot do.
+
+Also from table 1: `v3 random d=300` on the GPU was SKIPPED by the bench's own
+memory estimate, not attempted and killed. The arithmetic: host restricted
+matrix 3.32 GB + device copy 3.32 + device Gram 3.11 + host Gram 3.11 + the
+Cholesky's copy of it 3.11 = 16 GB against `bench/jl`'s 16 GB RSS kill. The
+DEVICE has 52 GB; the process budget is what binds. The CPU row shows what is
+being left on the table (Gram 43.5 s of 59.9 s -> a GPU Gram would make it
+~20 s), so a blocked Gram that uploads `M` in column slabs is the obvious next
+move if d >= 300 matters.
+
+**5. Bugs fixed in `solve(::GramSolver, L)`.**
+
+(a) **Oversampling** (reported by the orchestrator: `build_sphere(50;
+valence=4)` through `:Auto` gave nullity 3 / lsq 2.7e-8 against an oracle of 4
+/ 1e-11, twice). Stage 1 amplifies EVERY direction with `σ² <~ ε` by the same
+`1/ε`, so it ranks nothing -- it can only deliver a subspace that CONTAINS the
+null space, and with exactly `nv` columns and more than `nv` near-null
+directions a genuine null direction can be absent from `span(X)`, which
+Rayleigh--Ritz cannot recover. Now: iterate on `k + p` columns,
+`p = min(n-k, max(16,k))`, 4 steps, keep the `k` Ritz pairs of smallest `σ`.
+Verified: `build_sphere(50; valence=4)` Float64 CPU now gives **nullity 4,
+lsq 3.6e-11**. Measured benefit on the d = 40 Float32 sphere restricted
+matrix: smallest resolved `σ/σmax` 6.1e-7 at `k+p = 16` vs **4.3e-7** at 32
+(Float64: 5.1e-12 vs 2.2e-13).
+
+(b) **`GRAM_SHIFT_REL = 1e-10` is Float32-blind and failed SILENTLY, as a
+wrong answer.** 1e-10 is below `eps(Float32)`, so `G[i,i] += 1e-10·maxdiag` is
+a no-op and the Cholesky of a matrix that is singular by construction fails.
+Measured on the d = 40 Float32 sphere restricted matrix (1728x1440, exact null
+at `σ/σmax = 1.2e-7`):
+
+| ε relative to max diag | Cholesky | smallest resolved σ/σmax |
+|---|---|---|
+| 1e-10, 1e-8 | FAILS | - |
+| 1e-6 | ok | 4.3e-7 (correct: under the 1.2e-5 cut) |
+| 1e-4 | ok | 2.8e-6 .. 1.4e-4 (half of them over the cut) |
+| 1e-2 | ok | 7.3e-3 (nullity reported: **0**) |
+
+Note the shape of the risk: too SMALL a shift fails loudly in the
+factorisation, too LARGE returns zero derivations with no complaint. Now:
+`_gram_shift_rel(T) = max(1e-10, 10·eps(T))` -- unchanged in Float64 (the
+constant wins), 1.2e-6 in Float32, which is the measured sweet spot -- plus
+`check = false` and up to `GRAM_SHIFT_TRIES = 4` retries escalating by
+`GRAM_SHIFT_ESCALATE = 100`, since the Gram's roundoff grows with `n`.
+Starting at the floor and going UP finds the smallest shift that works, which
+is the one that resolves the most. My first attempt floored at `n·eps` instead
+(1.7e-4 at n=1440) and produced exactly the silent-zero failure above -- that
+is how the table got measured.
+
+(c) **`M = Matrix(L)` copied the restricted matrix for nothing** -- 1.1 GB at
+v3 d=200, 3.3 GB at d=300. `_gram_dense` unwraps a `WrappedMap` over a
+`StridedMatrix` (nothing in the solver mutates `M`); anything else still goes
+through `Matrix`.
+
+**6. Matrix-free default** (folded in on request, cites
+`quickder-restricted-solvers.csv`): with `solver = :AutoSolver` the
+matrix-free restricted branch now picks `_qdn_default_free_solver()` =
+`:ArpackSolver` when Arpack is loaded, else `:KrylovSolver`, instead of
+`AutoSolver`'s LSMR-first rule (d=150: Arpack 10.5 s, Krylov 76 s, CG 210 s,
+LSMR did not finish). An explicit `solver =` still wins.
+
+**7. Metal.jl 1.10.3 pitfalls, for whoever touches the GPU next.**
+
+- **No `qr`, no `svd`.** `Metal/src/linalg.jl` wraps LU, Cholesky and the
+  triangular solves through MPS and stops. There is no graceful degradation:
+  the generic LinearAlgebra fallback throws **`Cannot access the contents of a
+  private buffer`**, because `MtlArray`'s default storage is
+  `PrivateStorage`. So a MISSING KERNEL surfaces as a STORAGE error. The fix
+  is always "do this piece on the host", never "make the buffer shared".
+- **The MPS factorisations are slower than the CPU** at these sizes (table 2).
+  Do not assume a kernel existing means it is worth using.
+- **Metal's kernel/pipeline cache warms over the first few calls even for
+  identical shapes.** The verification stage at v3 d=100, three back-to-back
+  runs in one process: **6.32 s, 0.257 s, 0.055 s**. A single warm-up on a
+  differently shaped case is not enough, and the first version of this
+  benchmark reported a 5 s "verify" stage that is really 0.06 s.
+  `bench/QuickDerMetalBench.jl` now runs every (case, device) twice and records
+  the second.
+- **The GPU LOSES on tensors this small.** The cross sketches are 0.002-0.008 s
+  on both devices at valence 3 (and the GPU is slower at v4 (100,100,100,3):
+  0.005 vs 0.003), because a 4-108 MB tensor is latency-bound, not
+  bandwidth-bound. The "TTM 3-5x" figure in the Metal ext header is not what
+  QuickDer sees; the sketch is under 1 % of the total either way.
+- **Everything else just works, and that is why `ext/DletoMetalQuickDer.jl` is
+  almost empty.** `QuickDerN.jl` routes every contraction through `_qdn_ttm`
+  (permutedims + reshape + `mul!`), `_qdn_unfold` and `_qdn_slice`
+  (`copy(selectdim(...))`) and allocates with `similar(G, ...)`; all of that,
+  plus `A'*A`, broadcast against a `Transpose` wrapper, `vcat`/`hcat`/`kron`/
+  `diag`/`norm`, `A[:, 1:3, :]`, `A[:, [1,3,5], :]` and
+  `view(G, diagind(G)) .+= s`, are implemented for `MtlArray` and none of them
+  scalar-indexes. The extension file contains four `to_cpu` methods for
+  WRAPPED device arrays (`SubArray`/`ReshapedArray`/`Transpose`/`Adjoint` of an
+  `MtlArray`), which would otherwise take the generic `to_cpu(x) = x` identity
+  and hand a caller something still on the device -- whose next scalar read
+  throws the private-buffer error instead of saying what happened.
+
+**BUG (pre-existing, NOT mine, in a file I do not own).**
+`ext/DletoMetalExt.jl:19` defines `Dleto.gpu_available() = Metal.functional()`,
+overwriting the `gpu_available() = false` fallback in
+`src/solvers/NullSolvers.jl`. On Julia 1.12 that is a hard
+`ERROR: Method overwriting is not permitted during Module precompilation`, so
+**`DletoMetalExt` never precompiles** -- every `using Metal` alongside `Dleto`
+pays a failed precompile attempt (674 s the first time, ~3 s once cached as
+failed) and then loads uncompiled. It works, but nothing in the extension is
+ever cached. The clean fix is for the base definition not to be a zero-argument
+method the extension replaces -- e.g. `gpu_available(::Val{:metal}) = false`
+with the extension adding `gpu_available(::Val{:metal}) = Metal.functional()`,
+or a `Ref{Bool}` the extension's `__init__` sets. Routing to whoever owns
+`ext/DletoMetalExt.jl` / the GPU hooks; `src/solvers/NullSolvers.jl` outside
+the `GramSolver` section was out of scope for me.
+
+Files: `src/solvers/QuickDerN.jl` (`device` field, `_qdn_check_device`,
+`_qdn_slice`/`_qdn_host`/`_qdn_zeros_like`, `_qdn_axes_device`,
+array-type-generic `_qdn_ttm`/`_qdn_unfold`/sketches/pair tensors/verify,
+`QDN_DENSE_BUDGET_BYTES` + `QDN_GPU_DENSE_BUDGET_BYTES`,
+`_qdn_default_free_solver`, the opt-in `QDN_STAGE_TIMES` clock);
+`src/solvers/NullSolvers.jl` GramSolver section only (`device` field,
+oversampling, `_gram_shift_rel`, `GRAM_GPU_FACTOR`, `_gram_dense`,
+`_gram_host`); new `ext/DletoMetalQuickDer.jl`, new
+`bench/QuickDerMetalBench.jl`, new
+`bench/reports/night-2026-09-03/quickder-metal.csv`.
+
+### orchestrator (2026-09-04, ~09:10) — matrix-free branch vs the dense budget
+Arpack-first on the matrix-free restricted branch converges on random tensors but hits its
+iteration cap (XYAUPD_Exception(1)) on the scrambled sphere at d = 150/200 (:Auto then falls back
+to SylverLining: 105 s / 1295 s). Raised `QDN_DENSE_BUDGET_BYTES` to 2.5 GB so the Gram route
+takes those sizes: sphere v3 d=150 **11.1 s**, d=200 **22.0 s** (5 threads, RSS 3.6 / 8.0 GB,
+lsq 1e-12). Beyond d ≈ 200 at valence 3 the matrix-free branch must be preconditioned
+(docs/design/Native-Core-Plan.md Phase 2) — that is the next lever toward 500–1000.
+
+### sylver-metal (2026-09-04)
+
+`sylvesterLM(Ω, P, Γ; backend = :metal)` runs the dense array kernel with the
+mode-`p` unfoldings and the residual resident on the Apple GPU. The LinearMaps
+stay CPU-FACING -- Float32 host vectors in and out -- so every null solver in
+`src/solvers/NullSolvers.jl` drives it unchanged and unaware; only the operator
+coordinates (dimension `Σ_a d_a²`, e.g. 30009 for a 100×100×100×3 video against
+3·10⁶ tensor entries) cross the bus per apply of the square map. `:auto` is
+still the CPU array kernel: the GPU is opt-in, and `:metal` with no functional
+Metal is a clear error, never a silent fallback. Dense only -- the
+`SparseMatrixCSC` branch stays on the CPU, where it is already the faster
+answer for a sphere octant.
+
+Files: `src/SylverLining/SylverLining.jl` -- `:metal` in `sylvesterLM`; the
+layout/plan computation factored out of `_sylvesterLM_array` into a new
+`_sylver_plan`, so the two kernels share ONE statement of the unfolding
+conventions instead of one each; `_sylvesterLM_device(::Val{device}, ...)` as
+the erroring no-GPU fallback (see pitfall 5 for why it takes a token);
+`SylverLiningMethod` gained a `backend` field. New `ext/DletoMetalSylver.jl`
+(the whole device kernel, `include`d by `ext/DletoMetalExt.jl`), new
+`bench/SylverMetalBench.jl`, new
+`bench/reports/night-2026-09-03/sylver-metal.csv`.  Nothing else touched --
+`ext/DletoMetalExt.jl`, `NullSolvers.jl` and `QuickDerN.jl` belong to other
+agents this session.
+
+`backend` had to go on the METHOD, not just on `derTrOpsReduced`'s keyword:
+`der(:SylverLining, Γ; kwargs...)` forwards its `kwargs` to the *method
+constructor* (see the NOTE at src/Derivations.jl:233), so
+`der(:SylverLining, Γ; backend = :metal, solver = :ArpackSolver)` can only
+reach the kernel through the struct. `SylverLiningMethod(:SVDSolver)` still
+means what it did; `derTrOpsReduced(...; backend = ...)` still overrides
+per call.
+
+CORRECTNESS. 56 configurations of `:metal` against `:array`, valence 3 and 4,
+Universal / Symmetric / Diagonal / AntiSymmetric operator spaces, universal /
+Tucker / centroid chisels, an engagement-reduced Ω (so operator `a` is not
+tensor axis `a`), a `TransverseOpsSymmetries` space, ragged frames, Float32 and
+Float64 inputs:
+
+- worst relative max difference vs `:array`: **5.1e-7** (Float32 inputs;
+  1.6e-7 for Float64 inputs, which the device computes in fp32) -- comfortably
+  inside the 1e-5 fp32 budget, on `ester`, on `sylve` and on the square
+  composition.
+- transpose law on the DEVICE maps, `⟨a, f'(B)⟩` vs `⟨f(a), B⟩`: worst
+  **2.4e-8** relative to `‖f(a)‖·‖B‖` (4.1e-8 in an earlier pass), over 5
+  random pairs per configuration.
+  (Scale by the norms, not by the dot product: `⟨f(a),B⟩` is a sum of 10³-10⁷
+  fp32 terms with heavy cancellation, and `|lhs-rhs|/|rhs|` then measures the
+  cancellation in the dot -- up to 1e-5 -- rather than any asymmetry of the
+  pair. Worth knowing before anyone reads a "failure" into that ratio.)
+- `test/TestSylverLining.jl` + `test/TestDerivationLaws.jl` with the Metal
+  extension loaded: **5081 pass, 0 fail, 0 error**, 54.7 s, exit 0.
+
+ONE APPLY, Float32, `UniversalOp()` + universal chisel, `:array` on 5 CPU
+threads against `:metal` on the M4 Max. Milliseconds, minimum over 6-12
+repeats, all rows taken at load average 6-7 (the CSV also holds an earlier,
+contended pass -- see the contention note; read the rows by the `loadavg` in
+their `note` field). `dev MB` is `Metal.device().currentAllocatedSize` while
+the maps exist:
+
+| shape | ester `:array` | `:metal` | sylve `:array` | `:metal` | **sylvester `:array`** | **`:metal`** | **speedup** | dev MB |
+|---|---|---|---|---|---|---|---|---|
+| (100,100,100,3) | 12.8 | 3.08 | 13.7 | 3.75 | **26.4** | **4.61** | **5.7x** | 70 |
+| (200,200,100,3) | 57.9 | 12.0 | 62.1 | 16.7 | **118.8** | **19.5** | **6.1x** | 275 |
+| (300,300,300,3) | 531 | 78.9 | 659 | 135 | **1178** | **169** | **7.0x** | 1857 |
+| (200,200,200) | 34.0 | 6.37 | 30.4 | 4.97 | **63.4** | **6.16** | **10.3x** | 154 |
+| (400,400,400) | 502 | 34.5 | 395 | 25.6 | **889** | **52.9** | **16.8x** | 1225 |
+
+`sylvester` is the number that matters -- it is the only one an eigensolver
+applies, and it is the only one that does not put `m·d^n` on the bus, which is
+why on the device it costs LESS than `ester` + `sylve` measured separately
+(169 against 79 + 135 at (300,300,300,3)) while on the CPU it is exactly their
+sum. Every row is self-consistent in that sense, which is the check that the
+timings are not contention artefacts.
+
+Valence 3 does better than valence 4 (10-17x against 6-7x) because the video
+shapes spend a bigger share of their work on the permutes and on the `d = 3`
+colour axis, whose GEMM is pure memory traffic.
+
+Device footprint is exactly `(valence + 1) · N` Float32: Γ, one permuted
+unfolding per MIDDLE axis, one shared scratch, one fold buffer, one residual.
+The CPU kernel's host footprint for the same input is `2·valence + 1` copies of
+`N` (9N at valence 4 against 5N), because it keeps a separate scratch per axis
+and a permuted unfolding for every non-flat axis.
+
+END TO END, `der(:SylverLining, Ω, ch, Γ; tol = 1e-4, solver = :ArpackSolver)`,
+random Float32, `UniversalOp()`, universal chisel, oracle nullity 3 (= n-1):
+
+| shape | backend | seconds | nullity | Z-law residual | map applications | dev MB |
+|---|---|---|---|---|---|---|
+| (100,100,100,3) | `:array` | 371.8 | 3 | 8.35e-07 | 2252 | 0 |
+| (100,100,100,3) | `:metal` | **99.9** | 3 | 7.63e-07 | 2342 | 77 |
+| (200,200,100,3) | `:array` | 1426.4 | 3 | 9.39e-07 | 11288 | 0 |
+| (200,200,100,3) | `:metal` | **245.5** | 3 | 1.69e-06 | 10581 | 341 |
+
+Both backends find the right nullity with a Z-law residual at the fp32 floor.
+Application counts come from `progress`: a `ProgressSpec` with `delay = 0` and
+`interval = 0` writing into an `IOBuffer` turns the human progress line into a
+machine-readable count without touching `src/` (`count_applies` in the bench).
+
+End-to-end speedups are **3.7x** at (100,100,100,3) and **5.8x** at
+(200,200,100,3), against per-apply speedups of 5.7x and 6.1x. Both solves ran
+in the contended window, so treat the absolute seconds as upper bounds; the
+RATIO is the part worth keeping, and it is the interesting part.
+
+WHERE THE REST OF THE TIME GOES. Divide seconds by applications and compare
+against the apply timings measured in the same contended window (49.5 ms
+`:array` / 5.0 ms `:metal` at (100,100,100,3); 220 / 20.8 at (200,200,100,3)):
+
+| shape | backend | s / application | one apply | non-kernel slack |
+|---|---|---|---|---|
+| (100,100,100,3) | `:array` | 165 ms | 49.5 ms | ~115 ms |
+| (100,100,100,3) | `:metal` | 42.7 ms | 5.0 ms | ~38 ms |
+| (200,200,100,3) | `:array` | 126 ms | 220 ms | -- (apply dominates) |
+| (200,200,100,3) | `:metal` | 23.2 ms | 20.8 ms | ~2 ms |
+
+So at (100,100,100,3) roughly 40-115 ms per application is NOT the tensor
+contraction -- it is Arpack's own per-iteration work on a 30009-dimensional
+Krylov basis, plus the box. At (200,200,100,3) the operator is big enough that
+the `:metal` solve is back to being apply-bound. **The GPU moves the crossover:
+at 100³ scale the derivation solve is no longer contraction-bound, and the next
+win there is in the solver, not the kernel.**
+
+Note also that Arpack asked for 11288 applications at (200,200,100,3) against
+2252 at (100,100,100,3) -- 5x more for the same 3-dimensional null space at the
+same `tol` and only 3x the operator dimension. That is the escalate-and-confirm
+loop in `solve_nullspace`, not the kernel, and it is most of why the bigger
+case costs 4x more per tensor element.
+
+WHAT MADE THE DIFFERENCE, for whoever tunes this next.
+
+**`permutedims!` on an `MtlArray` is the bottleneck, not the GEMM.** GPUArrays'
+generic permute kernel runs at about a tenth of this device's bandwidth.
+Measured at (200,200,100,3), one axis (bare Metal primitives, best of 5):
+
+| op | ms | note |
+|---|---|---|
+| `permutedims!` | 3.11 | 48 MB in, 48 MB out => ~31 GB/s |
+| `mul!` (K×d)·(d×d) | 1.44 | the mode product it feeds |
+| `mul!` (d×K)ᵗ·(K×d) | 1.24 | the adjoint |
+| `x .+= α .* y` over N | 0.52 | |
+| `fill!` over N | 0.33 | |
+
+So the fix is to need fewer permutes, and two axes need none:
+
+- **axis n ("flat")**: the unfolding is `reshape(Γ, N/d, d)` and `U·M` lands in
+  natural order. The CPU kernel already exploits this.
+- **axis 1 ("head")**: `A = reshape(Γ, d, N/d)` is the axis-1-first unfolding,
+  and `Mᵗ·A` ALSO lands in natural order -- axis 1 is the fastest-varying index
+  of source and result alike. Its adjoint is `A·Zᵗ`. Same algebra, written on
+  the other side of the product. **The CPU kernel cannot use this one**: it is
+  exactly the `dense × sparse` orientation that the sylvester-kernel entry
+  above measured at 0.49 ms against 0.14 ms, because SparseArrays has no good
+  kernel for it. On a dense device GEMM the orientation is free.
+
+Valence 4 therefore pays 2 permutes per apply instead of 3 and valence 3 pays 1
+instead of 2, and axis 1 needs no permuted copy of Γ on the device either.
+Worth 6.27 -> 4.23 ms on `ester` in a same-session A/B (both halves measured
+in the contended window, so read the ratio and not the absolutes) and
+81.8 -> 70.4 MB of device memory at (100,100,100,3).
+
+**A shared scratch buffer, not one per axis.** Every mode-`p` unfolding has
+exactly `N` entries -- only the shape differs -- and both closures visit the
+axes strictly one at a time, so one `N`-element device buffer reshaped per axis
+replaces the CPU kernel's `engsize` separate ones. 972 MB against 324 at
+(300,300,300,3).
+
+**Fusing the permute into the accumulate is SLOWER.** Broadcasting over a
+`PermutedDimsArray` of an `MtlArray` works (Metal handles the wrapper), and it
+should save one full pass over `N`: measured 1.29 ms against 0.90 + 0.23 =
+1.13 ms for the separate permute and axpy at (100,100,100,3). The lazy
+wrapper's indexing coalesces worse than the dedicated permute kernel. Left
+separate.
+
+PITFALLS AND Metal.jl SPECIFICS.
+
+1. **Per-apply host allocation is 18-58 KB on the device backend against
+   192-704 B on the CPU one.** The array kernel's "a warmed-up apply allocates
+   only the few bytes `mul!` needs" property does NOT carry over: every Metal
+   kernel launch allocates command-buffer and MPS descriptor objects on the
+   host. It is ~100x more, but still negligible in absolute terms (58 KB per
+   apply against 2 GB of device traffic), so no GC pressure in practice.
+2. **`MtlArray` scalar indexing from the host is disallowed.** The two places
+   the CPU kernel writes an element loop are handled elsewhere: embedding the
+   operator coordinates into matrices runs on the HOST (the matrices are
+   `d_a × d_a`, and `Dleto._embed_all!` / `_transverse_embed_all!` are reused
+   verbatim), and the chisel scatter `R[c,i] += P[c,a]·t` becomes a rank-1
+   broadcast `R .+= Pdev[a] .* transpose(Foldv)`.
+3. `reshape` of an `MtlArray` returns a real `MtlArray` (contiguous,
+   `PrivateStorage`), so `mul!` stays on the MPS path through reshapes and
+   through `transpose`. Five-argument `mul!` works, including `β = 1`
+   accumulation, and so does gemv with a transposed matrix. Nothing here
+   needed a hand-written Metal kernel.
+4. **`Metal.reclaim()` does not exist** in this Metal.jl version (`Metal.alloc`
+   is the only `alloc`-ish name exported). The bench guards it with
+   `isdefined`; without a reclaim, `currentAllocatedSize` between cases is only
+   meaningful if you also `GC.gc(true)` first.
+5. **AN EXTENSION MAY ONLY ADD METHODS, NEVER REPLACE ONE.** The first version
+   of this work had `ext/DletoMetalSylver.jl` define
+   `Dleto._sylvesterLM_metal(::TransverseOps, ::AbstractMatrix, ::ITensor)`,
+   the same signature the core stub in SylverLining.jl already had. On Julia
+   1.12 that is "Method overwriting is not permitted during Module
+   precompilation": `DletoMetalExt` then fails to precompile ENTIRELY -- not
+   just that method -- and every `using Metal` pays ~2.5 s of recompilation,
+   silently, with only a WARNING in the log. Caught by the coordinator, who had
+   just fixed the identical bug in `gpu_available`/`gpu_sync`. The core now
+   defines only `_sylvesterLM_device(::Val{device}, Ω, P, Γ)` (which errors) and
+   the extension adds `_sylvesterLM_device(::Val{:metal}, ...)`; the `Ref`
+   pattern in `NullSolvers.jl` is the other way to do it. Verified with
+   `bench/jl -e 'using Dleto, Metal'` showing `✓ DletoMetalExt` and no
+   warning. **Anyone adding a hook for an extension should pick one of those
+   two shapes from the start** -- a token argument, or a `Ref` set in
+   `__init__` -- because the failure mode is a performance regression with no
+   error.
+6. `:ArpackSolver` needs an explicit `using Arpack` in the benchmark script
+   even with `@dleto-bench` stacked -- the extension registers the solver only
+   once Arpack is loaded, so without that line every row dies with
+   `no solver :ArpackSolver is registered`. `bench/SylverMetalBench.jl`
+   soft-loads it and warns.
+7. **`sylve` is dearer than `ester` on the device, unlike on the CPU**, and it
+   is a GEMM-shape effect. `sylve`'s products reduce over the LONG dimension --
+   `(d × K)·(K × d)` with `K = N/d` up to 2.7·10⁵, producing a `d × d` output
+   -- where `ester`'s reduce over `d`. Same flop count, and MPS is markedly
+   worse at the tall-skinny one. Isolated on bare Metal primitives at
+   (300,300,300,3): ester chain 51 ms, sylve chain 117 ms. Worth knowing before
+   anyone concludes the adjoint is doing extra work; it is not.
+8. **A long chain of enqueued MPS GEMMs and permutes does NOT cost more than
+   the same ops with syncs interleaved.** Checked because the square map looked
+   anomalously dear at the two largest shapes in the FIRST, contended pass
+   (443 ms at (300,300,300,3) against ester 95 + sylve 164; 85 against 36 + 34
+   at (400,400,400)). On bare Metal primitives at (300,300,300,3): ester +
+   sylve = 168.2 ms, the two chained with no intervening sync 167.9 ms, and
+   with a mid-chain `Metal.synchronize()` 168.1 ms -- identical. Re-measuring
+   the kernel on a quiet box then gave sylvester 169 ms against ester 79 +
+   sylve 135, i.e. exactly the expected "cheaper than the sum". So there was no
+   Metal scheduling effect; it was contention landing hardest on the closure
+   with the longest host-side launch loop. Recorded because the wrong
+   conclusion here would have sent someone writing a custom Metal kernel.
+
+CONTENTION, and how the tables above were made trustworthy. This ran in the
+5-thread / 3 slots / 16 GB `bench/jl` window the user opened on 2026-09-04
+(`bench/jl` has since gone back to 2 slots x 4 threads), and load average ran
+6-49 across the session -- two other agents at 400-820% CPU for most of it. A
+first pass at the apply sweep, best-of-2/3, produced numbers that were not
+merely noisy but SELF-CONTRADICTORY: `:array` sylve 19.16 s against `:array`
+sylvester 7.92 s at (300,300,300,3), and sylvester 1.38 s against ester 0.10 s
+at (100,100,100,3) -- a composition cheaper or dearer than its own halves by
+10x. Two changes fixed it, both worth copying into other benches here:
+
+- take the MINIMUM over as many repeats as a time budget allows (`best_of`:
+  up to 12 repeats or 6 s for small cases, 6 or 12 s for large). A contended
+  sample can only be slower, so the minimum converges on the uncontended time
+  from above, where a mean or a best-of-2 does not.
+- record `loadavg` in every CSV row, so a reader can tell which rows to trust
+  and can compare like with like.
+
+Even so, the load-12-16 pass and the load-6-7 pass differ by up to 2.4x on the
+CPU column (`:array` sylvester at (100,100,100,3): 49.5 ms then 26.4 ms), so
+the table above quotes only the quiet pass and the CSV keeps both. Read the two
+end-to-end `:array` seconds (371.8 and 1426.4) as UPPER BOUNDS -- those ran at
+load 8-15 and cannot be repeated cheaply -- which means the true end-to-end
+speedups are probably smaller than 3.7x and 5.8x, and closer to the per-apply
+ratios.
+
+NOT DONE / FOLLOW-UPS.
+- The head-axis orientation would also save the CPU dense branch one
+  `permutedims` per apply, but it is precisely the orientation the sparse
+  branch must not use, so it needs a dense-only code path in
+  `_sylvesterLM_array`. Left alone deliberately: changing the CPU kernel would
+  have moved the baseline this entry is measured against.
+- No sparse device branch (Metal.jl has no sparse `mul!`), and none wanted: a
+  sphere octant is 2-3x faster in the CPU sparse branch than in dense.
+- Float64 Γ is accepted and computed in fp32 (the map keeps its Float64 eltype
+  so solvers still work); it is an exploratory mode, not a certification path.
+- `den`/`stratify` were not exercised on `:metal`. `ester!`/`sylve!` work and
+  are transpose-verified, but they move `m·d^n` over the bus per apply and that
+  is 324 MB at (300,300,300,3) -- the square map is the only shape worth
+  putting on a GPU at video scale.
