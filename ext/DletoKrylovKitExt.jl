@@ -11,80 +11,102 @@ export KrylovSolver
 
 struct KrylovSolver <: Dleto.NullSolver end
 
+# Block Lanczos puts a block as wide as the request through the map on every
+# step, so its cost is close to linear in the request (bench/reports/
+# exp3-nv0.csv: ~500 applications for 4, ~1800 for 16).  Start small and let
+# `solve_nullspace` double the request when the block saturates.
+Dleto.initial_request(::KrylovSolver) = 4
+
 """
-    solve(::KrylovSolver, L; nv, tol)
+    solve(::KrylovSolver, L; nv, tol, krylovdim, maxiter, blocksize)
 
-    Smallest-magnitude eigenpairs of the (square, symmetric) map `L` by Arnoldi.
+    The `nv` smallest eigenpairs of the square symmetric map `L` by **block**
+    Lanczos, with the block as wide as the request.
 
-    `L` is the composed derivation--densor operator, i.e. `AᵗA` for the densor
-    map `A`, so its condition number is `κ(A)²`.  Arnoldi is the right tool for
-    a *few* extremal eigenpairs of such an operator and the wrong tool for all
-    of them: asking for the full space is what `nd <= 0` does, and Arnoldi will
-    then stop on an invariant subspace short of the request.  That is reported
-    once and the partial result returned, since a partial basis of genuine null
-    vectors is still useful and the caller filters on `vals`.
+    WHY BLOCK.  A null space is a *multiple* eigenvalue -- every null vector has
+    eigenvalue exactly 0 -- and a Krylov space grown from a single start vector
+    contains exactly one direction of a multiple eigenspace (the projection of
+    the start vector onto it).  The other copies appear only through roundoff,
+    amplified by restarts, and whether they have appeared by the time the
+    requested number of Ritz pairs has converged is luck.  Measured on the
+    sphere benchmark (bench/reports/exp1-grid.csv, exp2-seeds.csv): with the
+    nullity 3, single-vector Lanczos or Arnoldi asked for 4 pairs returned 1 or
+    2 null vectors and then *converged* on genuine nonzero eigenvalues, so the
+    caller saw a clean bracket and reported nullity 1 or 2; asked for 16 pairs
+    it was right most of the time but still missed 1 seed in 5.  This was the
+    "KrylovSolver returned nullity 2 at d = 35" failure.  A block of `b`
+    independent start vectors carries `min(b, multiplicity)` copies from the
+    first step, so with the block equal to the request the caller's escalation
+    rule -- double the request while every returned value is null -- is sound:
+    the block saturates exactly when the nullity is at least the request.
+    Cost is the same as ARPACK's (390-550 map applications per solve on the
+    benchmark at d = 32..40, block 4), and it was right on every seed.
 
-    Two bugs fixed here.  It returned `vecs` as a `Vector` of vectors while the
-    `solve` contract (and every caller) wants the vectors as *columns of a
-    matrix*: `derTrOpsReduced` does `result.vecs[:, i] for i in 1:size(vecs,2)`,
-    which for a 1-D array is a single element, and the subsequent
-    eigenvalue filter then indexed a 1-element vector with the list of valid
-    positions -- `BoundsError`.  And the retry loop re-ran the identical solve
-    five times when KrylovKit had already reported a fixed invariant subspace,
-    each attempt dumping the full residual vector to stderr (25MB at n = 19).
+    TOLERANCE is relative to `‖L‖` (power-iteration estimate, 10 matvecs):
+    KrylovKit's `tol` is an absolute residual norm, and the operators here
+    range over many orders of magnitude in scale.  `1e-12` relative gives null
+    residuals of 1e-13..1e-15 and a reconstruction indistinguishable from the
+    dense SVD.  The tolerance is floored at `100*eps(T)`, so in Float32 it is
+    1.2e-5 relative.
+
+    `krylovdim` defaults to `max(128, 8*blocksize)`; the per-solve cost was
+    flat in it from 64 upward and it bounds the memory (`krylovdim * n`
+    numbers).  A non-symmetric map falls back to single-vector Arnoldi, which
+    is not a path Dleto's callers take -- `solve_nullspace` squares every
+    rectangular map into a symmetric one.
 """
-function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Float64 = 1e-8)
+function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real = 1e-12,
+                     krylovdim::Union{Nothing,Integer} = nothing, maxiter::Integer = 200,
+                     blocksize::Union{Nothing,Integer} = nothing)
     println("Using KrylovSolver...")
     n = size(L, 1)
     @assert n == size(L, 2) "KrylovSolver needs a square map; pass AᵗA."
-    nev = min(nv, n)
-    x0 = randn(size(L, 2))
+    T = eltype(L)
+    RT = typeof(real(zero(T)))
+    nev = clamp(nv, 1, n)
 
-    max_attempts = 5
-    maxiter = 100
-    krylovdim = min(max(10, 2 * nev), n)
-
-    λ = Float64[]
-    vecs = Vector{Float64}[]
-    last_converged = -1
-
-    for attempt in 1:max_attempts
-        # verbosity=0 keeps KrylovKit from printing the whole residual vector
-        # on every non-convergence; we summarise below instead.
-        vals_a, vecs_a, info = eigsolve(L, x0, nev, :SR;
-            maxiter=maxiter,
-            krylovdim=krylovdim,
-            tol=tol,
-            verbosity=0,
-        )
-
-        λ = real.(vals_a)
-        vecs = [real.(v) for v in vecs_a]
-
-        info.converged >= nev && break
-
-        # No progress since the previous attempt means Arnoldi has found all
-        # there is to find at this tolerance -- retrying is pure waste.
-        if info.converged <= last_converged || krylovdim >= n
-            @warn "KrylovSolver: $(info.converged) of $nev eigenvalues converged; " *
-                  "returning the converged subspace. Use :SVDSolver for a full basis."
-            break
-        end
-        last_converged = info.converged
-
-        maxiter = Int(round(maxiter * 1.5))
-        krylovdim = min(Int(round(krylovdim * 1.5)), n)
-        x0 = randn(size(L, 2))
-
-        if attempt == max_attempts
-            @warn "KrylovSolver: $(info.converged) of $nev eigenvalues converged " *
-                  "after $max_attempts attempts; returning what converged."
-        end
+    # A Krylov method on a space this small is pure overhead, and the block
+    # (as wide as the request) would not fit in it.
+    if n <= max(32, 2 * (nev + 1))
+        E = eigen(Symmetric(Matrix(L)))
+        take = min(nev, n)
+        return (; vals = RT.(E.values[1:take]), vecs = T.(E.vectors[:, 1:take]))
     end
 
+    scale = Dleto.opnorm_estimate(L; iters = 10)
+    # KrylovKit's `tol` is an absolute residual norm, and no Lanczos residual
+    # gets below a small multiple of `eps(T) * ‖L‖`.  `1e-12` relative is
+    # reachable in Float64 but 1e5 times below the Float32 floor, where block
+    # Lanczos then restarts to `maxiter` for nothing: 7-38 s and 19-50 GB per
+    # solve at d = 30..40 against 0.3-1 s with the floor, same nullity
+    # (bench/reports/precision-study.md, Exp. 5 and 5b).  `100*eps(RT)` is
+    # 2.2e-14 in Float64, so Float64 behaviour is unchanged.
+    atol = max(tol, 100 * eps(RT)) * max(scale, eps(RT))
+
+    if LinearAlgebra.issymmetric(L)
+        bs = blocksize === nothing ? nev : clamp(blocksize, 1, nev)
+        kd = krylovdim === nothing ? max(128, 8 * bs) : Int(krylovdim)
+        kd = clamp(max(kd, nev), nev, max(nev, n - bs))
+        x0 = KrylovKit.Block([randn(T, n) for _ in 1:bs])
+        alg = KrylovKit.BlockLanczos(; krylovdim = kd, maxiter = maxiter, tol = atol,
+                                     verbosity = 0)
+        vals_a, vecs_a, info = eigsolve(L, x0, nev, :SR, alg)
+    else
+        kd = krylovdim === nothing ? min(n, max(64, 4 * nev)) : min(n, Int(krylovdim))
+        vals_a, vecs_a, info = eigsolve(L, randn(T, n), nev, :SR;
+                                        krylovdim = kd, maxiter = maxiter, tol = atol,
+                                        verbosity = 0)
+    end
+
+    info.converged < nev && @warn "KrylovSolver: $(info.converged) of $nev eigenvalues " *
+        "converged to relative tolerance $tol in $(info.numiter) restarts " *
+        "($(info.numops) map applications); returning the Ritz pairs as computed."
+
+    λ = real.(vals_a)
+    ord = sortperm(λ)
     # Contract: `vecs` is a matrix whose COLUMNS are the vectors.
-    V = isempty(vecs) ? zeros(Float64, size(L, 2), 0) : reduce(hcat, vecs)
-    return (; vals = λ, vecs = V)
+    V = isempty(vecs_a) ? zeros(T, n, 0) : reduce(hcat, (real.(vecs_a[j]) for j in ord))
+    return (; vals = λ[ord], vecs = V)
 end
 
 function __init__()

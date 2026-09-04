@@ -72,12 +72,14 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     println("Using LSMRSolver...")
     rows, n = size(L)
     k = clamp(nv + m.margin, 1, n)
+    T = eltype(L)
+    RT = typeof(real(zero(T)))
 
     # One projection step:  z <- z - A⁺(A z).
-    x = Vector{Float64}(undef, n)
+    x = Vector{T}(undef, n)
     function project!(z::AbstractVector)
         y = L * z                        # y is in range(A) by construction,
-        fill!(x, 0.0)                    # so this system is consistent and
+        fill!(x, zero(T))                # so this system is consistent and
         lsmr!(x, L, y; atol = m.lsmr_tol, btol = m.lsmr_tol,
               maxiter = m.lsmr_maxiter)  # LSMR returns the min-norm solution.
         z .-= x
@@ -94,9 +96,9 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     # already-nearly-null vector is standard iterative refinement -- ‖Az‖ is
     # now tiny, so the same relative tolerance buys a far smaller absolute
     # correction, and the error contracts by the same factor each pass.
-    Z = Matrix{Float64}(undef, n, k)
+    Z = Matrix{T}(undef, n, k)
     for j in 1:k
-        z = randn(n)
+        z = randn(T, n)
         project!(z)
         for _ in 1:m.refine
             project!(z)
@@ -113,7 +115,7 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     lead = abs(R[1, 1])
     d = lead == 0 ? 0 :
         count(i -> abs(R[i, i]) > m.rank_tol * lead, 1:min(size(R)...))
-    d == 0 && return (; vals = Float64[], vecs = zeros(Float64, n, 0))
+    d == 0 && return (; vals = RT[], vecs = zeros(T, n, 0))
 
     # Return the d null vectors PLUS one column above the rank threshold.
     #
@@ -157,7 +159,8 @@ end
 function Dleto.solve(::LanczosSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10)
     println("Using LanczosSolver...")
     nsv = min(nv, minimum(size(L)) - 1)   # svdl needs nsv < min(size)
-    nsv < 1 && return (; vals = Float64[], vecs = zeros(Float64, size(L, 2), 0))
+    T = eltype(L)
+    nsv < 1 && return (; vals = typeof(real(zero(T)))[], vecs = zeros(T, size(L, 2), 0))
 
     F, _ = IterativeSolvers.svdl(L; nsv = nsv, vecs = :right, tol = tol)
     S = F.S

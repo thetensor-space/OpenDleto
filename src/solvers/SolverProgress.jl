@@ -160,7 +160,7 @@ function progress_wrap(L, tr::ProgressTracker)
     active(tr) || return L
     fwd(v) = (tick!(tr); L * v)
     adj(v) = (tick!(tr); L' * v)
-    return LinearMaps.LinearMap(fwd, adj, size(L, 1), size(L, 2);
+    return LinearMaps.LinearMap{eltype(L)}(fwd, adj, size(L, 1), size(L, 2);
                                 ismutating = false,
                                 issymmetric = LinearMaps.issymmetric(L))
 end

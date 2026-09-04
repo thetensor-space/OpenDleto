@@ -24,6 +24,29 @@ using ITensors
 using LinearAlgebra
 using LinearMaps
 
+@testset "SylverLining preserves Float32" begin
+    frame = [Index(2, "f$a") for a in 1:3]
+    Γ = ITensor(randn(Float32, 2, 2, 2), frame...)
+    Ω = IndTransverseOps(frame, UniversalOp())
+    # Chisel constructors remain generic Float64 APIs; SylverLining must cast
+    # their coefficients to the tensor type at its boundary.
+    ch = UniversalChisel(3)
+
+    derdensor_map, densor_map = sylvesterLM(Ω, ch, Γ)
+    @test eltype(derdensor_map) === Float32
+    @test eltype(densor_map) === Float32
+    @test eltype(derdensor_map * randn(Float32, size(derdensor_map, 2))) === Float32
+    @test eltype(densor_map * randn(Float32, size(densor_map, 2))) === Float32
+    @test eltype(densor_map' * randn(Float32, size(densor_map, 1))) === Float32
+
+    reduced, expand_map, coords = derTrOpsReduced(
+        SylverLiningMethod(solver=:SVDSolver), Ω, ch, Γ;
+        tol=1f-5, nd=1)
+    @test eltype(expand_map) === Float32
+    @test eltype(coords) === Float32
+    @test size(coords, 1) == globalDim(reduced)
+end
+
 # ScalarOp and EmptyOp are excluded: they drive the reduced operator space to
 # dimension < 3, where these identities are vacuous.
 LΩs = [UniversalOp(), DiagonalOp(), SymmetricOp(), AntiSymmetricOp()]

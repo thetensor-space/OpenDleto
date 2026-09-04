@@ -195,7 +195,8 @@ function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatri
 end;
 
 #Not Finished
-function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
+function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool},
+                         ::Type{T}=Float64)::Tuple{TransverseOps, LinearMaps.LinearMap} where {T}
     val=GΩ.val
     syms=GΩ.syms
     duals=GΩ.duals
@@ -245,5 +246,5 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
                         edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ] 
                 for i= 1: length(c_idx)]...
             ); 
-    return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
+    return (rΩ, LinearMaps.LinearMap{T}(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
 end;

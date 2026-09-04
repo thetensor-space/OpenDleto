@@ -1,0 +1,9 @@
+d,T,solver,tol,seconds,nullity,lsq_err,status
+30,Float32,ArpackSolver,1e-03,1.067,3,8.131e-06,"ok"
+30,Float32,ArpackSolver,1e-04,1.061,3,9.348e-06,"ok"
+30,Float32,ArpackSolver,1e-05,1.456,3,9.780e-06,"ok"
+30,Float32,ArpackSolver,1e-06,1.007,3,7.686e-06,"ok"
+30,Float32,KrylovSolver,1e-03,1.316,3,3.402e-05,"ok"
+30,Float32,KrylovSolver,1e-04,1.955,3,9.202e-05,"ok"
+30,Float32,KrylovSolver,1e-05,1.666,3,3.490e-05,"ok"
+30,Float32,KrylovSolver,1e-06,1.623,3,7.541e-05,"ok"

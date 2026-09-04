@@ -47,7 +47,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor;
-    tol::Float64=1e-6,
+    tol::Real=1e-6,
     nd=-1,  # Don't type as integer to allow Inf 
     progress=false,
     kwargs...,
@@ -57,10 +57,12 @@ function derTrOpsReduced(method::SylverLiningMethod,
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(P, 2) "Incompatable Chisel"
     
+    T = eltype(Γ)
     # Compute reduced operators (matching what sylvesterLM does internally)
     eng = engaged(P)
-    (Ω_reduced,expand_map) = reduceByEngaged(Ω, eng)
-    P_eng = P[:,eng]
+    (Ω_reduced,expand_map) = reduceByEngaged(Ω, eng, T)
+    # Chisels default to Float64; do not let that promote a Float32 tensor.
+    P_eng = Matrix{T}(P[:,eng])
 
     # if globalDim(reducedΩ) < 10000
     # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
@@ -89,7 +91,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
     (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
                                 progress=progress, label="der")
 
-    coords = size(vecs, 2) == 0 ? zeros(Float64, globalDim(Ω_reduced), 0) : vecs
+    coords = size(vecs, 2) == 0 ? zeros(T, globalDim(Ω_reduced), 0) : Matrix{T}(vecs)
     return (Ω_reduced, expand_map, coords)
 end
 
@@ -117,15 +119,16 @@ function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) #::Tuple
     val = ndims(Γ)
     engsize = valency(Ω)
     @assert engsize == size(P, 2) "Incompatable Chisel"
+    T = eltype(Γ)
+    P_typed = Matrix{T}(P)
     ch_axis = Index(size(P, 1), "chisel")
     eng_axis = Index(engsize, "engaged")
-    Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:engsize ]
+    Cs = [ ITensor(P_typed[:,a], ch_axis) for a in 1:engsize ]
 
     Γ_frame_ch = (ch_axis, inds(Γ)...)
 
     Ωframe=frames(Ω)
     ΩframeTemp=framesTemporary(Ω)
-    Cs = [ ITensor(P[:,a],  ch_axis) for a in 1:engsize ]
     Γs_relabled =  [ replaceind(Γ, Ωframe[a], ΩframeTemp[a]) for a in 1:engsize]
 
     # Compute sizes for LinearMap
@@ -156,8 +159,7 @@ function sylvesterLM(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) #::Tuple
     end
 
     # Wrap ester and sylve as LinearMaps
-    densor_map = LinearMaps.LinearMap(ester, sylve, densor_dim, op_dim; ismutating=false)
-    derdensor_map = LinearMaps.LinearMap(sylvester, sylvester, op_dim, op_dim; ismutating=false, issymmetric=true, isposdef=false)
+    densor_map = LinearMaps.LinearMap{T}(ester, sylve, densor_dim, op_dim; ismutating=false)
+    derdensor_map = LinearMaps.LinearMap{T}(sylvester, sylvester, op_dim, op_dim; ismutating=false, issymmetric=true, isposdef=false)
     return derdensor_map, densor_map
 end;
-

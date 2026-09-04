@@ -1,0 +1,25 @@
+d,variant,op,storage,stored_fraction,numerical_density,op_rows,op_cols,matvec_ms,solver,seconds,map_calls,nullity,rule,certified,gap,floor_binding,requested
+10,support,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,165,165,0.073209,AutoSolver,0.24883071,185,3,gap,true,2.0863601e+11,true,16
+10,support,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,165,165,0.073209,SVDSolver,0.17127829,185,3,gap,true,2.3210815e+11,true,16
+10,support,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,165,165,0.073209,ArpackSolver,0.64580463,255,3,gap,true,2.1167441e+11,true,16
+10,support,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,165,165,0.073209,KrylovSolver,0.65140033,518,3,gap,true,2.1176532e+11,true,8
+10,support,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,300,300,0.0695,AutoSolver,0.044719833,320,13,gap,true,710687.55,true,16
+10,support,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,300,300,0.0695,SVDSolver,0.043698709,320,13,gap,true,706654.33,true,16
+10,support,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,300,300,0.0695,ArpackSolver,0.34715779,2750,13,gap,true,706651.67,true,16
+10,support,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,0.055,300,300,0.0695,KrylovSolver,0.45407783,3349,13,gap,true,707152.79,true,16
+10,scrambled,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.070667,AutoSolver,0.0239095,185,3,gap,true,3.4392001e+11,true,16
+10,scrambled,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.070667,SVDSolver,0.019889791,185,3,gap,true,3.4372426e+11,true,16
+10,scrambled,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.070667,ArpackSolver,0.029528042,255,3,gap,true,3.4715487e+11,true,16
+10,scrambled,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.070667,KrylovSolver,0.0647185,518,3,gap,true,3.4758528e+11,true,8
+10,scrambled,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.067041,AutoSolver,0.041512875,320,13,gap,true,706650.16,true,16
+10,scrambled,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.067041,SVDSolver,0.045926958,320,13,gap,true,706670.94,true,16
+10,scrambled,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.067041,ArpackSolver,0.31202617,2797,13,gap,true,706653.94,true,16
+10,scrambled,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.067041,KrylovSolver,0.30874142,1946,13,gap,true,706652.19,true,8
+10,random,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.06825,AutoSolver,0.025187292,185,2,gap,true,4.3456171e+12,true,16
+10,random,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.06825,SVDSolver,0.020779959,185,2,gap,true,4.3430676e+12,true,16
+10,random,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.06825,ArpackSolver,0.028833667,253,2,gap,true,4.2959825e+12,true,16
+10,random,symmetric,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,165,165,0.06825,KrylovSolver,0.031557709,263,2,gap,true,4.3099522e+12,true,4
+10,random,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.06525,AutoSolver,0.10000404,320,2,gap,true,2.9462469e+12,true,16
+10,random,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.06525,SVDSolver,0.043185,320,2,gap,true,2.9462787e+12,true,16
+10,random,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.06525,ArpackSolver,0.033055583,355,2,gap,true,2.946251e+12,true,16
+10,random,universal,"NDTensors.Dense{Float64, Vector{Float64}}",1,1,300,300,0.06525,KrylovSolver,0.04364825,367,2,gap,true,2.9462519e+12,true,4

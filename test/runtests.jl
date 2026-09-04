@@ -19,8 +19,10 @@ include( "TestChisels.jl" )
 include( "TestOperators.jl" )
 include( "TestTransverseOps.jl" )
 include( "TestTensorSynthesis.jl" )
+include( "TestTensorDensity.jl" )
 include( "TestFastDer3Valent.jl" )
 include( "TestDerivationLaws.jl" )
+include( "TestNullVerdict.jl" )
 
 
 include( "TestSylverLining.jl" )

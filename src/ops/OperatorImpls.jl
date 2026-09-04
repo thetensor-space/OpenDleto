@@ -151,7 +151,7 @@ unsafe_transposeEmbed(LΩ::AntiSymmetricOp, M::AbstractMatrix) :: AbstractVector
 # unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} = size(M)[1] ==0 ? zeros(0) : [sum([M[i,i] for i=1:size(M)[1]]) ];
 unsafe_transposeEmbed(LΩ::ScalarOp, M::AbstractMatrix) :: AbstractVector{<:Number} = [sum([M[i,i] for i=1:size(M)[1]]) ];
 
-unsafe_transposeEmbed(LΩ::EmptyOp, M::AbstractMatrix) :: AbstractVector{<:Number} = zeros(0);
+unsafe_transposeEmbed(LΩ::EmptyOp, M::AbstractMatrix) :: AbstractVector{<:Number} = zeros(eltype(M), 0);
 
 #unsafe_embed
 unsafe_embed(LΩ::UniversalOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = reshape(data,dim,dim);
@@ -183,7 +183,7 @@ end;
 # unsafe_embed(LΩ::ScalarOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = dim==0 ? Matrix(LinearAlgebra.I,0,0) : Matrix(data[1]*LinearAlgebra.I,dim,dim); 
 unsafe_embed(LΩ::ScalarOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = Matrix(data[1]*LinearAlgebra.I,dim,dim); 
 
-unsafe_embed(LΩ::EmptyOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = Matrix(0.0*LinearAlgebra.I,dim,dim); 
+unsafe_embed(LΩ::EmptyOp, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix = zeros(eltype(data), dim, dim);
 
 unsafe_dualize(::DiagonalOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
 unsafe_dualize(::SymmetricOp, dim::Integer, data::AbstractVector{<:Number} ) = data 
