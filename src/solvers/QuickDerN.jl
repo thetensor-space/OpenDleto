@@ -294,6 +294,41 @@ cannot hold this space at scale.
 const QDN_TRIVIAL_FACTORED = Ref{Vector{<:NamedTuple}}(NamedTuple[])
 
 """
+    QDN_LIFT_GAP_RATIO :: Ref{Float64}
+    QDN_LIFT_CEILING   :: Ref{Float64}
+
+The lift consistency filter's cut rule (`_qdn_solve_and_lift`), which decides
+which combinations of restricted null directions actually lift to derivations.
+
+The filter takes a null space of the lift-residual matrix `Rall`, and it used
+to take it at a HARD relative cutoff, `atol = max(tol, sqrt(eps(T)))`.  That
+cutoff sits on a cliff, and in Float32 the cliff is on the wrong side of the
+answer.  Measured on the scrambled sphere valence 3 in Float32, oracle nullity
+3: 3 of 3 at d <= 32, 2 of 3 at d = 48 and 64, 1 of 3 at d = 100, 0 of 3 at
+d = 140 -- an undercount that grows with d and is silent.  The residuals of the
+GENUINE directions there are 1.3 to 2.9 times `sqrt(eps(Float32))`, flat in d;
+the cutoff is at 1.0 times it.
+
+Raising the constant is not the fix: at nullity 13 (the raw, unscrambled
+sphere) a looser constant sweeps spurious directions in.  What separates the
+two populations is not a threshold, it is a GAP -- the genuine directions leave
+a residual at the arithmetic's own noise and the spurious ones leave an O(1)
+one -- so the cut is placed by the largest consecutive ratio in `Rall`'s
+singular spectrum, the same rule `gap_verdict` applies to a null solver's
+spectrum in `NullSolvers.jl`, and it lands in the gap whatever `T` is.
+
+`QDN_LIFT_GAP_RATIO` (100, which is `NullSolvers.GAP_RATIO` written out --
+that file is `include`d after this one, so the name is not in scope here) is
+the jump a cut has to clear.
+`QDN_LIFT_CEILING` (default 32) multiplies `sqrt(eps(T))` to bound which cuts
+are eligible at all, so a spectrum with no gap in it cannot cut in the middle
+of the spurious cluster: 1.1e-2 relative in Float32, and in Float64 it is
+below the default `tol` and so changes nothing there.
+"""
+const QDN_LIFT_GAP_RATIO = Ref(100.0)
+const QDN_LIFT_CEILING = Ref(32.0)
+
+"""
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
                      verify = :random, nslices = 4, seed = nothing,
                      device = :cpu, whiten = true)
@@ -1451,11 +1486,44 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     if isempty(Rblocks)
         C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
     else
-        sc = max(scale, eps(real(T)))
+        RT = real(T)
+        sc = max(scale, eps(RT))
         Rall = vcat(Rblocks...) ./ sc
-        @debug "QuickDer lift residual spectrum" k svals = string(round.(svdvals(Rall); sigdigits = 3)) atol
-        C = nullspace(Rall; atol = real(T)(atol), rtol = zero(real(T)))
-        size(C, 2) == 0 && return nothing
+        # `svd` gives a complete `V` only for a tall matrix; the per-axis QR
+        # above already compresses each block to `k x k`, and the padding
+        # covers the one case it cannot (a block with fewer than `k` rows).
+        size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(T, k - size(Rall, 1), k)))
+        F = svd(Rall)
+        # A GAP, not a threshold -- see `QDN_LIFT_GAP_RATIO`.  The spectrum is
+        # already relative to `sc`, the size of the lift equations themselves,
+        # so these are the numbers the cut has to be judged on; ascending,
+        # because that is the order `gap_verdict` reads.
+        asc = reverse(Float64.(F.S))
+        # THE FLOOR IS `sqrt(eps)`, and that is the whole point of the change.
+        # A lift residual does not bottom out at rounding, it bottoms out at
+        # the accuracy of the triangular solve that produced `Z`, which is
+        # `sqrt(eps(T))` -- measured 1.3 to 2.9 times it in Float32 -- and that
+        # is exactly why `sqrt(eps)` was the old CUTOFF.  As a cutoff it was on
+        # the wrong side of the answer; as a FLOOR it says "everything at or
+        # under the lift's own noise is zero", which flattens the ratios inside
+        # the genuine cluster so the largest jump is the one that matters.  Use
+        # `100*eps` here instead (the floor a null SOLVER's spectrum wants) and
+        # the genuine cluster spans decades above the floor, its internal
+        # ratios can clear `gap_ratio`, and the cut lands inside it: measured,
+        # that undercounts the raw sphere at 11 of 13 in Float64.
+        #
+        # TODO(integrator): `src/solvers/Precision.jl` has landed on the
+        # working branch with a `precision_floor` / `rank_rtol` policy; take
+        # this floor and the ceiling's `sqrt(eps)` from `rank_rtol` there
+        # rather than spelling them out, once this is merged onto it.
+        floor_rel = Float64(sqrt(eps(RT)))
+        ceil_rel = max(Float64(atol), QDN_LIFT_CEILING[] * sqrt(eps(RT)))
+        (_, lv) = gap_verdict(asc, 1.0; threshold = ceil_rel, floor = floor_rel,
+                              gap_ratio = QDN_LIFT_GAP_RATIO[])
+        cut = lv.nullity
+        @debug "QuickDer lift residual spectrum" k svals = string(round.(asc; sigdigits = 3)) cut rule = lv.rule certified = lv.certified gap = lv.gap atol ceil_rel
+        cut == 0 && return nothing
+        C = Matrix(F.V[:, (k - cut + 1):k])
     end
 
     tstage = _qdn_stage!(:filter, tstage)

@@ -723,3 +723,74 @@ end
         end
     end
 end
+
+# --- the lift consistency filter cuts on a GAP, not at a cliff ------------
+#
+# The filter decides which combinations of restricted null directions really
+# lift to derivations, by taking a null space of the lift-residual matrix.  It
+# used to take it at the hard relative cutoff `atol = max(tol, sqrt(eps(T)))`,
+# which is the level a lift residual BOTTOMS OUT at -- measured 1.3 to 2.9
+# times `sqrt(eps(Float32))` for genuine directions -- so in Float32 the cutoff
+# sits inside the population it is meant to keep.  The rule now floors the
+# spectrum at `sqrt(eps(T))` and cuts at the largest consecutive ratio above
+# it, `gap_verdict`'s rule from `NullSolvers.jl`.
+#
+# What this test pins is NEUTRALITY, because that is what can be measured
+# reproducibly.  On every case where the whole pipeline is deterministic (the
+# dense branch with `SVDSolver`: no randomised subspace, no ARPACK saved state)
+# the two rules agree, at the oracle, in both element types -- including the
+# nullity-13 raw sphere, which is the case a merely LOOSER constant breaks.
+# The Float32 undercount the rule was written for is NOT reproducible on the
+# matrix-free branch and is not in this filter at all: at d = 48 Float32 the
+# filter passes all 13 of its 13 restricted directions under both rules and
+# `_fastder_restrict_to_ops` then returns 2.  See the session-4 notes.
+@testset "the lift filter's gap rule is neutral where the pipeline is exact" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        old!() = (Dleto.QDN_LIFT_GAP_RATIO[] = Inf; Dleto.QDN_LIFT_CEILING[] = 0.0)
+        new!() = (Dleto.QDN_LIFT_GAP_RATIO[] = 100.0; Dleto.QDN_LIFT_CEILING[] = 32.0)
+        saved = (Dleto.QDN_LIFT_GAP_RATIO[], Dleto.QDN_LIFT_CEILING[],
+                 Dleto.QDN_DENSE_BUDGET_BYTES[], Dleto.QDN_GRAM_MIN_COLS[])
+        function count_ders(Ω, P, Γ)
+            Random.seed!(4242)
+            m = get_derivation_method(:QuickDer; verify = :random, seed = 20260904)
+            try
+                return length(der(m, Ω, P, Γ; tol = QD_TOL))
+            catch
+                return -1
+            end
+        end
+        try
+            # Dense branch, dense SVD: the one configuration in which this
+            # pipeline gives the same answer twice.
+            Dleto.QDN_DENSE_BUDGET_BYTES[] = 8.0 * 2^30
+            Dleto.QDN_GRAM_MIN_COLS[] = 10^9
+
+            @testset "scrambled sphere d = $d $T" for T in (Float32, Float64),
+                                                      d in (24, 32)
+                inp = build_sphere(d; valence = 3, T = T, lean = false)
+                Ω, P, Γ = inp.Ω, Matrix{Float64}(inp.ch), inp.Γ
+                new!(); @test count_ders(Ω, P, Γ) == 3
+                old!(); @test count_ders(Ω, P, Γ) == 3
+            end
+
+            # The nullity-13 case, which is the reason the cut is a gap and not
+            # a looser constant: a ceiling 32 times wider than the old cutoff
+            # must not sweep a spurious direction in here.
+            @testset "raw sphere keeps its 13 in $T" for T in (Float32, Float64)
+                S = sphere_octant(24; valence = 3)
+                Γ0 = nondeg(S).Δ
+                fr = collect(inds(Γ0))
+                Γ = T === Float64 ? Γ0 : ITensor(Array{T}(Array(Γ0, fr...)), fr...)
+                Ω = IndTransverseOps(fr, UniversalOp())
+                P = Matrix{Float64}(UniversalChisel(3))
+                new!(); @test count_ders(Ω, P, Γ) == 13
+                old!(); @test count_ders(Ω, P, Γ) == 13
+            end
+        finally
+            (Dleto.QDN_LIFT_GAP_RATIO[], Dleto.QDN_LIFT_CEILING[],
+             Dleto.QDN_DENSE_BUDGET_BYTES[], Dleto.QDN_GRAM_MIN_COLS[]) = saved
+        end
+    end
+end

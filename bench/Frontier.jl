@@ -118,7 +118,10 @@ function timed_stratify_auto(inp; tol::Real = 1e-6)
     end
     logtxt = String(take!(io))
     fellback = occursin("falling back to SylverLining", logtxt)
-    sc = res !== nothing ? reconstruction(inp, res.Σ, res.Xs) :
+    # No `S`, no score: above `SPHERE_LEAN_BYTES` the harness's memory-lean
+    # build drops the original tensor `reconstruction` fits against, and the
+    # Z-law residual is the certificate at those sizes.
+    sc = (res !== nothing && inp.S !== nothing) ? reconstruction(inp, res.Σ, res.Xs) :
          (; lsq_err = NaN, support = NaN, perm_ok = false)
     return (; seconds = st.time, bytes = st.bytes, nullity, sc.lsq_err, sc.perm_ok, status,
               fellback)
