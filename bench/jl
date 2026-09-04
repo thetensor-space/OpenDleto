@@ -16,6 +16,10 @@
 #
 # Slots are mkdir locks under ~/.cache/opendleto-jl-slots; stale ones (dead pid)
 # are reclaimed.  Waits up to JL_WAIT_MAX (7200 s) for a slot.
+#
+# Runs the real Julia binary, not the juliaup shim, so no `juliaup self update`
+# helper is left behind per invocation.  JL_PROJECT selects the worktree to test
+# (defaults to the primary one) -- point it at OpenDleto-beta to certify beta.
 set -u
 setopt null_glob
 SLOTDIR="$HOME/.cache/opendleto-jl-slots"
@@ -27,6 +31,28 @@ JL_RSS_LIMIT_GB=${JL_RSS_LIMIT_GB:-5}
 JL_WAIT_MAX=${JL_WAIT_MAX:-7200}
 PROJECT=${JL_PROJECT:-/Users/algeboy/CODE/OpenDleto}
 mkdir -p "$SLOTDIR"
+
+# Resolve the concrete Julia binary once, then cache it.  The `julia` on PATH is
+# the juliaup shim, and juliaup spawns a `juliaup self update` helper on every
+# startup (config startupselfupdateinterval) which then lingers: the 2026-09-03
+# overnight runs left 470 of them behind, holding 3.8 GB between them.  Asking the
+# shim once for Sys.BINDIR keeps whichever channel juliaup has pinned, and every
+# run after that launches the real binary with no helper attached.
+#   override with JL_JULIA_BIN=/path/to/julia; delete $SLOTDIR/julia-bin to re-resolve
+JULIA_BIN_CACHE="$SLOTDIR/julia-bin"
+if [ -n "${JL_JULIA_BIN:-}" ]; then
+  JULIA_BIN=$JL_JULIA_BIN
+elif [ -x "$(cat "$JULIA_BIN_CACHE" 2>/dev/null)" ]; then
+  JULIA_BIN=$(cat "$JULIA_BIN_CACHE")
+else
+  JULIA_BIN=$(julia --startup-file=no -e 'print(joinpath(Sys.BINDIR, "julia"))' 2>/dev/null)
+  if [ -x "${JULIA_BIN:-}" ]; then
+    print -r -- "$JULIA_BIN" > "$JULIA_BIN_CACHE"
+  else
+    echo "bench/jl: could not resolve a real julia binary, falling back to the shim" >&2
+    JULIA_BIN=julia
+  fi
+fi
 
 alive() { kill -0 "$1" 2>/dev/null; }
 reclaim_stale() {
@@ -70,7 +96,7 @@ export OPENBLAS_NUM_THREADS=$JL_THREADS OMP_NUM_THREADS=$JL_THREADS JULIA_NUM_TH
 # is left alone.  Create it with:
 #   bench/jl -e 'import Pkg; Pkg.activate("dleto-bench"; shared=true); Pkg.add("Arpack")'
 export JULIA_LOAD_PATH="@:@dleto-bench:@stdlib"
-julia --project="$PROJECT" -t "$JL_THREADS" --heap-size-hint="$JL_HEAP" "$@" &
+"$JULIA_BIN" --project="$PROJECT" -t "$JL_THREADS" --heap-size-hint="$JL_HEAP" "$@" &
 JPID=$!
 limit_kb=$((JL_RSS_LIMIT_GB * 1024 * 1024))
 # watchdog: poll RSS; SIGTERM then SIGKILL over the limit
