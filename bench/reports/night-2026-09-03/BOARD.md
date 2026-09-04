@@ -551,3 +551,18 @@ v4 d=40 **1.0 s**. Random v3 d=100 der 4.4 s, d=120 7.2 s.
 Open: matrix-free restricted branch (d ≳ 130 at valence 3) still LSMR-first and slow — the
 restricted-solver comparison (quickder-large-d) decides its default; eigensolver run-time
 outliers (Arpack 127–346 s on cases that take 2–5 s) are non-deterministic and unexplained.
+
+### native-core-plan (2026-09-04)
+Decision doc: `docs/design/Native-Core-Plan.md`. Verdict: do NOT port to Rust/C++ now.
+Probe (2 thr, d=100 v3 random, `bench/jl`): QuickDer 2.7 s end to end, of which
+`GramSolver` 2.64 s = `syrk` 1.87 s (BLAS floor 1.9 s at the measured 117 GFLOP/s) +
+Cholesky 0.57 s (floor 0.53 s); `sylvester` apply 14.5 ms vs 10.5 ms GEMM floor; plain
+`svd` of the same 6859x5700 matrix 34 s; matrix-free restricted apply 0.12 ms, so the
+3-6 s LSMR/Arpack times at d=100 are tens of thousands of applies -- iteration count,
+not kernel. A native kernel calling the same BLAS caps at ~1.4x on the apply, ~1.0 on
+the Gram; only sparse nnz kernels have a real 2-4x target. Plan: Phase 0 floor report;
+Phase 1 harden Julia (zero-alloc QuickDerN `_qdn_ttm`, PrecompileTools, threaded sparse
+mul, opt-in Accelerate); Phase 2 restricted-solve algorithm (Kronecker-block
+preconditioner, Float32 syrk + Float64 Ritz) -- the d=130 cliff (32 s -> 417 s) lives
+here; Phase 3 native only behind a measured >=2x gate, Rust + C ABI via `Dleto_jll`
+(Yggdrasil), `:array` kept as fallback; Phase 4 GPU Float32-only, deferred.
