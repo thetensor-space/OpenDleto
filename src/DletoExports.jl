@@ -68,6 +68,10 @@ export IndTransverseOps
 # GlobalOperatorsSymmetries.jl
 export TransverseOpsSymmetries
 
+# Precision.jl -- the floating-point policy every solver consults
+export compute_eltype, precision_floor, data_floor, tol_default, iter_tol
+export rank_rtol, qd_tolerance, precision_policy
+
 export NullSolver
 export solve_nullspace, available_solvers, register_solver!
 export AutoSolver, SVDSolver, LUSolver, ShiftInvertSolver

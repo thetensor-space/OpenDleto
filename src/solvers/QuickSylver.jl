@@ -57,7 +57,7 @@ QuickSylverMethod(; double_restriction_size_override=nothing, faster_randomized_
 Transcription of `lin_solve` with a right-hand side.  `nothing` means the
 system is inconsistent.
 """
-function _qs_lin_solve(M, rhs; atol::Float64=1e-6)
+function _qs_lin_solve(M, rhs; atol::Float64=TOL_DEFAULT)
     A = Matrix{Float64}(M)
     b = vec(Array{Float64}(rhs))
     size(A, 1) == length(b) ||
@@ -93,7 +93,7 @@ function _qs_system_matrix(R, S)
 end
 
 """Transcription of `solve_dense_sylvester_system`; returns an affine frame."""
-function _qs_solve_dense(R, S, T; atol::Float64=1e-6)
+function _qs_solve_dense(R, S, T; atol::Float64=TOL_DEFAULT)
     r_dim, b, c = size(R)
     a, s_dim, c_S = size(S)
     a_T, b_T, c_T = size(T)
@@ -120,7 +120,7 @@ function _qs_solve_dense(R, S, T; atol::Float64=1e-6)
 end
 
 """Transcription of `check_sylvester_solution`."""
-function _qs_check_solution(R, S, T, frame; faster_randomized_check::Bool=false, atol::Float64=1e-6)
+function _qs_check_solution(R, S, T, frame; faster_randomized_check::Bool=false, atol::Float64=TOL_DEFAULT)
     isempty(frame) && return true
 
     ok(X, Y, k) = isapprox(X * R[:, :, k] + S[:, :, k] * Y, T[:, :, k]; atol=atol, rtol=atol)
@@ -156,7 +156,7 @@ function _qs_select_restriction_sizes(R, S, T)
 end
 
 """Transcription of `solve_and_lift_sylvester_system`."""
-function _qs_solve_and_lift(R, S, T; a_prime::Int, b_prime::Int, atol::Float64=1e-6)
+function _qs_solve_and_lift(R, S, T; a_prime::Int, b_prime::Int, atol::Float64=TOL_DEFAULT)
     r_dim, b, c = size(R)
     a, s_dim, _ = size(S)
 
@@ -195,7 +195,7 @@ end
 function _qs_sylvester_solver(R, S, T;
                               double_restriction_size_override=nothing,
                               faster_randomized_check::Bool=false,
-                              atol::Float64=1e-6)
+                              atol::Float64=TOL_DEFAULT)
     if double_restriction_size_override !== nothing
         a_prime, b_prime = double_restriction_size_override
         a, b, _ = size(T)
@@ -240,7 +240,7 @@ function derTrOpsReduced(
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Float64=1e-6,
+    tol::Float64=TOL_DEFAULT,
     nd=-1,
     kwargs...,
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}

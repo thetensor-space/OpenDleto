@@ -64,7 +64,7 @@ function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real =
     # polishing below the element type's precision (~20% fewer applications
     # in Float32, no change in Float64).
     vals, vecs = Arpack.eigs(L; nev = nev, ncv = ncv_, which = :SM,
-                             tol = max(tol, 100 * eps(RT)), maxiter = maxiter)
+                             tol = Dleto.iter_tol(RT, tol), maxiter = maxiter)
     λ = real.(vals)
     ord = sortperm(abs.(λ))[1:min(want, length(λ))]
     return (; vals = λ[ord], vecs = real.(vecs[:, ord]))

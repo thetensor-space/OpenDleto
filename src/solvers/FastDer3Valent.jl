@@ -69,17 +69,22 @@ FastDer3ValentMethod(; triple_restriction_size_override=nothing, solver::Symbol=
 The working tolerance for element type `T`: the caller's `tol`, floored at
 `sqrt(eps(T))` because none of the rank, feasibility or verification checks
 below can certify anything finer than that.  For Float64 and the default
-`tol = 1e-6` this is `1e-6`; for Float32 it is `3.4e-4`.
+`tol = 1e-6` this is `1e-6`; for Float32 it is `3.4e-4`, for Float16 `3.1e-2`.
+
+The rule now lives in `qd_tolerance` (src/solvers/Precision.jl), which floors
+at `precision_floor(T)` as well -- inert at every type measured, since
+`sqrt(eps)` dominates `100 eps` for `eps < 1e-4` -- so that one file states the
+whole floating-point policy.  This name is kept because it is what the solvers
+call.
 """
-_qd_tolerance(::Type{T}, tol::Real) where {T<:AbstractFloat} = max(T(tol), sqrt(eps(T)))
-_qd_tolerance(::Type{Complex{T}}, tol::Real) where {T<:AbstractFloat} = _qd_tolerance(T, tol)
+_qd_tolerance(::Type{T}, tol::Real) where {T<:Number} = qd_tolerance(T, tol)
 _qd_tolerance(::Type, tol::Real) = Float64(tol)
 
 # Rank decisions are relative to the largest singular value.  The reference
 # passed `atol = rtol = 1e-6`; an absolute `atol` makes the answer depend on the
 # scale of Γ, and the relative part alone is what actually decides anything at
 # the scales it was run at.
-_qd_nullspace(M; atol::Real=1e-6) = nullspace(Matrix(M); rtol=atol)
+_qd_nullspace(M; atol::Real=TOL_DEFAULT) = nullspace(Matrix(M); rtol=atol)
 
 """Relative zero test: `|B| <= atol * scale`, with `scale` the size of the data `B` came from."""
 _qd_isrelzero(B, scale; atol::Real) = norm(B) <= atol * scale
@@ -94,7 +99,7 @@ feasibility test is `|K' N| <= atol * scale` with `K` the left kernel of `M`;
 size of the data the right-hand sides were built from when it knows it (a
 right-hand side that is itself pure roundoff is feasible, not infeasible).
 """
-function _qd_linear_equals_affine(M, N_0, N_directions; atol::Real=1e-6, scale::Union{Nothing, Real}=nothing)
+function _qd_linear_equals_affine(M, N_0, N_directions; atol::Real=TOL_DEFAULT, scale::Union{Nothing, Real}=nothing)
     M_matrix = Matrix(M)
     N_0_matrix = Matrix(N_0)
 
@@ -163,7 +168,7 @@ function _qd_derivation_system_matrix(R, S, T)
 end
 
 """Transcription of `solve_dense_derivation_system`."""
-function _qd_solve_dense(R, S, T; atol::Real=1e-6)
+function _qd_solve_dense(R, S, T; atol::Real=TOL_DEFAULT)
     _, b, c = size(R)
     a, _, c_S = size(S)
     a_T, b_T, _ = size(T)
@@ -188,7 +193,7 @@ because solve-and-lift is only *generically* correct at a given (a',b',c').
 The previous port dropped it, which turned a detectable failure into a silent
 wrong answer.
 """
-function _qd_check_solution(R, S, T, basis; faster_randomized_check::Bool=false, atol::Real=1e-6)
+function _qd_check_solution(R, S, T, basis; faster_randomized_check::Bool=false, atol::Real=TOL_DEFAULT)
     isempty(basis) && return true
 
     # The residual is measured against the size of the triple and the tensor,
@@ -238,7 +243,7 @@ function _qd_select_restriction_sizes(R, S, T)
 end
 
 """Transcription of `solve_and_lift_derivation_system`."""
-function _qd_solve_and_lift(R, S, T; a_prime::Int, b_prime::Int, c_prime::Int, atol::Real=1e-6)
+function _qd_solve_and_lift(R, S, T; a_prime::Int, b_prime::Int, c_prime::Int, atol::Real=TOL_DEFAULT)
     r_dim, b, c = size(R)
     a, s_dim, _ = size(S)
     _, _, t_dim = size(T)
@@ -322,7 +327,7 @@ end
 function _qd_derivation_solver(R, S, T;
                                triple_restriction_size_override=nothing,
                                faster_randomized_check::Bool=false,
-                               atol::Real=1e-6)
+                               atol::Real=TOL_DEFAULT)
     if triple_restriction_size_override !== nothing
         a_prime, b_prime, c_prime = triple_restriction_size_override
         a, b, c = size(T)
@@ -546,7 +551,7 @@ function derTrOpsReduced(
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Real=1e-6,
+    tol::Real=TOL_DEFAULT,
     nd=-1,
     kwargs...,
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}

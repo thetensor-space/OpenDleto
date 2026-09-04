@@ -58,6 +58,11 @@ include("DletoExports.jl")
 
 include("DletoBase.jl")
 
+    # The floating-point policy: one place where the element type decides what
+    # "zero" means.  First, because every solver and every `der`/`den` entry
+    # point takes its default tolerance from it.
+    include("solvers/Precision.jl")
+
 # Fundamental Dleto Structures
     # Chisels
     include("Chisels.jl")
