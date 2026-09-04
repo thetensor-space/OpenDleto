@@ -439,3 +439,219 @@ end
         @test_skip length(der(:QuickDer, Ω, P, Γ; tol=QD_TOL)) == length(basis)
     end
 end
+
+# =========================================================================
+# 8. Whitened restriction (`whiten = true`, QuickDer-W)
+# =========================================================================
+#
+# The whitening substitutes `Ỹ_a = R_a Y_a` for the thin QR `M_a = Q_a R_a` of
+# the transposed mode-`a` unfolding of the cross sketch.  Because
+# `A_a = I_{r_a} ⊗ M_a` up to a row permutation, that makes every diagonal
+# block of the restricted Gram exactly `c_a·I` and cannot change the null
+# space -- so every answer here must be the SAME SUBSPACE the unwhitened run
+# returns, not merely the same dimension.  See `Dleto._qdn_whiten_axis` and
+# docs/design/QuickDer-valence-n.md, "Whitened restriction".
+
+# --- the algebraic identity the whitening rests on ---------------------
+#
+# `A_aᵗ A_a == c_a · (I_{r_a} ⊗ M_aᵗ M_a)`, `c_a = Σ_ρ P[ρ,a]²`, in this
+# file's own row/column convention.  Measured to 5e-16 at these sizes; this
+# guards the convention itself, which is what the whitening is built on.
+@testset "whiten: the restricted Gram has Kronecker diagonal blocks" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        cases = ((dims = [8, 9, 10],   P = UniversalChisel(3)),
+                 (dims = [8, 9, 10],   P = CentroidChisel(3)),
+                 (dims = [5, 6, 7, 8], P = UniversalChisel(4)),
+                 (dims = [8, 9, 10],   P = AdjointChisel(3, 1, 2)))
+        @testset "dims $(c.dims), $(size(c.P, 1))-row chisel" for c in cases
+            Random.seed!(20260921)
+            dims = c.dims
+            N = length(dims)
+            P = Matrix{Float64}(c.P)
+            G = randn(dims...)
+            eng = Dleto.engaged(P)
+            r = Dleto._qdn_restriction_sizes(dims, eng, N)
+            axs = [Dleto._qdn_axis(Float64, dims[a], r[a], :random, MersenneTwister(7))
+                   for a in 1:N]
+            S = Dleto._qdn_cross_sketches(G, axs, eng)
+            eaxes = [a for a in 1:N if eng[a]]
+            Uf = Dict{Int,Matrix{Float64}}(a => Dleto._qdn_unfold(S[a], a) for a in eaxes)
+            coff = Dict{Int,Int}(); ncols = 0
+            for a in eaxes
+                coff[a] = ncols
+                ncols += dims[a] * r[a]
+            end
+            Mres = Dleto._qdn_restricted_matrix(Uf, P, eaxes, r, dims, coff, ncols)
+            for a in eaxes
+                Bl = Mres[:, (coff[a] + 1):(coff[a] + dims[a] * r[a])]
+                Ma = Matrix(transpose(Uf[a]))
+                want = sum(P[:, a] .^ 2) .*
+                       kron(Matrix{Float64}(I, r[a], r[a]), transpose(Ma) * Ma)
+                @test norm(transpose(Bl) * Bl .- want) < 1e-12 * norm(want)
+            end
+
+            # ... and the whitened operator's spectrum then lies in [0, Σ c_a].
+            (wh, Us, Ss, wdims) = Dleto._qdn_whiten(Uf, eaxes, dims, r, N)
+            wcoff = Dict{Int,Int}(); wncols = 0
+            for a in eaxes
+                wcoff[a] = wncols
+                wncols += wdims[a] * r[a]
+            end
+            Mw = Dleto._qdn_restricted_matrix(Us, P, eaxes, r, wdims, wcoff, wncols)
+            @test opnorm(Mw) <= sqrt(sum(sum(P[:, a] .^ 2) for a in eaxes)) + 1e-10
+            for a in eaxes
+                # M_a * un == Q_a exactly: the substitution loses nothing.
+                @test norm(Matrix(transpose(Uf[a])) * wh[a].un .- wh[a].Q) <
+                      1e-10 * max(norm(wh[a].Q), 1.0)
+                # and the folded whitened sketch unfolds back to Q_aᵗ
+                @test Dleto._qdn_unfold(Ss[a], a) ≈ Us[a]
+            end
+        end
+    end
+end
+
+# --- whitened and unwhitened return the same subspace ------------------
+#
+# Oracle in every case is the unwhitened run of the same method with the same
+# seed; the Z-law is checked on both.  Scrambled spheres at valence 3 and 4,
+# random dense tensors, and a video-shaped tensor -- the shapes the scaling
+# sweeps use (bench/WhitenedRestriction.jl).
+@testset "whiten: same nullity and same span as unwhitened" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        cases = Any[]
+        push!(cases, (label = "sphere valence 3, d = 12", kind = :sphere,
+                      valence = 3, d = 12))
+        SPHERE_VALENCE_KW && push!(cases, (label = "sphere valence 4, d = 8",
+                                           kind = :sphere, valence = 4, d = 8))
+        push!(cases, (label = "random dense (6,7,8)", kind = :random,
+                      dims = (6, 7, 8), P = UniversalChisel(3)))
+        push!(cases, (label = "random dense (5,6,7,4)", kind = :random,
+                      dims = (5, 6, 7, 4), P = UniversalChisel(4)))
+        push!(cases, (label = "random dense (6,7,8), centroid chisel", kind = :random,
+                      dims = (6, 7, 8), P = CentroidChisel(3)))
+        push!(cases, (label = "video-shaped 20x20x10x3", kind = :random,
+                      dims = (20, 20, 10, 3), P = UniversalChisel(4)))
+
+        @testset "$(c.label)" for c in cases
+            Random.seed!(20260922)
+            local Ω, P, Γ, frame
+            if c.kind === :sphere
+                inp = build_sphere(c.d; valence = c.valence)
+                Ω, P, Γ = inp.Ω, Matrix{Float64}(inp.ch), inp.Γ
+                frame = collect(Dleto.frames(Ω))
+            else
+                frame = [Index(c.dims[i], "w_$i") for i in eachindex(c.dims)]
+                Γ = ITensor(randn(c.dims...), frame...)
+                P = Matrix{Float64}(c.P)
+                Ω = IndTransverseOps(frame, UniversalOp())
+            end
+
+            plain = der(get_derivation_method(:QuickDer; whiten = false, seed = 4242),
+                        Ω, P, Γ; tol = QD_TOL)
+            white = der(get_derivation_method(:QuickDer; whiten = true, seed = 4242),
+                        Ω, P, Γ; tol = QD_TOL)
+
+            @test length(white) == length(plain)
+            for D in white
+                @test der_residual(Γ, D, P) < RESID64
+            end
+            A = basis_matrix(plain, frame)
+            B = basis_matrix(white, frame)
+            @test subspace_residual(A, B) < 1e-8
+            @test subspace_residual(B, A) < 1e-8
+        end
+    end
+end
+
+# --- a deliberately degenerate tensor ----------------------------------
+#
+# Mode 1 of `Γ` is projected to rank `d-2`, so `Γ ×_1 X = 0` has a
+# `2·d`-dimensional space of solutions -- trivial derivations that any
+# degenerate tensor has.  The whitening truncates them out of the restricted
+# solve (they are a numerically-zero eigenvalue cluster there) and writes
+# them down exactly instead, so it reports `2 + 2d`: the two scalar
+# derivations plus the whole trivial space.
+#
+# The unwhitened branch reports only `2 + 2·r_1` of them, because its
+# rank-deficient lift returns a minimum-norm `Z_1` with no kernel component
+# -- measured 16 of 26 at d = 12.  So the assertion is CONTAINMENT, not
+# equality: the whitened answer is a superset, every column of it is a
+# genuine derivation by the Z-law, and its dimension is the exact one.
+@testset "whiten: degenerate mode is counted exactly (rank d-2 on axis 1)" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        @testset "d = $d" for d in (8, 12)
+            Random.seed!(20260923)
+            U = Matrix(qr(randn(d, d)).Q)
+            G = Dleto._qdn_ttm(randn(d, d, d),
+                               U[:, 1:(d - 2)] * transpose(U[:, 1:(d - 2)]), 1)
+            frame = [Index(d, "g_$i") for i in 1:3]
+            Γ = ITensor(G, frame...)
+            P = Matrix{Float64}(UniversalChisel(3))
+            Ω = IndTransverseOps(frame, UniversalOp())
+            @test rank(Dleto._qdn_unfold(G, 1)) == d - 2
+
+            plain = der(get_derivation_method(:QuickDer; whiten = false, seed = 4242),
+                        Ω, P, Γ; tol = QD_TOL)
+            white = der(get_derivation_method(:QuickDer; whiten = true, seed = 4242),
+                        Ω, P, Γ; tol = QD_TOL)
+
+            # 2 scalar derivations + the whole (d - rank)·d = 2d trivial space
+            @test length(white) == 2 + 2 * d
+            @test length(plain) < length(white)
+            for D in white
+                @test der_residual(Γ, D, P) < RESID64
+            end
+            A = basis_matrix(plain, frame)
+            B = basis_matrix(white, frame)
+            @test subspace_residual(B, A) < 1e-8      # whitened contains unwhitened
+        end
+    end
+end
+
+# --- the matrix-free branch, which is what the whitening is FOR ---------
+#
+# Forcing `QDN_DENSE_BUDGET_BYTES` to zero sends a small case down the
+# matrix-free branch, where the whitening has to hold up against an iterative
+# null solver rather than a dense SVD.  `QDN_APPLY_COUNT` is the counter the
+# scaling sweeps read; check it actually counts.
+@testset "whiten: matrix-free branch agrees and counts its applies" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        Random.seed!(20260924)
+        inp = build_sphere(12; valence = 3)
+        Ω, P, Γ = inp.Ω, Matrix{Float64}(inp.ch), inp.Γ
+        saved = Dleto.QDN_DENSE_BUDGET_BYTES[]
+        try
+            Dleto.QDN_DENSE_BUDGET_BYTES[] = 0.0
+            results = Dict{Bool,Any}()
+            for w in (false, true)
+                Dleto.QDN_APPLY_COUNT[] = 0
+                basis = der(get_derivation_method(:QuickDer; whiten = w, seed = 4242),
+                            Ω, P, Γ; tol = QD_TOL)
+                results[w] = (; basis, applies = Dleto.QDN_APPLY_COUNT[])
+                Dleto.QDN_APPLY_COUNT[] = -1
+            end
+            @test results[false].applies > 0
+            @test results[true].applies > 0
+            @test length(results[true].basis) == 3
+            @test length(results[false].basis) == 3
+            for D in results[true].basis
+                @test der_residual(Γ, D, P) < RESID64
+            end
+            A = basis_matrix(results[false].basis, collect(Dleto.frames(Ω)))
+            B = basis_matrix(results[true].basis, collect(Dleto.frames(Ω)))
+            @test subspace_residual(A, B) < 1e-6
+            @test subspace_residual(B, A) < 1e-6
+        finally
+            Dleto.QDN_DENSE_BUDGET_BYTES[] = saved
+            Dleto.QDN_APPLY_COUNT[] = -1
+        end
+    end
+end

@@ -46,6 +46,19 @@
 # Float64, so that path is Float32 and exploratory; the certified answer is the
 # Float64 CPU one.
 #
+# WHITENED RESTRICTION (`whiten = true`, "QuickDer-W").  The restricted system
+# is `[A_1 ⋯ A_n]` with `A_a = I_{r_a} ⊗ M_a` up to a row permutation, where
+# `M_a` is the transposed mode-`a` unfolding of the cross sketch `S_a`.  So the
+# diagonal blocks of its Gram are `c_a·(I ⊗ M_aᵗM_a)` with `c_a = Σ_ρ P[ρ,a]²`:
+# every bit of the sketch-induced conditioning lives in `d_a x d_a` Grams, and
+# the off-diagonal blocks -- which are what encodes the derivation condition --
+# are untouched by a per-axis change of variables.  Substituting `Ỹ_a = R_a Y_a`
+# for the thin QR `M_a = Q_a R_a` therefore makes every diagonal Gram block
+# exactly `c_a·I`, puts the whole spectrum in `[0, Σ_a c_a]`, and leaves the
+# null space alone.  Cost: `n` QRs of `(∏_{b≠a} r_b) x d_a`, negligible against
+# a pass over `d^n`.  See `_qdn_whiten_axis` for the degenerate-mode case and
+# the "Whitened restriction" section of the design note for the measurements.
+#
 
 using LinearAlgebra
 using LinearMaps
@@ -124,8 +137,8 @@ _qdn_default_free_solver() =
 Opt-in per-stage wall clock, for benchmarking only.  Set it to an empty `Dict`
 and the next `derTrOpsReduced` accumulates seconds under `:upload`, `:sketch`,
 `:restricted` (dense matrix assembly), `:solve`, `:lift`, `:filter`, `:verify`
-and `:restrict_ops`; leave it `nothing` (the default) and the cost is one `Ref`
-load per stage.  `GramSolver` adds `:gram`, `:cholesky`, `:subspace` and
+and `:restrict_ops` (plus `:whiten` when `whiten = true`); leave it `nothing`
+(the default) and the cost is one `Ref` load per stage.  `GramSolver` adds `:gram`, `:cholesky`, `:subspace` and
 `:ritz` through the same dictionary.
 
 Measuring a GPU stage needs a synchronisation point, and every stage here
@@ -174,9 +187,27 @@ function _qdn_check_device(device::Symbol, ::Type{T}) where {T}
 end
 
 """
+    QDN_APPLY_COUNT :: Ref{Int}
+
+Opt-in count of MATRIX-FREE restricted applies, for benchmarking only.  Set it
+to `0` and the next `derTrOpsReduced` accumulates one per forward and one per
+adjoint application of `_qdn_restricted_map`; leave it at `-1` (the default)
+and the cost is one `Ref` load per apply.  Iteration count is the only lever
+left on that branch (the dense branch is at the BLAS floor), so it is worth
+being able to read directly rather than inferring it from wall time.
+"""
+const QDN_APPLY_COUNT = Ref(-1)
+
+@inline function _qdn_tick!()
+    c = QDN_APPLY_COUNT[]
+    c < 0 || (QDN_APPLY_COUNT[] = c + 1)
+    return nothing
+end
+
+"""
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
                      verify = :random, nslices = 4, seed = nothing,
-                     device = :cpu)
+                     device = :cpu, whiten = true)
 
 Solve-and-lift derivations for a tensor of any valence `n >= 2`, any per-axis
 dimensions, any chisel with at least one engaged axis, and any
@@ -213,6 +244,26 @@ dimensions, any chisel with at least one engaged axis, and any
   `qr`/`svd` inside `GramSolver` (Metal.jl has neither).  A `:gpu` run is
   exploratory: Float32 is its ceiling, and the certified answer is the Float64
   CPU one.
+- `whiten`       `true` (default) removes the sketch-induced ill-conditioning
+  of the restricted system exactly, by a thin QR per axis, before it reaches the
+  null solver (see "WHITENED RESTRICTION" in the file header).  Costs `n` QRs of
+  `(∏_{b≠a} r_b) x d_a` -- 0.01 s of an 18 s solve at valence 3, d = 200 -- and
+  changes no answer.  It is on by default because it is what makes the
+  MATRIX-FREE branch converge at all on a structured tensor: measured on the
+  scrambled sphere octant, forced matrix-free, ARPACK, Float64, 5 threads
+  (bench/reports/2026-09-04/whitened/):
+
+  | d | plain applies | plain verdict | whitened applies | whitened verdict |
+  |---|---|---|---|---|
+  | 30  | 53632  | ARPACK hit its cap | 23732 | nullity 3, resid 2.8e-13 |
+  | 100 | 66900  | ARPACK hit its cap | 34636 | nullity 3, resid 7.8e-11 |
+  | 150 | 177142 | ARPACK hit its cap | 39544 | nullity 3, resid 1.7e-12 |
+  | 200 | 65182  | ARPACK hit its cap | 38262 | nullity 3, resid 3.3e-10 |
+
+  On a GENERIC tensor, where the mode unfoldings are already well conditioned
+  (`cond(M_a) ≈ 3` against 20..150 on the sphere), it is worth 1.4x and no more
+  -- `randn(150,150,150)`, 14618 applies -> 10156.  Set `whiten = false` to
+  reproduce the pre-2026-09-04 behaviour.
 
 Element type follows `eltype(Γ)`; `tol` is relative and floored at
 `sqrt(eps(T))` by `_qd_tolerance`, as in `FastDer3ValentMethod`.
@@ -230,12 +281,13 @@ struct QuickDerMethod <: DerivationMethod
     nslices::Int
     seed::Union{Nothing, Int}
     device::Symbol
+    whiten::Bool
 end
 
 function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
                         solver::Symbol = :AutoSolver, verify::Symbol = :random,
                         nslices::Integer = 4, seed = nothing,
-                        device::Symbol = :cpu)
+                        device::Symbol = :cpu, whiten::Bool = true)
     restriction in (:random, :corner) ||
         error("QuickDerMethod: restriction must be :random or :corner, got :$restriction.")
     verify in (:random, :full, :none) ||
@@ -246,7 +298,7 @@ function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
     return QuickDerMethod(restriction,
                           sizes === nothing ? nothing : Int[Int(s) for s in sizes],
                           solver, verify, Int(nslices),
-                          seed === nothing ? nothing : Int(seed), device)
+                          seed === nothing ? nothing : Int(seed), device, whiten)
 end
 
 # ---------------------------------------------------------------------------
@@ -335,6 +387,15 @@ _qdn_zeros_like(G::AbstractArray{T}, dims::Tuple) where {T} =
     fill!(similar(G, T, dims), zero(T))
 
 """
+    _qdn_upload(G, A) -> AbstractMatrix
+
+The host matrix `A` on whichever device `G` lives on, so a mode product against
+the full tensor never drags `G` back to the host.
+"""
+_qdn_upload(G::AbstractArray{T}, A::AbstractMatrix{T}) where {T} =
+    G isa Array ? A : to_gpu(A)
+
+"""
     _qdn_unfold(G, a) -> Matrix
 
 The mode-`a` unfolding of `G`: a `size(G,a) x prod(other dims)` matrix whose
@@ -351,6 +412,23 @@ function _qdn_unfold(G::AbstractArray{T,N}, a::Integer) where {T,N}
     d = size(GA, a)
     a == 1 && return reshape(GA, d, :)
     return reshape(permutedims(GA, _qdn_front(N, a)), d, :)
+end
+
+"""
+    _qdn_fold(A, a, sz) -> Array
+
+The inverse of `_qdn_unfold`: the `N`-dimensional array of shape `sz` whose
+mode-`a` unfolding is the `sz[a] x prod(sz[b], b≠a)` matrix `A`.  Used only by
+the whitened restriction, which replaces a cross sketch by a matrix (`Q_aᵗ`)
+and has to hand the matrix-free map a tensor again.
+"""
+function _qdn_fold(A::AbstractMatrix{T}, a::Integer, sz::NTuple{N,Int}) where {T,N}
+    perm = _qdn_front(N, a)
+    size(A) == (sz[a], prod(sz) ÷ sz[a]) || throw(DimensionMismatch(
+        "fold: matrix is $(size(A)) but shape $sz unfolds at axis $a to " *
+        "$((sz[a], prod(sz) ÷ sz[a]))"))
+    X = reshape(A, ntuple(i -> sz[perm[i]], N))
+    return a == 1 ? Array(X) : permutedims(X, invperm(collect(perm)))
 end
 
 """
@@ -561,6 +639,215 @@ function _qdn_cross_sketches(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
     return S
 end
 
+# ---------------------------------------------------------------------------
+# Whitening the restriction -- QuickDer-W
+# ---------------------------------------------------------------------------
+
+"""
+Per-axis whitening data for one engaged axis.
+
+`rank` is the numerical rank kept, `Q` (`R_a x rank`, orthonormal columns) is
+the whitened stand-in for `M_a`, `un` (`d_a x rank`) un-whitens a solved
+`Ỹ_a` back to `Y_a`, and `K` (`d_a x (d_a - rank)`, orthonormal columns) spans
+what was truncated: the left null space of the mode-`a` unfolding.
+
+The invariant every field is built to satisfy is `M_a * un == Q` exactly (to
+rounding), i.e. substituting `Ỹ_a = un⁺ Y_a` leaves the restricted operator
+unchanged on the range and drops nothing else.
+"""
+struct _QDNWhite{T}
+    rank::Int
+    Q::Matrix{T}
+    un::Matrix{T}
+    K::Matrix{T}
+end
+
+"""
+    _qdn_whiten_axis(Ma) -> _QDNWhite
+
+Whiten one axis block of the restricted operator.
+
+THE STRUCTURE THIS EXPLOITS.  In the convention of this file the axis-`a`
+column block of the restricted system is, up to the row permutation
+`_qdn_row_perm` bookkeeps and the chisel weight `P[ρ,a]`, exactly
+
+    A_a = I_{r_a} ⊗ M_a,     M_a := _qdn_unfold(S_a, a)ᵗ   (R_a x d_a)
+
+because `A_a vec(Y_a) = vec(M_a Y_a)` and the unknown `Y_a` is `d_a x r_a`
+with `vec` stacking its COLUMNS (that is the ordering `_qdn_restricted_matrix`
+writes and `_qdn_restricted_map` reads).  Hence the diagonal blocks of the
+Gram of the whole restricted operator `A = [A_1 ⋯ A_n]` are Kronecker,
+
+    A_aᵗ A_a = c_a · (I_{r_a} ⊗ M_aᵗ M_a),   c_a = Σ_ρ P[ρ,a]²,
+
+so all of the sketch-induced conditioning lives in `d_a x d_a` Grams -- tiny --
+while the off-diagonal blocks `A_aᵗ A_b`, which are what actually encodes the
+derivation condition, are untouched by any per-axis change of variables.
+Verified numerically to 5e-16 at valence 3 and 4, universal/centroid/adjoint
+chisels (see docs/design/QuickDer-valence-n.md, "Whitened restriction").
+
+NOTE the transposed convention against the design note: there `Y_a` is
+`r_a x d_a` and the substitution reads `Ỹ_a = Y_a R_aᵗ`; here `Y_a` is
+`d_a x r_a` and it reads `Ỹ_a = R_a Y_a`, one row of `R_a` per row of `Y_a`.
+
+WHAT IT DOES.  Thin QR `M_a = Q_a R_a` and substitute `Ỹ_a = R_a Y_a`; then
+`A_a Y_a = (I ⊗ Q_a) Ỹ_a`, every diagonal Gram block is exactly `c_a·I`, and
+the whole Gram has spectrum in `[0, Σ_a c_a]` -- each block has norm ≤ 1.  The
+genuine null space is unchanged, and what goes away is the conditioning of the
+tensor's own mode unfoldings, which is what made Krylov crawl on smooth video
+and on structured spheres.
+
+DEGENERATE MODES.  When `M_a` is rank deficient -- the mode-`a` unfolding of Γ
+has rank below `d_a`, which a smooth or separable tensor routinely does -- `R_a`
+is singular and there is no substitution to make.  Truncate instead: keep the
+range (an SVD, at the standard `min(size)·eps` relative cut, so nothing that is
+numerically nonzero is ever dropped) and hand back the dropped directions in
+`K`.  Those are the TRIVIAL derivations `X_a ·_a Γ = 0` that any degenerate
+tensor has; `_qdn_solve_and_lift` re-injects them after the solve rather than
+letting them inflate an iterative null solve, where they are a numerically-zero
+eigenvalue cluster of dimension `(d_a - rank)·r_a`.
+
+The QR comes first and the SVD only when it fails, because the QR is the cheap
+case and it is the case that holds for every generic tensor: `n` QRs of
+`(∏_{b≠a} r_b) x d_a`, e.g. 3200 x 1000 at d = 1000 valence 3.  The test is not
+`min |diag(R_a)|` -- that is a heuristic on an unpivoted factorisation -- but
+the invariant itself, `‖M_a·R_a⁻¹ - Q_a‖`, which costs one GEMM of the same
+shape as the QR and cannot be fooled.
+"""
+function _qdn_whiten_axis(Ma::AbstractMatrix{T}) where {T}
+    RT = real(T)
+    Ra, da = size(Ma)
+    Ra >= da || return _qdn_whiten_svd(Ma)      # wide: QR gives no d_a x d_a R
+    F = qr(Ma)
+    Rf = Matrix(F.R)
+    dg = abs.(diag(Rf))
+    if minimum(dg) > min(Ra, da) * eps(RT) * maximum(dg)
+        Q = Matrix(F.Q)
+        un = UpperTriangular(Rf) \ Matrix{T}(LinearAlgebra.I, da, da)
+        # The invariant, not the diagonal heuristic: an unpivoted R can have a
+        # healthy diagonal and still lose the substitution to cancellation.
+        if all(isfinite, un) &&
+           norm(Ma * un .- Q) <= sqrt(eps(RT)) * max(norm(Q), one(RT))
+            return _QDNWhite{T}(da, Q, un, Matrix{T}(undef, da, 0))
+        end
+    end
+    return _qdn_whiten_svd(Ma)
+end
+
+function _qdn_whiten_svd(Ma::AbstractMatrix{T}) where {T}
+    RT = real(T)
+    Ra, da = size(Ma)
+    # `full` only when the matrix is WIDE: the thin `V` is already `d_a x d_a`
+    # for `R_a >= d_a` (the shape condition (ii) guarantees), and asking for a
+    # full `U` there would materialise `R_a x R_a` -- 81 MB at d = 1000 -- for
+    # columns nothing reads.
+    F = svd(Ma; full = Ra < da)
+    s = F.S
+    cut = minimum((Ra, da)) * eps(RT) * (isempty(s) ? zero(RT) : s[1])
+    k = count(>(cut), s)
+    Q = Matrix(F.U[:, 1:k])
+    un = F.V[:, 1:k] * Diagonal(one(T) ./ s[1:k])
+    K = Matrix(F.V[:, (k + 1):da])
+    return _QDNWhite{T}(k, Q, un, K)
+end
+
+"""
+    _qdn_whiten(Uf, eaxes, dims, r, N) -> (wh, Us, Ss, wdims)
+
+Whiten every engaged axis and repackage the restriction so that the two
+solve branches need no change at all:
+
+- `Us[a] = Q_aᵗ` (`rank_a x R_a`) replaces `Uf[a]` (`d_a x R_a`);
+- `Ss[a]` is `Us[a]` folded back into a tensor of shape
+  `(r_1 .. rank_a .. r_n)`, which is the whitened cross sketch the matrix-free
+  map contracts;
+- `wdims[a] = rank_a` replaces `dims[a]` in the column bookkeeping.
+
+`_qdn_restricted_matrix` and `_qdn_restricted_map` only ever use `dims[a]` as
+"the length of the axis-`a` unknown", so passing `wdims` is the whole of the
+plumbing.
+"""
+function _qdn_whiten(Uf::Dict{Int, Matrix{T}}, eaxes::Vector{Int}, dims::Vector{Int},
+                     r::Vector{Int}, N::Integer) where {T}
+    wh = Dict{Int, _QDNWhite{T}}()
+    Us = Dict{Int, Matrix{T}}()
+    Ss = Dict{Int, Array{T,N}}()
+    wdims = copy(dims)
+    for a in eaxes
+        w = _qdn_whiten_axis(Matrix(transpose(Uf[a])))
+        wh[a] = w
+        Us[a] = Matrix(transpose(w.Q))
+        wdims[a] = w.rank
+        Ss[a] = _qdn_fold(Us[a], a, ntuple(b -> b == a ? w.rank : r[b], N))
+    end
+    return (wh, Us, Ss, wdims)
+end
+
+"""
+    _qdn_trivial_ders(G, haxs, wh, engaged, eaxes, dims, r, atol) -> Vector
+
+The derivations the whitening truncation removed from the restricted solve,
+back as full operator tuples.
+
+A rank-deficient mode-`a` unfolding means there are `X_a` with `Γ ×_a X_a = 0`,
+and `(0,…,X_a,…,0)` satisfies the derivation equation for every chisel.  The
+condition on `X_a` is that its COLUMNS lie in the left null space of the mode-`a`
+unfolding, which is exactly `span(wh[a].K)`, so the trivial space of that axis
+is `(d_a - rank)·d_a`-dimensional with basis `K[:,p]·e_qᵗ`, and that whole basis
+is what goes back.
+
+WHY THE WHOLE OF IT, rather than the part the restricted solve would have
+found.  The unwhitened solve sees these directions as `Y_a` with columns in
+`ker(M_a)`, i.e. `X_a = Y_a W_aᵗ` -- only `(d_a-rank)·r_a` of them -- and its
+lift, a least-squares solve against a rank-deficient operator, returns the
+minimum-norm `Z_a`, which has no `K` component at all.  So the unwhitened
+branch reports an arbitrary, `W_a`-dependent SLICE of the trivial space and
+silently drops the rest: measured on a 12x12x12 tensor with a mode-1 rank of
+10, the true derivation space is 26-dimensional and the unwhitened branch
+returns 16 of it.  Writing the trivial space down exactly costs nothing here --
+`K` is already computed -- and it makes the whitened answer a superset, never a
+different subspace.  Degenerate modes are meant to be removed upstream by
+`nondeg` anyway; this is the safety net, not the normal path.
+
+Each candidate direction is checked against the tensor itself
+(`‖Γ ×_a K[:,p]‖ ≤ atol·‖Γ‖`, the same bound `_qdn_verify` applies) rather than
+trusted: `ker(M_a)` contains the left null space of the unfolding and is equal
+to it only when the sketch preserved the rank.  The check costs one pass over Γ
+with a matrix of `d_a - rank` columns, and is only ever reached on a tensor
+that is actually degenerate.
+"""
+function _qdn_trivial_ders(G::AbstractArray{T,N}, wh::Dict{Int, _QDNWhite{T}},
+                           eaxes::Vector{Int}, dims::Vector{Int},
+                           atol::Real) where {T,N}
+    out = Vector{Vector{Matrix{T}}}()
+    any(a -> wh[a].rank < dims[a], eaxes) || return out
+    gnorm = norm(G)
+    bound = real(T)(atol) * max(gnorm, eps(real(T)))
+    for a in eaxes
+        K = wh[a].K
+        size(K, 2) == 0 && continue
+        E = _qdn_ttm(G, _qdn_upload(G, K), a)
+        keep = [p for p in 1:size(K, 2) if norm(_qdn_slice(E, a, p:p)) <= bound]
+        length(keep) == size(K, 2) || @warn "QuickDer(whiten): $(size(K,2) - length(keep)) " *
+            "of $(size(K,2)) truncated directions on axis $a are not trivial derivations " *
+            "-- the cross sketch lost rank there. Retry with a larger `sizes`." maxlog = 1
+        for p in keep, q in 1:dims[a]
+            Ms = Vector{Matrix{T}}(undef, N)
+            for b in 1:N
+                Ms[b] = zeros(T, dims[b], dims[b])
+            end
+            Ms[a][:, q] = K[:, p]
+            push!(out, Ms)
+        end
+    end
+    isempty(out) || @info "QuickDer(whiten): Γ has a rank-deficient mode " *
+        "(ranks $([wh[a].rank for a in eaxes]) of dims $(dims[eaxes])); its " *
+        "$(length(out)) trivial derivations (X_a ·_a Γ = 0) were kept out of the " *
+        "restricted solve, where they are a numerically-zero eigenvalue cluster, and " *
+        "written down directly instead." maxlog = 1
+    return out
+end
+
 """
     _qdn_system_rows(rows, ncols) -> Int
 
@@ -645,6 +932,7 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
     nrows = _qdn_system_rows(m * R, ncols)      # zero-padded when wide
 
     function fwd(y::AbstractVector)
+        _qdn_tick!()
         out = zeros(T, nrows)
         Out = reshape(view(out, 1:(R * m)), rt..., m)
         for a in eaxes
@@ -661,6 +949,7 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
     end
 
     function adj(e::AbstractVector)
+        _qdn_tick!()
         E = reshape(T.(e[1:(R * m)]), rt..., m)
         y = zeros(T, ncols)
         for a in eaxes
@@ -721,11 +1010,22 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     Uf = Dict{Int, Matrix{T}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
     tstage = _qdn_stage!(:sketch, tstage)
 
+    # ---- whitening (QuickDer-W).  `Us`/`Ss`/`sdims` are what the two solve
+    # branches see; `wh` is what un-whitens the answer afterwards.  Unwhitened,
+    # they are the sketch data itself, so there is one code path below.
+    wh = method.whiten ? _qdn_whiten(Uf, eaxes, dims, r, N) : nothing
+    Us    = wh === nothing ? Uf   : wh[2]
+    sdims = wh === nothing ? dims : wh[4]
+    if wh !== nothing
+        @debug "QuickDer whitening" ranks = [wh[1][a].rank for a in eaxes] dims = dims[eaxes]
+        tstage = _qdn_stage!(:whiten, tstage)
+    end
+
     coff = Dict{Int, Int}()
     ncols = 0
     for a in eaxes
         coff[a] = ncols
-        ncols += dims[a] * r[a]
+        ncols += sdims[a] * r[a]
     end
     R = prod(r)
 
@@ -740,7 +1040,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(T)
     dense_budget = on_gpu ? QDN_GPU_DENSE_BUDGET_BYTES[] : QDN_DENSE_BUDGET_BYTES[]
     if dense_bytes <= dense_budget
-        Mres = _qdn_restricted_matrix(Uf, P, eaxes, r, dims, coff, ncols)
+        Mres = _qdn_restricted_matrix(Us, P, eaxes, r, sdims, coff, ncols)
         tstage = _qdn_stage!(:restricted, tstage)
         # The SVD is O(m n²) and at d = 100 (6859 x 5700) already 52 s; the
         # Gram route (`GramSolver`, n x n, Cholesky-shifted subspace
@@ -762,8 +1062,9 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # d = 100 is 0.12 ms per apply, i.e. the iteration count is the whole
         # story (see the native-core-plan entry on the night board), and a
         # device round trip per apply would only add latency.
-        Sh = Dict{Int, Array{T,N}}(a => _qdn_host(S[a]) for a in eaxes)
-        L = _qdn_restricted_map(Sh, Uf, P, eaxes, r, dims, coff, ncols)
+        Sh = wh === nothing ?
+             Dict{Int, Array{T,N}}(a => _qdn_host(S[a]) for a in eaxes) : wh[3]
+        L = _qdn_restricted_map(Sh, Us, P, eaxes, r, sdims, coff, ncols)
         fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
                                                   method.solver
         tstage = _qdn_stage!(:restricted, tstage)
@@ -773,14 +1074,24 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         tstage = _qdn_stage!(:solve, tstage)
     end
 
+    # The trivial derivations the whitening truncation kept out of the solve.
+    # Appended to whatever the solve returns, INCLUDING an empty answer, so
+    # that whitened and unwhitened runs report the same space.
+    triv = wh === nothing ? Vector{Vector{Matrix{T}}}() :
+           _qdn_trivial_ders(G, wh[1], eaxes, dims, atol)
+
     k = size(vecs, 2)
     @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) rss_GB = Sys.maxrss() / 2^30
-    k == 0 && return Vector{Vector{Matrix{T}}}()
+    k == 0 && return triv
 
+    # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
+    # want `Y_a` (`d_a x r_a`).  `wh[1][a].un` is `R_a⁻¹`, or its pseudo-inverse
+    # on the kept range when the mode was degenerate.
     Yv = Matrix{Matrix{T}}(undef, N, k)
     for a in eaxes, i in 1:k
-        Yv[a, i] = reshape(T.(vecs[(coff[a] + 1):(coff[a] + dims[a] * r[a]), i]),
-                           dims[a], r[a])
+        Yt = reshape(T.(vecs[(coff[a] + 1):(coff[a] + sdims[a] * r[a]), i]),
+                     sdims[a], r[a])
+        Yv[a, i] = wh === nothing ? Yt : wh[1][a].un * Yt
     end
 
     # ---- the lift, one thin QR per axis, shared by every basis vector
@@ -905,7 +1216,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         end
         out[j] = Ms
     end
-    return out
+    return isempty(triv) ? out : vcat(out, triv)
 end
 
 # ---------------------------------------------------------------------------
