@@ -207,7 +207,7 @@ end
 """
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
                      verify = :random, nslices = 4, seed = nothing,
-                     device = :cpu, whiten = false)
+                     device = :cpu, whiten = true)
 
 Solve-and-lift derivations for a tensor of any valence `n >= 2`, any per-axis
 dimensions, any chisel with at least one engaged axis, and any
@@ -244,11 +244,26 @@ dimensions, any chisel with at least one engaged axis, and any
   `qr`/`svd` inside `GramSolver` (Metal.jl has neither).  A `:gpu` run is
   exploratory: Float32 is its ceiling, and the certified answer is the Float64
   CPU one.
-- `whiten`       remove the sketch-induced ill-conditioning of the restricted
-  system exactly, by a thin QR per axis, before it reaches the null solver (see
-  "WHITENED RESTRICTION" in the file header).  Costs `n` QRs of
-  `(∏_{b≠a} r_b) x d_a` and changes no answer; it is what makes the
-  MATRIX-FREE branch converge on a structured tensor.
+- `whiten`       `true` (default) removes the sketch-induced ill-conditioning
+  of the restricted system exactly, by a thin QR per axis, before it reaches the
+  null solver (see "WHITENED RESTRICTION" in the file header).  Costs `n` QRs of
+  `(∏_{b≠a} r_b) x d_a` -- 0.01 s of an 18 s solve at valence 3, d = 200 -- and
+  changes no answer.  It is on by default because it is what makes the
+  MATRIX-FREE branch converge at all on a structured tensor: measured on the
+  scrambled sphere octant, forced matrix-free, ARPACK, Float64, 5 threads
+  (bench/reports/2026-09-04/whitened/):
+
+  | d | plain applies | plain verdict | whitened applies | whitened verdict |
+  |---|---|---|---|---|
+  | 30  | 53632  | ARPACK hit its cap | 23732 | nullity 3, resid 2.8e-13 |
+  | 100 | 66900  | ARPACK hit its cap | 34636 | nullity 3, resid 7.8e-11 |
+  | 150 | 177142 | ARPACK hit its cap | 39544 | nullity 3, resid 1.7e-12 |
+  | 200 | 65182  | ARPACK hit its cap | 38262 | nullity 3, resid 3.3e-10 |
+
+  On a GENERIC tensor, where the mode unfoldings are already well conditioned
+  (`cond(M_a) ≈ 3` against 20..150 on the sphere), it is worth 1.4x and no more
+  -- `randn(150,150,150)`, 14618 applies -> 10156.  Set `whiten = false` to
+  reproduce the pre-2026-09-04 behaviour.
 
 Element type follows `eltype(Γ)`; `tol` is relative and floored at
 `sqrt(eps(T))` by `_qd_tolerance`, as in `FastDer3ValentMethod`.
@@ -272,7 +287,7 @@ end
 function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
                         solver::Symbol = :AutoSolver, verify::Symbol = :random,
                         nslices::Integer = 4, seed = nothing,
-                        device::Symbol = :cpu, whiten::Bool = false)
+                        device::Symbol = :cpu, whiten::Bool = true)
     restriction in (:random, :corner) ||
         error("QuickDerMethod: restriction must be :random or :corner, got :$restriction.")
     verify in (:random, :full, :none) ||
@@ -722,7 +737,11 @@ end
 function _qdn_whiten_svd(Ma::AbstractMatrix{T}) where {T}
     RT = real(T)
     Ra, da = size(Ma)
-    F = svd(Ma; full = true)
+    # `full` only when the matrix is WIDE: the thin `V` is already `d_a x d_a`
+    # for `R_a >= d_a` (the shape condition (ii) guarantees), and asking for a
+    # full `U` there would materialise `R_a x R_a` -- 81 MB at d = 1000 -- for
+    # columns nothing reads.
+    F = svd(Ma; full = Ra < da)
     s = F.S
     cut = minimum((Ra, da)) * eps(RT) * (isempty(s) ? zero(RT) : s[1])
     k = count(>(cut), s)
