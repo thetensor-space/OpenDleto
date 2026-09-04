@@ -359,3 +359,48 @@ end
     @test v32.undecidable == 0
     @test v32.certified
 end
+
+# --- the frontier, as a regression guard ---------------------------------
+#
+# docs/design/Precision-Policy.md section 5 states what Float32 and Float16 can
+# and cannot certify.  Two of those claims are cheap enough to assert here, and
+# both are the kind that decays silently if a constant moves.
+
+@testset "the measured frontier holds" begin
+    @testset "Float32 certifies where the policy says it should" begin
+        # The rule from Exp. D: Float32 certifies when the first nonzero
+        # eigenvalue clears `GAP_RATIO * precision_floor(Float32)` = 9.5e-5
+        # relative.  Both video shapes (1.6e-4, 2.7e-4) and every sphere point
+        # from d = 16 to 96 clear it.  Asserted on the arithmetic rather than by
+        # re-running d = 96, which belongs in the benchmark.
+        need = GAP_RATIO * precision_floor(Float32)
+        @test need < 1.5e-4          # the tightest measured first-nonzero
+        @test need > 4.92 * eps(Float32)   # still above the worst null value
+        # The same two bounds are what `FLOOR_EPS` was tuned between; if either
+        # inequality fails, the window has closed and section 2 needs redoing.
+        @test 4.92 < FLOOR_EPS < 12.6
+    end
+
+    @testset "Float16 declines exactly when the data cannot decide" begin
+        # Exp. D found a perfect correlation over 11 sphere points: Float16
+        # certifies iff the first nonzero eigenvalue exceeds `eps(Float16)`.
+        # Both sides, on the verdict machinery.
+        nulls = Float64[2e-8, 3e-8, 4e-8]
+        for (first_nonzero, expect_certified) in ((2.43e-3, true),   # sphere d = 32
+                                                  (1.47e-3, true),   # sphere d = 16
+                                                  (8.25e-4, false),  # sphere v4 d = 12
+                                                  (2.94e-4, false),  # sphere d = 24
+                                                  (1.50e-4, false))  # sphere d = 48
+            rel = vcat(nulls, [first_nonzero, 5e-2, 1.0])
+            _, v = gap_verdict(rel, 1.0;
+                               threshold = max(TOL_DEFAULT, precision_floor(Float16)),
+                               floor = precision_floor(Float16),
+                               data_floor = data_floor(Float16), gap_ratio = GAP_RATIO)
+            @test v.nullity == 3                       # the count is right either way
+            @test v.certified == expect_certified
+            @test (v.undecidable == 0) == expect_certified
+            # and the boundary really is eps(Float16), not something else
+            @test expect_certified == (first_nonzero >= data_floor(Float16))
+        end
+    end
+end

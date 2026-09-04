@@ -1,0 +1,27 @@
+bench/jl: waiting for a Julia slot (60s)...
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== does a coarser tol recover the Float32 derivations? ===
+d=64   Float32 tol=1e-06     -> qd_tolerance=0.000345  nullity=2   (truth 3)  0.4s    rss=1.0G  ok
+d=64   Float32 tol=1e-05     -> qd_tolerance=0.000345  nullity=2   (truth 3)  0.1s    rss=1.0G  ok
+d=64   Float32 tol=0.0001    -> qd_tolerance=0.000345  nullity=2   (truth 3)  0.1s    rss=1.0G  ok
+d=64   Float32 tol=0.000345  -> qd_tolerance=0.000345  nullity=2   (truth 3)  0.1s    rss=1.1G  ok
+d=64   Float32 tol=0.001     -> qd_tolerance=0.001     nullity=3   (truth 3)  0.3s    rss=1.1G  ok
+d=64   Float32 tol=0.003     -> qd_tolerance=0.003     nullity=3   (truth 3)  0.3s    rss=1.1G  ok
+d=64   Float32 tol=0.01      -> qd_tolerance=0.01      nullity=3   (truth 3)  0.3s    rss=1.1G  ok
+d=64   Float32 tol=0.03      -> qd_tolerance=0.03      nullity=3   (truth 3)  0.3s    rss=1.1G  ok
+d=64   Float64 tol=1e-06     -> qd_tolerance=1e-06     nullity=3   (truth 3)  0.5s    rss=1.3G  ok
+d=100  Float32 tol=1e-06     -> qd_tolerance=0.000345  nullity=1   (truth 3)  0.9s    rss=1.9G  ok
+d=100  Float32 tol=1e-05     -> qd_tolerance=0.000345  nullity=1   (truth 3)  0.9s    rss=1.9G  ok
+d=100  Float32 tol=0.0001    -> qd_tolerance=0.000345  nullity=1   (truth 3)  0.9s    rss=1.9G  ok
+d=100  Float32 tol=0.000345  -> qd_tolerance=0.000345  nullity=1   (truth 3)  0.9s    rss=1.9G  ok
+d=100  Float32 tol=0.001     -> qd_tolerance=0.001     nullity=3   (truth 3)  1.7s    rss=2.1G  ok
+d=100  Float32 tol=0.003     -> qd_tolerance=0.003     nullity=3   (truth 3)  2.6s    rss=2.3G  ok
+d=100  Float32 tol=0.01      -> qd_tolerance=0.01      nullity=3   (truth 3)  3.8s    rss=2.3G  ok
+d=100  Float32 tol=0.03      -> qd_tolerance=0.03      nullity=3   (truth 3)  8.5s    rss=2.7G  ok
+d=100  Float64 tol=1e-06     -> qd_tolerance=1e-06     nullity=3   (truth 3)  1.6s    rss=3.2G  ok
+[ Info: quickder restricted: nullity 13 certified (rule :gap), cut at the Float32 precision floor 9.5367431640625e-7 (relative) -- a near-derivation hidden below that floor would look identical. Values around the cut: [8.696006028611958e-8, 1.2011142739073277e-7, 2.725392728400375e-7] | [0.0028055190827587276, 0.011359690395643883, 0.01907389133118544]
+┌ Warning: quickder restricted: nullity 14 is UNCERTIFIED -- no gap of 100.0x in the spectrum below the threshold 0.00034526698300124393 (relative). Values around the cut: [2.1052402580416396e-6, 2.305614655045932e-6, 0.00021109727073439192] | [0.0005224641640475319, 0.0010588752408121668]. Consider Float64, an explicit `tol`, or `nd`.
+└ @ Dleto ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/NullSolvers.jl:807
+wrote precision-qd-tol-frontier.csv (18 rows)

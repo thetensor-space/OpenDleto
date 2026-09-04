@@ -20,6 +20,10 @@
 using Dleto, ITensors, LinearAlgebra, Random, Printf
 using Arpack, KrylovKit, IterativeSolvers
 
+# `LSMRSolver` is defined inside DletoIterativeSolversExt, not in Dleto, so
+# stage B reaches it through the registry rather than by name.
+const LSMRSolverT = typeof(Dleto.SOLVER_REGISTRY[:LSMRSolver])
+
 include(joinpath(@__DIR__, "..", "SphereHarness.jl"))
 
 const OUT = @__DIR__
@@ -256,8 +260,12 @@ function stage_B()
                           100 * Float64(eps(RT)), sqrt(Float64(eps(RT))))),
         )
             for v in vals
-                m = knob == "rank_tol" ? Dleto.LSMRSolver(; rank_tol = v) :
-                                         Dleto.LSMRSolver(; lsmr_tol = v)
+                base = Dleto.SOLVER_REGISTRY[:LSMRSolver]
+                m = knob == "rank_tol" ?
+                    LSMRSolverT(base.lsmr_tol, base.lsmr_maxiter, v, base.margin,
+                                base.refine) :
+                    LSMRSolverT(v, base.lsmr_maxiter, base.rank_tol, base.margin,
+                                base.refine)
                 nullity = -1; resid = NaN; status = "ok"; t = 0.0
                 try
                     t = @elapsed out = quiet() do

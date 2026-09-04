@@ -86,37 +86,67 @@ element types, for `SVDSolver`, `GramSolver`, `ArpackSolver` and
 | 1000 | yes | NO | NO |
 | 1e4  | NO -- swallows the first nonzero eigenvalue everywhere | - | - |
 
-So the nullity plateau is `c` in 2 .. 1000 and the CERTIFICATION plateau is
-`c` in 2 .. 10; **5** is the geometric centre of the intersection, 2.5x above
-the lower edge and 2x below the upper.
+So on those cases the nullity plateau is `c` in 2 .. 1000 and the
+certification plateau is `c` in 2 .. 10.
+
+THE FRONTIER NARROWS IT.  Those cases reach n = 3609 and d = 40.  Exp. D
+(bench/reports/precision-frontier.jl, `precision-frontier.csv`) walks the
+scrambled sphere out to d = 96 at valence 3 and d = 16 at valence 4, in all
+three types, and pins `c` between two hard bounds:
+
+* LOWER -- the threshold has to sit ABOVE the null cluster, or a null vector is
+  excluded.  The largest relative null value seen over ~70 (d, valence, type)
+  points is **4.92 eps** (d = 32, valence 3, Float16); the rest run 0.27..3.6
+  eps and, importantly, do NOT trend with `d`: 1.67 eps at d = 16, 0.66 at
+  d = 64, 2.80 at d = 96.
+* UPPER -- the gap is measured FROM the floor, so `c` must leave
+  `first_nonzero / (c·eps) >= GAP_RATIO`.  The tightest case measured is the
+  sphere at d = 48 in Float32, whose first nonzero eigenvalue is 1.50e-4
+  relative = 1260 eps, giving `c <= 12.6`; the video-40 box (1.6e-4 = 1340
+  eps) gives 13.4.
+
+Window `[4.92, 12.6]`, geometric centre 7.9, so **`c = 8`**: 1.63x above the
+worst null value observed and 1.58x below the tightest certification bound.
+
+**That window is only 2.6x wide, and that is the honest headline.**  In
+Float64 the same two bounds are `[3 eps, 1e11 eps]`, eleven decades apart --
+which is why any `c` in four decades looked correct when this constant was
+last chosen.  Float32 and Float16 have no such slack: a tensor whose first
+nonzero eigenvalue is 2x below the sphere's at d = 48 will return the right
+nullity and decline to certify it, and no choice of `c` avoids that.  Widening
+the window means lowering `GAP_RATIO`, which is a separate decision with its
+own calibration (see there).
 
 WHY 100 WAS WRONG.  The old value was calibrated on Float64, where the floor
-is 2.2e-14 and every real gap is 1e5..1e11, so any `c` within four decades
-looks identical.  In Float32 the floor is 1e9 times closer to the data:
-measured null values sit at 0.07..2.0 `eps(T)` relative (Float64 and Float32
-alike, over every case above), so `c = 5` clears the largest of them by 2.5x
-while `c = 100` puts the floor 50x above the noise it is meant to describe --
-and since the gap is measured FROM the floor, that threw away 1.5 decades of
-gap.  On the video shapes, whose first nonzero eigenvalue is 1.6e-4..2.7e-4
-relative (against the sphere's 1.5e-3..7.7e-3), that was the difference
-between a gap of 22 and a gap of 2250, i.e. between an uncertified and a
-certified Float32 answer.  No Float64 verdict in the whole sweep changes
-between `c = 5` and `c = 100`.
+is 2.2e-14 and every real gap is 1e5..1e11.  In Float32 the floor is nine
+orders of magnitude closer to the data, and 100 eps sits 20x ABOVE the noise
+it is meant to describe -- outside the upper bound above by a factor of 8.  On
+the video shapes that turned a true separation of 2250 into a measured gap of
+22, i.e. an uncertified answer where the data supports a certified one.  No
+Float64 verdict in either sweep changes between `c = 8` and `c = 100`.
 
-NO DIMENSION TERM.  The natural guess is that the floor should grow with the
-matrix size, `sqrt(n)*eps` or the `max(m,n)*eps` that `LinearAlgebra.rank`
-uses.  The data says otherwise for THESE operators: the largest relative null
-values occur at the SMALLEST `n` (2.0 eps at n = 165, sphere d = 10 Float32)
-and the smallest at the largest (0.11 eps at n = 3609, video-40 Float32).  The
-null directions of a derivation operator are not generic vectors -- their
-images are small, so their rounding is relative to a small quantity and not to
-`norm(L)` -- and a `sqrt(n)` term merely re-broke the video cases it was added
-to protect (at n = 3609 it makes the floor 60 eps, past the c = 20 edge).  The
-`max(m,n)*eps` convention is still right for a rank-revealing FACTORIZATION,
-where the classical backward-error bound does apply; that lives in
-`rank_rtol`, and `LUSolver` uses it.
+NO DIMENSION TERM -- BUT SEE THE FRONTIER.  `sqrt(n)·eps`, or the
+`max(m,n)·eps` that `LinearAlgebra.rank` uses, was the first hypothesis and
+the data refutes it for the null values of these operators: they are flat in
+`d` from 16 to 96 and flat in `n` from 165 to 13968, and the largest relative
+values occur at the SMALLEST sizes.  A derivation operator's null directions
+are not generic vectors -- their images are small, so their rounding is
+relative to a small quantity and not to `norm(L)`.  Adding `sqrt(n)` made the
+floor 60 eps at n = 3609, far outside the upper bound, and so re-broke exactly
+the video cases it was meant to protect.
+
+What DOES move with the problem is the *first nonzero* eigenvalue -- the sphere's
+falls from 2.4e-3 at d = 32 to 1.5e-4 at d = 48 and 2.1e-4 at d = 96, and it
+fluctuates by more than 10x between neighbouring `d` -- so the frontier is set
+by the tensor's conditioning, not by the arithmetic's size.  That is a property
+of the problem, not a constant to tune, which is precisely why the cut is
+decided by a GAP and not by this number alone.
+
+`max(m,n)·eps` remains right for a rank-revealing FACTORIZATION, where the
+classical backward-error bound does apply; that lives in `rank_rtol`, and
+`LUSolver` and `LSMRSolver`'s revealing QR use it.
 """
-const FLOOR_EPS = 5
+const FLOOR_EPS = 8
 
 """
     GAP_RATIO
@@ -127,22 +157,27 @@ Default minimum multiplicative jump that certifies a nullity; see
 bench/reports/precision-tune-a.csv.  With the precision floor at
 `FLOOR_EPS = 5` times `eps(T_compute)`:
 
-- Float64 (floor 1.1e-15): the null cluster sits at 1e-21..3e-16 relative, so
+- Float64 (floor 1.8e-15): the null cluster sits at 1e-21..6e-16 relative, so
   it is floored, and the first nonzero eigenvalue of the derivation operator
-  is 1.5e-4 (video shapes) to 8e-3 (sphere) relative.  Floored gaps are
-  1e11..1e13.
-- Float32 (floor 6.0e-7): the null cluster is 2e-9..2.4e-7 relative, likewise
-  under the floor, and the first nonzero is 1.6e-4..7.7e-3, giving floored
-  gaps of 270..1.3e4.
+  is 1.5e-4 (video shapes, and the sphere at d = 48) to 8e-3 (sphere at small
+  d) relative.  Floored gaps are 1e11..1e13.
+- Float32 (floor 9.5e-7): the null cluster is 2e-9..4.2e-7 relative, likewise
+  under the floor, and the first nonzero is 1.5e-4..7.7e-3, giving floored
+  gaps of 158..8100.
 - Float16 data computed in Float32: the null cluster is the same 5e-9..2.4e-7
   -- the rounding of Γ turns out not to raise it measurably -- so the gap is
   the same as Float32's.  What Float16 loses is not the gap but the right to
   believe the value above it; that is `data_floor`'s job, not this constant's.
 
 100 sits above every within-cluster ratio the floor does not already collapse,
-and at least 2.7x below the smallest measured true gap (270, video-40 in
-Float32).  It cannot be raised much: 1e3 would leave the Float32 video shapes
-uncertified.  Lowering it is what `FLOOR_EPS` was tuned to avoid needing.
+and 1.6x below the smallest measured true gap (158: the sphere at d = 48 in
+Float32).  That 1.6x is the whole of Float32's certification margin, and it is
+why `FLOOR_EPS` could not simply be raised to cover the null cluster more
+generously.  Raising `GAP_RATIO` is out of the question (1e3 uncertifies every
+Float32 case); LOWERING it to 30 would buy Float32 a 5x margin and is the next
+lever if the Float32 video pipeline needs one -- but it is calibrated against
+the Float64 within-cluster ratios in bench/reports/gap-verdict.md and should be
+re-measured there, not adjusted here.
 
 THE FLOOR IS NOT OPTIONAL, and one case in the sweep proves it.  On the
 valence-4 sphere at d = 6 in Float64, `ArpackSolver` returns
@@ -212,9 +247,9 @@ justifies believing it is `data_floor`'s question.
 
 | T | compute | `precision_floor` |
 |---|---|---|
-| Float64 | Float64 | 1.1e-15 |
-| Float32 | Float32 | 6.0e-07 |
-| Float16 | Float32 | 6.0e-07 |
+| Float64 | Float64 | 1.8e-15 |
+| Float32 | Float32 | 9.5e-07 |
+| Float16 | Float32 | 9.5e-07 |
 
 There is deliberately no dimension term; see `FLOOR_EPS` for the measurements
 that rule one out for these operators, and `rank_rtol` for the place where
@@ -232,9 +267,9 @@ about the numbers that were handed in, not about the arithmetic done to them.
 
 | T | `data_floor` | `precision_floor` | binding? |
 |---|---|---|---|
-| Float64 | 2.2e-16 | 2.2e-14 | no (100x below) |
-| Float32 | 1.2e-07 | 1.2e-05 | no (100x below) |
-| Float16 | 9.8e-04 | 1.2e-05 | YES (80x above) |
+| Float64 | 2.2e-16 | 1.8e-15 | no (8x below) |
+| Float32 | 1.2e-07 | 9.5e-07 | no (8x below) |
+| Float16 | 9.8e-04 | 9.5e-07 | YES (1000x above) |
 
 WHAT IT IS FOR.  It never places a cut.  It decides whether a cut may be
 CERTIFIED: a value that the solver returns above the cut is only evidence of a
@@ -272,9 +307,9 @@ actually resolve -- in Float32 the floor binds and `tol²` never takes effect.
 
 | T | `tol = 1e-6` | squared | note |
 |---|---|---|---|
-| Float64 | 1.0e-06 | 1.1e-15 | the caller's value; the floor is 9 decades below |
-| Float32 | 6.0e-07 | 6.0e-07 | the floor binds either way |
-| Float16 | 6.0e-07 | 6.0e-07 | Float32's floor -- `data_floor` carries the honesty limit |
+| Float64 | 1.0e-06 | 1.8e-15 | the caller's value; the floor is 9 decades below |
+| Float32 | 1.0e-06 | 9.5e-07 | the floor binds on the squared (Gram) map |
+| Float16 | 1.0e-06 | 9.5e-07 | Float32's floor -- `data_floor` carries the honesty limit |
 
 TUNED, NOT GUESSED.  Sweeping `tol` over 1e-3 .. 1e-9 on the sphere at
 valence 3 and 4, the video-shaped boxes and the near-degenerate case
