@@ -54,6 +54,7 @@ const CSV     = let a = filter(startswith("--csv="), ARGS); isempty(a) ? joinpat
 const CONFIGS = [
     ("AutoSolver",   (; method = :SylverLining, solver = :AutoSolver)),
     ("ArpackSolver", (; method = :SylverLining, solver = :ArpackSolver)),
+    ("KrylovSolver", (; method = :SylverLining, solver = :KrylovSolver)),
     ("SVDSolver",    (; method = :SylverLining, solver = :SVDSolver)),
     ("QuickDer",     (; method = :QuickDer)),
 ]

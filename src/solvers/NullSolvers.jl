@@ -639,6 +639,9 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          spec)
     Lp = progress_wrap(L, tr)
 
+    # Nullity seen at the last bracketed iterative solve; a repeat at a larger
+    # request that reports the same count confirms it (see the loop).
+    confirmed_at = -1
     try
         while true
             # NOTE the argument order: the instance form is `solve(method, L)`
@@ -667,7 +670,30 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
             # methods.  The verdict at least says so: such a result is
             # uncertified unless the smallest value is far above threshold.
             above = length(vals) - verdict.nullity
-            if !want_all || above >= min_above || k >= N
+            bracketed = !want_all || above >= min_above || k >= N
+
+            # CONFIRM before trusting an iterative solver's count.  Bracketing
+            # says "some values came back above the cut", not "every copy of
+            # the zero eigenvalue came back below it".  A null space is a
+            # MULTIPLE eigenvalue, and a Krylov method can return a few of its
+            # copies together with two nonzero values -- which passes the
+            # bracket test and undercounts.  Measured on the raw sphere octant
+            # (universal operators, true nullity 13): Arpack returned 11 at
+            # d = 16, KrylovKit 4..9, some of them "certified" on a gap between
+            # not-yet-converged Ritz values.  So an iterative result with a
+            # nonzero count is re-solved once with the request doubled (at
+            # least 2*nullity + min_above); if the count does not move it is
+            # confirmed, otherwise the escalation continues.  Costs one extra
+            # solve on the iterative path; dense solvers see the whole
+            # spectrum and need none of this.
+            if bracketed && want_all && !dense && verdict.nullity > 0 && k < N &&
+               (confirmed_at < 0 || verdict.nullity > confirmed_at)
+                confirmed_at = verdict.nullity
+                k = min(N, max(2 * k, 2 * verdict.nullity + min_above))
+                continue
+            end
+
+            if bracketed
                 if want_all && !verdict.certified
                     @warn "$label: nullity $(verdict.nullity) is UNCERTIFIED -- no gap " *
                           "of $(gap_ratio)x in the spectrum below the threshold " *

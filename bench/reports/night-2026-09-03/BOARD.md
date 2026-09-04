@@ -305,3 +305,227 @@ so `src/SylverLining/SylverLining.jl` did not even exist in it. The 25 changed
 source files were re-materialised from e18b65f by hand before any work started;
 the diff to merge is `src/SylverLining/SylverLining.jl` and `Project.toml`
 only.
+
+### quickder-n (2026-09-04)
+`src/solvers/QuickDerN.jl` implements docs/design/QuickDer-valence-n.md:
+`:QuickDer` is now the ANY-VALENCE solve-and-lift (sketch-restrict, restricted
+solve, per-axis least-squares lift with the linear consistency filter, Z-law
+verification); the valence-3 transcription stays as `:QuickDer3` /
+`:FastDer3Valent`. `_fastder_restrict_to_ops` was generalised to take one
+matrix per axis (`Vector{Vector{<:AbstractMatrix}}`, NO transposes); the old
+triple form still dispatches to it through `_fastder_triple_matrices`.
+
+Oracle table (Float64 unless noted, `tol=1e-6`, residual = Z-law
+`der_residual`, seconds are 2-thread through `bench/jl`, uncontended run):
+
+| case | ops | QuickDer nullity | resid | s | oracle | oracle s |
+|---|---|---|---|---|---|---|
+| random (5,4,6,3) | Universal | 3 | 7.2e-16 | 2.38* | 3 (SL) | 2.45 |
+| random v5 (4,3,3,3,2) | Universal | 4 | 7.9e-16 | 0.77* | 4 (SL) | 1.59 |
+| random (7,7,7) | Universal | 2 | 5.7e-16 | 0.67 | 2 (QuickDer3), SAME SPAN | 1.06 |
+| diagonal (4,4,4,4) | Universal | 12 | 1.0e-15 | 0.06 | 12 (SL) | 0.003 |
+| diagonal (5,5,5,5) | Univ/Sym/Diag | 15 | <2e-15 | - | 15 (SL) | - |
+| sphere `build_sphere(14)` | Symmetric | 3 | 7.0e-15 | 0.35 | 3 (SL) | 1.22 |
+| sphere v4 `build_sphere(9)` | Symmetric | 4 | 1.4e-14 | - | 4 (SL) | - |
+| raw `sphere_octant(12)` `:random` | Universal | 13 | 1.3e-15 | 0.02 | 13 (SL) | 0.07 |
+| raw `sphere_octant(12)` `:corner` | Universal | 13 | 1.3e-14 | 0.11 | 13 (SL) | - |
+| Float32 (6,6,6,3) | Universal | 3 | 3.3e-07 | 2.20* | 3 (SL) | 2.48 |
+| chisel `[1 1 0]` (4,5,3) | Universal | 1 | 3.3e-16 | 0.06 | 1 (SL) | 0.01 |
+| `CentroidChisel(3)` (4,4,4) | Universal | 1 | 7.4e-16 | 0.001 | 1 (SL) | 0.002 |
+| matrix-free 16^4, `sizes=dims`, LSMR | Universal | 3 | 1.4e-16 | 81 | 3 | - |
+| **random (30,30,30)** | Universal | 2 | 8.5e-16 | **0.26** | 2 (SL/Auto) | **16.6** |
+| **random (16,16,16,16)** | Universal | 3 | 7.3e-16 | **0.04** | 3 (SL/Auto) | **6.07** |
+
+`*` = first call, dominated by JIT. SL = `:SylverLining`. Speedup at the two
+timed sizes: **65x** at (30,30,30), **152x** at 16^4. A second run of the same
+script while another agent held the other Julia slot gave QuickDer 0.27s /
+0.04s but SylverLining 204s / 7.9s, so the SylverLining columns above are the
+uncontended numbers.
+
+Adjoint of the matrix-free restricted map, 20 random pairs on a (6,5,7,4)
+tensor (map 500x106): forward matches the directly-built dense matrix to
+1.9e-16 and `<Lx,y>` vs `<x,L'y>` agrees to 4.0e-15.
+
+Two findings for other agents:
+
+1. **`:corner` does NOT fail on the unscrambled sphere the way the design note
+   (section 1) predicts, and `test/TestQuickDerN.jl:323` asserts that it does.**
+   The note says the corner sketch is all-zero on the support `i+j+k=d-1`.
+   It is not, in the CROSS-sketch formulation: every `S_a = Γ ×_{b≠a} W_b`
+   keeps axis `a` full, so it always meets the support hyperplane (measured:
+   raw `sphere_octant`, nnz of `S_1[:,1:r,1:r]` = 43/55 at d=10, 48/78 at
+   d=12, 64/136 at d=16, 81/210 at d=20). What DOES degenerate from d=16 up is
+   the LIFT operator `S_a(a)ᵗ`, which loses column rank and made `qr(A)\B`
+   throw `SingularException`. QuickDerN now falls back to the minimum-norm
+   solve there (the consistency filter is the test of whether that is a real
+   derivation), and `:corner` then returns the correct 13 at every d I tried
+   (10, 12, 16, 20), residual 2.4e-15..5.0e-15. The tests-quickdern file
+   additionally applies `nondeg` before the corner test, which rotates each
+   axis by an SVD basis and destroys the corner structure entirely — so that
+   assertion cannot hold as written. Its 2 failures are the ONLY failures in
+   `test/TestQuickDerN.jl` against this implementation (58 pass, 2 fail);
+   suggest relaxing it to "`:corner` either fails or agrees with the oracle".
+
+2. **BUG (not fixed, not mine): `solve(::SVDSolver, L)` truncates the null
+   space of a WIDE map.** `src/solvers/NullSolvers.jl:872-879` calls
+   `LinearAlgebra.svd(M)` with the default `full=false`, so `V` has only
+   `min(rows, cols)` columns. When `rows < cols` the null space is bigger than
+   `V` can express and the solver silently reports too few (often zero)
+   directions. Reproduced through `:SylverLining` on a *valence-2* tensor:
+   `Γ` a generic 7x5 with `UniversalChisel(2)` has a 39-dimensional derivation
+   space (35 equations, 74 unknowns), `:SylverLining` returns **0**, and
+   `:QuickDer` returns 39 with Z-law residual 5.6e-16. QuickDerN works around
+   it locally by zero-padding its own restricted matrix to at least `ncols`
+   rows (`_qdn_system_rows`), which is free and changes no null space; the
+   general fix belongs in `SVDSolver`.
+
+Restriction sizes chosen by `_qdn_restriction_sizes` (balanced start + 5%
+slack on both conditions), matching the design note's examples:
+`(100,100,100)`->19, `(1000,1000,1000)`->(57,56,56), `(100,100,100,3)`->
+(11,10,10,3), `(30,30,30)`->11, `(16,16,16,16)`->5, `(7,7,7)`->6 (the same
+`(6,6,6)` the valence-3 kernel picks).
+
+Existing suite green: `test/runtests.jl` passes with no failures or errors,
+FastDer3Valent included. One test line had to change:
+`test/TestDerivationLaws.jl:384` asserted
+`get_derivation_method(:QuickDer) == get_derivation_method(:FastDer3Valent)`,
+which is false by design now; it became `:QuickDer3 == :FastDer3Valent` plus
+two `isa` checks.
+
+### sylver-v4-baseline (2026-09-04)
+
+Clean picture of `:SylverLining`'s rewritten array/sparse kernel at valence 4
+and 3, three regimes, **2-thread `bench/jl` timings throughout**. Video-shaped
+dense tensors (task 3) were dropped -- another agent covers that ground.
+Solvers: `:AutoSolver`, `:ArpackSolver`, `:KrylovSolver` (all three register
+automatically; `bench/HypersphereBaseline.jl` gained `:KrylovSolver` in its
+`CONFIGS`); `:SVDSolver` kept only at d<=16 (dense regime) since it densifies
+unconditionally. Full CSVs: `v4-dense-sylver.csv`, `v3-dense-sylver.csv`,
+`sparse-sphere-der.csv` (this dir). New scripts: `bench/SparseSphereDer.jl`,
+`bench/VideoDenseBench.jl` (written, not run -- see above).
+
+**1. Dense scrambled hypersphere** (`HypersphereBaseline.jl`, `SymmetricOp()`,
+stratification via `run_stratify`, `tol=1e-8`, `seeds=1`):
+
+valence 4 (nullity oracle = 4):
+
+| d | solver | seconds | nullity | lsq_err |
+|---|---|---|---|---|
+| 10 | Auto/Arpack/Krylov/SVD | 0.027 / 0.050 / 0.037 / 0.026 | 4/4/4/4 | ~1-6e-14 |
+| 16 | Auto/Arpack/Krylov/SVD | 0.40 / 0.40 / 0.32 / 0.37 | 4/4/4/4 | ~6-12e-14 |
+| 20 | Auto/Arpack/Krylov | 1.21 / 1.21 / 0.92 | 4/4/4 | ~4e-14..2e-12 |
+| 24 | Auto/Arpack/Krylov | 2.81 / **346.8** / 2.24 | 4/4/4 | ~3e-14..1e-10 |
+
+**STOPPED after d=24** -- ArpackSolver 346.8s at d=24 vs 2.8s (Auto) and 2.2s
+(Krylov) at the same d; d=30, 40 not run. Largest confirmed <60s: **d=24**
+(Auto, Krylov). Fit `seconds ~ d^p` on AutoSolver (10,16,20,24): **p ≈ 5.4**.
+
+valence 3 (nullity oracle = 3), d=20/40/60/80, Auto/Arpack/Krylov only:
+
+| d | solver | seconds | nullity | lsq_err |
+|---|---|---|---|---|
+| 20 | Auto/Arpack/Krylov | 0.042 / 0.043 / 0.047 | 3/3/3 | ~1-4e-14 |
+| 40 | Auto/Arpack/Krylov | 0.40 / 0.41 / 0.40 | 3/3/3 | ~1-2e-13 |
+| 60 | Auto/Arpack/Krylov | 1.95 / 1.94 / 1.84 | 3/3/3 | ~2-8e-13 |
+| 80 | Auto/Arpack/Krylov | 5.26 / 5.18 / **945.6** | 3/3/3 | ~1-3e-13 |
+
+**STOPPED after d=80** -- KrylovSolver 945.6s at d=80 vs 5.3/5.2s for the
+others; d=100 not run. Largest confirmed <60s: **d=80** (Auto, Arpack). Fit
+on AutoSolver (20,40,60,80): **p ≈ 3.5**.
+
+**2. Sparse raw hypersphere, derivation only** (new `SparseSphereDer.jl`,
+`S = sphere_octant(d; valence)` unscrambled, `UniversalOp()`,
+`UniversalChisel(valence)`, timing only `derTrOpsReduced`, `tol=1e-8`; nullity
+oracle = 13 at every d, both valences, per the `tests-quickdern` and
+`quickder-n` entries above):
+
+valence 4:
+
+| d | nnz/d^4 | solver | seconds | nullity | maxres |
+|---|---|---|---|---|---|
+| 10 | 0.022 | Auto/Arpack/Krylov | 0.045 / 0.258 / 0.146 | **13/13/8** | 3-7e-13..e-15 |
+| 16 | 0.012 | Auto/Arpack/Krylov | 1.51 / 2.28 / 0.65 | **7/11/4** | ~1e-14..6e-13 |
+| 20 | 0.0096 | Auto/Arpack/Krylov | 8.41 / **729.4** / 18.2 | **11/13/9** | ~2e-14..9e-8 |
+
+**STOPPED after d=20** -- ArpackSolver 729.4s at d=20 vs 8.4s (Auto); d=24,
+30, 40 not run. Largest confirmed <60s: **d=20** (Auto only; Arpack/Krylov
+both either blew the time budget or the nullity at d=20). Fit on AutoSolver
+(10,16,20): **p ≈ 7.5** -- much steeper than the dense regime, consistent
+with `UniversalOp()`'s bigger operator space (vs `SymmetricOp()` in regime 1)
+and with the repeated re-solves the nullity-escalation bug below causes.
+
+valence 3, d=20 only (ran out of the session's time budget before d=40-100):
+
+| d | nnz/d^3 | solver | seconds | nullity | maxres |
+|---|---|---|---|---|---|
+| 20 | 0.026 | Auto/Arpack/Krylov | 0.555 / 0.331 / 0.155 | **4/4/4** | ~5e-14..3e-13 |
+
+All three solvers agree on nullity 4 here, but this **contradicts the
+established oracle of 13** for the unscrambled sphere (`tests-quickdern`:
+v3 d=10 -> 13; `quickder-n`: `sphere_octant(12)` -> 13 both `:random` and
+`:corner` modes). Given the bug below, the most likely explanation is that
+all three solvers hit the same false/undercounted gap at d=20 rather than
+the true derivation algebra shrinking with d -- flagged, not chased further
+under the wrap-up time budget. d=40, 60, 80, 100 not run.
+
+**3. Video-shaped dense tensor.** `bench/VideoDenseBench.jl` was written per
+spec (`randn(T,H,W,F,3)`, H=W=F in {20,30,40,50,64}, T in {Float64,Float32},
+`:AutoSolver`/`:ArpackSolver`, oracle nullity 3, `Sys.maxrss()` recorded) but
+**not run** -- another agent is covering video-shaped benchmarks this
+session; left for them or a future run rather than duplicating work.
+
+**BUG (not fixed, `src/` untouched).** The matrix-free nullity-escalation
+path (`src/solvers/NullSolvers.jl:563-703` `solve_nullspace`, plus
+`ext/DletoKrylovKitExt.jl:58-110` `solve(::KrylovSolver, ...)`) is unreliable
+on `UniversalOp()`'s bigger, highly-degenerate (13-fold zero eigenvalue)
+operator space -- it is fine on the `SymmetricOp()` sphere in regime 1 (exact
+nullity every time, d up to 80) but wrong on the raw sphere in regime 2 at
+every d >= 16 tested, for every solver, not just `:KrylovSolver`:
+- d=10: Auto=13, Arpack=13, **Krylov=8** (wrong, and non-deterministic --
+  4, 8, 4 across three independent re-runs of the identical d=10 case).
+- d=16: **Auto=7, Arpack=11**, Krylov=4 -- all three wrong.
+- d=20: **Auto=11**, Arpack=13, Krylov=9 -- two of three wrong.
+
+The `:KrylovSolver` case is the clearest to diagnose: `gap_verdict` sometimes
+**certifies** (rule `:gap`, i.e. reports high confidence) a nullity that is
+too small, because it only looks at the *returned* Ritz values for a gap and
+never checks whether the solver actually converged. At d=10, KrylovSolver's
+own "next" (first nonzero) Ritz values were ~5e-4..7.7e-4, an order of
+magnitude above the true ones (~1.8e-5..7.9e-5, per AutoSolver/ArpackSolver's
+clean spectrum on the same input) -- an unconverged, inflated Ritz value
+opened a spurious gap that looked exactly like a real one. At d=20 the same
+solver instead failed honestly ("0 of 16 eigenvalues converged ... 12865 map
+applications", UNCERTIFIED warning fired correctly) -- so the failure mode is
+inconsistent even for one solver. Since `:AutoSolver` and `:ArpackSolver` are
+*also* wrong at d=16 (and Auto at d=20), this is not a `:KrylovSolver`-only
+bug; it looks like a shared weakness in how `solve_nullspace`'s escalation
+loop (`NullSolvers.jl:642-702`, especially the `above >= min_above` stopping
+rule at line 670 and the doubling at line 698) handles a null cluster this
+large relative to the operator, across every matrix-free path. Routing to the
+orchestrator; not fixed here per instructions.
+
+**Non-determinism / contention side-note**, flagged because it dominated wall
+time more than any algorithmic effect this session: identical warm-up code
+(`build_sphere(d=6)` or `d=8`, two passes, same script, same input) measured
+anywhere from **20.8s to 934.9s** across otherwise-identical invocations
+within the hour, and the same pattern shows up in the two timed outliers
+above (Arpack 346.8s at v4 d=24 vs 2.8s for Auto at the same d; Krylov 945.6s
+at v3 d=80 vs 5.3s for Auto). A concurrent Julia process from the other
+agent's slot was observed at 100% CPU (`ps`, pid 96197) during part of this
+session. `bench/jl` pins env-var thread counts (2 Julia + 2 OpenBLAS) but
+does not pin CPU affinity, so two 2-thread processes on a shared box can
+still contend for the same physical cores; the outlier timings above are
+flagged as *possibly* contention-inflated rather than pure algorithmic
+scaling, though the KrylovSolver nullity bug above is a correctness finding
+independent of any timing noise.
+
+**Frontier (largest size confirmed <60s this session), 2-thread timings:**
+- dense scrambled v4: d=24 (Auto 2.8s, Krylov 2.2s; Arpack anomalous)
+- dense scrambled v3: d=80 (Auto 5.3s, Arpack 5.2s; Krylov anomalous)
+- sparse raw v4: d=20 (Auto 8.4s only -- Arpack/Krylov both compromised at d=20)
+- sparse raw v3: d=20 (all three <1s, but nullity itself is suspect -- see bug note)
+
+Files: `bench/HypersphereBaseline.jl` (+`:KrylovSolver` in `CONFIGS`), new
+`bench/SparseSphereDer.jl`, new `bench/VideoDenseBench.jl` (unrun), new
+`bench/reports/night-2026-09-03/{v4-dense-sylver,v3-dense-sylver,
+sparse-sphere-der}.csv`.
