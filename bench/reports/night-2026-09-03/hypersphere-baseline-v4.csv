@@ -1,0 +1,18 @@
+# timings are 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads)
+d,seed,valence,solver,seconds,bytes,nullity,lsq_err,status
+8,8,4,AutoSolver,0.028795,96837472,4,2.908920e-13,"ok"
+8,8,4,ArpackSolver,0.000325,66544,0,NaN,"error: KeyError: key :ArpackSolver not found"
+8,8,4,SVDSolver,0.026338,96829936,4,1.599961e-14,"ok"
+8,8,4,QuickDer,0.000211,1248,0,NaN,"error: FastDer3ValentMethod currently supports only valency-3 tensors."
+10,10,4,AutoSolver,0.101507,322140304,4,1.027421e-14,"ok"
+10,10,4,ArpackSolver,0.000307,66544,0,NaN,"error: KeyError: key :ArpackSolver not found"
+10,10,4,SVDSolver,0.092555,322132768,4,2.485248e-14,"ok"
+10,10,4,QuickDer,0.000208,1248,0,NaN,"error: FastDer3ValentMethod currently supports only valency-3 tensors."
+12,12,4,AutoSolver,0.302834,869921568,4,4.809608e-14,"ok"
+12,12,4,ArpackSolver,0.000318,66544,0,NaN,"error: KeyError: key :ArpackSolver not found"
+12,12,4,SVDSolver,0.294414,869914032,4,1.648135e-14,"ok"
+12,12,4,QuickDer,0.000221,1248,0,NaN,"error: FastDer3ValentMethod currently supports only valency-3 tensors."
+16,16,4,AutoSolver,2.062127,4229701104,4,2.799113e-14,"ok"
+16,16,4,ArpackSolver,0.000341,66768,0,NaN,"error: KeyError: key :ArpackSolver not found"
+16,16,4,SVDSolver,2.000847,4229567280,4,6.489603e-14,"ok"
+16,16,4,QuickDer,0.000216,1248,0,NaN,"error: FastDer3ValentMethod currently supports only valency-3 tensors."

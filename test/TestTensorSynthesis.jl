@@ -11,7 +11,7 @@ function testNorm(deltas::Vector{<:Vector{<:Number}}, ch::Matrix, num::Integer) 
         @assert rnorm > 0.1 "Warning Norm of random tnesor too small"
 
         l2normIT = (IT*IT).tensor[]
-        fch = ChiselFramed(ch, vcat(frame...))
+        fch = Chisel(ch, vcat(frame...))
         deltas_as_it = [ 
                             ITensor(
                                 LinearAlgebra.Diagonal(deltas[i]), 

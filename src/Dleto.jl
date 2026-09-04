@@ -32,6 +32,14 @@ module Dleto
 # Linear Algebra libraries
 import LinearAlgebra
 import ITensors
+# KrylovKit and IterativeSolvers are hard dependencies whose solver extensions
+# (DletoKrylovKitExt, DletoIterativeSolversExt) only activate once the trigger
+# package is loaded.  Loading them here means :KrylovSolver, :LanczosSolver,
+# :CGSolver and :LSMRSolver are always registered, so `AutoSolver` sees the
+# matrix-free solvers it was tuned with instead of falling back to a dense SVD.
+# Arpack stays a weak dependency: `using Arpack` adds :ArpackSolver.
+import KrylovKit
+import IterativeSolvers
 
 # # Plotting libraries
 # import Plots
@@ -52,7 +60,11 @@ include("DletoBase.jl")
 
 # Fundamental Dleto Structures
     # Chisels
-    include("Chisels.jl")   
+    include("Chisels.jl")
+    # The Chisel type itself is fundamental -- Densors.jl annotates against it,
+    # and annotations are evaluated at definition time -- so it is included
+    # here rather than down in the implementations section.
+    include("chisels/ChiselImpls.jl")
     # Operator
     include("Operators.jl")
     # Transverse Operators
@@ -63,16 +75,22 @@ include("DletoBase.jl")
     include("Densors.jl")
 
 # Implementations
-    # Chisel Implementations
-    include("chisels/ChiselImpls.jl")
-    # Operator Implementations 
+    # Operator Implementations
     include("ops/OperatorImpls.jl")
     # Transverse Operator Implementations
     include("ops/TransverseOpsIndependant.jl")
     include("ops/TransverseOpsSymmetries.jl")
     # Sylver Lining Derivation Method
-    include("SylverLining/SylverLininig.jl")
-    # [COMING SOON] QuickSylver
+    include("SylverLining/SylverLining.jl")
+    # Fast derivation strategy (3-valent, universal setup) -- the reference oracle
+    include("solvers/FastDer3Valent.jl")
+    # QuickDer: the same solve-and-lift generalised to any valence
+    include("solvers/QuickDerN.jl")
+    # AutoDer: QuickDer when the setting allows it, SylverLining otherwise
+    include("solvers/AutoDer.jl")
+    # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels
+    include("solvers/QuickSylver.jl")
+    include("solvers/SolverProgress.jl")
     include("solvers/NullSolvers.jl")
 
 # Supporting Utilities

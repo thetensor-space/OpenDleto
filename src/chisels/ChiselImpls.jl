@@ -25,17 +25,23 @@
 #-----------------------------------------------------------------------------
 
 """
-    Framed Chisels
+    Chisel
 
-    Chisels with axis represented as ITensors.Index
+    A chisel carrying its frame: the coefficient matrix `ch` together with the
+    `Index` terms its columns refer to, an `Index -> column` lookup, and the
+    chisel axis.
 
+    Renamed from `ChiselFramed`.  This is the type the refactor grows into the
+    full `(𝕋, Ω, P)` setting of docs/review/Refactor-Plan.md section 1 -- the
+    `Ω` (operator restriction) and `𝕋` (tensor space) slots are not here yet,
+    so today it is still just `P` plus a frame.
 """
-struct ChiselFramed
+struct Chisel
     ch ::AbstractMatrix{<:Number}
     frames ::Vector{Index{K}} where K
     idx ::Dict{Index,Integer}
     ch_axis ::Index
-    ChiselFramed(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K, ch_axis::Index) = (
+    Chisel(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K, ch_axis::Index) = (
         val=length(frames);
         @assert size(P,2)== val "Incompatible sizes";
         @assert size(P,1) == ITensors.dim(ch_axis) "Incompatable chisel axis";
@@ -48,24 +54,31 @@ struct ChiselFramed
     )
 end;
 
-ChiselFramed(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
-    ChiselFramed(P,frames, Index(size(P, 1), "chisel"));
+Chisel(P::AbstractMatrix{<:Number}, frames ::Vector{Index{K}} where K) = 
+    Chisel(P,frames, Index(size(P, 1), "chisel"));
 
 
-function reduceByEngaged(FCh::ChiselFramed, engaged::Vector{Bool})::ChiselFramed
+# NOTE: both of these were dead on arrival -- the first referenced an
+# undefined `Fch`, the second an undefined `enggaged`.  Neither has a caller,
+# so fixing the typos changes nothing observable; it just makes the intended
+# behaviour reachable.  They are repaired rather than deleted because this
+# type is what Phase 1 grows into the full chisel.
+#
+# `FCh` in the signatures below is left over from the `ChiselFramed` name;
+# not renamed here to keep this commit a pure rename.
+function reduceByEngaged(FCh::Chisel, engaged::Vector{Bool})::Chisel
     @assert length(FCh.frames)==length(engaged) "Incompatable data"
-    return ChiselFramed(FCh.ch[:,engaged],Fch.frames[engaged], FCh.ch_axis)
+    return Chisel(FCh.ch[:,engaged], FCh.frames[engaged], FCh.ch_axis)
 end
 
-function reduceByEngaged(FCh::ChiselFramed, engaged::Dict{Index,Bool})::ChiselFramed
-    @assert all(FCh.frames .|> (i -> haskey(enggaged,i)))== true  "Incompatable data"
+function reduceByEngaged(FCh::Chisel, engaged::Dict{Index,Bool})::Chisel
+    @assert all(FCh.frames .|> (i -> haskey(engaged,i)))== true  "Incompatable data"
     eng = [ engaged[FCh.frames[i]] for i=1:length(FCh.frames)]
     return reduceByEngaged(FCh, eng)
 end
 
-function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::ChiselFramed )::ITensor
+function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::Chisel )::ITensor
     @assert all(Xes .|> (x ->ndims(x) == 2) ) == true "all Xes must have valancy 2"
-    @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
     @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
     @assert all(FCh.frames .|> i -> i in inds(Γ )) == true "Γ misses some indexes"
     Γ_frame_ch = (FCh.ch_axis, inds(Γ)...)

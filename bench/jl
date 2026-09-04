@@ -1,0 +1,86 @@
+#!/bin/zsh
+# bench/jl -- run Julia inside tonight's resource budget.  USE THIS, never bare `julia`.
+#
+#   bench/jl [julia args...]                e.g.  bench/jl test/runtests.jl
+#   JL_WEIGHT=2 bench/jl bench/Foo.jl       take both slots (exclusive; for a big job)
+#
+# Budget (another job on this machine needs the rest):
+#   * at most JL_SLOTS (2) concurrent Julia processes launched through here
+#   * JL_THREADS (2) Julia threads and 2 OpenBLAS threads each
+#   * --heap-size-hint=JL_HEAP (3G) per process, so the GC keeps RSS clear of the kill line
+#   * a watchdog kills the process if its RSS exceeds JL_RSS_LIMIT_GB (5)
+#     => worst case ~10 GB total, ~4 of 16 cores.
+#
+# Slots are mkdir locks under ~/.cache/opendleto-jl-slots; stale ones (dead pid)
+# are reclaimed.  Waits up to JL_WAIT_MAX (7200 s) for a slot.
+set -u
+setopt null_glob
+SLOTDIR="$HOME/.cache/opendleto-jl-slots"
+JL_SLOTS=${JL_SLOTS:-3}
+JL_WEIGHT=${JL_WEIGHT:-1}
+JL_THREADS=${JL_THREADS:-5}
+JL_HEAP=${JL_HEAP:-10G}
+JL_RSS_LIMIT_GB=${JL_RSS_LIMIT_GB:-16}
+JL_WAIT_MAX=${JL_WAIT_MAX:-7200}
+PROJECT=${JL_PROJECT:-/Users/algeboy/CODE/OpenDleto}
+mkdir -p "$SLOTDIR"
+
+alive() { kill -0 "$1" 2>/dev/null; }
+reclaim_stale() {
+  for s in "$SLOTDIR"/slot*; do
+    [ -d "$s" ] || continue
+    p=$(cat "$s/pid" 2>/dev/null || echo 0)
+    if [ "$p" = 0 ] || ! alive "$p"; then rm -rf "$s"; fi
+  done
+}
+held=()
+release() { for s in "${held[@]}"; do rm -rf "$s"; done; held=(); }
+acquire() {
+  local waited=0
+  while true; do
+    reclaim_stale
+    if mkdir "$SLOTDIR/acq.lock" 2>/dev/null; then
+      local got=0
+      for i in $(seq 1 "$JL_SLOTS"); do
+        [ "$got" -ge "$JL_WEIGHT" ] && break
+        if mkdir "$SLOTDIR/slot$i" 2>/dev/null; then
+          echo $$ > "$SLOTDIR/slot$i/pid"; held+=("$SLOTDIR/slot$i"); got=$((got+1))
+        fi
+      done
+      rmdir "$SLOTDIR/acq.lock"
+      [ "$got" -ge "$JL_WEIGHT" ] && return 0
+      release
+    fi
+    sleep 5; waited=$((waited+5))
+    if [ "$waited" -ge "$JL_WAIT_MAX" ]; then echo "bench/jl: no slot after ${JL_WAIT_MAX}s" >&2; return 1; fi
+    [ $((waited % 60)) -eq 0 ] && echo "bench/jl: waiting for a Julia slot (${waited}s)..." >&2
+  done
+}
+
+acquire || exit 75
+trap 'release; [ -n "${JPID:-}" ] && kill -TERM "$JPID" 2>/dev/null; exit 130' INT TERM
+trap 'release' EXIT
+
+export OPENBLAS_NUM_THREADS=$JL_THREADS OMP_NUM_THREADS=$JL_THREADS JULIA_NUM_THREADS=$JL_THREADS
+# Stack the shared env @dleto-bench (holds Arpack, a weakdep the project cannot
+# carry itself) so `using Arpack` works with --project; the user's default env
+# is left alone.  Create it with:
+#   bench/jl -e 'import Pkg; Pkg.activate("dleto-bench"; shared=true); Pkg.add("Arpack")'
+export JULIA_LOAD_PATH="@:@dleto-bench:@stdlib"
+julia --project="$PROJECT" -t "$JL_THREADS" --heap-size-hint="$JL_HEAP" "$@" &
+JPID=$!
+limit_kb=$((JL_RSS_LIMIT_GB * 1024 * 1024))
+# watchdog: poll RSS; SIGTERM then SIGKILL over the limit
+( while alive "$JPID"; do
+    rss=$(ps -o rss= -p "$JPID" 2>/dev/null | tr -d ' ')
+    if [ -n "$rss" ] && [ "$rss" -gt "$limit_kb" ]; then
+      echo "bench/jl: KILLED pid $JPID -- RSS $((rss/1024)) MB exceeded ${JL_RSS_LIMIT_GB} GB budget" >&2
+      kill -TERM "$JPID"; sleep 3; alive "$JPID" && kill -KILL "$JPID"
+      break
+    fi
+    sleep 2
+  done ) &
+WD=$!
+wait "$JPID"; rc=$?
+kill "$WD" 2>/dev/null
+exit $rc

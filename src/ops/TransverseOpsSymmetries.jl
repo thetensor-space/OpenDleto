@@ -99,7 +99,9 @@ TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:Opera
 #same localOp on each axis
 TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::Operator,symmetries ::Vector{<:Integer}) = 
     TransverseOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
-TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator) = 
+# `symmetries` used to be missing from this signature, so the body referenced
+# an undefined variable and every call was an UndefVarError.  No caller existed.
+TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator, symmetries ::Vector{<:Integer}) = 
     TransverseOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
 
 
@@ -116,7 +118,7 @@ frames(GΩ::TransverseOpsSymmetries) = GΩ.frames
 framesTemporary(GΩ::TransverseOpsSymmetries) = GΩ.framesTemp
 
 
-unsafe_embedMatrices(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix} = 
+unsafe_embedMatrices(GΩ::TransverseOpsSymmetries, data::AbstractVector{<:Number} ) ::Vector{<:AbstractMatrix} = 
     [   GΩ.duals[i] ? 
             transpose(unsafe_embed(
                 GΩ.localOps[i],
@@ -131,7 +133,7 @@ unsafe_embedMatrices(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Ve
         for i=1:GΩ.val
     ];
 
-unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Vector{<:ITensor} = 
+unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::AbstractVector{<:Number} ) ::Vector{<:ITensor} = 
     [ ITensor(
         GΩ.duals[i] ? 
             # without matrix ITensor messes up the encoding
@@ -144,12 +146,34 @@ unsafe_embedITensors(GΩ::TransverseOpsSymmetries, data::Vector{<:Number} ) ::Ve
                 GΩ.localOps[i],
                 GΩ.axisDims[i],
                 data[GΩ.soffsets[i]:GΩ.eoffsets[i]]),
-        GΩ.frames[i],GΩ.framesTemp[i] ) 
+        GΩ.frames[i],GΩ.framesTemp[i] )
+    for i=1:GΩ.val
+    ];
+
+# The swapped orientation.  This was missing entirely: IndTransverseOps has it
+# (TransverseOpsIndependant.jl:102) and the symmetries version fell through to
+# the abstract placeholder, which asserts.  `sylvesterLM` applies this
+# embedding inside `ester`, so no derivation could be solved with
+# symmetry-restricted operators at all -- construction and plain embedding
+# worked, solving did not.
+unsafe_embedITensorsSwapped(GΩ::TransverseOpsSymmetries, data::AbstractVector{<:Number} ) ::Vector{<:ITensor} =
+    [ ITensor(
+        GΩ.duals[i] ?
+            Matrix(transpose(unsafe_embed(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]
+            ))) :
+            unsafe_embed(
+                GΩ.localOps[i],
+                GΩ.axisDims[i],
+                data[GΩ.soffsets[i]:GΩ.eoffsets[i]]),
+        GΩ.framesTemp[i],GΩ.frames[i] )
     for i=1:GΩ.val
     ];
 
     #rewrote to avoid loops
-unsafe_transposeEmbed(GΩ::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} = 
+unsafe_transposeEmbed(GΩ::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatrix}) :: AbstractVector{<:Number} = 
     vcat( 
         [ 
             [ unsafe_transposeEmbed(
@@ -160,11 +184,11 @@ unsafe_transposeEmbed(GΩ::TransverseOpsSymmetries, Mats::Vector{<:AbstractMatri
         for i=1:GΩ.val if GΩ.syms[i]==i ] ...
     ); 
 
-unsafe_coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} =
+unsafe_coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: AbstractVector{<: Number} =
     vcat([ unsafe_coordinates(GΩ.localOps[i], Mats[i])  for i=1:GΩ.val if GΩ.syms[i]==i  ]...);
 
 
-function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing}
+function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatrix} ) :: Union{AbstractVector{<:Number}, Nothing}
     all([size(Mats[i])[1] == GΩ.axisDims[i] for i=1:GΩ.val]) || return nothing
     res= [coordinates(GΩ.localOps[i], GΩ.duals[i] ? Matrix(transpose(Mats[i])) : Matrix(Mats[i])) for i=1:GΩ.val]
     any(res .|> isnothing) && return nothing
@@ -173,7 +197,8 @@ function coordinates(GΩ::TransverseOpsSymmetries, Mats::Vector{<: AbstractMatri
 end;
 
 #Not Finished
-function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap}
+function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool},
+                         ::Type{T}=Float64)::Tuple{TransverseOps, LinearMaps.LinearMap} where {T}
     val=GΩ.val
     syms=GΩ.syms
     duals=GΩ.duals
@@ -199,7 +224,7 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
             GΩ.frames[engaged], GΩ.framesTemp[engaged], GΩ.localOps[engaged], 
             rsyms,rduals) 
     # end 
-    function expand(rdata::Vector{<:Number})::Vector{<:Number}
+    function expand(rdata::AbstractVector{<:Number})::AbstractVector{<:Number}
         edata=zeros(eltype(rdata), GΩ.globalDim)
         for i= 1: length(c_idx)
             edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ] = 
@@ -212,7 +237,7 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
         end;
         return edata
     end;
-    contract(edata::Vector{<:Number})::Vector{<:Number} = 
+    contract(edata::AbstractVector{<:Number})::AbstractVector{<:Number} = 
         vcat(
                 [ 
                     c_twist[i] ? 
@@ -223,5 +248,5 @@ function reduceByEngaged(GΩ::TransverseOpsSymmetries, engaged::Vector{Bool})::T
                         edata[GΩ.soffsets[c_idx[i]]:GΩ.eoffsets[c_idx[i]] ] 
                 for i= 1: length(c_idx)]...
             ); 
-    return (rΩ, LinearMaps.LinearMap(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
+    return (rΩ, LinearMaps.LinearMap{T}(expand, contract, GΩ.globalDim, rΩ.globalDim; ismutating=false) )
 end;

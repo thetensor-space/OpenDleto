@@ -1,0 +1,50 @@
+== 1. Pure Float16
+10,build_sphere,-,NaN,0,NaN,"ok eltype=Float16"
+10,map_apply,-,0.0002,0,NaN,"ok eltype(L*v)=Float16"
+10,stratify,SVDSolver,0.730,0,NaN,"error: no nontrivial derivations"
+10,stratify,ArpackSolver,1.345,0,NaN,"error: MethodError: no method matching saupd(::Base.RefValue{Int64}, ::String, ::Int64, ::String, ::Int64, ::Base.RefValue{Float16}, ::Vector{Float16}, ::Int64, ::Matrix{Float16}, ::Int64, ::Vector{Int64}, ::Vector{Int64}, ::Vector{Float16}, ::Vector{Float16}, ::Int64, ::Base.RefValue{Int64})"
+10,stratify,KrylovSolver,1.836,0,NaN,"error: MethodError: no method matching hschur!(::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}, ::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false})"
+10,stratify,CGSolver,2.742,0,NaN,"error: MethodError: no method matching eigen!(::Hermitian{Float16, SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}})"
+20,build_sphere,-,NaN,0,NaN,"ok eltype=Float16"
+20,map_apply,-,0.0003,0,NaN,"ok eltype(L*v)=Float16"
+20,stratify,SVDSolver,0.248,0,NaN,"error: no nontrivial derivations"
+20,stratify,ArpackSolver,0.011,0,NaN,"error: MethodError: no method matching saupd(::Base.RefValue{Int64}, ::String, ::Int64, ::String, ::Int64, ::Base.RefValue{Float16}, ::Vector{Float16}, ::Int64, ::Matrix{Float16}, ::Int64, ::Vector{Int64}, ::Vector{Int64}, ::Vector{Float16}, ::Vector{Float16}, ::Int64, ::Base.RefValue{Int64})"
+20,stratify,KrylovSolver,0.021,0,NaN,"error: MethodError: no method matching hschur!(::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}, ::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false})"
+20,stratify,CGSolver,0.037,0,NaN,"error: MethodError: no method matching eigen!(::Hermitian{Float16, SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}})"
+== 2. Map application time per element type, d = 20
+20,Float64,630,0.00022,1125272
+20,Float32,630,0.00023,701448
+20,Float16,630,0.00034,495832
+== 3. Float16-rounded Γ, computed in Float32 / Float64
+20,Float16,Float32,SVDSolver,0.204,3,1.967e-04,1.000000,"ok",2.056e-04
+20,Float16,Float32,ArpackSolver,0.079,3,1.968e-04,1.000000,"ok",2.056e-04
+20,Float16,Float64,SVDSolver,0.256,3,1.966e-04,1.000000,"ok",2.056e-04
+20,Float16,Float64,ArpackSolver,0.136,3,1.966e-04,1.000000,"ok",2.056e-04
+20,Float32,Float32,SVDSolver,0.188,3,1.020e-05,1.000000,"ok",2.551e-08
+20,Float32,Float32,ArpackSolver,0.080,3,8.263e-06,1.000000,"ok",2.551e-08
+20,Float32,Float64,SVDSolver,0.238,3,2.441e-08,1.000000,"ok",2.551e-08
+20,Float32,Float64,ArpackSolver,0.125,3,2.441e-08,1.000000,"ok",2.551e-08
+20,Float64,Float64,SVDSolver,0.233,3,5.305e-14,1.000000,"ok",0.000e+00
+20,Float64,Float64,ArpackSolver,0.122,3,1.204e-14,1.000000,"ok",0.000e+00
+30,Float16,Float32,SVDSolver,1.128,3,2.067e-04,1.000000,"ok",2.071e-04
+30,Float16,Float32,ArpackSolver,0.217,3,2.016e-04,1.000000,"ok",2.071e-04
+30,Float16,Float64,SVDSolver,1.604,3,2.011e-04,1.000000,"ok",2.071e-04
+30,Float16,Float64,ArpackSolver,0.426,3,2.011e-04,1.000000,"ok",2.071e-04
+30,Float32,Float32,SVDSolver,1.103,3,1.934e-05,1.000000,"ok",2.531e-08
+30,Float32,Float32,ArpackSolver,0.221,3,8.143e-06,1.000000,"ok",2.531e-08
+30,Float32,Float64,SVDSolver,1.572,3,2.460e-08,1.000000,"ok",2.531e-08
+30,Float32,Float64,ArpackSolver,0.383,3,2.460e-08,1.000000,"ok",2.531e-08
+30,Float64,Float64,SVDSolver,1.568,3,4.194e-14,1.000000,"ok",0.000e+00
+30,Float64,Float64,ArpackSolver,0.363,3,7.716e-13,1.000000,"ok",0.000e+00
+40,Float16,Float32,SVDSolver,4.317,3,2.042e-04,1.000000,"ok",2.068e-04
+40,Float16,Float32,ArpackSolver,0.516,3,2.035e-04,1.000000,"ok",2.068e-04
+40,Float16,Float64,SVDSolver,6.619,3,2.027e-04,1.000000,"ok",2.068e-04
+40,Float16,Float64,ArpackSolver,1.013,3,2.027e-04,1.000000,"ok",2.068e-04
+40,Float32,Float32,SVDSolver,4.332,3,7.027e-04,1.000000,"ok",2.534e-08
+40,Float32,Float32,ArpackSolver,0.465,3,2.266e-05,1.000000,"ok",2.534e-08
+40,Float32,Float64,SVDSolver,6.773,3,2.484e-08,1.000000,"ok",2.534e-08
+40,Float32,Float64,ArpackSolver,1.011,3,2.484e-08,1.000000,"ok",2.534e-08
+40,Float64,Float64,SVDSolver,6.790,3,9.639e-14,1.000000,"ok",0.000e+00
+40,Float64,Float64,ArpackSolver,0.999,3,1.272e-13,1.000000,"ok",0.000e+00
+EXP3 DONE
+EXIT 0

@@ -1,0 +1,17 @@
+# timings are 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads)
+d,seed,valence,solver,seconds,bytes,nullity,lsq_err,status
+10,10,4,AutoSolver,0.026515,4480656,4,3.099616e-14,"ok"
+10,10,4,ArpackSolver,0.050485,2808464,4,1.477924e-14,"ok"
+10,10,4,KrylovSolver,0.036702,5036352,4,1.814120e-13,"ok"
+10,10,4,SVDSolver,0.026475,4476576,4,5.899333e-14,"ok"
+16,16,4,AutoSolver,0.396933,10106256,4,6.423327e-14,"ok"
+16,16,4,ArpackSolver,0.399582,10110128,4,1.160616e-13,"ok"
+16,16,4,KrylovSolver,0.324803,18986048,4,1.161874e-13,"ok"
+16,16,4,SVDSolver,0.374546,28666080,4,7.221547e-14,"ok"
+20,20,4,AutoSolver,1.210905,21751568,4,2.851635e-13,"ok"
+20,20,4,ArpackSolver,1.205386,21750032,4,4.216697e-14,"ok"
+20,20,4,KrylovSolver,0.918454,33345520,4,1.796728e-12,"ok"
+24,24,4,AutoSolver,2.806380,42006960,4,6.326629e-14,"ok"
+24,24,4,ArpackSolver,346.820222,42008880,4,3.267917e-14,"ok"
+24,24,4,KrylovSolver,2.237858,62678224,4,1.306084e-10,"ok"
+# STOPPED: valence=4 dense sweep halted after d=24 -- ArpackSolver took 346.8s (> 180s budget) at d=24, while AutoSolver (2.8s) and KrylovSolver (2.2s) were fine at the same d; a competing Julia job (other agent's slot, pid 96197 seen at 100% CPU) was running concurrently, so this number may be inflated by slot contention rather than pure algorithmic scaling. d=30,40 not run for this regime.

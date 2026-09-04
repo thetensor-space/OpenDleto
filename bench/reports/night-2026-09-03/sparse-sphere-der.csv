@@ -1,0 +1,17 @@
+# timings are 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads)
+# S = sphere_octant(d; valence) raw/unscrambled, UniversalOp(), UniversalChisel(valence)
+valence,d,nnz,density,solver,seconds,bytes,nullity,maxres,status
+4,10,220,0.022,AutoSolver,0.044769,29236512,13,2.601511e-15,"ok"
+4,10,220,0.022,ArpackSolver,0.258327,25523488,13,6.010373e-15,"ok"
+4,10,220,0.022,KrylovSolver,0.145602,41494720,8,7.279922e-13,"ok"
+4,16,816,0.0124512,AutoSolver,1.508407,68622720,7,9.973844e-15,"ok"
+4,16,816,0.0124512,ArpackSolver,2.279804,102722464,11,5.104557e-15,"ok"
+4,16,816,0.0124512,KrylovSolver,0.648855,86059984,4,6.140192e-13,"ok"
+4,20,1540,0.009625,AutoSolver,8.407626,238626032,11,2.228977e-14,"ok"
+4,20,1540,0.009625,ArpackSolver,729.441843,276381184,13,9.020864e-15,"ok"
+4,20,1540,0.009625,KrylovSolver,18.189462,1169786240,9,9.003331e-08,"ok"
+# STOPPED: valence=4 sparse-sphere sweep halted after d=20 -- ArpackSolver took 729.4s (> 180s budget) at d=20, while AutoSolver (8.4s) was fine at the same d. Likely inflated by shared-slot CPU contention with the other agent's concurrent job (see v4-dense-sylver.csv note); not re-run per the 3-minute stop rule. d=24,30,40 not run for this regime.
+# BUG (not fixed, see BOARD.md sylver-v4-baseline entry): :KrylovSolver (ext/DletoKrylovKitExt.jl solve, lines 58-110) undercounts and is non-deterministic on this problem's universal derivation algebra (expected nullity 13): observed 4, 8, 4, 9 across repeated/independent runs at d=10,20 valence 4, sometimes with gap_verdict CERTIFIED (rule :gap) on a false gap (d=10: certified nullity 4 or 8, when the true next eigenvalues per AutoSolver/ArpackSolver are ~1.8e-5..7.9e-5 relative but KrylovSolver's own Ritz "next" values were ~5e-4..7.7e-4, an order of magnitude off -- an inaccurate, not-yet-converged Ritz value can look like a clean gap to gap_verdict, which does not cross-check solver-reported convergence), and sometimes honestly UNCERTIFIED (d=20: "0 of 16 eigenvalues converged ... 12865 map applications"). NOT Krylov-specific either: at d=16 both :AutoSolver (7) and :ArpackSolver (11) also undercounted, and at d=20 :AutoSolver undercounted (11); only d=10 (Auto=13,Arpack=13) and d=20's :ArpackSolver (13) came out exactly right, so no solver is reliably exact across d here -- see full rows above (valence=4: d=10 Auto/Arpack/Krylov=13/13/8; d=16=7/11/4; d=20=11/13/9, all "ok" status with small maxres on the vectors actually returned). This looks like a real robustness gap in the matrix-free nullity escalation on a large (n up to ~4900), highly-degenerate (13-fold zero eigenvalue) universal operator space, not a KrylovSolver-only issue -- flagging for the orchestrator, not fixed here.
+3,20,210,0.02625,AutoSolver,0.554963,34420480,4,4.655409e-14,"ok"
+3,20,210,0.02625,ArpackSolver,0.331187,12674000,4,5.593902e-14,"ok"
+3,20,210,0.02625,KrylovSolver,0.155293,57118496,4,3.477760e-13,"ok"

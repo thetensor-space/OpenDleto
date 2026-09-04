@@ -42,7 +42,7 @@ export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 export normalize_chisel
 
 # ChiselImpls.jl
-export ChiselFramed, applyDerivation
+export Chisel, applyDerivation
 
 # Operators.jl
 export Operator                             # abstract type
@@ -69,15 +69,23 @@ export IndTransverseOps
 export TransverseOpsSymmetries
 
 export NullSolver
+export solve_nullspace, available_solvers, register_solver!
+export AutoSolver, SVDSolver, LUSolver, ShiftInvertSolver
+export PROGRESS_TAGS, progress_spec
 
-# DerivationMethodAbstract.jl
-export DerivationMethod, der, den
+# Derivations.jl
+# `der` is the Z-set: a basis of the P-derivations of a tensor.
+# `den` is still an abstract placeholder (it asserts false for every
+# method); the T-set work implements it against that name.
+export DerivationMethod, get_derivation_method
+export der, derReduced, derTrOps, derTrOpsReduced, den
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
+export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod
 
-# Stratify.jl
-export stratify
+# Densors.jl
+export stratify, denLM
 
 # TensorIO.jl
 export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
@@ -88,5 +96,7 @@ export rand_den, randTensorChisel
 export ITensorNorm, ITensorNormChisel
 
 # TensorSynthesis3D.jl
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
+
+export gpu_available, to_gpu, to_cpu, gpu_sync
