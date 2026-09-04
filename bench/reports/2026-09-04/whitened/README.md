@@ -141,7 +141,7 @@ Whitened, ARPACK, Float64, matrix-free, valence 3, scrambled sphere:
 |---|---|---|---|---|---|---|---|
 | 200 | 17576 x 15600 | 38262 | 18.4 | 2.1 GB | 3 | 3.3e-10 | 65182 applies, **cap** |
 | 300 | 29791 x 27900 | 77482 | 105.0 | 3.8 GB | 3 | 1.8e-10 | 66604 applies, **cap** |
-| 500 | 64000 x 60000 | 51116 | 136.1 | 11.4 GB | 3 | 3.2e-13 | (queued) |
+| 500 | 64000 x 60000 | 51116 | 136.1 | 11.4 GB | 3 | 3.2e-13 | 66902 applies, **cap** |
 
 **d = 300 and d = 500 at valence 3 are new.**  Session 3's frontier was d = 200
 on the dense Gram route (22 s, 8 GB peak, a 2.2 GB restricted matrix).  The
