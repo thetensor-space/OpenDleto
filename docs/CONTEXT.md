@@ -800,3 +800,38 @@ Ordered by what unblocks what.
    restriction sizes `(a',b',c')`, whether valence 3 with a one-row chisel is essential or
    incidental, and the expected complexity — all of which currently rest on the reference
    implementation's own choices rather than on a stated theorem.
+
+## Movie regime measured per stage, 2026-09-04 (late): the eigensolve is the movie
+
+`bench/GpuMovie.jl` + `bench/reports/2026-09-04/gpu-movie/README.md`. Read STAGE BY STAGE
+rather than by fitting wall time, the `640 x 480 x F x 3` run is not shaped the way the
+"Direction set 2026-09-04 (evening)" note assumed.
+
+- **The tensor stages are 1-5 % of the run, not ~85 %.** F = 300 Float32 CPU: 44.84 s of
+  restricted eigensolve against 2.459 s of sketch + lift + verify (0.933 / 1.054 / 0.472).
+  They *are* linear in F, at 0.0077 s/frame — but that is ~9 % of the slope of the total.
+  The rest of the observed growth is the eigensolve, which is **not** flat in F (`r_3` grows
+  with the frame count, so the restricted system grows from 33480x31819 to 40800x38569) and
+  is also the noisy term: 17 s and 54 s were seen for the same input in the same process.
+  The earlier "~150 s of tensor work at F = 1800" came from attributing the whole fitted
+  slope to the tensor stages; the measured projection is **14.1 s (CPU) / 4.8 s (GPU)**.
+- **Cold start dominates a one-shot device run.** The first movie-shaped GPU run pays ~14 s
+  of Metal pipeline specialization in the tensor stages (`verify` 3.257 s cold, 0.018 s
+  warm); a `10x10x10x3` warm-up does not cover it. The device path pays for itself only in a
+  process that solves several tensors. Any GPU benchmark that does not warm up on the shape
+  it measures is measuring the compiler — that is what `bench/GpuMovie.jl` exists to avoid.
+- **Warm, the device wins and the LIFT is the new wall.** Tensor totals 2.57x at F = 300,
+  rising with F; sketch 20x and verify 13.5x, but lift only 1.20x, because the lift's cost is
+  the host `qr(A) \ B` after the pair tensors (Metal has no `qr`), not the mode products.
+- **`permutedims!` was not the bottleneck the night board took it for.** Every device
+  primitive at the movie shape is milliseconds (skinny GEMM 1.4 ms, `norm` 7.6 ms,
+  `permutedims` 16.8 ms) against a 0.44 s warm tensor budget at F = 90. `_qdn_ttm!` now
+  chooses slabs over the permute by a cost model (`_qdn_slab_is_cheap`) and `_qdn_mode_order`
+  chooses which axis meets `d^n` — right, and worth tens of milliseconds.
+- **Float16 buys nothing today.** `compute_eltype` promotes it to Float32 before the tensor
+  is touched, so the Float16 and Float32 device rows agree to three digits and allocate the
+  same 2.06 GB. The measured half-precision contract needs a mixed-eltype `_qdn_ttm` AND a
+  decision about the host copy — the latter is a precision-policy change, not a kernel one.
+- **Memory, not speed, is the binding constraint for the minute.** Peak device allocation is
+  1.87x the tensor, so F = 1800 Float32 projects to ~12 GB on device next to a 6.6 GB host
+  copy, against a ~10 GB budget. That is what Float16 is for.
