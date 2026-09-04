@@ -92,12 +92,14 @@ const LogWarn = Base.CoreLogging.Warn
 
     @testset "Float32 floor swallows a sub-floor near-derivation" begin
         # A near-derivation hidden BELOW the Float32 floor: relative value
-        # 3e-6 against a floor of 100*eps(Float32) ~= 1.19e-5.  With a wide
-        # enough `tol` to admit it as a candidate cut, the gap test can only
-        # measure it from the floor, not from itself, so it is floor-bound.
+        # `floorv/2` against a floor of `FLOOR_EPS*eps(Float32)` = 6.0e-7.
+        # With a wide enough `tol` to admit it as a candidate cut, the gap
+        # test can only measure it from the floor, not from itself, so it is
+        # floor-bound.  Stated as a fraction of the floor rather than as a
+        # literal, so the test follows `FLOOR_EPS` when it is retuned.
         floorv = FLOOR_EPS * eps(Float32)
-        threshold = 1e-3   # wide enough that 3e-6 is a candidate
-        rel = Float64[0.0, 0.0, 0.0, 3e-6, 1e-2, 1.0]
+        threshold = 1e-3   # wide enough that floorv/2 is a candidate
+        rel = Float64[0.0, 0.0, 0.0, floorv / 2, 1e-2, 1.0]
         _, v = gap_verdict(rel, 1.0; threshold, floor = floorv, gap_ratio = GAP_RATIO)
         @test v.floor_binding
         # Either the merge is accepted (nullity 4, :gap, floor-bound) or no
@@ -107,16 +109,17 @@ const LogWarn = Base.CoreLogging.Warn
     end
 
     @testset "Float32 floor raises the effective threshold above tol" begin
-        # `solve_nullspace` uses `threshold = max(tol, FLOOR_EPS*eps(T)) *
-        # scale`, so in Float32 the floor (~1.19e-5) OVERRIDES the default
-        # tol=1e-6 -- deliberately, so Float32 does not lose a null vector to
-        # its own rounding (see FLOOR_EPS).  A value at 3e-6 then falls inside
-        # the (floor-widened) threshold and IS a candidate cut: it gets
-        # folded into `nullity` here, floor-bound, because nothing separates
-        # it from the null cluster at Float32 precision.
+        # `solve_nullspace` uses `threshold = max(tol, precision_floor(T))`,
+        # and on the SQUARED (Gram) map it squares `tol` first, so in Float32
+        # the floor OVERRIDES the resulting ceiling -- deliberately, so
+        # Float32 does not lose a null vector to its own rounding (see
+        # `FLOOR_EPS`).  A value below the floor then falls inside the
+        # (floor-widened) threshold and IS a candidate cut: it gets folded
+        # into `nullity` here, floor-bound, because nothing separates it from
+        # the null cluster at Float32 precision.
         floorv = FLOOR_EPS * eps(Float32)
-        threshold = max(1e-6, floorv)
-        rel = Float64[0.0, 0.0, 0.0, 3e-6, 1e-2, 1.0]
+        threshold = max(1e-6^2, floorv)
+        rel = Float64[0.0, 0.0, 0.0, floorv / 2, 1e-2, 1.0]
         _, v = gap_verdict(rel, 1.0; threshold, floor = floorv, gap_ratio = GAP_RATIO)
         @test v.nullity == 4
         @test v.floor_binding
@@ -151,13 +154,14 @@ end
     end
 
     @testset "Float32 gap below the precision floor is flagged, not silent" begin
-        # Relative spectrum [0,0,0,3e-6,1e-2,1]: the near-derivation at 3e-6
-        # sits below the Float32 floor (100*eps(Float32) ~= 1.19e-5), which
-        # `solve_nullspace` uses to WIDEN the effective threshold past the
-        # default tol=1e-6 (see FLOOR_EPS).  So it gets folded into nullity 4
-        # -- but must come back `floor_binding`, with an `@info` naming the
-        # cut, never a bare, unflagged nullity 4.
-        relvals = Float32[0, 0, 0, 3e-6, 1e-2, 1]
+        # A near-derivation BELOW the Float32 floor (`FLOOR_EPS*eps(Float32)`
+        # = 6.0e-7).  `solve_nullspace` uses that floor to widen the effective
+        # threshold, so the value is folded into nullity 4 -- but it must come
+        # back `floor_binding`, with an `@info` naming the cut, never a bare
+        # unflagged nullity 4.  Written as a fraction of the floor rather than
+        # as a literal, so it follows `FLOOR_EPS` when that is retuned.
+        floorv = Float32(FLOOR_EPS * eps(Float32))
+        relvals = Float32[0, 0, 0, floorv / 3, 1f-2, 1]
         D = Diagonal(Float32.(5.0f0 .* relvals))
         L = LinearMaps.LinearMap(D; issymmetric = true)
 
@@ -173,5 +177,36 @@ end
         @test any(r -> r.level == LogInfo && occursin("precision floor", r.message),
                   logs)
         @test !any(r -> r.level == LogWarn, logs)
+    end
+
+    @testset "Float32 keeps a near-derivation ABOVE the precision floor" begin
+        # The other side of the same line, and the reason `FLOOR_EPS` was
+        # retuned from 100 to 5 (see its docstring): a near-derivation at 3e-6
+        # relative is FIVE times above the Float32 floor and is a real feature
+        # of the operator, so Float32 must report nullity 3 and leave it out,
+        # not fold it in.  Under the old floor of 100*eps(Float32) = 1.2e-5 it
+        # was swallowed and the answer was a certified 4.
+        relvals = Float32[0, 0, 0, 3f-6, 1f-2, 1]
+        D = Diagonal(Float32.(5.0f0 .* relvals))
+        L = LinearMaps.LinearMap(D; issymmetric = true)
+        res = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6)
+        @test 3f-6 > FLOOR_EPS * eps(Float32)      # the premise
+        @test res.verdict.nullity == 3
+        # And it is still visible to the caller, as the first value above the
+        # cut rather than as a silently-counted derivation.
+        @test isapprox(res.verdict.above[1], 3f-6; rtol = 0.1)
+        # NOT certified, and that is the point: 3e-6 is 5x the floor, which is
+        # a real separation but not the 100x `GAP_RATIO` asks for.  Float32
+        # genuinely cannot tell this near-derivation from zero with
+        # confidence, and says so instead of guessing either way.
+        @test !res.verdict.certified
+        @test isapprox(res.verdict.gap, 3f-6 / (FLOOR_EPS * eps(Float32)); rtol = 0.1)
+
+        # A near-derivation FAR above the floor is both kept out and certified.
+        far = Float32[0, 0, 0, 1f-3, 1f-1, 1]
+        Lf = LinearMaps.LinearMap(Diagonal(Float32.(5.0f0 .* far)); issymmetric = true)
+        resf = solve_nullspace(Lf, :SVDSolver; tol = 1e-6, nv0 = 6)
+        @test resf.verdict.nullity == 3
+        @test resf.verdict.certified
     end
 end

@@ -1,0 +1,57 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== valence 3, SymmetricOp (truth 3): d frontier ===
+d=16   v=3 SymmetricOp  Float64 n=408     truth=3   arpack=3   gap CERT    gap=1.32e12            qd=3   nullmax=3.71e-16   (1.67     eps)  1st=0.00147    0.1s/0.2s     rss=0.9G
+d=16   v=3 SymmetricOp  Float32 n=408     truth=3   arpack=3   gap CERT    gap=2470.0             qd=3   nullmax=4.24e-7    (3.56     eps)  1st=0.00147    0.0s/0.2s     rss=0.9G
+d=16   v=3 SymmetricOp  Float16 n=408     truth=3   arpack=3   gap CERT    gap=2470.0             qd=3   nullmax=2.14e-7    (1.8      eps)  1st=0.00147    0.0s/0.1s     rss=0.9G
+d=24   v=3 SymmetricOp  Float64 n=900     truth=3   arpack=3   gap CERT    gap=2.66e11            qd=3   nullmax=1.26e-16   (0.567    eps)  1st=0.000295   0.2s/0.1s     rss=0.9G
+d=24   v=3 SymmetricOp  Float32 n=900     truth=3   arpack=3   gap CERT    gap=493.0              qd=3   nullmax=1.81e-7    (1.52     eps)  1st=0.000294   0.1s/0.1s     rss=1.0G
+d=24   v=3 SymmetricOp  Float16 n=900     truth=3   arpack=3   gap -       gap=493.0      UND(1)  qd=3   nullmax=1.08e-7    (0.904    eps)  1st=0.000294   0.1s/0.3s     rss=1.0G
+d=32   v=3 SymmetricOp  Float64 n=1584    truth=3   arpack=3   gap CERT    gap=2.18e12            qd=3   nullmax=1.62e-16   (0.728    eps)  1st=0.00242    0.3s/0.0s     rss=1.0G
+d=32   v=3 SymmetricOp  Float32 n=1584    truth=3   arpack=3   gap CERT    gap=4080.0             qd=3   nullmax=1.88e-7    (1.58     eps)  1st=0.00243    0.2s/0.0s     rss=1.0G
+d=32   v=3 SymmetricOp  Float16 n=1584    truth=3   arpack=3   gap CERT    gap=4080.0             qd=3   nullmax=5.86e-7    (4.92     eps)  1st=0.00243    0.2s/0.1s     rss=1.1G
+d=48   v=3 SymmetricOp  Float64 n=3528    truth=3   arpack=3   gap CERT    gap=1.34e11            qd=3   nullmax=4.48e-16   (2.02     eps)  1st=0.000149   1.2s/0.1s     rss=1.2G
+d=48   v=3 SymmetricOp  Float32 n=3528    truth=3   arpack=3   gap CERT    gap=252.0              qd=2   nullmax=1.41e-7    (1.18     eps)  1st=0.00015    0.7s/0.1s     rss=1.2G
+d=48   v=3 SymmetricOp  Float16 n=3528    truth=3   arpack=3   gap -       gap=251.0      UND(3)  qd=3   nullmax=9.69e-8    (0.812    eps)  1st=0.00015    0.7s/0.6s     rss=1.3G
+d=64   v=3 SymmetricOp  Float64 n=6240    truth=3   arpack=3   gap CERT    gap=5.36e11            qd=3   nullmax=5.91e-16   (2.66     eps)  1st=0.000595   3.3s/0.3s     rss=1.5G
+d=64   v=3 SymmetricOp  Float32 n=6240    truth=3   arpack=3   gap CERT    gap=968.0              qd=3   nullmax=7.85e-8    (0.658    eps)  1st=0.000577   2.1s/0.1s     rss=1.5G
+d=64   v=3 SymmetricOp  Float16 n=6240    truth=3   arpack=3   gap -       gap=967.0      UND(1)  qd=3   nullmax=1.66e-7    (1.39     eps)  1st=0.000577   2.1s/1.3s     rss=1.7G
+d=96   v=3 SymmetricOp  Float64 n=13968   truth=3   arpack=3   gap CERT    gap=1.88e11            qd=3   nullmax=3.04e-16   (1.37     eps)  1st=0.000209   15.6s/1.2s    rss=2.0G
+d=96   v=3 SymmetricOp  Float32 n=13968   truth=3   arpack=3   gap CERT    gap=350.0              qd=3   nullmax=3.34e-7    (2.8      eps)  1st=0.000209   7.1s/0.7s     rss=2.3G
+d=96   v=3 SymmetricOp  Float16 n=13968   truth=3   arpack=3   gap -       gap=350.0      UND(1)  qd=3   nullmax=2.61e-7    (2.19     eps)  1st=0.000209   7.1s/6.7s     rss=2.8G
+=== valence 4, SymmetricOp (truth 4): d frontier ===
+d=6    v=4 SymmetricOp  Float64 n=84      truth=4   arpack=4   gap CERT    gap=1.35e12            qd=4   nullmax=5.3e-16    (2.39     eps)  1st=0.0015     4.4s/0.8s     rss=2.8G
+d=6    v=4 SymmetricOp  Float32 n=84      truth=4   arpack=4   gap CERT    gap=2510.0             qd=4   nullmax=3.18e-8    (0.266    eps)  1st=0.0015     4.4s/0.8s     rss=2.8G
+d=6    v=4 SymmetricOp  Float16 n=84      truth=4   arpack=4   gap CERT    gap=2510.0             qd=4   nullmax=6.1e-8     (0.512    eps)  1st=0.0015     0.0s/0.0s     rss=2.8G
+d=8    v=4 SymmetricOp  Float64 n=144     truth=4   arpack=4   gap CERT    gap=2.0e12             qd=4   nullmax=7.32e-17   (0.33     eps)  1st=0.00222    0.0s/0.0s     rss=2.8G
+d=8    v=4 SymmetricOp  Float32 n=144     truth=4   arpack=4   gap CERT    gap=3720.0             qd=4   nullmax=7.89e-8    (0.662    eps)  1st=0.00222    0.0s/0.0s     rss=2.8G
+d=8    v=4 SymmetricOp  Float16 n=144     truth=4   arpack=4   gap CERT    gap=3720.0             qd=4   nullmax=5.96e-8    (0.5      eps)  1st=0.00222    0.0s/0.0s     rss=2.8G
+d=10   v=4 SymmetricOp  Float64 n=220     truth=4   arpack=4   gap CERT    gap=1.14e12            qd=4   nullmax=3.08e-16   (1.39     eps)  1st=0.00126    0.1s/0.0s     rss=2.8G
+d=10   v=4 SymmetricOp  Float32 n=220     truth=4   arpack=4   gap CERT    gap=2120.0             qd=4   nullmax=8.49e-8    (0.712    eps)  1st=0.00126    0.1s/0.0s     rss=2.8G
+d=10   v=4 SymmetricOp  Float16 n=220     truth=4   arpack=4   gap CERT    gap=2120.0             qd=4   nullmax=6.71e-8    (0.563    eps)  1st=0.00126    0.1s/0.0s     rss=2.8G
+d=12   v=4 SymmetricOp  Float64 n=312     truth=4   arpack=4   gap CERT    gap=7.43e11            qd=4   nullmax=2.15e-16   (0.969    eps)  1st=0.000825   0.2s/0.0s     rss=2.8G
+d=12   v=4 SymmetricOp  Float32 n=312     truth=4   arpack=4   gap CERT    gap=1380.0             qd=4   nullmax=1.63e-7    (1.37     eps)  1st=0.000825   0.1s/0.0s     rss=2.8G
+d=12   v=4 SymmetricOp  Float16 n=312     truth=4   arpack=4   gap -       gap=1380.0     UND(1)  qd=4   nullmax=2.49e-7    (2.09     eps)  1st=0.000825   0.1s/0.0s     rss=2.8G
+d=16   v=4 SymmetricOp  Float64 n=544     truth=4   arpack=4   gap CERT    gap=1.76e11            qd=4   nullmax=1.87e-16   (0.842    eps)  1st=0.000195   0.9s/0.0s     rss=2.8G
+d=16   v=4 SymmetricOp  Float32 n=544     truth=4   arpack=4   gap CERT    gap=328.0              qd=4   nullmax=1.72e-7    (1.44     eps)  1st=0.000195   0.5s/0.0s     rss=2.8G
+d=16   v=4 SymmetricOp  Float16 n=544     truth=4   arpack=4   gap -       gap=328.0      UND(1)  qd=4   nullmax=1.5e-7     (1.26     eps)  1st=0.000195   0.5s/0.1s     rss=2.8G
+=== valence 3, UniversalOp (larger nullity): fixed-d comparison ===
+d=12   v=3 UniversalOp  Float64 n=432     truth=-1  arpack=13  gap CERT    gap=2.92e10            qd=13  nullmax=-          (-        eps)  1st=-          0.4s/0.1s     rss=2.8G
+d=12   v=3 UniversalOp  Float32 n=432     truth=-1  arpack=13  threshold - gap=54.5               qd=13  nullmax=-          (-        eps)  1st=-          0.1s/0.1s     rss=2.8G
+d=12   v=3 UniversalOp  Float16 n=432     truth=-1  arpack=13  threshold - gap=54.0       UND(5)  qd=14  nullmax=-          (-        eps)  1st=-          0.1s/0.0s     rss=2.8G
+d=16   v=3 UniversalOp  Float64 n=768     truth=-1  arpack=13  gap CERT    gap=1.46e11            qd=13  nullmax=-          (-        eps)  1st=-          0.9s/0.0s     rss=2.8G
+d=16   v=3 UniversalOp  Float32 n=768     truth=-1  arpack=13  gap CERT    gap=271.0              qd=13  nullmax=-          (-        eps)  1st=-          0.3s/0.0s     rss=2.8G
+d=16   v=3 UniversalOp  Float16 n=768     truth=-1  arpack=13  gap -       gap=271.0      UND(11) qd=14  nullmax=-          (-        eps)  1st=-          0.3s/0.1s     rss=2.8G
+d=24   v=3 UniversalOp  Float64 n=1728    truth=-1  arpack=13  gap CERT    gap=1.33e10            qd=13  nullmax=-          (-        eps)  1st=-          8.4s/0.1s     rss=2.8G
+d=24   v=3 UniversalOp  Float32 n=1728    truth=-1  arpack=12  threshold - gap=1.17               qd=13  nullmax=-          (-        eps)  1st=-          4.8s/0.1s     rss=2.8G
+d=24   v=3 UniversalOp  Float16 n=1728    truth=-1  arpack=12  threshold - gap=1.07       UND(20) qd=20  nullmax=-          (-        eps)  1st=-          6.1s/0.3s     rss=2.8G
+d=32   v=3 UniversalOp  Float64 n=3072    truth=-1  arpack=13  gap CERT    gap=4.04e10            qd=13  nullmax=-          (-        eps)  1st=-          6.0s/0.0s     rss=2.8G
+d=32   v=3 UniversalOp  Float32 n=3072    truth=-1  arpack=13  threshold - gap=75.2               qd=13  nullmax=-          (-        eps)  1st=-          2.4s/0.0s     rss=2.8G
+d=32   v=3 UniversalOp  Float16 n=3072    truth=-1  arpack=13  threshold - gap=75.0       UND(10) qd=19  nullmax=-          (-        eps)  1st=-          2.3s/0.1s     rss=2.8G
+[ Info: frontier: nullity 3 certified (rule :gap), cut at the Float64 precision floor 1.1102230246251565e-15 (relative) -- a near-derivation hidden below that floor would look identical. Values around the cut: [7.033797674801004e-21, 3.7823287395211974e-19, 1.0920250441619545e-16] | [0.002650108255047113, 0.008853034428084312, 0.012022013754647006]
+┌ Warning: quickder restricted: nullity 16 is UNCERTIFIED -- no gap of 100.0x in the spectrum below the threshold 0.03125 (relative). Values around the cut: [0.0027424318429471644, 0.011096789828805506, 0.01863740006567048] | [0.05658472600469428, 0.06428884582091524, 0.07126846447985716]. Consider Float64, an explicit `tol`, or `nd`.
+└ @ Dleto ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/NullSolvers.jl:807
+┌ Warning: frontier: nullity 3 is UNDECIDABLE at Float16 precision -- 1 value(s) above the cut lie below the data floor 0.0009765625 (relative), i.e. within the rounding of the input, so the true nullity may be up to 4. Values around the cut: [1.0079969095287974e-8, 4.4510762318410436e-8, 1.0773865164054748e-7] | [0.0002939223755350257, 0.0011278433332235474, 0.0015729558387341867]. Store the tensor in a wider type to decide it.
+└ @ Dleto ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/NullSolvers.jl:798
+wrote precision-frontier.csv (45 rows)

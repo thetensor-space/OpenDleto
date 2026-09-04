@@ -67,7 +67,26 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
 
     # A Krylov method on a space this small is pure overhead, and the block
     # (as wide as the request) would not fit in it.
-    if n <= max(32, 2 * (nev + 1))
+    #
+    # BELOW Float64 THE GATE HAS TO BE 4x WIDER, and the reason is a measured
+    # breakdown, not a preference.  KrylovKit's `BlockLanczos` in Float32 loses
+    # null vectors when the block is a large fraction of `n`: with the default
+    # request (nev = 24) on the scrambled sphere it returns nullity 0 of 4 at
+    # n = 84 and 1 of 3 at n = 165, is correct at n = 408, 909 and 3609, and is
+    # correct at every one of those in Float64.  Sweeping its stopping
+    # tolerance over 1 .. 100 x eps(Float32) changes nothing, so this is the
+    # block re-orthogonalization losing rank in half the mantissa, not a
+    # tolerance (bench/reports/precision-tune-c.csv).
+    #
+    # It matters more than a wrong count usually would: the values it returns
+    # are 3e-4..6.5e-3 relative, ALL above the null threshold, so the verdict
+    # is a CERTIFIED nullity 0 -- confidently "this tensor has no derivations"
+    # about a tensor with four.  A dense `eigen` at n = 165 costs milliseconds,
+    # so the gate is simply widened where the block method cannot be trusted.
+    # `8 * (nev + 1)` is 200 at the default request: past the largest observed
+    # failure (165) and below the smallest observed success (408).
+    dense_gate = RT === Float64 ? 2 * (nev + 1) : 8 * (nev + 1)
+    if n <= max(32, dense_gate)
         E = eigen(Symmetric(Matrix(L)))
         take = min(nev, n)
         return (; vals = RT.(E.values[1:take]), vecs = T.(E.vectors[:, 1:take]))
@@ -81,7 +100,7 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
     # solve at d = 30..40 against 0.3-1 s with the floor, same nullity
     # (bench/reports/precision-study.md, Exp. 5 and 5b).  `100*eps(RT)` is
     # 2.2e-14 in Float64, so Float64 behaviour is unchanged.
-    atol = max(tol, 100 * eps(RT)) * max(scale, eps(RT))
+    atol = Dleto.iter_tol(RT, tol) * max(scale, eps(RT))
 
     if LinearAlgebra.issymmetric(L)
         bs = blocksize === nothing ? nev : clamp(blocksize, 1, nev)
@@ -90,7 +109,30 @@ function Dleto.solve(::KrylovSolver, L::LinearMap; nv::Integer = 10, tol::Real =
         x0 = KrylovKit.Block([randn(T, n) for _ in 1:bs])
         alg = KrylovKit.BlockLanczos(; krylovdim = kd, maxiter = maxiter, tol = atol,
                                      verbosity = 0)
-        vals_a, vecs_a, info = eigsolve(L, x0, nev, :SR, alg)
+        # `BlockLanczos` normalizes its block through a Cholesky-type step, and
+        # in Float32 that step can see a numerically negative Gram: measured on
+        # the near-degenerate `ramp + noise` tensors, `DomainError with
+        # -1.25e-7` out of a `sqrt`, and `ArgumentError: blocklength must be
+        # >(0)` when the block collapses entirely.  Neither is a statement
+        # about the tensor, so neither should reach the caller as a crash --
+        # fall back to the single-vector Arnoldi, which is less reliable on
+        # multiplicities (it finds one copy of a repeated eigenvalue per start
+        # vector) but does not break down.  The undercount that risks is
+        # reported by the convergence warning below and by an uncertified
+        # verdict; a `DomainError` from inside a dependency is reported by
+        # nothing.
+        vals_a, vecs_a, info = try
+            eigsolve(L, x0, nev, :SR, alg)
+        catch err
+            err isa Union{DomainError,ArgumentError,LinearAlgebra.PosDefException} || rethrow()
+            @warn "KrylovSolver: block Lanczos broke down in $RT " *
+                  "($(first(split(sprint(showerror, err), '\n')))); retrying with " *
+                  "single-vector Arnoldi, which may undercount a repeated " *
+                  "eigenvalue. Consider :ArpackSolver or Float64." maxlog = 1
+            eigsolve(L, randn(T, n), nev, :SR;
+                     krylovdim = clamp(max(kd, nev), nev, n),
+                     maxiter = maxiter, tol = atol, verbosity = 0)
+        end
     else
         kd = krylovdim === nothing ? min(n, max(64, 4 * nev)) : min(n, Int(krylovdim))
         vals_a, vecs_a, info = eigsolve(L, randn(T, n), nev, :SR;

@@ -1,0 +1,141 @@
+┌ Warning: KrylovSolver: 3 of 24 eigenvalues converged to relative tolerance 1.0e-12 in 200 restarts (19297 map applications); returning the Ritz pairs as computed.
+└ @ DletoKrylovKitExt ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/ext/DletoKrylovKitExt.jl:143
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+sphere3-d10            Float64  n=165    scale=30.9
+    SVDSolver      0.15s  spectrum 3e-17 6.3e-17 6.3e-17 0.0077 0.012
+    GramSolver     0.31s  spectrum 1.6e-16 1.8e-16 2.5e-16 0.0077 0.012
+    ArpackSolver   1.75s  spectrum 1.6e-17 2.4e-16 3.1e-16 0.0077 0.012
+    KrylovSolver   3.96s  spectrum 3.2e-17 1.3e-16 1.6e-16 0.0077 0.012
+sphere3-d10            Float32  n=165    scale=30.5
+    SVDSolver      0.20s  spectrum 3.8e-08 4.4e-08 2.4e-07 0.0078 0.012
+    GramSolver     0.44s  spectrum 8.9e-08 1e-07 1.2e-07 0.0078 0.012
+    ArpackSolver   1.20s  spectrum 3.2e-08 1.6e-07 2.2e-07 0.0078 0.012
+    KrylovSolver   3.49s  spectrum 2.7e-08 3.2e-08 4.3e-08 0.0078 0.012
+sphere3-d10            Float16  n=165    scale=30.5
+    SVDSolver      0.00s  spectrum 3.8e-08 4.1e-08 2.4e-07 0.0078 0.012
+    GramSolver     0.00s  spectrum 7.4e-08 8.8e-08 1e-07 0.0078 0.012
+    ArpackSolver   0.00s  spectrum 6.2e-08 9.1e-08 1.9e-07 0.0078 0.012
+    KrylovSolver   0.00s  spectrum 4.4e-09 3.8e-08 6.6e-08 0.0078 0.012
+sphere3-d16            Float64  n=408    scale=68.8
+    SVDSolver      0.04s  spectrum 3.2e-17 5.9e-17 1.4e-16 0.0015 0.0069
+    GramSolver     0.02s  spectrum 2.3e-16 2.7e-16 2.7e-16 0.0015 0.0069
+    ArpackSolver   0.03s  spectrum 3.3e-16 3.5e-16 3.6e-16 0.0015 0.0069
+    KrylovSolver   0.12s  spectrum 2.5e-17 1.4e-16 1.5e-16 0.0015 0.0069
+sphere3-d16            Float32  n=408    scale=68.7
+    SVDSolver      0.03s  spectrum 6.6e-09 2.5e-08 7.8e-08 0.0015 0.0069
+    GramSolver     0.01s  spectrum 1.8e-07 1.9e-07 2.3e-07 0.0015 0.0069
+    ArpackSolver   0.02s  spectrum 3.6e-09 1.8e-08 1.3e-07 0.0015 0.0069
+    KrylovSolver   0.24s  spectrum 2e-09 3.9e-08 1.3e-07 0.0015 0.0069
+sphere3-d16            Float16  n=408    scale=68.7
+    SVDSolver      0.03s  spectrum 4.9e-09 1.7e-08 7.8e-08 0.0015 0.0069
+    GramSolver     0.01s  spectrum 1.8e-07 2e-07 2.2e-07 0.0015 0.0069
+    ArpackSolver   0.02s  spectrum 2.4e-08 1.1e-07 1.3e-07 0.0015 0.0069
+    KrylovSolver   0.04s  spectrum 1.7e-08 5.6e-08 9.6e-08 0.0015 0.0069
+sphere4-d6             Float64  n=84     scale=80.5
+    SVDSolver      0.11s  spectrum 7e-17 7e-17 7e-17 1.5e-16 0.0015
+    GramSolver     0.13s  spectrum 9.4e-17 1e-16 1.4e-16 2e-16 0.0015
+    ArpackSolver   0.72s  spectrum 7.4e-32 2.8e-19 2.9e-17 7e-17 0.0015
+    KrylovSolver   2.05s  spectrum 4.7e-17 5e-17 5.5e-17 1.9e-16 0.0015
+sphere4-d6             Float32  n=84     scale=80.5
+    SVDSolver      0.11s  spectrum 4.2e-08 4.2e-08 4.2e-08 8.1e-08 0.0015
+    GramSolver     0.13s  spectrum 4.4e-08 5.6e-08 6.2e-08 1e-07 0.0015
+    ArpackSolver   0.74s  spectrum 1.6e-08 2.1e-08 5.3e-08 1.6e-07 0.0015
+    KrylovSolver   2.02s  spectrum 8.9e-09 2e-08 2.3e-08 3e-08 0.0015
+sphere4-d6             Float16  n=84     scale=80.5
+    SVDSolver      0.00s  spectrum 3.7e-08 4.2e-08 4.2e-08 8.1e-08 0.0015
+    GramSolver     0.00s  spectrum 5.2e-08 5.7e-08 7.2e-08 8.1e-08 0.0015
+    ArpackSolver   0.00s  spectrum 4.3e-09 2.1e-08 3.9e-08 1.4e-07 0.0015
+    KrylovSolver   0.00s  spectrum 4e-09 7.5e-09 1.4e-08 3.6e-08 0.0015
+rand3-d12              Float64  n=432    scale=508
+    SVDSolver      0.04s  spectrum 2.8e-17 4.4e-16 0.075 0.077 0.081
+    GramSolver     0.01s  spectrum 4.1e-16 4.2e-16 0.076 0.077 0.081
+    ArpackSolver   0.04s  spectrum 2.8e-16 3.2e-16 0.075 0.077 0.081
+    KrylovSolver   0.11s  spectrum 2e-18 4e-16 0.075 0.077 0.081
+rand3-d12              Float32  n=432    scale=508
+    SVDSolver      0.03s  spectrum 1.1e-08 1.9e-08 0.075 0.077 0.081
+    GramSolver     0.01s  spectrum 2.4e-07 2.7e-07 0.075 0.077 0.081
+    ArpackSolver   0.03s  spectrum 1.3e-07 1.9e-07 0.075 0.077 0.081
+    KrylovSolver   0.04s  spectrum 7.7e-09 1.4e-07 0.075 0.077 0.081
+rand3-d12              Float16  n=432    scale=508
+    SVDSolver      0.02s  spectrum 3.9e-08 1.3e-07 0.075 0.077 0.081
+    GramSolver     0.01s  spectrum 1.9e-07 2.9e-07 0.075 0.077 0.081
+    ArpackSolver   0.01s  spectrum 4.9e-08 1.6e-07 0.075 0.077 0.081
+    KrylovSolver   0.04s  spectrum 2.1e-08 1.6e-07 0.075 0.077 0.081
+rand4-d6               Float64  n=144    scale=949
+    SVDSolver      0.00s  spectrum 4.1e-17 5.8e-17 4.4e-16 0.11 0.12
+    GramSolver     0.00s  spectrum 2.4e-16 2.6e-16 3.6e-16 0.11 0.12
+    ArpackSolver   0.01s  spectrum 1.3e-17 3e-17 1.8e-16 0.11 0.12
+    KrylovSolver   0.02s  spectrum 1.4e-16 7.7e-16 1.1e-15 0.11 0.12
+rand4-d6               Float32  n=144    scale=949
+    SVDSolver      0.00s  spectrum 2.6e-08 3.2e-08 3.4e-08 0.11 0.12
+    GramSolver     0.00s  spectrum 7.2e-08 1.2e-07 1.4e-07 0.11 0.12
+    ArpackSolver   0.00s  spectrum 4.8e-09 4.9e-08 1.3e-07 0.11 0.12
+    KrylovSolver   0.00s  spectrum 1.1e-08 4e-08 1.2e-07 0.11 0.12
+rand4-d6               Float16  n=144    scale=949
+    SVDSolver      0.00s  spectrum 7.5e-08 1e-07 1.2e-07 0.11 0.12
+    GramSolver     0.00s  spectrum 1.3e-07 1.5e-07 1.7e-07 0.11 0.12
+    ArpackSolver   0.00s  spectrum 3.8e-08 6.1e-08 8.1e-08 0.11 0.12
+    KrylovSolver   0.00s  spectrum 1.2e-08 5.7e-08 6.9e-08 0.11 0.12
+video-20x20x10x3       Float64  n=909    scale=1.2e+04
+    SVDSolver      0.27s  spectrum 2.4e-18 8.9e-18 1.6e-17 0.00027 0.00027
+    GramSolver     0.13s  spectrum 3e-14 4.9e-14 1.3e-13 0.00028 0.00028
+    ArpackSolver   0.31s  spectrum 2.6e-18 8.4e-17 1.6e-16 0.00027 0.00027
+    KrylovSolver   2.84s  spectrum 5.3e-17 2.9e-16 3.4e-16 0.00027 0.00027
+video-20x20x10x3       Float32  n=909    scale=1.2e+04
+    SVDSolver      0.20s  spectrum 3.4e-09 4.8e-09 1.2e-07 0.00027 0.00027
+    GramSolver     0.11s  spectrum 3.8e-05 5e-05 9e-05 0.00029 0.0003
+    ArpackSolver   0.45s  spectrum 1.7e-08 3.4e-08 5.2e-08 0.00027 0.00027
+    KrylovSolver   0.44s  spectrum 2.4e-08 5.1e-08 1.2e-07 0.00027 0.00027
+video-20x20x10x3       Float16  n=909    scale=1.2e+04
+    SVDSolver      0.20s  spectrum 2.4e-08 3.1e-08 3.4e-08 0.00027 0.00027
+    GramSolver     0.11s  spectrum 3.8e-05 4.8e-05 0.00014 0.00029 0.0003
+    ArpackSolver   0.40s  spectrum 1.6e-08 2.3e-08 7.7e-08 0.00027 0.00027
+    KrylovSolver   0.49s  spectrum 6.7e-09 7.7e-08 1.2e-07 0.00027 0.00027
+video-40x40x20x3       Float64  n=3609   scale=9.61e+04
+    SVDSolver      9.43s  spectrum 2e-19 3.2e-17 4.4e-16 0.00016 0.00017
+    GramSolver     3.84s  spectrum 2.5e-14 3.9e-14 1.3e-13 0.00018 0.00018
+    ArpackSolver   2.82s  spectrum 2.8e-17 2.9e-17 1.1e-16 0.00016 0.00017
+    KrylovSolver   24.38s  spectrum 2.5e-16 2.9e-16 7.1e-16 0.00016 0.00017
+video-40x40x20x3       Float32  n=3609   scale=9.61e+04
+    SVDSolver      5.87s  spectrum 1.7e-09 2.1e-09 1.3e-08 0.00016 0.00017
+    GramSolver     2.92s  spectrum 0.00014 0.00018 0.00018 0.0002 0.00021
+    ArpackSolver   6.92s  spectrum 7.1e-10 5.7e-09 2.9e-08 0.00016 0.00017
+    KrylovSolver   4.16s  spectrum 6e-09 1.6e-07 2.3e-07 0.00016 0.00017
+video-40x40x20x3       Float16  n=3609   scale=9.61e+04
+    SVDSolver      5.53s  spectrum 4.5e-09 6.8e-09 2.4e-07 0.00016 0.00017
+    GramSolver     2.87s  spectrum 0.00015 0.00018 0.00018 0.00021 0.00021
+    ArpackSolver   7.23s  spectrum 2e-08 2.6e-08 5e-08 0.00016 0.00017
+    KrylovSolver   4.33s  spectrum 1.8e-08 3.1e-08 1.2e-07 0.00016 0.00017
+neardeg-1e-3           Float64  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 4.8e-17 6.8e-17 3.7e-11 5.1e-11 5.9e-11
+    GramSolver     0.00s  spectrum 7.7e-11 1e-10 1.1e-10 1.2e-10 1.4e-10
+    ArpackSolver   0.00s  spectrum 8e-21 4.2e-17 3.7e-11 5.1e-11 5.9e-11
+    KrylovSolver   0.04s  spectrum 2.5e-15 3.1e-15 3.7e-11 5.1e-11 5.9e-11
+neardeg-1e-3           Float32  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 1.1e-08 3e-08 3.6e-08 4.1e-08 4.1e-08
+    GramSolver     0.00s  spectrum 7.1e-09 7.5e-09 7.7e-09 8.4e-09 9e-09
+    ArpackSolver   0.00s  spectrum 6.4e-12 1.4e-11 6.2e-11 6.4e-11 7.4e-11
+    KrylovSolver   0.00s  spectrum 3.2e-09 3.7e-09 3.8e-09 3.8e-09 4e-09
+neardeg-1e-3           Float16  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 1e-08 2.1e-08 2.6e-08 4e-08 4.1e-08
+    GramSolver     0.00s  spectrum 2.7e-09 3e-09 3.6e-09 4e-09 4.4e-09
+    ArpackSolver   0.00s  spectrum 1.3e-16 2e-16 3.4e-16 4e-16 4.7e-16
+    KrylovSolver   0.00s  spectrum 3.8e-09 4.6e-09 5e-09 5.2e-09 5.4e-09
+neardeg-1e-8           Float64  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 2.1e-17 3.9e-17 4.7e-17 6.8e-17 6.8e-17
+    GramSolver     0.00s  spectrum 1.1e-17 1.3e-17 1.3e-17 1.4e-17 1.5e-17
+    ArpackSolver   0.00s  spectrum 5.4e-22 5.5e-21 6e-21 6.5e-21 7e-21
+    KrylovSolver   0.00s  spectrum 2.1e-17 1.1e-16 6.1e-16 1.7e-15 1.7e-15
+neardeg-1e-8           Float32  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 1.2e-08 1.6e-08 2.3e-08 3.3e-08 4.1e-08
+    GramSolver     0.00s  spectrum 2.9e-09 3.4e-09 3.9e-09 4e-09 4.6e-09
+    ArpackSolver   0.00s  spectrum 4.6e-17 1.6e-16 1.8e-16 2.4e-16 2.4e-16
+    KrylovSolver   0.00s  spectrum 3.7e-09 4.2e-09 4.6e-09 5.4e-09 5.7e-09
+neardeg-1e-8           Float16  n=108    scale=7.7e+04
+    SVDSolver      0.00s  spectrum 1.2e-08 1.6e-08 2.3e-08 3.3e-08 4.1e-08
+    GramSolver     0.00s  spectrum 2.9e-09 3.4e-09 3.9e-09 4e-09 4.6e-09
+    ArpackSolver   0.00s  spectrum 2.8e-17 1.7e-16 1.7e-16 2.8e-16 2.9e-16
+    KrylovSolver   0.00s  spectrum 3.7e-09 4.2e-09 4.6e-09 5.4e-09 5.7e-09
+wrote precision-tune-a.csv (1944 rows)

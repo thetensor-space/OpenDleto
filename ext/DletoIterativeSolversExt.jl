@@ -76,11 +76,30 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     RT = typeof(real(zero(T)))
 
     # One projection step:  z <- z - A⁺(A z).
+    # FLOOR BOTH TOLERANCES ON `T`.  The struct's defaults (`lsmr_tol = 1e-12`,
+    # `rank_tol = 1e-8`) are Float64 numbers chosen before the element type is
+    # known, and both sit BELOW `eps(Float32) = 1.2e-7`, so in Float32 the
+    # stopping test was unreachable and the rank cut was made inside the
+    # roundoff -- which is how this solver returned nullity 20 on a Float16
+    # tensor whose true nullity was 3.
+    #
+    # `lsmr_tol` gets `eps(T)`, NOT the `100 eps(T)` that `Dleto.iter_tol` gives
+    # the Krylov methods, and that difference is measured rather than stylistic.
+    # LSMR's `atol`/`btol` are relative tests INSIDE the inner least-squares
+    # solve, and `project!` applies the projector repeatedly (see the
+    # refinement note below): each pass starts from a smaller `‖y‖`, so the
+    # composite accuracy is not capped by one pass's `eps(T) ‖A‖‖z‖` the way a
+    # single Lanczos residual is.  At `100 eps(Float32) = 1.2e-5` the sphere at
+    # d = 10 lost 270x of recovery (1.4e-6 -> 4.0e-4 relative) for a 15% time
+    # saving, and the valence-4 case lost a null vector outright (4 -> 3).  At
+    # `eps(Float32) = 1.2e-7` both are restored.  Below `eps(T)` a single pass
+    # cannot resolve anything, and `lsmr_maxiter` is the real bound.
+    lsmr_tol = max(Float64(m.lsmr_tol), Float64(eps(RT)))
     x = Vector{T}(undef, n)
     function project!(z::AbstractVector)
         y = L * z                        # y is in range(A) by construction,
         fill!(x, zero(T))                # so this system is consistent and
-        lsmr!(x, L, y; atol = m.lsmr_tol, btol = m.lsmr_tol,
+        lsmr!(x, L, y; atol = lsmr_tol, btol = lsmr_tol,
               maxiter = m.lsmr_maxiter)  # LSMR returns the min-norm solution.
         z .-= x
         return z
@@ -113,8 +132,9 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     F = qr(Z, ColumnNorm())
     R = F.R
     lead = abs(R[1, 1])
+    rank_tol = max(Float64(m.rank_tol), Dleto.rank_rtol(RT, size(Z)...))
     d = lead == 0 ? 0 :
-        count(i -> abs(R[i, i]) > m.rank_tol * lead, 1:min(size(R)...))
+        count(i -> abs(R[i, i]) > rank_tol * lead, 1:min(size(R)...))
     d == 0 && return (; vals = RT[], vecs = zeros(T, n, 0))
 
     # Return the d null vectors PLUS one column above the rank threshold.
@@ -162,7 +182,10 @@ function Dleto.solve(::LanczosSolver, L::LinearMap; nv::Integer = 10, tol = 1e-1
     T = eltype(L)
     nsv < 1 && return (; vals = typeof(real(zero(T)))[], vecs = zeros(T, size(L, 2), 0))
 
-    F, _ = IterativeSolvers.svdl(L; nsv = nsv, vecs = :right, tol = tol)
+    # `tol` is a relative residual tolerance; floored on `T` so a Float32 run
+    # stops instead of iterating below its own noise (src/solvers/Precision.jl).
+    F, _ = IterativeSolvers.svdl(L; nsv = nsv, vecs = :right,
+                                 tol = Dleto.iter_tol(real(T), tol))
     S = F.S
     V = F.Vt'                              # columns are right singular vectors
 
@@ -204,6 +227,13 @@ function Dleto.solve(::CGSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     # and asked for 16 of a 15-dimensional one it returned nothing.
     margin = max(8, nv ÷ 2)
     blocksize = clamp(nv + margin, 1, max(1, n ÷ 3))
+    # LOBPCG's `tol` is an absolute residual norm; floored on `T`.  This does
+    # NOT make LOBPCG usable below Float64 -- its Float32 Cholesky of the block
+    # Gram matrix fails whatever the tolerance and the block collapses to 1-3
+    # vectors (precision-study.md, Exp. 2b, 5), which is why
+    # `matrix_free_solvers` drops :CGSolver below Float64.  It only stops a
+    # Float32 call that does get here from running to `maxiter`.
+    tol = Dleto.iter_tol(real(eltype(L)), tol)
 
     # Even within that bound a large block is Cholesky-factorized internally,
     # and on `AᵗA` -- condition number κ(A)² -- that factorization fails with

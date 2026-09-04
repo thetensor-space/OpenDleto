@@ -59,7 +59,7 @@ function derTrOpsReduced(method::SylverLiningMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor;
-    tol::Real=1e-6,
+    tol::Real=TOL_DEFAULT,
     nd=-1,  # Don't type as integer to allow Inf
     progress=false,
     # Which sylvester kernel to build; see `sylvesterLM`.  Defaults to whatever
@@ -74,16 +74,30 @@ function derTrOpsReduced(method::SylverLiningMethod,
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
     @assert val == size(P, 2) "Incompatable Chisel"
     
+    # STORAGE type vs COMPUTE type.  `Tc` is what the arithmetic runs in and
+    # `T` is what the caller handed in; they differ only for Float16, which has
+    # no BLAS or LAPACK anywhere and promotes to Float32 (see
+    # `Dleto.compute_eltype`).  Without that promotion every route here is
+    # confidently wrong in Float16: measured on the sphere at d = 10, true
+    # nullity 3, the dense SVD reported 40 derivations and the Gram solver 41,
+    # both at a reconstruction error of 0.9, because the half-precision noise
+    # floor `eps16*‖L‖ ~ 0.09` relative is an order of magnitude ABOVE the
+    # operator's first nonzero eigenvalue.  The answer is rounded back to `T`
+    # at the end, so a Float16 tensor still yields Float16 coordinates -- the
+    # data's precision is preserved, not inflated.
     T = eltype(Γ)
+    Tc = compute_eltype(T)
+    Γc = T === Tc ? Γ :
+         ITensor(Array{Tc}(ITensors.array(Γ, Γ_frame...)), Γ_frame...)
     # Compute reduced operators (matching what sylvesterLM does internally)
     eng = engaged(P)
-    (Ω_reduced,expand_map) = reduceByEngaged(Ω, eng, T)
+    (Ω_reduced,expand_map) = reduceByEngaged(Ω, eng, Tc)
     # Chisels default to Float64; do not let that promote a Float32 tensor.
-    P_eng = Matrix{T}(P[:,eng])
+    P_eng = Matrix{Tc}(P[:,eng])
 
     # if globalDim(reducedΩ) < 10000
     # MDK, we need to reduce the chisel and pass the reduced chisel to the helper function
-    sylvester, ester_map = sylvesterLM(Ω_reduced, P_eng, Γ; backend=backend)
+    sylvester, ester_map = sylvesterLM(Ω_reduced, P_eng, Γc; backend=backend)
     
     # All of the null-solver policy -- when densifying is cheap enough, how
     # many vectors to ask an iterative method for, how to grow that request
@@ -116,8 +130,15 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # the eigenvalues of `AᵗA` are `σ²`, so `solve_nullspace` squares the
     # relative ceiling and an accepted direction still satisfies `σ/σ_max ≤ tol`
     # rather than `√tol`.
+    #
+    # `store_eltype = T` is what keeps a promoted run honest: the nullity cut is
+    # made at the FLoat32 arithmetic's floor, but certification additionally
+    # requires the first value above the cut to clear the resolution of the
+    # stored data (`eps(Float16)` = 9.8e-4 relative).  A near-derivation under
+    # that is reported as undecidable rather than counted or discarded silently.
     (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
-                                squared=true, progress=progress, label="der")
+                                squared=true, store_eltype=real(T),
+                                progress=progress, label="der")
 
     coords = size(vecs, 2) == 0 ? zeros(T, globalDim(Ω_reduced), 0) : Matrix{T}(vecs)
     return (Ω_reduced, expand_map, coords)

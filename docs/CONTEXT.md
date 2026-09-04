@@ -1,8 +1,95 @@
 # OpenDleto — working context for AI chats
 
 Purpose: hand this file to a new chat so it starts with the context of prior sessions.
-Keep it updated as work progresses. Last updated 2026-09-03 (session 3: valence-n stratification,
-in progress -- see the section of that name).
+Keep it updated as work progresses. Last updated 2026-09-04 (session 4: the whitened
+restriction; session 3: valence-n stratification -- see the sections of those names).
+
+## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
+
+Branch `feature/under-pressure/2026-09-04` (work done on a worktree branch off it).
+Design note: `docs/design/QuickDer-valence-n.md` section 2a.  Numbers:
+`bench/reports/2026-09-04/whitened/`.
+
+The wall session 3 stopped at was the matrix-free restricted branch: above d ~ 200 at
+valence 3 the dense/Gram route does not fit and the matrix-free branch "converged
+slowly", with ARPACK hitting its iteration cap on structured tensors.  It turns out the
+branch was not slow, it was **not converging at all** -- forced matrix-free on the
+scrambled sphere, ARPACK exhausts its cap and returns nullity 0 at every d from 30 up.
+The cause is sketch-induced and removable exactly.
+
+The structure.  The axis-`a` column block of the restricted system is `I_{r_a} ⊗ M_a`
+up to the row permutation `_qdn_row_perm` bookkeeps, where `M_a` is the transposed
+mode-`a` unfolding of the cross sketch.  So the DIAGONAL blocks of the restricted Gram
+are `c_a·(I ⊗ M_aᵗ M_a)` with `c_a = Σ_ρ P[ρ,a]²` -- all of the sketch's conditioning
+lives in `d_a x d_a` Grams -- while the off-diagonal blocks, which are what encodes the
+derivation condition, survive any per-axis change of variables.  Verified to 5e-16 at
+valence 3 and 4 for universal, centroid and adjoint chisels.
+
+The fix (`whiten = true`, now the DEFAULT, and `:Auto` inherits it): thin QR
+`M_a = Q_a R_a`, solve for `Ỹ_a = R_a Y_a`.  Every diagonal Gram block becomes exactly
+`c_a·I`, the spectrum lands in `[0, Σ_a c_a]`, the null space is untouched, and the cost
+is `n` QRs of `(∏_{b≠a} r_b) x d_a` -- 0.01 s of an 18 s solve at d = 200.
+
+Measured (forced matrix-free so both settings meet the same solver at the same size;
+ARPACK, Float64, 5 threads; every whitened result Z-law verified):
+
+| case | plain applies / verdict | whitened applies / verdict |
+|---|---|---|
+| sphere v3 d = 30  | 53632 / ARPACK cap, nullity 0  | 23732 / nullity 3, 2.8e-13 |
+| sphere v3 d = 40  | 55196 / ARPACK cap, nullity 0  | 30796 / nullity 3, 1.2e-12 |
+| sphere v3 d = 100 | 66900 / ARPACK cap, nullity 0  | 34636 / nullity 3, 7.8e-11 |
+| sphere v3 d = 150 | 177142 / ARPACK cap, nullity 0 | 39544 / nullity 3, 1.7e-12 |
+| sphere v3 d = 200 | 65182 / ARPACK cap, nullity 0  | 38262 / nullity 3, 3.3e-10 |
+| randn 150^3 | 14618 / nullity 2, ok | 10156 / nullity 2, ok (1.44x) |
+| randn 250^3 | 22974 / nullity 2, ok | 15712 / nullity 2, ok (1.46x) |
+| sphere v4 d = 60  | 61994 / ARPACK cap, nullity 0 | 12808 / nullity 4, 1.1e-13 (4.8x) |
+| sphere v4 d = 80  | 64584 / ARPACK cap, nullity 0 | 19718 / nullity 4, 2.4e-13 (3.3x) |
+| sphere v4 d = 100 | 65858 / ARPACK cap, nullity 0 | 13188 / nullity 4, 3.7e-13 (5.0x) |
+| video 200x200x100x3 Float32 | 56980 / ARPACK cap, nullity 0 | 11182 / nullity 3, 1.7e-5 (5.1x) |
+| degenerate 40^3, mode-1 rank 38 | 59640 / nullity **26** of 82 | 4024 / nullity **82**, 8.4e-16 (14.8x) |
+
+**FRONTIER MOVED.**  Whitened, matrix-free, ARPACK, Float64, scrambled sphere:
+valence 3 d = 200 in 18.4 s (2.1 GB peak, no restricted matrix at all -- session 3's
+dense Gram route needed 22 s, an 8 GB peak and a 2.2 GB matrix), **d = 300 in 105 s**
+(3.8 GB) and **d = 500 in 136 s** (11.4 GB, residual 3.2e-13).  Valence 4 reaches
+d = 100 in 7.2 s (11.7 GB).  The user's goal for this size was "500..1000 within an
+hour"; d = 500 is 2.3 minutes.  What now stands between here and d = 1000 is MEMORY in
+the harness and the sketch pass -- `build_sphere` holds three copies of the tensor and
+`_qdn_pair_tensor` `permutedims` the full tensor once per lift axis, so d = 1000 needs
+~22 GB against a 12 GB kill line -- and no longer convergence in the solver.
+
+The generic-tensor row is the control and it agrees with the analysis: a random tensor's
+mode unfoldings are already well conditioned (`cond(M_a) ≈ 3` against 20..150 on the
+sphere), so there is nothing for the whitening to remove and it is worth 1.4x.
+
+LOBPCG (`:CGSolver`) does NOT win on the whitened operator, despite the spectrum now
+being in `[0, n]`: unpreconditioned it returns the WRONG nullity, silently (nullity 2 of
+3 at d = 30 unwhitened, 0 of 3 at d = 100 and 200 both ways) and takes 2-4x more applies
+than ARPACK when it does answer.  ARPACK-first stays the right default on this branch.
+Whitening helps it too (168034 -> 53124 applies at d = 30, and it becomes correct there),
+so the gain is a property of the operator, not of ARPACK.
+
+Degenerate modes, and a correctness fix.  When a mode unfolding is rank deficient (smooth
+video, separable tensors: `cond(M_a) ~ 3e16` measured on a smooth 20x20x10x3 box) the QR
+has no inverse, so the whitening takes an SVD and truncates to the range at the standard
+`min(size)·eps` cut.  The dropped directions are the trivial derivations `X_a ×_a Γ = 0`;
+they are checked against Γ itself and written down exactly rather than left in the solve
+as a numerically-zero eigenvalue cluster.  That also FIXES an undercount: the unwhitened
+branch only ever sees them as `Y_a` with columns in `ker(M_a)`, and its rank-deficient
+lift returns a minimum-norm `Z_a` with no kernel component, so on a 12^3 tensor with a
+mode-1 rank of 10 the true derivation space is 26-dimensional and the old path reported
+an arbitrary, `W`-dependent 16 of it.  Degenerate modes are meant to be removed upstream
+by `nondeg`; this is the safety net.
+
+Out of budget on this machine, established by `bench/WhitenedRestriction.jl estimate`
+before anything was allocated (`build_sphere` holds three copies of the tensor):
+valence-4 spheres at d = 150 (11.3 GB) and d = 200 (35.8 GB) in Float64, d = 200 in
+Float32 (17.9 GB), and valence-3 d = 1000 (22.4 GB) -- against a 12 GB per-process kill
+line.  Valence 3 reaches d = 500 and valence 4 d = 100 in Float64.
+
+New knob for the next session: `Dleto.QDN_APPLY_COUNT[] = 0` before a call counts the
+matrix-free applies the restricted solve took (forward + adjoint), so iteration count is
+readable directly instead of inferred from wall time.
 
 ## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
 
@@ -517,6 +604,32 @@ methods rather than discriminating them, and the discriminating axis for `strati
 - Note on history: the Phase 0 archive commit accidentally swept in a `git mv`
   (`SylverLininig.jl` → `SylverLining.jl`), because `git commit` takes the whole index. Not
   rewritten, since six uncommitted edits were at risk at the time.
+
+## Direction set 2026-09-04 (evening): the movie regime runs in Float16
+
+The user's target is video: 640 x 480 x F x 3 at 30 fps, F up to 1800 (one minute), and by
+decision it will run in **Float16** -- 3.3 GB for the minute instead of 6.6 GB. Measured on
+that shape today (Float32, whitened matrix-free QuickDer, 5 CPU threads, `labs/MovieRuntime.ipynb`):
+1 s / 3 s / 10 s of video take 21.6 / 28.3 / 44.7 s, all nullity 3/3 certified; the affine fit
+projects the minute at ~171 s of which ~20 s is the eigensolve (set by 640 x 480, flat in F)
+and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the tensor
+(3.4 / 6.7 / 16.9 GB), NOT explained by input copies -- Float64 used no more than Float32 at
+the same F -- so the minute would need ~92 GB today.
+
+Order of work, decided with the user:
+1. **Memory first.** Profile the video shape per stage; find the precision-independent ~14x
+   footprint; target < 15 GB for the minute. Nothing else pays off until this lands.
+2. **Then GPU, designed together with (1).** Move the tensor stages (sketch, lift, verify --
+   the ~150 s) to Metal on the restructured pipeline: the tensor lives once, contracted
+   axis-by-axis without a full permuted copy (last night: `permutedims!` on the device, not GEMM,
+   was the bottleneck). The eigensolve stays on the host: 20 s, tiny, and Float32.
+3. **Float16 contract**, pending measurement (`docs/design/Float16-Metal.md` when it lands):
+   expected shape is Float16 storage and half operands on the GPU with fp32 accumulation and
+   output, Float32 for the restricted eigensolve, verdict floored by `data_floor(Float16)` so a
+   half-precision result is never certified beyond what the data carries.
+
+Not now: native core (gated behind a measured 2x), eigensolve on the GPU (wrong regime for
+video), the d = 1000 long-axis frontier as a goal in itself.
 
 ## How work reaches beta, from 2026-09-04
 

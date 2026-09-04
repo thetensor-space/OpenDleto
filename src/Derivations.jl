@@ -97,7 +97,7 @@ end
             P::AbstractMatrix,
             Γ::ITensor;
             nd=-1,
-            tol::Real=1e-6,
+            tol::Real=TOL_DEFAULT,
         ) :: Vector{Vector{ITensor}}
 
     The **Z-set**: a basis of the `P`-derivations of `Γ`.  Every returned
@@ -125,7 +125,7 @@ function der(method::DerivationMethod,
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Float64=1e-6,
+    tol::Float64=TOL_DEFAULT,
     nd=-1,
     kwargs...
     ) :: Vector{Vector{ITensor}}
@@ -145,7 +145,7 @@ function derReduced(method::DerivationMethod,
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Float64=1e-6,
+    tol::Float64=TOL_DEFAULT,
     nd=-1,
     kwargs...
     ) :: Vector{Vector{ITensor}}
@@ -165,7 +165,7 @@ function derTrOps(method::DerivationMethod,
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Float64=1e-6,
+    tol::Float64=TOL_DEFAULT,
     nd=-1
     ) :: AbstractMatrix{<: Number}
     (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd)
@@ -181,7 +181,7 @@ function derTrOpsReduced(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor; 
-    tol::Float64=1e-6,
+    tol::Float64=TOL_DEFAULT,
     nd=10,
     kwargs...
     ) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
@@ -190,7 +190,7 @@ end
 
 
 # this should be  moved to DerivationMethodSylverLininig,jl  
-derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number}} = 
+derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=TOL_DEFAULT, nd=10) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number}} = 
     derTrOpsReduced(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
 
 # `den` -- the T-set / densor -- lives in Densors.jl, next to `stratify`.
@@ -215,14 +215,14 @@ __asITensor(Γ::AbstractArray) =
     ITensor(Γ, [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]...)
 
 """
-    der(Γ; nd=-1, tol::Real=1e-6)
+    der(Γ; nd=-1, tol::Real=TOL_DEFAULT)
 
     Convenience method to compute derivations of a tensor using defaults:
     - Universal chisel
     - Universal transverse operators
     - SylverLiningMethod
 """
-function der(Γ::ITensor; nd=-1, tol::Real=1e-6) :: Vector{Vector{ITensor}}
+function der(Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT) :: Vector{Vector{ITensor}}
     ch, _, ops = universalSetup(Γ)
     return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
@@ -233,26 +233,26 @@ end
 # went to the constructor -- so `der(:SylverLining, Γ; progress=:solve)` died
 # with "SylverLiningMethod does not support keyword progress".  Per-call
 # options therefore have to be named explicitly in every symbol overload.
-function der(method::Symbol, Γ::ITensor; nd=-1, tol::Real=1e-6,
+function der(method::Symbol, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT,
              progress=false, kwargs...) :: Vector{Vector{ITensor}}
     ch, _, ops = universalSetup(Γ)
     return der(get_derivation_method(method; kwargs...), ops, ch, Γ;
                nd=nd, tol=tol, progress=progress)
 end
 
-der(Γ::AbstractArray; nd=-1, tol::Real=1e-6) =
+der(Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT) =
     der(__asITensor(Γ); nd=nd, tol=tol)
 
-der(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=1e-6, progress=false, kwargs...) =
+der(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT, progress=false, kwargs...) =
     der(method, __asITensor(Γ); nd=nd, tol=tol, progress=progress, kwargs...)
 
-function der(ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6)
+function der(ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
     return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1e-6,
+function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT,
              progress=false, kwargs...)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
@@ -260,11 +260,11 @@ function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=1
                nd=nd, tol=tol, progress=progress)
 end
 
-der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6) =
+der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT) =
     der(ch, __asITensor(Γ); nd=nd, tol=tol)
 
 function der(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
-             nd=-1, tol::Real=1e-6, progress=false,
+             nd=-1, tol::Real=TOL_DEFAULT, progress=false,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
     return der(m, Ω, ch, Γ; nd=nd, tol=tol, progress=progress)
@@ -283,7 +283,7 @@ caller comparing methods on a fixed operator space would naturally write,
 `der(:QuickDer, Ω, ch, Γ)`, was a `MethodError`.
 """
 der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
-    nd=-1, tol::Real=1e-6, progress=false, kwargs...) =
+    nd=-1, tol::Real=TOL_DEFAULT, progress=false, kwargs...) =
     der(get_derivation_method(method; kwargs...), Ω, ch, Γ;
         nd=nd, tol=tol, progress=progress)
 

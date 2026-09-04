@@ -114,7 +114,7 @@ end
 
 """
     den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-        tol::Real=1e-6, nd=-1) :: Vector{ITensor}
+        tol::Real=TOL_DEFAULT, nd=-1) :: Vector{ITensor}
 
     The **T-set**, or densor: a basis of the tensors that admit every element
     of `Δ` as a `P`-derivation.  This is `T(P, Δ)` of Densor.pdf; with `Δ` the
@@ -133,7 +133,7 @@ end
     - `tol`: tolerance for the nullspace.
 """
 function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-             tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver,
+             tol::Real=TOL_DEFAULT, nd=10, solver::Symbol=:AutoSolver,
              progress=false) :: Vector{ITensor}
     (A, AtA, fr, dims) = denLM(Ω, P, Δ)
 
@@ -171,7 +171,7 @@ den(::DerivationMethod, Ω::TransverseOps, P::AbstractMatrix, D::Vector{ITensor}
     the universal chisel, then for every tensor admitting them.  `Γ` must lie
     in the result, which is the Galois law.
 """
-function den(Γ::ITensor; tol::Real=1e-6, nd=10, solver::Symbol=:AutoSolver,
+function den(Γ::ITensor; tol::Real=TOL_DEFAULT, nd=10, solver::Symbol=:AutoSolver,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     ch, fr, Ω = universalSetup(Γ)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
@@ -229,7 +229,7 @@ function stratify(
         Ω::TransverseOps, 
         ch::AbstractMatrix,          
         Γ::ITensor;
-        tol::Float64=1e-6,
+        tol::Float64=TOL_DEFAULT,
         nd=-1,
         progress=false,
         method::Union{DerivationMethod, Symbol}=:Auto,
@@ -277,7 +277,7 @@ end
 # ---- Convenience wrappers for stratify ---
 function stratify(
         Γ::ITensor;
-        tol::Float64=1e-6,
+        tol::Float64=TOL_DEFAULT,
     nd=-1,
     progress=false,
     method::Union{DerivationMethod, Symbol}=:Auto,
@@ -302,7 +302,7 @@ end
 
 function stratify(
         Γ::AbstractArray;
-        tol::Float64=1e-6,
+        tol::Float64=TOL_DEFAULT,
         nd=-1,
         progress=false,
         method::Union{DerivationMethod, Symbol}=:Auto,

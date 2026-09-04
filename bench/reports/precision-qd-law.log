@@ -1,0 +1,72 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== the smallest tol that recovers the full nullity, vs d (valence 3) ===
+d=16   Float32 r=8x8x8       need_tol=0.000464  = 3892     eps  = 1.34    sqrt(eps)   policy(0.000345) gives 3 of 3
+d=32   Float32 r=11x11x11    need_tol=0.000464  = 3892     eps  = 1.34    sqrt(eps)   policy(0.000345) gives 3 of 3
+d=48   Float32 r=13x13x13    need_tol=0.000681  = 5713     eps  = 1.97    sqrt(eps)   policy(0.000345) gives 2 of 3   <-- UNDERCOUNT
+d=64   Float32 r=15x15x15    need_tol=0.000464  = 3892     eps  = 1.34    sqrt(eps)   policy(0.000345) gives 2 of 3   <-- UNDERCOUNT
+d=100  Float32 r=19x19x19    need_tol=0.001     = 8389     eps  = 2.9     sqrt(eps)   policy(0.000345) gives 1 of 3   <-- UNDERCOUNT
+d=140  Float32 r=22x22x22    need_tol=0.000464  = 3892     eps  = 1.34    sqrt(eps)   policy(0.000345) gives 0 of 3   <-- UNDERCOUNT
+d=64   Float64 r=15x15x15    need_tol=0.0001    = 4.504e+11eps  = 6.71e+03sqrt(eps)   policy(1e-06) gives 3 of 3
+bench/jl: KILLED pid 15635 -- RSS 6014 MB exceeded 5 GB budget
+
+[15635] signal 15: Terminated: 15
+in expression starting at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-qd-law.jl:69
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+_setindex! at ./array.jl:1003 [inlined]
+setindex! at ./array.jl:997 [inlined]
+setindex! at ./subarray.jl:386 [inlined]
+_setindex! at ./abstractarray.jl:1473 [inlined]
+setindex! at ./abstractarray.jl:1443 [inlined]
+macro expansion at ./broadcast.jl:995 [inlined]
+macro expansion at ./simdloop.jl:77 [inlined]
+copyto! at ./broadcast.jl:994 [inlined]
+copyto! at ./broadcast.jl:947 [inlined]
+materialize! at ./broadcast.jl:905
+unknown function (ip: 0x15716c487) at (unknown file)
+materialize! at ./broadcast.jl:0 [inlined]
+_qdn_restricted_matrix at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/QuickDerN.jl:621
+_qdn_solve_and_lift at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/QuickDerN.jl:743
+unknown function (ip: 0x156f7c463) at (unknown file)
+#derTrOpsReduced#353 at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/QuickDerN.jl:1096
+derTrOpsReduced at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/QuickDerN.jl:1039 [inlined]
+#smallest_working_tol##1 at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-qd-law.jl:42
+RedirectStdStream at ./stream.jl:1464
+run at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-qd-law.jl:41
+unknown function (ip: 0x140b0c333) at (unknown file)
+macro expansion at ./timing.jl:461 [inlined]
+smallest_working_tol at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-qd-law.jl:59
+top-level scope at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-qd-law.jl:73
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1024
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:975
+ijl_toplevel_eval at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1047 [inlined]
+ijl_toplevel_eval_in at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1092
+eval at ./boot.jl:489
+include_string at ./loading.jl:2870
+_include at ./loading.jl:2930
+include at ./Base.jl:306
+exec_options at ./client.jl:317
+_start at ./client.jl:550
+jfptr__start_38197.1 at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/sys.dylib (unknown line)
+jl_apply at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/./julia.h:2391 [inlined]
+true_main at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jlapi.c:971
+jl_repl_entrypoint at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jlapi.c:1139
+unknown function (ip: 0x0) at (unknown file)
+Allocations: 113247044 (Pool: 113246048; Big: 996); GC: 162
+[ Info: quickder restricted: nullity 13 certified (rule :gap), cut at the Float32 precision floor 9.5367431640625e-7 (relative) -- a near-derivation hidden below that floor would look identical. Values around the cut: [1.5238672474242343e-7, 1.5900319190623773e-7, 1.97643147618179e-7] | [0.0012943046080460669, 0.002209743608493381, 0.0026880989449750707]
+┌ Warning: quickder restricted: nullity 14 is UNCERTIFIED -- no gap of 100.0x in the spectrum below the threshold 0.00034526698300124393 (relative). Values around the cut: [2.464898853040202e-6, 3.008718496417814e-6, 0.00024902450702622567] | [0.00045645318168623236, 0.0006762705775546441]. Consider Float64, an explicit `tol`, or `nd`.
+└ @ Dleto ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/src/solvers/NullSolvers.jl:807

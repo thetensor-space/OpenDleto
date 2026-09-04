@@ -30,7 +30,9 @@ The default derivation method: `:QuickDer` first when the setting supports it
 tensor entries), `:SylverLining` otherwise or when QuickDer's own verification
 rejects its answer.  Construct through `get_derivation_method(:Auto; ...)`;
 keywords not named here go to the QuickDer constructor (`restriction`,
-`sizes`, `verify`, `seed`, `solver`).
+`sizes`, `verify`, `seed`, `solver`, `whiten`) -- so `:Auto` inherits the
+whitened restriction, which is what lets the matrix-free branch answer at all
+on a structured tensor above d ~ 30 (see `QuickDerMethod`'s table).
 """
 struct AutoDerMethod <: DerivationMethod
     quick::QuickDerMethod
@@ -68,7 +70,7 @@ function derTrOpsReduced(
     Ω::TransverseOps,
     P::AbstractMatrix,
     Γ::ITensor;
-    tol::Real = 1e-6,
+    tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
     kwargs...,
