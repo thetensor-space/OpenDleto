@@ -865,3 +865,165 @@ end
         end
     end
 end
+
+# =========================================================================
+# 8. `return_diagnostics`: the verdict as a value, not as log text
+# =========================================================================
+#
+# The downstream consumer calls `derTrOpsReduced` directly and needs the
+# evidence behind the count -- was it certified, what are the values either
+# side of the cut, how far from zero is each returned direction -- without
+# parsing `@warn` text that `maxlog = 1` silences on the second block of a
+# thousand.  `return_diagnostics = true` appends a `DerivationReport`; the
+# default appends nothing, and THAT is the assertion that matters most here,
+# because everything downstream destructures a three-tuple.
+#
+# What is checked: every summary field agrees with the `NullVerdict` it was
+# copied from, the counts agree with the matrix actually returned, and the
+# residuals are RECOMPUTED here from `ders` -- the report may not simply be
+# reporting itself.
+
+@testset "8. return_diagnostics" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # `(sphere, truth)`: the scrambled sphere (SymmetricOp, nullity 3) and a
+        # random dense tensor (UniversalOp, nullity = valence - 1 = the scalars),
+        # which are the two ends of the range -- one with structure to find, one
+        # with none.
+        function random_case(T)
+            Random.seed!(20260904)
+            fr = [Index(d, "r$i") for (i, d) in enumerate((9, 8, 7))]
+            Γ = ITensor(Array{T}(randn(9, 8, 7)), fr...)
+            return (; Ω = IndTransverseOps(fr, UniversalOp()),
+                      ch = Matrix{Float64}(UniversalChisel(3)), Γ, truth = 2)
+        end
+        function sphere_case(T)
+            inp = build_sphere(10; valence = 3, T = T)
+            return (; inp.Ω, ch = Matrix{Float64}(inp.ch), inp.Γ, truth = 3)
+        end
+
+        @testset "$(cname) $T / $mname" for (cname, case) in (("sphere", sphere_case),
+                                                              ("random", random_case)),
+                                            T in (Float64, Float32),
+                                            mname in (:QuickDer, :SylverLining)
+            c = case(T)
+            m = mname === :QuickDer ?
+                get_derivation_method(:QuickDer; seed = 20260904) :
+                get_derivation_method(:SylverLining)
+
+            # 1. THE DEFAULT IS UNCHANGED.  Three elements, and the same
+            #    coordinates as the diagnosed call.
+            plain = derTrOpsReduced(m, c.Ω, c.ch, c.Γ; tol = 1e-8)
+            @test length(plain) == 3
+
+            out = derTrOpsReduced(m, c.Ω, c.ch, c.Γ; tol = 1e-8,
+                                  return_diagnostics = true)
+            @test length(out) == 4
+            (rΩ, expand_map, ders, rep) = out
+            @test rep isa DerivationReport
+            @test size(ders) == size(plain[3])
+            @test size(ders, 2) == c.truth
+
+            # 2. THE REPORT DESCRIBES THIS ANSWER.
+            @test rep.method === mname
+            @test rep.policy === :auto
+            @test rep.returned == size(ders, 2)
+            @test rep.dims == collect(size(c.Γ))
+            @test rep.store_eltype === T
+            @test rep.compute_eltype === Dleto.compute_eltype(T)
+            # The scalars are `dim ker P`, which is 2 for a 3-valent universal
+            # chisel -- the count a tensor with no structure returns, and the
+            # baseline the sphere's 3 has to be read against.
+            @test rep.scalar_dim == 2
+
+            # 3. THE SUMMARY AGREES WITH THE VERDICT IT WAS COPIED FROM.
+            @test rep.verdict isa Dleto.NullVerdict
+            v = rep.verdict
+            @test rep.nullity == v.nullity
+            @test rep.certified == v.certified
+            @test rep.rule === v.rule
+            @test rep.status === v.status
+            @test rep.gap == v.gap || (isnan(rep.gap) && isnan(v.gap))
+            @test rep.threshold == v.threshold
+            @test rep.undecidable == v.undecidable
+            @test rep.near_null == v.near_null
+            @test rep.spectrum == v.spectrum
+            @test rep.data_floor ≈ Dleto.data_floor(T)
+            @test rep.precision_floor ≈ Dleto.precision_floor(T)
+            # `selected` is the cut, so exactly `nullity` values, ascending,
+            # and `next_value` is the first one above it.
+            @test length(rep.selected) == rep.nullity
+            @test issorted(rep.selected)
+            @test rep.spectrum[1:rep.nullity] == rep.selected
+            @test length(rep.spectrum) > rep.nullity ?
+                  rep.next_value == rep.spectrum[rep.nullity + 1] :
+                  isnan(rep.next_value)
+
+            # 4. THE RESIDUALS, RECOMPUTED.  Not copied from the report: each
+            #    returned column is embedded back into operators here and put
+            #    through the test file's own `der_residual`, which goes by the
+            #    ITensor route rather than `Dleto.der_residual`'s blocked one.
+            @test rep.residuals !== nothing
+            @test length(rep.residuals) == size(ders, 2)
+            for j in 1:size(ders, 2)
+                D = embedITensors(c.Ω, expand_map * ders[:, j])
+                @test isapprox(rep.residuals[j], der_residual(c.Γ, D, c.ch);
+                               rtol = 1e-3, atol = 10 * eps(T))
+                # and they really are derivations, which is what the number is
+                # for: `sqrt(eps)` is the accuracy a solve-and-lift can carry.
+                @test rep.residuals[j] < 100 * sqrt(eps(T))
+            end
+
+            # 5. ROUTE-SPECIFIC FIELDS: filled by QuickDer, `nothing` from
+            #    SylverLining, which has no sketch and no lift.  A `nothing`
+            #    means "this route has no such number", never "zero".
+            if mname === :QuickDer
+                @test rep.whitened === true
+                @test rep.seed == 20260904
+                @test rep.device === :cpu
+                @test rep.restriction isa Vector{Int}
+                @test all(rep.restriction .<= rep.dims)
+                @test rep.restricted_size isa Tuple{Int,Int}
+                # The lift accepts the UNIVERSAL derivations; the intersection
+                # with Ω shrinks the count afterwards, so this is an upper
+                # bound on what came back and not an equality (13 against 3 on
+                # the sphere).
+                @test rep.lift_dim >= rep.returned
+                @test length(rep.lift_residuals) == rep.lift_dim
+                @test all(isfinite, rep.lift_residuals)
+            else
+                @test rep.whitened === nothing
+                @test rep.restriction === nothing
+                @test rep.restricted_size === nothing
+                @test rep.lift_dim === nothing
+                @test rep.lift_residuals === nothing
+                # SylverLining decides on the derivation operator itself, so
+                # its cut IS the answer -- no filter runs after it.
+                @test rep.nullity == rep.returned
+            end
+
+            # 6. It prints without erroring, and says the two things a reader
+            #    looks for first.
+            txt = sprint(show, MIME"text/plain"(), rep)
+            @test occursin(string(mname), txt)
+            @test occursin(rep.certified ? "CERTIFIED" : "uncertified", txt)
+        end
+
+        # `:Auto` forwards the keyword and reports the route that ANSWERED,
+        # which is the question a caller of `:Auto` is asking.
+        @testset ":Auto names the route that answered" begin
+            Random.seed!(20260904)
+            fr = [Index(d, "u$i") for (i, d) in enumerate((10, 10, 10))]
+            Γ = ITensor(randn(10, 10, 10), fr...)
+            Ω = IndTransverseOps(fr, UniversalOp())
+            ch = Matrix{Float64}(UniversalChisel(3))
+            out = derTrOpsReduced(get_derivation_method(:Auto; seed = 20260904),
+                                  Ω, ch, Γ; tol = 1e-8, return_diagnostics = true)
+            @test length(out) == 4
+            @test out[4].method in (:QuickDer, :SylverLining)
+            @test out[4].method !== :Auto
+            @test out[4].returned == size(out[3], 2) == 2
+        end
+    end
+end

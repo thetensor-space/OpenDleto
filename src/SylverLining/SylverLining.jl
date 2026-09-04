@@ -67,8 +67,20 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # unless the caller asked for another), and can be overridden per call so a
     # benchmark or a bisecting caller can pin a kernel without editing source.
     backend::Symbol=method.backend,
+    # The same opt-in diagnostics QuickDer takes: `true` appends a
+    # `DerivationReport`.  SylverLining fills what it has -- the derivation
+    # operator's own `NullVerdict`, the two element types, the solver, the
+    # Z-law residual of each returned direction -- and leaves the
+    # restriction/lift fields `nothing`, because it has no sketch and no lift.
+    # See `DerivationReport`; the API is uniform so that switching method does
+    # not switch the code that reads the answer.
+    return_diagnostics::Bool=false,
     kwargs...,
-    ) ::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
+    )
+    # No return-type annotation: the return is a 3-tuple, or a 4-tuple whose
+    # last element is a `DerivationReport`, and that type is defined in a file
+    # included after this one (annotations are evaluated at definition time,
+    # bodies are not).  The 3-tuple is unchanged.
     Γ_frame = inds(Γ)
     val = ndims(Γ)
     @assert Γ_frame == frames(Ω) "Incompatable Indexes"
@@ -136,12 +148,28 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # requires the first value above the cut to clear the resolution of the
     # stored data (`eps(Float16)` = 9.8e-4 relative).  A near-derivation under
     # that is reported as undecidable rather than counted or discarded silently.
-    (λ, vecs) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
-                                squared=true, store_eltype=real(T),
-                                progress=progress, label="der")
+    (λ, vecs, verdict) = solve_nullspace(sylvester, method.solver; tol=tol, nd=nd,
+                                         squared=true, store_eltype=real(T),
+                                         progress=progress, label="der")
 
     coords = size(vecs, 2) == 0 ? zeros(T, globalDim(Ω_reduced), 0) : Matrix{T}(vecs)
-    return (Ω_reduced, expand_map, coords)
+    return_diagnostics || return (Ω_reduced, expand_map, coords)
+
+    # The Z-law residuals are measured on the PROMOTED tensor, in `Tc`: a
+    # Float16 answer checked in Float16 measures its own storage rounding
+    # rather than the equation.  One pass over the tensor per direction, which
+    # is why this is behind the keyword.
+    Gc = Array{Tc}(ITensors.array(Γc, Γ_frame...))
+    rep = DerivationReport(; method = :SylverLining, store_eltype = T,
+                           compute_eltype = Tc, dims = collect(size(Gc)),
+                           verdict = verdict,
+                           requested_nd = nd isa Integer ? Int(nd) : -1,
+                           policy = (nd isa Integer && nd > 0) ? :fixed_nd : :auto,
+                           returned = size(coords, 2),
+                           scalar_dim = _der_scalar_dim(P),
+                           solver = method.solver,
+                           residuals = _der_zlaw_residuals(Ω, expand_map, coords, Gc, P))
+    return (Ω_reduced, expand_map, coords, rep)
 end
 
 

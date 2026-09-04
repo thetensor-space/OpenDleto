@@ -1474,15 +1474,24 @@ end
 
 """
     _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress, store)
-        -> Vector{Vector{Matrix}} or nothing
+        -> (mats, info)
 
 One attempt at the whole kernel: sketch, restricted solve, lift, consistency
-filter.  Returns the surviving derivations as one matrix per axis (zero on the
-disengaged axes, which carry no unknown), an EMPTY vector when the restricted
-system already has no null space -- a legitimate answer, "Γ conforms to no
-pattern for this chisel" -- or `nothing` when there were restricted solutions
-but the consistency filter rejected every one of them, which is the caller's
-cue to retry with a larger `r`.
+filter.  `mats` is the surviving derivations as one matrix per axis (zero on
+the disengaged axes, which carry no unknown), an EMPTY vector when the
+restricted system already has no null space -- a legitimate answer, "Γ conforms
+to no pattern for this chisel" -- or `nothing` when there were restricted
+solutions but the consistency filter rejected every one of them, which is the
+caller's cue to retry with a larger `r`.
+
+`info` is the evidence, for `DerivationReport`: the restricted solve's
+`NullVerdict`, the shape of the restricted system, which null solver ran, and
+the lift residual of every accepted direction.  It is RETURNED rather than
+published through a `Ref` like `QDN_LAST_SOLVE_STATUS` -- this function is
+internal and has one caller, so there is nothing for the out-of-band idiom to
+buy here, and a returned value cannot go stale after an error.  It is filled on
+every exit including the two early ones, because the retry loop wants the
+evidence of the attempt that failed as much as of the one that worked.
 
 WHERE THE WORK RUNS.  `G` arrives on whichever device the caller put it on
 (`method.device`).  Everything that touches it -- the cross sketches and the
@@ -1565,6 +1574,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # Cholesky and the subspace solves on the GPU when asked.
         dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
                   GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
+        solver_used = dsolver isa GramSolver ? :GramSolver : :SVDSolver
         (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 seed = method.seed,
@@ -1590,6 +1600,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # comes from a seed kept inside the Fortran library across calls, so
         # two identical calls in one process could return DIFFERENT restricted
         # null spaces (2, 3, 3 measured at d = 48 in Float32).
+        solver_used = fsolver isa Symbol ? fsolver : Symbol(nameof(typeof(fsolver)))
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = atol, nd = -1, progress = progress,
                                                 seed = method.seed,
@@ -1599,6 +1610,14 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     end
 
     QDN_LAST_SOLVE_STATUS[] = verdict.status
+    # The evidence of THIS attempt, completed as the lift learns more.  A
+    # closure rather than a mutable struct: the three exits below each know a
+    # different amount, and a NamedTuple built at the exit cannot be left half
+    # initialised.
+    info(; lift_dim = nothing, lift_residuals = nothing) =
+        (; verdict, solver = solver_used,
+           restricted_size = (_qdn_system_rows(m * R, ncols), ncols),
+           lift_dim, lift_residuals)
 
     # THE ONE UNDETECTABLE FAILURE MODE, closed.  A null solver that did not
     # converge and returned nothing is reporting "I failed", and on the
@@ -1629,7 +1648,8 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
 
     k = size(vecs, 2)
     @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) data_floor = verdict.data_floor undecidable = verdict.undecidable rss_GB = Sys.maxrss() / 2^30
-    k == 0 && return triv
+    k == 0 && return (triv, info(; lift_dim = length(triv),
+                                  lift_residuals = zeros(Float64, length(triv))))
 
     # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
     # want `Y_a` (`d_a x r_a`).  `wh[1][a].un` is `R_a⁻¹`, or its pseudo-inverse
@@ -1733,6 +1753,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # null space is legitimately too large, the spurious directions are removed
     # and the genuine ones survive.
     local C::Matrix{T}
+    lift_resid = zeros(Float64, k)                          # nothing to lift: exact
     if isempty(Rblocks)
         C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
     else
@@ -1774,8 +1795,16 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
                               gap_ratio = QDN_LIFT_GAP_RATIO[])
         cut = lv.nullity
         @debug "QuickDer lift residual spectrum" k svals = string(round.(asc; sigdigits = 3)) cut rule = lv.rule certified = lv.certified gap = lv.gap atol ceil_rel
-        cut == 0 && return nothing
+        cut == 0 && return (nothing, info(; lift_dim = 0,
+                                            lift_residuals = Float64[]))
         C = Matrix(F.V[:, (k - cut + 1):k])
+        # The residual OF EACH ACCEPTED DIRECTION, which is what `C` is chosen
+        # to make small: `C[:,j]` is the right singular vector at `asc[j]`, so
+        # `‖R·C[:,j]‖ = asc[j]` exactly, relative to `sc` -- the size of the
+        # lift equations themselves.  No extra arithmetic, and it is the number
+        # that separates a true derivation's restriction (which lifts) from a
+        # near-null direction of the restricted system (which does not).
+        lift_resid = Float64[asc[j] for j in 1:cut]
     end
 
     tstage = _qdn_stage!(:filter, tstage)
@@ -1809,7 +1838,12 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         end
         out[j] = Ms
     end
-    return isempty(triv) ? out : vcat(out, triv)
+    # The whitening's trivial derivations lift exactly by construction -- they
+    # never entered the lift -- so their residual is zero, not unknown.
+    allmats = isempty(triv) ? out : vcat(out, triv)
+    return (allmats, info(; lift_dim = length(allmats),
+                            lift_residuals = vcat(lift_resid,
+                                                  zeros(Float64, length(triv)))))
 end
 
 # ---------------------------------------------------------------------------
@@ -1978,8 +2012,8 @@ function _qdn_empty_result(Ω::TransverseOps, ::Type{T}, r::Vector{Int},
 end
 
 """
-    derTrOpsReduced(::QuickDerMethod, Ω, P, Γ; tol, nd, progress)
-        -> (Ω, id_map, ders)
+    derTrOpsReduced(::QuickDerMethod, Ω, P, Γ; tol, nd, progress, return_diagnostics)
+        -> (Ω, id_map, ders)  or  (Ω, id_map, ders, report::DerivationReport)
 
 Solve-and-lift derivations of `Γ` for the chisel `P`, in the coordinates of
 `Ω`.  The reduced operator space IS `Ω` and the expand map is the identity, as
@@ -1996,6 +2030,22 @@ path); the returned coordinates are rounded back to `eltype(Γ)`, so a Float16
 tensor gives Float16 derivations at Float32 reliability.  The tolerance is
 floored on the STORED type, not the computed one: promoting the arithmetic buys
 stability, not information about the data.
+
+DIAGNOSTICS.  `return_diagnostics = true` appends a `DerivationReport` -- the
+restricted solve's `NullVerdict` whole, the values around the cut, the lift
+residual of each accepted direction and the Z-law residual
+(`Dleto.der_residual`) of each returned one, plus the restriction sizes, the
+solver, the device and the two element types.  The default is `false` and then
+the returned tuple is exactly the three-element one it has always been, so
+nothing downstream moves.  It is opt-in because the Z-law residuals cost one
+pass over the tensor per direction.
+
+```julia
+m = get_derivation_method(:QuickDer; seed = 4242)
+(Ω, _, ders, rep) = derTrOpsReduced(m, Ω, ch, Γ; return_diagnostics = true)
+rep.certified, rep.selected, rep.next_value    # the cut, and what it rests on
+maximum(rep.residuals)                         # is the answer a derivation?
+```
 """
 function derTrOpsReduced(
     method::QuickDerMethod,
@@ -2005,8 +2055,16 @@ function derTrOpsReduced(
     tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
+    return_diagnostics::Bool = false,
     kwargs...,
-)::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
+)
+    # NO RETURN-TYPE ANNOTATION any more, and the reason is mechanical rather
+    # than a loosening of the contract: the return is a 3-tuple or, with
+    # `return_diagnostics`, a 4-tuple whose last element is a
+    # `DerivationReport`, and that type is defined in a file included AFTER
+    # this one (it carries a `NullVerdict` field, and NullSolvers.jl is last).
+    # An annotation is evaluated at definition time; the body is not.  With
+    # `return_diagnostics = false` the value returned is exactly what it was.
     _qdn_validate(Ω, P, Γ)
 
     # Read Γ in Ω's frame order -- the order the coordinates use, and the order
@@ -2054,9 +2112,10 @@ function derTrOpsReduced(
     # does not change the method.
     tried = Vector{Int}[]
     mats = nothing
+    local info
     while true
         push!(tried, copy(r))
-        mats = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress, T)
+        (mats, info) = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress, T)
         mats === nothing || break
         length(tried) >= 2 && break
         bumped = [min(dims[a], max(r[a] + 1, ceil(Int, 1.5 * r[a]))) for a in 1:n]
@@ -2075,7 +2134,16 @@ function derTrOpsReduced(
     tstage = _qdn_stage!(:verify, tstage)
     @debug "QuickDer after verify" rss_GB = Sys.maxrss() / 2^30
 
-    isempty(mats) && return _qdn_empty_result(Ω, T, r, dims)
+    # The report is built from the same numbers whatever the exit, so the empty
+    # answer carries one too: "no derivations, and here is the spectrum that
+    # says so" is exactly the case a caller most needs the evidence for.
+    report(ders) = return_diagnostics ?
+        _qdn_report(method, Ω, P, G, ders, info, T, Tc, dims, r, nd) : nothing
+    if isempty(mats)
+        (rΩ, id_map, ders) = _qdn_empty_result(Ω, T, r, dims)
+        return return_diagnostics ? (rΩ, id_map, ders, report(ders)) :
+                                    (rΩ, id_map, ders)
+    end
 
     # Universal derivations, cut down to the ones that live in Ω.  Rounded back
     # to the stored type: a Float16 tensor gets Float16 derivations, carrying
@@ -2084,12 +2152,48 @@ function derTrOpsReduced(
     ders = eltype(ders) === T ? ders : Matrix{T}(ders)
     tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
-    size(ders, 2) == 0 && return _qdn_empty_result(Ω, T, r, dims)
+    if size(ders, 2) == 0
+        (rΩ, id_map, e) = _qdn_empty_result(Ω, T, r, dims)
+        return return_diagnostics ? (rΩ, id_map, e, report(e)) : (rΩ, id_map, e)
+    end
     if nd > 0 && size(ders, 2) > nd
         ders = ders[:, 1:floor(Int, nd)]
     end
 
     id_map = LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
                                   ismutating = false)
-    return (Ω, id_map, ders)
+    return return_diagnostics ? (Ω, id_map, ders, report(ders)) : (Ω, id_map, ders)
+end
+
+"""
+    _qdn_report(method, Ω, P, G, ders, info, T, Tc, dims, r, nd) -> DerivationReport
+
+The evidence behind one QuickDer answer, assembled from `info` (the restricted
+solve's verdict and the lift residuals, see `_qdn_solve_and_lift`) and from the
+answer itself (the Z-law residual of every returned direction, on the promoted
+host tensor -- see `_der_zlaw_residuals` for why it is not measured in the
+stored type).
+
+Built only when the caller asked for it: the Z-law residuals are one pass over
+the tensor per direction, which is the whole cost of this function and is not a
+cost an ordinary call should pay.
+"""
+function _qdn_report(method::QuickDerMethod, Ω::TransverseOps, P::AbstractMatrix,
+                     G::AbstractArray, ders::AbstractMatrix, info, ::Type{T},
+                     ::Type{Tc}, dims::Vector{Int}, r::Vector{Int}, nd) where {T,Tc}
+    idm = LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
+                               ismutating = false)
+    stages = QDN_STAGE_TIMES[]
+    return DerivationReport(; method = :QuickDer, store_eltype = T, compute_eltype = Tc,
+                            dims = dims, verdict = info.verdict,
+                            requested_nd = nd isa Integer ? Int(nd) : -1,
+                            returned = size(ders, 2),
+                            scalar_dim = _der_scalar_dim(P),
+                            solver = info.solver, device = method.device,
+                            seed = method.seed, whitened = method.whiten,
+                            restriction = r, restricted_size = info.restricted_size,
+                            lift_dim = info.lift_dim,
+                            lift_residuals = info.lift_residuals,
+                            residuals = _der_zlaw_residuals(Ω, idm, ders, G, P),
+                            stage_times = stages === nothing ? nothing : copy(stages))
 end
