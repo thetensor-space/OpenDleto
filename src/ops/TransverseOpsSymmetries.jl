@@ -99,7 +99,9 @@ TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOps ::Vector{<:Opera
 #same localOp on each axis
 TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, frTemp ::Vector{Index{KK}} where KK, localOp ::Operator,symmetries ::Vector{<:Integer}) = 
     TransverseOpsSymmetries(fr, frTemp, fr .|> (x -> localOp), symmetries);
-TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator) = 
+# `symmetries` used to be missing from this signature, so the body referenced
+# an undefined variable and every call was an UndefVarError.  No caller existed.
+TransverseOpsSymmetries(fr ::Vector{Index{K}} where K, localOp ::Operator, symmetries ::Vector{<:Integer}) = 
     TransverseOpsSymmetries(fr, fr .|> (x -> localOp), symmetries);
 
 
