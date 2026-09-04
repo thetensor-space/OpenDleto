@@ -721,6 +721,23 @@ and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the ten
 (3.4 / 6.7 / 16.9 GB), NOT explained by input copies -- Float64 used no more than Float32 at
 the same F -- so the minute would need ~92 GB today.
 
+Measured again after the lean kernels landed (same harness, 5 threads, the machine shared with two
+other agents so wall times are noisy; `labs/MovieRuntime.ipynb` has the plots):
+
+| 640 x 480 x F x 3 | F = 30 (1 s) | F = 90 (3 s) | F = 300 (10 s) |
+|---|---|---|---|
+| Float32 wall / peak RSS, before | 21.6 s / 3.4 GB | 28.3 s / 6.7 GB | 44.7 s / 16.9 GB |
+| Float32 wall / peak RSS, after | 22.7 s / **1.7 GB** | 18.7 s / **2.4 GB** | 34.8 s / **5.4 GB** |
+| Float16 input, after | 23.8 s / 1.7 GB | 24.2 s / 2.9 GB | 61.3 s / 5.4 GB |
+| nullity (oracle 3), verdict | 3, certified (all) | 3, certified (all) | 3, certified (all) |
+
+Fit on the current tree: `t = 18 s + 0.053 s/frame`, `RSS = 1.2 GB + 0.014 GB/frame` (maxrss under
+`JL_HEAP=6G`, so it carries GC headroom; the live set is ~2.8 GB per GB of tensor). The minute
+projects to **~110-170 s and ~19-26 GB in Float32 on the CPU** -- it runs on this machine now.
+Float16 input costs the same CPU memory as Float32 because the precision policy computes in
+Float32; the Float16 storage saving is realised only where storage stays Float16, i.e. on the GPU
+path being built.
+
 Order of work, decided with the user:
 1. **Memory first.** Profile the video shape per stage; find the precision-independent ~14x
    footprint; target < 15 GB for the minute. Nothing else pays off until this lands.

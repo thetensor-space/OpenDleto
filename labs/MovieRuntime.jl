@@ -10,6 +10,7 @@ const REPO = normpath(joinpath(@__DIR__, ".."))
 const WCSV = joinpath(REPO, "bench", "reports", "2026-09-04", "whitened", "whitened.csv")
 
 runs = CSV.read(WCSV, DataFrame; comment = "#")
+runs.row = 1:nrow(runs)                                      # file order = chronological order
 parsedims(s) = parse.(Int, split(strip(String(s), ['[', ']']), ','))
 runs.dimv    = parsedims.(runs.dims)
 runs.entries = prod.(runs.dimv)
@@ -20,7 +21,11 @@ runs.family  = [startswith(c, "video") ? "video-shaped" :
                 for (c, v) in zip(runs.case, runs.valence)]
 
 ok = runs[(runs.whiten .== 1) .& (runs.status .== "ok"), :]
-tbl = select(ok, :case, :eltype, :entries, :gb, :applies, :seconds, :solve_seconds, :maxrss_GB,
+# The CSV is append-only, so a case rerun after a code change appears twice.  `latest` keeps
+# the last row per (case, eltype): the current tree.  `first_` keeps the earliest: the "before".
+first_ = unique(ok, [:case, :eltype])                       # earliest row per (case, eltype)
+latest = sort(unique(sort(ok, :row, rev = true), [:case, :eltype]), :row)   # last row per (case, eltype)
+tbl = select(latest, :case, :eltype, :entries, :gb, :applies, :seconds, :solve_seconds, :maxrss_GB,
        :nullity, :oracle_nullity, :uncertified)
 show(stdout, MIME("text/plain"), tbl); println()
 
@@ -37,7 +42,11 @@ end
 savefig(p1, joinpath(FIGDIR, "movie-runtime-all.png")); println("saved movie-runtime-all.png")
 
 # ---- cell 3 ----
-movie = ok[startswith.(ok.case, "video-640x480") .& (ok.eltype .== "Float32"), :]
+movie  = latest[startswith.(latest.case, "video-640x480") .& (latest.eltype .== "Float32"), :]
+before = first_[startswith.(first_.case, "video-640x480") .& (first_.eltype .== "Float32"), :]
+f16    = latest[startswith.(latest.case, "video-640x480") .& (latest.eltype .== "Float16"), :]
+before.F = getindex.(before.dimv, 3); sort!(before, :F)
+f16.F    = getindex.(f16.dimv, 3);    sort!(f16, :F)
 movie.F = getindex.(movie.dimv, 3)
 sort!(movie, :F)
 
@@ -48,7 +57,18 @@ F_min = 1800
 t_min = a_t + b_t * F_min
 m_min = a_m + b_m * F_min
 
-println("measured (640 x 480 x F x 3, Float32):")
+println("memory, before -> after the 2026-09-04 lean kernels (Float32):")
+for (b, r) in zip(eachrow(before), eachrow(movie))
+    @printf("  F = %4d  peak RSS %5.1f GB -> %4.1f GB   (tensor %.2f GB)\n", r.F, b.maxrss_GB, r.maxrss_GB, r.gb)
+end
+if nrow(f16) > 0
+    println("\nFloat16 input (stored Float16, computed Float32):")
+    for r in eachrow(f16)
+        @printf("  F = %4d  %6.1f s wall  peak RSS %4.1f GB  nullity %d/%d %s\n", r.F, r.seconds, r.maxrss_GB,
+                r.nullity, r.oracle_nullity, r.uncertified ? "(uncertified)" : "(certified)")
+    end
+end
+println("\nmeasured (640 x 480 x F x 3, Float32, current tree):")
 for r in eachrow(movie)
     @printf("  F = %4d (%5.1f s of video)  %8.1f s wall  (solve %6.1f s)  peak RSS %5.1f GB  nullity %d/%d %s\n",
             r.F, r.F / 30, r.seconds, r.solve_seconds, r.maxrss_GB, r.nullity, r.oracle_nullity,
@@ -57,7 +77,7 @@ end
 @printf("\nfit: t(F) = %.1f s + %.3f s/frame;   RSS(F) = %.2f GB + %.4f GB/frame\n", a_t, b_t, a_m, b_m)
 @printf("\nPROJECTION, 1 minute at 30 fps (F = 1800, 6.6 GB Float32 tensor):\n")
 @printf("  wall time  ~ %.0f s  (%.1f min)\n", t_min, t_min / 60)
-@printf("  peak RSS   ~ %.0f GB  with today's copies (the tensor itself is 6.6 GB)\n", m_min)
+@printf("  peak RSS   ~ %.0f GB  on the current tree (the tensor is 6.6 GB in Float32, 3.3 GB in Float16)\n", m_min)
 
 Fs = range(0, 1900, length = 200)
 p2 = plot(Fs, a_t .+ b_t .* Fs, ls = :dash, lw = 2, color = :gray, label = "affine fit / projection",
@@ -67,6 +87,8 @@ scatter!(p2, movie.F, movie.seconds, ms = 8, color = :black, label = "measured")
 scatter!(p2, [F_min], [t_min], ms = 10, marker = :star5, color = :red,
          label = @sprintf("1 min @ 30 fps: ~%.0f s (projected)", t_min))
 vline!(p2, [F_min], ls = :dot, color = :red, label = "")
+nrow(before) > 0 && scatter!(p2, before.F, before.seconds, ms = 6, marker = :xcross, color = :gray, label = "measured, before lean kernels")
+nrow(f16) > 0 && scatter!(p2, f16.F, f16.seconds, ms = 8, marker = :diamond, color = :blue, label = "measured, Float16 input")
 savefig(p2, joinpath(FIGDIR, "movie-runtime-projection.png")); println("saved movie-runtime-projection.png")
 
 # ---- cell 4 ----
