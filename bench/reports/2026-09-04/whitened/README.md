@@ -108,6 +108,53 @@ finite iteration ratio:
 This is the negative control that says the sphere result is the whitening and
 not an accident of the harness.
 
+### Valence 4 and the video shape -- the cases with a finite ratio and a right answer
+
+Here the unwhitened branch also fails, but the whitened counts are small enough
+that the ratio against the cap is itself above 3x:
+
+| case | oracle | plain applies / result | whitened applies / result | iter |
+|---|---|---|---|---|
+| sphere v4 d = 60 (60^4 Float64) | 4 | 61994 / **cap, nullity 0** | 12808 / nullity 4, resid 1.1e-13, 2.8 s | 4.8x |
+| sphere v4 d = 80 (80^4 Float64) | 4 | (below) | 19718 / nullity 4, resid 2.4e-13, 5.5 s | (below) |
+| video 200x200x100x3 Float32 | 3 | 56980 / **cap, nullity 0** | 11182 / nullity 3, resid 1.7e-5, 3.2 s | 5.1x |
+| degenerate 40^3, mode-1 rank 38 | 82 | 59640 / **nullity 26 of 82** | 4024 / nullity 82, resid 8.4e-16 | 14.8x |
+
+The degenerate row is the sharpest confirmation of the mechanism: 26 is exactly
+`2 + 2·r_1` with `r_1 = 12`, the `W`-visible slice the analysis predicts the
+unwhitened branch can see, and 82 is exactly `2 + 2·d`, the whole trivial space
+plus the two scalars.  The Float32 video row is `uncertified` (the verdict's
+gap test cannot clear a Float32 precision floor at this nullity) but lands the
+oracle nullity at the Float32 residual bound.
+
+### The frontier
+
+Whitened, ARPACK, Float64, matrix-free, valence 3, scrambled sphere:
+
+| d | restricted system | applies | seconds | peak RSS | nullity | residual | plain at the same size |
+|---|---|---|---|---|---|---|---|
+| 200 | 17576 x 15600 | 38262 | 18.4 | 2.1 GB | 3 | 3.3e-10 | 65182 applies, **cap** |
+| 300 | 29791 x 27900 | 77482 | 105.0 | 3.8 GB | 3 | 1.8e-10 | 66604 applies, **cap** |
+| 500 | 64000 x 60000 | 51116 | 136.1 | 11.4 GB | 3 | 3.2e-13 | (queued) |
+
+**d = 300 and d = 500 at valence 3 are new.**  Session 3's frontier was d = 200
+on the dense Gram route (22 s, 8 GB peak, a 2.2 GB restricted matrix).  The
+whitened matrix-free branch does d = 200 in 18.4 s at 2.1 GB with no matrix at
+all, and then keeps going: d = 500 in 136 s at a Z-law residual of 3.2e-13.
+The original goal for this size was "500..1000 within an hour".
+
+At d = 500 the 11.4 GB peak is the TENSOR, not the solve -- `build_sphere` holds
+the sphere, its orthogonal scramble and the nondeg tensor, three 1 GB arrays,
+and `_qdn_pair_tensor` `permutedims` the full tensor once per lift axis.  That
+is what puts d = 1000 (8 GB per copy) out of reach of a 12 GB process, and it
+is a memory problem in the HARNESS and the sketch pass, no longer a convergence
+problem in the solver.
+
+Note what the ratio column does at d = 300: the whitened run uses MORE applies
+(77482) than the failed plain run (66604).  That is not a regression, it is the
+plain count being a cap rather than a convergence cost -- which is exactly why
+this report leads with verdicts and not with ratios.
+
 ### Eigensolver choice on the whitened operator
 
 The hypothesis was that with the spectrum in `[0, Σ_a c_a]` LOBPCG might win
@@ -157,6 +204,19 @@ a 12³ tensor with a mode-1 rank of 10:
 
 and the whitened answer CONTAINS the plain one to 4.6e-15.  Degenerate modes
 are meant to be removed upstream by `nondeg`; this is the safety net.
+
+## Correctness
+
+`bench/jl test/runtests.jl` with `whiten = true` as the DEFAULT: exit 0, no
+failures, 13213 assertions.  New in `test/TestQuickDerN.jl` section 8 (135
+assertions):
+
+| testset | asserts | what it pins |
+|---|---|---|
+| the restricted Gram has Kronecker diagonal blocks | 40 | the identity to 1e-12 on 4 chisel/valence combinations, `‖A_w‖ ≤ sqrt(Σ c_a)`, `M_a·un == Q_a`, and `unfold(fold(Q_aᵗ)) == Q_aᵗ` |
+| same nullity and same span as unwhitened | 34 | principal-angle residual both ways < 1e-8 on spheres v3/v4, random dense v3/v4, a centroid chisel, and a video-shaped 20x20x10x3 |
+| degenerate mode is counted exactly | 52 | nullity `2 + 2d` at d = 8, 12; whitened ⊇ unwhitened; every column Z-law verified |
+| matrix-free branch agrees and counts its applies | 9 | forced matrix-free, both settings land nullity 3 and the same span, and `QDN_APPLY_COUNT` counts |
 
 ## What did not fit this machine
 
