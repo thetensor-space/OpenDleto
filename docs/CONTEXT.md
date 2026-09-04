@@ -37,8 +37,10 @@ in 6 s.  Every result verified by the Z-law.  Beyond d ~ 200 at valence 3 the ma
 restricted branch must converge on its own, and on structured tensors Arpack hits its iteration
 cap there -- preconditioning that branch is the next lever toward 500..1000.
 
-Integration branch `beta` (worktree `/Users/algeboy/CODE/OpenDleto-beta`) = `main` + every active
-September branch, 13,103 tests passing; `main` itself is untouched until the user says push.
+Integration branch `beta` = `main` + every active September branch, 13,103 tests passing; `main`
+itself is untouched until the user says push.  `beta` lives in the worktree
+`/Users/algeboy/CODE/OpenDleto-beta`; the primary worktree carries the active feature branch.
+`beta` is an approval gate, not a working branch -- see "Working alongside Codex" below.
 
 GPU (M4 Max, 40 cores; Metal is Float32-only so GPU runs are exploratory, Float64 CPU certifies):
 - `sylvesterLM(...; backend=:metal)` applies the derivation operator 6-17x faster than 5 CPU
@@ -515,6 +517,45 @@ methods rather than discriminating them, and the discriminating axis for `strati
 - Note on history: the Phase 0 archive commit accidentally swept in a `git mv`
   (`SylverLininig.jl` → `SylverLining.jl`), because `git commit` takes the whole index. Not
   rewritten, since six uncommitted edits were at risk at the time.
+
+## Working alongside Codex (DletoVideo), from 2026-09-04
+
+A coordination framework lives at `/Users/algeboy/CODE/.coop` — outside both repos. Claude
+maintains OpenDleto; Codex maintains the private DletoVideo, which consumes OpenDleto. Read
+`.coop/CONFIG.md` (v2) and `.coop/CLAUDE_SIMPLE.md`; the older `QUICK_REFERENCE_CLAUDE.md`,
+`CLAUDE_INSTRUCTIONS.md`, `SCHEDULE.md` and `STATE/schedule.txt` describe a superseded
+20-minute-window model — v2 has no scheduled windows, both sides work in parallel.
+
+What this pins down for anyone working here later:
+
+- **`beta` is an approval gate.** Work happens on a *daily* branch,
+  `feature/<song-lyric>/<YYYY-MM-DD>` (today: `feature/under-pressure/2026-09-04`). At the end of
+  the day, submit the most promising improvements from it for approval; only then do they merge to
+  `beta`, and DletoVideo fetches the update on its own schedule. `main` is protected and untouched.
+- **DletoVideo has its own clone of OpenDleto, pinned to `beta`** (James's decision, 2026-09-04,
+  replacing an earlier arrangement where DletoVideo's Manifest resolved `Dleto` as
+  `path = "../OpenDleto"` and my checkouts changed Codex's build underneath them). Consequence:
+  the worktrees here are mine alone and branches can be switched freely. Do not reintroduce a
+  shared working tree.
+- **`origin/beta` does not exist.** Beta is local-only (46 commits over `main`). OpenDleto is
+  public, so pushing it is James's call, not a routine step; a local clone
+  (`git clone -b beta /Users/algeboy/CODE/OpenDleto`) gives DletoVideo a real `origin` to fetch
+  from without publishing anything.
+- **Git locks** are advisory, in `.coop/STATE/locks.yaml`: claim before pull/push/merge/checkout,
+  release immediately after, never force-release the other side's.
+- **Memory.** CONFIG.md's <2 GB soft target covers ordinary work but not benchmarks. Runs over
+  6 GB are negotiated through `.coop/STATE/compute.yaml`: announce in `active:`, respect a joint
+  56 GB ceiling, and yield to the other side's correctness tests
+  (`blocker` > `test` > `bench` > `explore`). Yielding means checkpoint, exit, re-queue at the
+  head -- not abandon. `bench/jl` still defaults to a 5 GB per-slot RSS kill line; raise it
+  deliberately, per run, with a reservation to match. Git no longer contends, but the 64 GB of
+  RAM and 16 cores still do.
+- **Never modify DletoVideo.** Bug reports and feature requests arrive in
+  `.coop/QUEUE/from_codex_to_claude_*.md`; replies go out as `from_claude_to_codex_*.md`.
+
+Housekeeping note: `bench/jl` leaves a `juliaup self update` process behind on every
+invocation. The overnight runs of 2026-09-03 accumulated 470 of them holding 3.8 GB. Cleared
+by hand; the harness still needs the fix.
 
 ## Next up
 
