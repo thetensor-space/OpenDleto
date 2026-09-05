@@ -346,6 +346,26 @@ const QDN_LIFT_GAP_RATIO = Ref(100.0)
 const QDN_LIFT_CEILING = Ref(32.0)
 
 """
+    QDN_FIXED_ND_LOOKAHEAD
+
+How many values BEYOND the caller's `nd` the fixed-count policy asks the null
+solver for (see `derTrOpsReduced`'s `nd`).  Two, for two reasons and neither is
+a tuning choice:
+
+* the report has to be able to name the gap between the last direction returned
+  and the first one that was not -- a fixed count with nothing above it is a
+  number with no evidence attached, which is the failure mode this policy
+  exists to avoid;
+* the AUTOMATIC verdict is recomputed on the same spectrum to decide whether
+  the caller's count agrees with it, and `solve_nullspace`'s own `min_above`
+  is 2, so a shorter lookahead could not reproduce a cut that rule would make.
+
+It is a cost of two extra vectors from the solver, which is noise next to the
+`nd` that were asked for.
+"""
+const QDN_FIXED_ND_LOOKAHEAD = 2
+
+"""
     QuickDerMethod(; restriction = :random, sizes = nothing, solver = :AutoSolver,
                      verify = :random, nslices = 4, seed = nothing,
                      device = :cpu, whiten = true)
@@ -1473,16 +1493,111 @@ function _qdn_restricted_map(S::Dict{Int, Array{T,N}}, Uf::Dict{Int, Matrix{T}},
 end
 
 """
-    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress)
-        -> Vector{Vector{Matrix}} or nothing
+    _qdn_request(fixed, ndreq, ncols) -> Int
+
+What to ask the restricted null solver for: `-1` (everything the escalation
+finds) under the automatic policy, and the caller's `nd` plus
+`QDN_FIXED_ND_LOOKAHEAD` under the fixed one -- capped at the width of the
+restricted system, which is all there is.
+"""
+_qdn_request(fixed::Bool, ndreq::Integer, ncols::Integer) =
+    fixed ? min(Int(ncols), Int(ndreq) + QDN_FIXED_ND_LOOKAHEAD) : -1
+
+"""
+    _qdn_fixed_verdict(v, k, atol, RT, squared) -> (NullVerdict, agrees::Bool)
+
+The verdict on a cut the CALLER placed at `k`, and whether the automatic rule
+agrees with it.
+
+`v` is what `solve_nullspace` returned for the ceiling-free request the fixed
+policy makes (`tol = Inf`), so `v.spectrum` holds every value the solver saw,
+relative, sorted -- which is all `gap_verdict` needs.  Both verdicts below are
+therefore RECOMPUTED from that spectrum rather than re-solved: `gap_verdict` is
+a pure function of the values, and a second solve would cost the whole point of
+asking for `k` in the first place.
+
+TWO QUESTIONS, ONE SPECTRUM.
+
+* `auto` is what the automatic policy would have decided, ceiling and all
+  (`tol_default(RT; tol = atol, squared)` is exactly the threshold
+  `solve_nullspace` would have used -- `squared` because the eigensolvers'
+  values are `σ²` and the ceiling is squared to match).
+* the returned verdict describes the cut at `k` itself, with the ceiling
+  REMOVED: reaching directions above the threshold is the whole point of the
+  policy, and it is the one thing `gap_verdict`'s own `nd` cannot do while a
+  ceiling is in force (it caps a fixed count at the number of values below it).
+
+CERTIFIED ONLY WHEN THE TWO AGREE, which is the honesty condition: a fixed
+count must never be able to masquerade as an exact answer.  `agrees` requires
+the automatic rule to have certified a cut, that cut to be at `k`, and the
+spectrum to have run past it -- so `nd` larger than the true nullity, `nd`
+smaller than it, and `nd` equal to an UNCERTIFIED count all come back
+uncertified.  The other fields keep the numbers as computed, exactly as
+`gap_verdict` does when a status or the data floor withholds a certificate.
+"""
+# `v` is a `NullVerdict` and is deliberately NOT annotated as one: this file is
+# included before NullSolvers.jl, and a signature is evaluated at definition
+# time while a body is not.  Same reason `derTrOpsReduced` below has no
+# return-type annotation.
+function _qdn_fixed_verdict(v, k::Integer, atol::Real, ::Type{RT},
+                            squared::Bool) where {RT}
+    thr = tol_default(RT; tol = atol, squared = squared)
+    (_, auto) = gap_verdict(v.spectrum, 1.0; threshold = thr, floor = v.floor,
+                            data_floor = v.data_floor, gap_ratio = v.gap_ratio,
+                            status = v.status)
+    (_, fx) = gap_verdict(v.spectrum, 1.0; threshold = Inf, floor = v.floor,
+                          data_floor = v.data_floor, gap_ratio = v.gap_ratio,
+                          nd = k, requested = v.requested, status = v.status)
+    agrees = auto.certified && auto.nullity == Int(k) && length(v.spectrum) > Int(k)
+    # ASKING FOR FEWER DIRECTIONS THAN THE NULL SPACE HAS is a different thing
+    # from asking for more, and only the second is what this policy is for.  A
+    # null cluster has no preferred basis inside itself -- its singular values
+    # are equal to rounding -- so "the `k` smallest of a 13-dimensional null
+    # space" names an arbitrary `k`-dimensional subspace of it, and the
+    # directions the caller does NOT get are exact derivations that were
+    # silently dropped.  Worse, the intersection with a constrained `Ω` needs
+    # the whole space (see `derTrOpsReduced`'s `nd`), so the answer can collapse
+    # to nothing.  Say so; the count is still returned as asked.
+    if auto.nullity >= Int(k)
+        @warn "QuickDer: nd = $(k) is at or below the restricted nullity " *
+              "$(auto.nullity), so every direction returned is inside the null " *
+              "cluster -- which has no preferred basis, so this is an ARBITRARY " *
+              "$(k)-dimensional subspace of it and the exact derivations outside " *
+              "that subspace are dropped. Under a constrained Ω the answer can " *
+              "then collapse to nothing. Raise nd above $(auto.nullity), or drop " *
+              "it for the automatic verdict." maxlog = 1
+    end
+    # `near_null` against the REAL ceiling, not against the `Inf` the fixed cut
+    # was taken with: "how many of the values above the cut would the fixed
+    # threshold still have called null" is a question about `thr`.
+    near = max(count(<(thr), v.spectrum) - Int(k), 0)
+    return (NullVerdict(fx.nullity, :fixed, agrees, v.status, fx.gap, v.gap_ratio,
+                        v.floor, fx.floor_binding, v.data_floor, fx.undecidable,
+                        thr, near, fx.below, fx.above, v.spectrum, v.scale,
+                        v.requested),
+            agrees)
+end
+
+"""
+    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress, store, ndreq)
+        -> (mats, info)
 
 One attempt at the whole kernel: sketch, restricted solve, lift, consistency
-filter.  Returns the surviving derivations as one matrix per axis (zero on the
-disengaged axes, which carry no unknown), an EMPTY vector when the restricted
-system already has no null space -- a legitimate answer, "Γ conforms to no
-pattern for this chisel" -- or `nothing` when there were restricted solutions
-but the consistency filter rejected every one of them, which is the caller's
-cue to retry with a larger `r`.
+filter.  `mats` is the surviving derivations as one matrix per axis (zero on
+the disengaged axes, which carry no unknown), an EMPTY vector when the
+restricted system already has no null space -- a legitimate answer, "Γ conforms
+to no pattern for this chisel" -- or `nothing` when there were restricted
+solutions but the consistency filter rejected every one of them, which is the
+caller's cue to retry with a larger `r`.
+
+`info` is the evidence, for `DerivationReport`: the restricted solve's
+`NullVerdict`, the shape of the restricted system, which null solver ran, and
+the lift residual of every accepted direction.  It is RETURNED rather than
+published through a `Ref` like `QDN_LAST_SOLVE_STATUS` -- this function is
+internal and has one caller, so there is nothing for the out-of-band idiom to
+buy here, and a returned value cannot go stale after an error.  It is filled on
+every exit including the two early ones, because the retry loop wants the
+evidence of the attempt that failed as much as of the one that worked.
 
 WHERE THE WORK RUNS.  `G` arrives on whichever device the caller put it on
 (`method.device`).  Everything that touches it -- the cross sketches and the
@@ -1494,10 +1609,27 @@ memory-bound scatter of `kron(I, S_a(a)ᵗ)`, the lift is a QR, the consistency
 filter is a `nullspace`, and the answer has to be host matrices for
 `_fastder_restrict_to_ops`.  The one big piece that does go to the device is
 the restricted solve, through `GramSolver(device = :gpu)`.
+
+`store` is the type the TENSOR WAS HANDED IN AS, which is not `T` here: `G`
+arrives already promoted to `compute_eltype`, so `T` is the arithmetic's type
+and `real(T)` would tell `solve_nullspace` that a Float16 tensor resolves to
+`eps(Float32)`.  It is passed explicitly, and positionally, because the wrong
+answer to this question is silent: `data_floor(Float32) = 1.2e-7` never binds,
+so the verdict on a Float16 tensor certified a cut whose first value above it
+sat *inside* the rounding of the input (measured on a 40x40x40 Float16 luma
+block: `above = [4.21e-4, ...]` against `eps(Float16) = 9.8e-4`, reported
+`certified = true`).  See `Dleto.data_floor` and `NullVerdict`'s `undecidable`.
+
+`ndreq > 0` selects the FIXED-COUNT policy (`derTrOpsReduced`'s `nd`): the
+restricted solve is made without a ceiling and one lookahead deeper, the
+`ndreq` smallest directions are kept, and the consistency filter reports its
+residuals instead of cutting on them.  `-1` is the automatic policy, in which
+nothing below changes.
 """
 function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
-                             atol::Real, progress) where {T,N}
+                             atol::Real, progress, store::Type, ndreq::Int) where {T,N}
+    fixed = ndreq > 0
     dims = collect(size(G))
     m = size(P, 1)
     eaxes = [a for a in 1:N if engaged[a]]
@@ -1555,9 +1687,15 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # Cholesky and the subspace solves on the GPU when asked.
         dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
                   GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
-        (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
-                                                tol = atol, nd = -1, progress = progress,
+        solver_used = dsolver isa GramSolver ? :GramSolver : :SVDSolver
+        Lmap = LinearMaps.LinearMap(Mres)
+        squared = wants_square(dsolver) && size(Lmap, 1) != size(Lmap, 2)
+        (vals, vecs, verdict) = solve_nullspace(Lmap, dsolver;
+                                                tol = fixed ? Inf : atol,
+                                                nd = _qdn_request(fixed, ndreq, ncols),
+                                                progress = progress,
                                                 seed = method.seed,
+                                                store_eltype = store,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     else
@@ -1579,14 +1717,58 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # comes from a seed kept inside the Fortran library across calls, so
         # two identical calls in one process could return DIFFERENT restricted
         # null spaces (2, 3, 3 measured at d = 48 in Float32).
+        solver_used = fsolver isa Symbol ? fsolver : Symbol(nameof(typeof(fsolver)))
+        squared = wants_square(fsolver isa Symbol ? SOLVER_REGISTRY[fsolver] : fsolver) &&
+                  size(L, 1) != size(L, 2)
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
-                                                tol = atol, nd = -1, progress = progress,
+                                                tol = fixed ? Inf : atol,
+                                                nd = _qdn_request(fixed, ndreq, ncols),
+                                                progress = progress,
                                                 seed = method.seed,
+                                                store_eltype = store,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     end
 
     QDN_LAST_SOLVE_STATUS[] = verdict.status
+
+    # ---- the fixed-count policy, if the caller asked for one.  The solve was
+    # made without a ceiling and one lookahead deeper than `ndreq`, so the cut
+    # is placed HERE: keep the `ndreq` smallest directions, rebuild the verdict
+    # around that cut, and record whether the automatic rule agrees with it.
+    policy = fixed ? :fixed_nd : :auto
+    selected = nothing
+    next_value = NaN
+    if fixed
+        keep = min(ndreq, size(vecs, 2))
+        (verdict, _) = _qdn_fixed_verdict(verdict, keep, atol, real(T), squared)
+        vals = vals[1:keep]
+        vecs = vecs[:, 1:keep]
+        selected = Float64[verdict.spectrum[i] for i in 1:keep]
+        next_value = length(verdict.spectrum) > keep ?
+                     verdict.spectrum[keep + 1] : NaN
+    end
+
+    # The evidence of THIS attempt, completed as the lift learns more.  A
+    # closure rather than a mutable struct: the three exits below each know a
+    # different amount, and a NamedTuple built at the exit cannot be left half
+    # initialised.
+    function info(; lift_dim = nothing, lift_residuals = nothing, ntrivial = 0)
+        sel, nxt = selected, next_value
+        if sel !== nothing
+            # The trivial derivations the whitening kept out of the solve are
+            # exact, so under the fixed policy they lead the singular-value
+            # ordering with a zero each; `next_value` rides along at the end so
+            # that trimming to `ndreq` moves the two together and "the first
+            # value NOT returned" stays true whichever end it came from.
+            all = vcat(zeros(Float64, ntrivial), sel, nxt)
+            n = min(ndreq, length(all) - 1)
+            sel, nxt = all[1:n], all[n + 1]
+        end
+        return (; verdict, solver = solver_used, policy,
+                  restricted_size = (_qdn_system_rows(m * R, ncols), ncols),
+                  lift_dim, lift_residuals, selected = sel, next_value = nxt)
+    end
 
     # THE ONE UNDETECTABLE FAILURE MODE, closed.  A null solver that did not
     # converge and returned nothing is reporting "I failed", and on the
@@ -1616,8 +1798,9 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
            _qdn_trivial_ders(G, wh[1], eaxes, dims, atol)
 
     k = size(vecs, 2)
-    @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) rss_GB = Sys.maxrss() / 2^30
-    k == 0 && return triv
+    @debug "QuickDer restricted solve" rows = m * R cols = ncols nullity = k certified = verdict.certified rule = verdict.rule below = string(verdict.below) above = string(verdict.above) data_floor = verdict.data_floor undecidable = verdict.undecidable rss_GB = Sys.maxrss() / 2^30
+    k == 0 && return (triv, info(; lift_dim = length(triv), ntrivial = length(triv),
+                                  lift_residuals = zeros(Float64, length(triv))))
 
     # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
     # want `Y_a` (`d_a x r_a`).  `wh[1][a].un` is `R_a⁻¹`, or its pseudo-inverse
@@ -1721,6 +1904,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # null space is legitimately too large, the spurious directions are removed
     # and the genuine ones survive.
     local C::Matrix{T}
+    lift_resid = zeros(Float64, k)                          # nothing to lift: exact
     if isempty(Rblocks)
         C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
     else
@@ -1731,39 +1915,66 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # above already compresses each block to `k x k`, and the padding
         # covers the one case it cannot (a block with fewer than `k` rows).
         size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(T, k - size(Rall, 1), k)))
-        F = svd(Rall)
-        # A GAP, not a threshold -- see `QDN_LIFT_GAP_RATIO`.  The spectrum is
-        # already relative to `sc`, the size of the lift equations themselves,
-        # so these are the numbers the cut has to be judged on; ascending,
-        # because that is the order `gap_verdict` reads.
-        asc = reverse(Float64.(F.S))
-        # THE FLOOR IS `sqrt(eps)`, and that is the whole point of the change.
-        # A lift residual does not bottom out at rounding, it bottoms out at
-        # the accuracy of the triangular solve that produced `Z`, which is
-        # `sqrt(eps(T))` -- measured 1.3 to 2.9 times it in Float32 -- and that
-        # is exactly why `sqrt(eps)` was the old CUTOFF.  As a cutoff it was on
-        # the wrong side of the answer; as a FLOOR it says "everything at or
-        # under the lift's own noise is zero", which flattens the ratios inside
-        # the genuine cluster so the largest jump is the one that matters.  Use
-        # `100*eps` here instead (the floor a null SOLVER's spectrum wants) and
-        # the genuine cluster spans decades above the floor, its internal
-        # ratios can clear `gap_ratio`, and the cut lands inside it: measured,
-        # that undercounts the raw sphere at 11 of 13 in Float64.
-        #
-        # TODO(precision): `rank_rtol(T, m, n)` in Precision.jl is `max(m,n) *
-        # eps(compute_eltype(T))` -- a dimension-scaled bound for a
-        # rank-revealing factorization, not the dimension-free `sqrt(eps(T))`
-        # this floor is (measured at 1.3-2.9x `sqrt(eps(Float32))`, the
-        # accuracy of the triangular solve that produced `Z`).  Not an
-        # obvious substitution; left as the measured constant.
-        floor_rel = Float64(sqrt(eps(RT)))
-        ceil_rel = max(Float64(atol), QDN_LIFT_CEILING[] * sqrt(eps(RT)))
-        (_, lv) = gap_verdict(asc, 1.0; threshold = ceil_rel, floor = floor_rel,
-                              gap_ratio = QDN_LIFT_GAP_RATIO[])
-        cut = lv.nullity
-        @debug "QuickDer lift residual spectrum" k svals = string(round.(asc; sigdigits = 3)) cut rule = lv.rule certified = lv.certified gap = lv.gap atol ceil_rel
-        cut == 0 && return nothing
-        C = Matrix(F.V[:, (k - cut + 1):k])
+        if fixed
+            # THE CALLER PLACED THE CUT, so the filter must not move it.  Its
+            # whole job is to discard restricted directions that are not the
+            # restriction of a true derivation -- and under this policy those
+            # are exactly what was asked for.  So every direction is kept, in
+            # the singular-value order it was selected in, and its lift
+            # residual is REPORTED instead of used as a veto: that number is
+            # what says how far each near-derivation is from being one, and it
+            # is what the consumer's science needs.
+            @info "QuickDer: nd = $(ndreq) requested, so the lift's consistency " *
+                  "filter is REPORTING and not filtering -- all $(k) directions " *
+                  "come back in singular-value order, and `return_diagnostics` " *
+                  "gives the lift and Z-law residual of each. The Z-law check is " *
+                  "skipped for the same reason; a near-derivation fails it by " *
+                  "construction." maxlog = 1
+            C = Matrix{T}(LinearAlgebra.I, k, k)
+            lift_resid = Float64[norm(view(Rall, :, i)) for i in 1:k]
+        else
+            F = svd(Rall)
+            # A GAP, not a threshold -- see `QDN_LIFT_GAP_RATIO`.  The spectrum is
+            # already relative to `sc`, the size of the lift equations themselves,
+            # so these are the numbers the cut has to be judged on; ascending,
+            # because that is the order `gap_verdict` reads.
+            asc = reverse(Float64.(F.S))
+            # THE FLOOR IS `sqrt(eps)`, and that is the whole point of the change.
+            # A lift residual does not bottom out at rounding, it bottoms out at
+            # the accuracy of the triangular solve that produced `Z`, which is
+            # `sqrt(eps(T))` -- measured 1.3 to 2.9 times it in Float32 -- and that
+            # is exactly why `sqrt(eps)` was the old CUTOFF.  As a cutoff it was on
+            # the wrong side of the answer; as a FLOOR it says "everything at or
+            # under the lift's own noise is zero", which flattens the ratios inside
+            # the genuine cluster so the largest jump is the one that matters.  Use
+            # `100*eps` here instead (the floor a null SOLVER's spectrum wants) and
+            # the genuine cluster spans decades above the floor, its internal
+            # ratios can clear `gap_ratio`, and the cut lands inside it: measured,
+            # that undercounts the raw sphere at 11 of 13 in Float64.
+            #
+            # TODO(precision): `rank_rtol(T, m, n)` in Precision.jl is `max(m,n) *
+            # eps(compute_eltype(T))` -- a dimension-scaled bound for a
+            # rank-revealing factorization, not the dimension-free `sqrt(eps(T))`
+            # this floor is (measured at 1.3-2.9x `sqrt(eps(Float32))`, the
+            # accuracy of the triangular solve that produced `Z`).  Not an
+            # obvious substitution; left as the measured constant.
+            floor_rel = Float64(sqrt(eps(RT)))
+            ceil_rel = max(Float64(atol), QDN_LIFT_CEILING[] * sqrt(eps(RT)))
+            (_, lv) = gap_verdict(asc, 1.0; threshold = ceil_rel, floor = floor_rel,
+                                  gap_ratio = QDN_LIFT_GAP_RATIO[])
+            cut = lv.nullity
+            @debug "QuickDer lift residual spectrum" k svals = string(round.(asc; sigdigits = 3)) cut rule = lv.rule certified = lv.certified gap = lv.gap atol ceil_rel
+            cut == 0 && return (nothing, info(; lift_dim = 0,
+                                                lift_residuals = Float64[]))
+            C = Matrix(F.V[:, (k - cut + 1):k])
+            # The residual OF EACH ACCEPTED DIRECTION, which is what `C` is chosen
+            # to make small: `C[:,j]` is the right singular vector at `asc[j]`, so
+            # `‖R·C[:,j]‖ = asc[j]` exactly, relative to `sc` -- the size of the
+            # lift equations themselves.  No extra arithmetic, and it is the number
+            # that separates a true derivation's restriction (which lifts) from a
+            # near-null direction of the restricted system (which does not).
+            lift_resid = Float64[asc[j] for j in 1:cut]
+        end
     end
 
     tstage = _qdn_stage!(:filter, tstage)
@@ -1797,7 +2008,23 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         end
         out[j] = Ms
     end
-    return isempty(triv) ? out : vcat(out, triv)
+    # The whitening's trivial derivations lift exactly by construction -- they
+    # never entered the lift -- so their residual is zero, not unknown.  Under
+    # the FIXED policy that also puts them FIRST: the caller asked for the `nd`
+    # smallest singular values and an exact derivation's is zero, so a trivial
+    # one outranks every solved direction, and the count is trimmed back to
+    # `ndreq` from the far end.
+    ntriv = length(triv)
+    allmats = ntriv == 0 ? out : (fixed ? vcat(triv, out) : vcat(out, triv))
+    allresid = ntriv == 0 ? lift_resid :
+               (fixed ? vcat(zeros(Float64, ntriv), lift_resid) :
+                        vcat(lift_resid, zeros(Float64, ntriv)))
+    if fixed && length(allmats) > ndreq
+        allmats = allmats[1:ndreq]
+        allresid = allresid[1:ndreq]
+    end
+    return (allmats, info(; lift_dim = length(allmats), lift_residuals = allresid,
+                            ntrivial = ntriv))
 end
 
 # ---------------------------------------------------------------------------
@@ -1966,8 +2193,8 @@ function _qdn_empty_result(Ω::TransverseOps, ::Type{T}, r::Vector{Int},
 end
 
 """
-    derTrOpsReduced(::QuickDerMethod, Ω, P, Γ; tol, nd, progress)
-        -> (Ω, id_map, ders)
+    derTrOpsReduced(::QuickDerMethod, Ω, P, Γ; tol, nd, progress, return_diagnostics)
+        -> (Ω, id_map, ders)  or  (Ω, id_map, ders, report::DerivationReport)
 
 Solve-and-lift derivations of `Γ` for the chisel `P`, in the coordinates of
 `Ω`.  The reduced operator space IS `Ω` and the expand map is the identity, as
@@ -1975,8 +2202,42 @@ in `FastDer3ValentMethod`: the kernel already solves over every axis, including
 the disengaged ones (whose operator is zero, the representative `SylverLining`
 expands to), so there is nothing to expand.
 
-`nd > 0` caps the number of returned derivations; `tol` is relative and floored
-at `sqrt(eps(eltype(Γ)))` by `qd_tolerance` (src/solvers/Precision.jl).
+`tol` is relative and floored at `sqrt(eps(eltype(Γ)))` by `qd_tolerance`
+(src/solvers/Precision.jl).
+
+`nd > 0` IS A POLICY, NOT A CAP (`policy = :fixed_nd` in the report).  It asks
+for the `nd` restricted directions with the SMALLEST singular values,
+deliberately and whether or not they are derivations, which is what a caller
+wants on real data: a generic tensor has only its scalar derivations
+(`dim ker P` of them -- 2 for the 3-valent universal chisel) and the science is
+in the directions just above that cut, at `σ/σ_max` of a few percent.  What
+that changes, and each of these is reported rather than hidden:
+
+* the null solve is made with NO CEILING, because the whole point is to reach
+  values above `tol` -- `nd` under the automatic policy could never do that;
+* the lift's consistency filter REPORTS instead of filtering: all `nd`
+  directions come back, in singular-value order, and the lift residual of each
+  is in the report.  A true derivation's restriction lifts exactly; these do
+  not, and by how much is the number;
+* the Z-law check is skipped, because a near-derivation fails it by
+  construction.  `return_diagnostics` measures the residual per direction
+  instead, which is the useful form;
+* `certified` is FALSE unless the automatic verdict, recomputed on the same
+  spectrum, certified a cut at exactly `nd` -- so a fixed count can never
+  masquerade as an exact answer.
+
+TWO BOUNDARIES, both warned about at the call.  `nd` at or below the restricted
+nullity names an arbitrary subspace of a null cluster (whose basis is arbitrary
+inside itself) and drops exact derivations.  And the count is exact only when
+`Ω` constrains nothing: the intersection with a constrained `Ω`
+(`_fastder_restrict_to_ops`) is a null space of the residual off `Ω`, so it
+mixes the directions and its dimension is a property of the space -- the
+scrambled sphere's 13 universal derivations are 3 symmetric ones, and no
+5-dimensional truncation of the 13 has a well-defined image.  For the near-null
+use case (`UniversalOp`, `nd` above the scalars) neither boundary is in play.
+
+`nd` may also be `Inf` or non-integral, as elsewhere in this API; anything not
+a positive finite number means the automatic policy.
 
 PRECISION.  The arithmetic runs in `compute_eltype(eltype(Γ))`, which is
 `eltype(Γ)` except for Float16 (no CPU BLAS or LAPACK has a half-precision
@@ -1984,6 +2245,22 @@ path); the returned coordinates are rounded back to `eltype(Γ)`, so a Float16
 tensor gives Float16 derivations at Float32 reliability.  The tolerance is
 floored on the STORED type, not the computed one: promoting the arithmetic buys
 stability, not information about the data.
+
+DIAGNOSTICS.  `return_diagnostics = true` appends a `DerivationReport` -- the
+restricted solve's `NullVerdict` whole, the values around the cut, the lift
+residual of each accepted direction and the Z-law residual
+(`Dleto.der_residual`) of each returned one, plus the restriction sizes, the
+solver, the device and the two element types.  The default is `false` and then
+the returned tuple is exactly the three-element one it has always been, so
+nothing downstream moves.  It is opt-in because the Z-law residuals cost one
+pass over the tensor per direction.
+
+```julia
+m = get_derivation_method(:QuickDer; seed = 4242)
+(Ω, _, ders, rep) = derTrOpsReduced(m, Ω, ch, Γ; return_diagnostics = true)
+rep.certified, rep.selected, rep.next_value    # the cut, and what it rests on
+maximum(rep.residuals)                         # is the answer a derivation?
+```
 """
 function derTrOpsReduced(
     method::QuickDerMethod,
@@ -1993,8 +2270,16 @@ function derTrOpsReduced(
     tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
+    return_diagnostics::Bool = false,
     kwargs...,
-)::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
+)
+    # NO RETURN-TYPE ANNOTATION any more, and the reason is mechanical rather
+    # than a loosening of the contract: the return is a 3-tuple or, with
+    # `return_diagnostics`, a 4-tuple whose last element is a
+    # `DerivationReport`, and that type is defined in a file included AFTER
+    # this one (it carries a `NullVerdict` field, and NullSolvers.jl is last).
+    # An annotation is evaluated at definition time; the body is not.  With
+    # `return_diagnostics = false` the value returned is exactly what it was.
     _qdn_validate(Ω, P, Γ)
 
     # Read Γ in Ω's frame order -- the order the coordinates use, and the order
@@ -2040,11 +2325,18 @@ function derTrOpsReduced(
     # restricted system saw solutions that no true derivation restricts to,
     # i.e. r was too small for THIS tensor; a bigger r is the only cure that
     # does not change the method.
+    # A POSITIVE `nd` is a policy, not a cap; see the docstring.  Normalised
+    # here once, because `nd` is deliberately untyped across this API (the
+    # SylverLining route accepts `Inf`).
+    ndreq = (nd isa Real && isfinite(nd) && nd > 0) ? floor(Int, nd) : -1
+
     tried = Vector{Int}[]
     mats = nothing
+    local info
     while true
         push!(tried, copy(r))
-        mats = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress)
+        (mats, info) = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress,
+                                           T, ndreq)
         mats === nothing || break
         length(tried) >= 2 && break
         bumped = [min(dims[a], max(r[a] + 1, ceil(Int, 1.5 * r[a]))) for a in 1:n]
@@ -2059,11 +2351,26 @@ function derTrOpsReduced(
 
     @debug "QuickDer after lift" nbasis = length(mats) rss_GB = Sys.maxrss() / 2^30
     tstage = time()
-    _qdn_verify(Gk, Pm, eng, mats, method, atol, r, rng)
+    # THE Z-LAW CHECK IS A VETO, and under the fixed policy there is nothing
+    # for it to veto: the caller asked for the `nd` smallest directions knowing
+    # that all but the exact ones fail the defining equation, so raising on
+    # that failure would refuse to answer the question asked.  The residual is
+    # still MEASURED -- per direction, in the report -- which is the form the
+    # number is useful in here.
+    ndreq > 0 || _qdn_verify(Gk, Pm, eng, mats, method, atol, r, rng)
     tstage = _qdn_stage!(:verify, tstage)
     @debug "QuickDer after verify" rss_GB = Sys.maxrss() / 2^30
 
-    isempty(mats) && return _qdn_empty_result(Ω, T, r, dims)
+    # The report is built from the same numbers whatever the exit, so the empty
+    # answer carries one too: "no derivations, and here is the spectrum that
+    # says so" is exactly the case a caller most needs the evidence for.
+    report(ders) = return_diagnostics ?
+        _qdn_report(method, Ω, P, G, ders, info, T, Tc, dims, r, ndreq) : nothing
+    if isempty(mats)
+        (rΩ, id_map, ders) = _qdn_empty_result(Ω, T, r, dims)
+        return return_diagnostics ? (rΩ, id_map, ders, report(ders)) :
+                                    (rΩ, id_map, ders)
+    end
 
     # Universal derivations, cut down to the ones that live in Ω.  Rounded back
     # to the stored type: a Float16 tensor gets Float16 derivations, carrying
@@ -2072,12 +2379,72 @@ function derTrOpsReduced(
     ders = eltype(ders) === T ? ders : Matrix{T}(ders)
     tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
-    size(ders, 2) == 0 && return _qdn_empty_result(Ω, T, r, dims)
-    if nd > 0 && size(ders, 2) > nd
-        ders = ders[:, 1:floor(Int, nd)]
+    if ndreq > 0 && size(ders, 2) != ndreq
+        # The intersection with `Ω` is the one step of this pipeline that a
+        # fixed count cannot survive in general: it is a null space of the
+        # residual off `Ω`, so it MIXES the directions handed to it and its
+        # dimension is a property of the space, not of how many vectors span
+        # it.  Under an unconstrained `Ω` (`UniversalOp` everywhere, which is
+        # the near-null case this policy is for) it is the identity and the
+        # count comes back exactly; under a constrained one it decides.
+        @warn "QuickDer: nd = $(ndreq) directions were solved for but " *
+              "$(size(ders, 2)) came back -- the intersection with Ω keeps only " *
+              "the part of that span which lies in the operator space, and it " *
+              "cannot be asked for a fixed dimension. `nd` is exact only when Ω " *
+              "constrains nothing. The report's `requested_nd` and `returned` " *
+              "carry both numbers." maxlog = 1
+    end
+    if size(ders, 2) == 0
+        (rΩ, id_map, e) = _qdn_empty_result(Ω, T, r, dims)
+        return return_diagnostics ? (rΩ, id_map, e, report(e)) : (rΩ, id_map, e)
+    end
+    if ndreq > 0 && size(ders, 2) > ndreq
+        ders = ders[:, 1:ndreq]
     end
 
     id_map = LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
                                   ismutating = false)
-    return (Ω, id_map, ders)
+    return return_diagnostics ? (Ω, id_map, ders, report(ders)) : (Ω, id_map, ders)
+end
+
+"""
+    _qdn_report(method, Ω, P, G, ders, info, T, Tc, dims, r, nd) -> DerivationReport
+
+The evidence behind one QuickDer answer, assembled from `info` (the restricted
+solve's verdict and the lift residuals, see `_qdn_solve_and_lift`) and from the
+answer itself (the Z-law residual of every returned direction, on the promoted
+host tensor -- see `_der_zlaw_residuals` for why it is not measured in the
+stored type).
+
+Built only when the caller asked for it: the Z-law residuals are one pass over
+the tensor per direction, which is the whole cost of this function and is not a
+cost an ordinary call should pay.
+"""
+function _qdn_report(method::QuickDerMethod, Ω::TransverseOps, P::AbstractMatrix,
+                     G::AbstractArray, ders::AbstractMatrix, info, ::Type{T},
+                     ::Type{Tc}, dims::Vector{Int}, r::Vector{Int},
+                     nd::Int) where {T,Tc}
+    idm = LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
+                               ismutating = false)
+    stages = QDN_STAGE_TIMES[]
+    # Under `:fixed_nd` the selection is the caller's and `info` carries it,
+    # trivial derivations and all; under `:auto` it is the verdict's own cut.
+    spec = info.verdict.spectrum
+    sel = info.selected === nothing ?
+          spec[1:min(info.verdict.nullity, length(spec))] : info.selected
+    nxt = info.selected === nothing ?
+          (length(spec) > length(sel) ? spec[length(sel) + 1] : NaN) : info.next_value
+    return DerivationReport(; method = :QuickDer, store_eltype = T, compute_eltype = Tc,
+                            dims = dims, verdict = info.verdict,
+                            policy = info.policy, requested_nd = nd,
+                            returned = size(ders, 2),
+                            selected = sel, next_value = nxt,
+                            scalar_dim = _der_scalar_dim(P),
+                            solver = info.solver, device = method.device,
+                            seed = method.seed, whitened = method.whiten,
+                            restriction = r, restricted_size = info.restricted_size,
+                            lift_dim = info.lift_dim,
+                            lift_residuals = info.lift_residuals,
+                            residuals = _der_zlaw_residuals(Ω, idm, ders, G, P),
+                            stage_times = stages === nothing ? nothing : copy(stages))
 end

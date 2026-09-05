@@ -196,6 +196,86 @@ so what makes its apply count non-monotone; (3) `bench/jl`'s RSS watchdog needs
 `JL_HEAP` set well below the limit on these runs -- RSS ran ~1.5x the heap
 target above the live set on every large run.
 
+### Session 4, part 4 (evening): the diagnostics API, and a Float16 false certificate
+
+Worktree branch off `feature/under-pressure/2026-09-04`.  Three commits.  Driven by
+bug reports and requests from the downstream video consumer (DletoVideo), which calls
+`derTrOpsReduced(method, Ω, chisel, Γ; tol)` directly and chooses combinations of the
+returned `ders` itself.
+
+**The storage type did not reach QuickDer's verdict, and Float16 certified what it
+could not see.**  `derTrOpsReduced(::QuickDerMethod, ...)` promotes a Float16 tensor to
+Float32 before the kernel touches it, so `eltype` inside `_qdn_solve_and_lift` is the
+ARITHMETIC's type; its two `solve_nullspace` calls omitted `store_eltype` and took the
+default `real(eltype(L))` = Float32.  `data_floor(Float32)` = 1.2e-7 never binds, so the
+restricted verdict certified a cut whose first value above it sat *inside* the rounding
+of the input -- exactly the failure `data_floor` was added to prevent.  Consumer's
+repro, a 40x40x40 Float16 luma block: `above = [4.21e-4, 1.22e-3]` against
+`eps(Float16) = 9.8e-4`, `certified = true`.  Reproduced on a near-degenerate ramp at
+d = 24 (smooth ramp + 3e-5 texture, first value above the cut 7.2e-4 in Float16 and
+1.8e-4 in Float32): before, `certified = true, undecidable = 0`; after,
+`certified = false, undecidable = 1`, with the Float32 run on the same data unchanged
+(nullity 2, certified) -- the floor binds only in the mixed case, as designed.
+`store` is now an explicit POSITIONAL argument of `_qdn_solve_and_lift`, because the
+wrong answer to that question is silent.  SylverLining already passed it; `den` has no
+promotion and needs none.
+
+*The video result survives the fix.*  `bench/WhitenedRestriction.jl video 640 480 30 1
+AutoSolver Float16` (randn 640x480x30x3, forced matrix-free, whitened) still reports
+nullity 3 of 3, residual 7.2e-7, 21082 applies in 23.8 s, and NO undecidable value --
+correctly, because a generic tensor's first nonzero eigenvalue is ~1e-2 relative,
+four decades above `eps(Float16)`.  The fix bites only where the data really cannot
+decide.
+
+**`DerivationReport`: the verdict as a value.**  `derTrOpsReduced(...;
+return_diagnostics = true)` appends a fourth element -- an immutable struct carrying the
+deciding solve's `NullVerdict` whole, the summary (certified, rule, gap, threshold, both
+floors, undecidable, near_null, the spectrum, the values the cut kept, the first one
+above it), the storage and compute element types, `dim ker P` as the scalar baseline,
+the restriction sizes / restricted shape / solver / device / seed / whitened flag, the
+lift residual of each accepted direction and the Z-law residual (`Dleto.der_residual`) of
+each returned one.  The default is `false` and the three-tuple is unchanged, so nothing
+downstream moves.  QuickDer, SylverLining and AutoDer take the same keyword and fill the
+same struct (missing = `nothing`; AutoDer reports the route that actually answered).
+Consumers had been reading all of this out of `@warn` text, which `maxlog = 1` silences
+on the second block of a thousand.
+
+Two mechanical consequences worth knowing: `DerivationReport` is included AFTER
+NullSolvers.jl (it has a `NullVerdict` field, and field types are evaluated at
+definition time), so the three `derTrOpsReduced` methods lost their return-type
+annotations and `_qdn_fixed_verdict`'s first argument is unannotated.  And
+`_qdn_solve_and_lift` now returns `(mats, info)` instead of publishing through a `Ref`:
+it is internal with one caller, and a returned value cannot go stale after an error.
+
+**`nd > 0` is a policy, not a cap (`policy = :fixed_nd`).**  QuickDer forced `nd = -1`
+on the restricted solve and truncated afterwards, so a caller could never reach the
+near-null directions -- and on real video blocks that is where the science is: every
+block tested has only the scalar derivations (2 at valence 3, 3 at valence 4) with the
+first non-scalar singular values at 0.04-0.08.  Now `nd > 0` asks for the `nd` smallest
+by singular value: the solve is made with NO ceiling (`gap_verdict`'s own `nd` caps a
+fixed count at the number of values *below* the ceiling, so it never could reach past
+it), the lift's consistency filter reports instead of filtering, the Z-law check is
+skipped (a near-derivation fails it by construction) and the residuals are measured
+per direction instead.  `certified` is false unless the automatic verdict -- recomputed
+on the same spectrum by `_qdn_fixed_verdict`, a pure function of the values, not a
+second solve -- certified a cut at exactly `nd`.
+
+Measured, random valence-4 tensor (true nullity 3, `UniversalOp`), `nd = 5`: five back,
+the first three matching the automatic answer to every principal angle, `selected =
+[2.4e-16, 2.7e-16, 4.5e-16, 0.301, 0.313]`, `next_value = 0.319`, Z-law residuals
+`[6e-16, 5e-16, 6e-16, 0.562, 0.529]`, lift residuals `[8e-16, 8e-16, 7e-16, 0.770,
+0.705]`.
+
+TWO BOUNDARIES ON `nd`, both warned about at the call.  `nd` at or below the restricted
+nullity names an arbitrary subspace of a null cluster (which has no preferred basis
+inside itself) and drops exact derivations.  And the count is exact only when `Ω`
+constrains nothing: `_fastder_restrict_to_ops` is a null space of the residual off `Ω`,
+so it MIXES the directions handed to it and its dimension is a property of the space --
+the scrambled sphere's 13 universal derivations are 3 symmetric ones, and no
+5-dimensional truncation of the 13 has a well-defined image (measured: `nd = 5` on the
+sphere returns 0).  For the near-null use case (`UniversalOp`, `nd` above the scalars)
+neither boundary is in play, and that is the case the policy exists for.
+
 ### Session 4, part 3 (evening): determinism, and what it exposed
 
 Branch `worktree-agent-a88f0bc3af49e35e6` off `feature/under-pressure/2026-09-04`.
