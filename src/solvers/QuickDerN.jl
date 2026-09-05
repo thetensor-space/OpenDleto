@@ -1579,7 +1579,7 @@ function _qdn_fixed_verdict(v, k::Integer, atol::Real, ::Type{RT},
 end
 
 """
-    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress, store)
+    _qdn_solve_and_lift(G, P, engaged, r, method, rng, atol, progress, store, ndreq)
         -> (mats, info)
 
 One attempt at the whole kernel: sketch, restricted solve, lift, consistency
@@ -1619,6 +1619,12 @@ so the verdict on a Float16 tensor certified a cut whose first value above it
 sat *inside* the rounding of the input (measured on a 40x40x40 Float16 luma
 block: `above = [4.21e-4, ...]` against `eps(Float16) = 9.8e-4`, reported
 `certified = true`).  See `Dleto.data_floor` and `NullVerdict`'s `undecidable`.
+
+`ndreq > 0` selects the FIXED-COUNT policy (`derTrOpsReduced`'s `nd`): the
+restricted solve is made without a ceiling and one lookahead deeper, the
+`ndreq` smallest directions are kept, and the consistency filter reports its
+residuals instead of cutting on them.  `-1` is the automatic policy, in which
+nothing below changes.
 """
 function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
