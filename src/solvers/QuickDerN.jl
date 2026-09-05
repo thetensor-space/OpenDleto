@@ -243,6 +243,23 @@ being able to read directly rather than inferring it from wall time.
 """
 const QDN_APPLY_COUNT = Ref(-1)
 
+"""
+    QDN_LAST_SOLVE_STATUS :: Ref{Symbol}
+
+The `status` of the restricted null solve of the LAST `_qdn_solve_and_lift`
+attempt: `:ok`, `:unconverged` or `:capped` (see `NullVerdict`).  Set by the
+kernel, reset per attempt, in the idiom `QDN_APPLY_COUNT` and
+`QDN_TRIVIAL_FACTORED` already use in this file.
+
+It is out of band because `_qdn_solve_and_lift` returns the lifted
+derivations, and the caller only learns that the answer is EMPTY after
+`_fastder_restrict_to_ops` has intersected them with `Ω` -- one step past the
+kernel.  An empty answer from a solve that did not converge is a failure, not
+"Γ conforms to no pattern for this chisel", and `derTrOpsReduced` needs both
+facts in the same place to say so.
+"""
+const QDN_LAST_SOLVE_STATUS = Ref(:ok)
+
 @inline function _qdn_tick!()
     c = QDN_APPLY_COUNT[]
     c < 0 || (QDN_APPLY_COUNT[] = c + 1)
@@ -1540,6 +1557,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
                   GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
         (vals, vecs, verdict) = solve_nullspace(LinearMaps.LinearMap(Mres), dsolver;
                                                 tol = atol, nd = -1, progress = progress,
+                                                seed = method.seed,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     else
@@ -1555,11 +1573,20 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
                                                   method.solver
         tstage = _qdn_stage!(:restricted, tstage)
+        # `method.seed` is the run's one source of randomness -- the sketch and
+        # the verification slices already come from it -- and it now also fixes
+        # the null solver's random start.  Without that, ARPACK's start vector
+        # comes from a seed kept inside the Fortran library across calls, so
+        # two identical calls in one process could return DIFFERENT restricted
+        # null spaces (2, 3, 3 measured at d = 48 in Float32).
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = atol, nd = -1, progress = progress,
+                                                seed = method.seed,
                                                 label = "quickder restricted")
         tstage = _qdn_stage!(:solve, tstage)
     end
+
+    QDN_LAST_SOLVE_STATUS[] = verdict.status
 
     # THE ONE UNDETECTABLE FAILURE MODE, closed.  A null solver that did not
     # converge and returned nothing is reporting "I failed", and on the
@@ -1820,15 +1847,32 @@ function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     if method.verify === :full && prod(dims) <= 2e7
         for Ms in mats
             bound = atol * gnorm * max(sum(norm, Ms), eps(RT))
-            Md = [engaged[a] ? up(Ms[a]) : Ms[a] for a in 1:N]
-            for rho in 1:m
-                E = _qdn_zeros_like(G, size(G))
-                for a in 1:N
-                    (!engaged[a] || iszero(P[rho, a])) && continue
-                    E .+= P[rho, a] .* _qdn_ttm(G, Md[a], a)
+            if G isa Array
+                # The library's own Z-law check (`Dleto.der_residual`), one
+                # squared norm per chisel row: two blocks of `block_bytes`
+                # instead of an accumulator and a mode product the size of the
+                # tensor.  A disengaged axis has `P[rho, a] == 0` -- that is
+                # what disengaged MEANS -- so its zero matrix is skipped there
+                # exactly as it was skipped here.
+                sq = der_residual_squares(G, Ms, P)
+                for rho in 1:m
+                    res = sqrt(sq[rho])
+                    res <= bound || fail(res, bound)
                 end
-                res = norm(E)
-                res <= bound || fail(res, bound)
+            else
+                # Device tensors keep the direct route: the blocked
+                # accumulation is `mul!` with `β = 1`, which `_qdn_ttm!`'s
+                # device path cannot do.
+                Md = [engaged[a] ? up(Ms[a]) : Ms[a] for a in 1:N]
+                for rho in 1:m
+                    E = _qdn_zeros_like(G, size(G))
+                    for a in 1:N
+                        (!engaged[a] || iszero(P[rho, a])) && continue
+                        E .+= P[rho, a] .* _qdn_ttm(G, Md[a], a)
+                    end
+                    res = norm(E)
+                    res <= bound || fail(res, bound)
+                end
             end
         end
         return nothing
@@ -1879,6 +1923,46 @@ function _qdn_validate(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     any(engaged(Matrix{Float64}(P))) ||
         error("QuickDerMethod requires at least one engaged axis.")
     return nothing
+end
+
+"""
+    _qdn_empty_result(Ω, T, r, dims)
+
+The empty derivation space -- `(Ω, id, zeros(T, globalDim(Ω), 0))` -- UNLESS
+the restricted solve that produced it did not converge, in which case this
+raises instead.
+
+"Γ conforms to no pattern for this chisel" is a legitimate answer and cannot
+be escalated away; "the solver failed" looks exactly the same from here, and
+that is the whole reason `NullVerdict` carries a `status`.
+`_qdn_solve_and_lift` already declines when the RESTRICTED solve came back
+empty and non-`:ok`; this is the same rule one step later, because an
+undercounted restricted null space is not empty -- it lifts to universal
+derivations that simply do not meet `Ω`, and the answer collapses to nothing
+only after `_fastder_restrict_to_ops`.
+
+Measured, and it is why this exists: scrambled sphere d = 12, forced
+matrix-free, unwhitened, seed 4242, no ARPACK in the process.  KrylovKit's
+block Lanczos broke down, the single-vector Arnoldi fallback returned
+restricted nullity 7 of 13, and QuickDer reported ZERO derivations of a true
+three -- silently, and green in the test suite.  With the fallback reporting
+`:unconverged` (see ext/DletoKrylovKitExt.jl) this raises, and `AutoDerMethod`
+falls back to SylverLining, which is exact.
+"""
+function _qdn_empty_result(Ω::TransverseOps, ::Type{T}, r::Vector{Int},
+                           dims::Vector{Int}) where {T}
+    QDN_LAST_SOLVE_STATUS[] === :ok || error(
+        "QuickDer: the restricted null solve reported " *
+        ":$(QDN_LAST_SOLVE_STATUS[]) and the lifted answer is EMPTY. Read that " *
+        "as a FAILED solve, not as an empty derivation space -- a solver that " *
+        "undercounts a restricted null space lifts to derivations that miss Ω " *
+        "entirely. Restriction sizes r = $(r) on dims $(dims). Try " *
+        "`solver = :ArpackSolver`, a larger `sizes`, or fall back to " *
+        ":SylverLining.")
+    return (Ω,
+            LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
+                                 ismutating = false),
+            zeros(T, globalDim(Ω), 0))
 end
 
 """
@@ -1933,6 +2017,7 @@ function derTrOpsReduced(
     # the device, and nothing sends `d^n` bytes back.
     _qdn_check_device(method.device, Tc)
     _qdn_stage_reset!()
+    QDN_LAST_SOLVE_STATUS[] = :ok
     tstage = time()
     Gk = method.device === :gpu ? to_gpu(G) : G
     tstage = _qdn_stage!(:upload, tstage)
@@ -1978,10 +2063,7 @@ function derTrOpsReduced(
     tstage = _qdn_stage!(:verify, tstage)
     @debug "QuickDer after verify" rss_GB = Sys.maxrss() / 2^30
 
-    isempty(mats) && return (Ω,
-        LinearMaps.LinearMap(identity, identity, globalDim(Ω), globalDim(Ω);
-                             ismutating = false),
-        zeros(T, globalDim(Ω), 0))
+    isempty(mats) && return _qdn_empty_result(Ω, T, r, dims)
 
     # Universal derivations, cut down to the ones that live in Ω.  Rounded back
     # to the stored type: a Float16 tensor gets Float16 derivations, carrying
@@ -1990,6 +2072,7 @@ function derTrOpsReduced(
     ders = eltype(ders) === T ? ders : Matrix{T}(ders)
     tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
+    size(ders, 2) == 0 && return _qdn_empty_result(Ω, T, r, dims)
     if nd > 0 && size(ders, 2) > nd
         ders = ders[:, 1:floor(Int, nd)]
     end

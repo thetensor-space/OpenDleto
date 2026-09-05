@@ -3,14 +3,19 @@ using Dleto
 using Arpack
 using LinearMaps
 using LinearAlgebra
+using Random
 
 export ArpackDenseSolver, ArpackSolver
 
 struct ArpackSolver <: Dleto.NullSolver end
 struct ArpackDenseSolver <: Dleto.NullSolver end
 
+# Takes `seed` and turns it into an explicit start vector; see the `v0` note in
+# `solve` below for why the default is not reproducible.
+Dleto.wants_seed(::ArpackSolver) = true
+
 """
-    solve(::ArpackSolver, L; nv, tol, ncv, maxiter, min_request)
+    solve(::ArpackSolver, L; nv, tol, ncv, maxiter, min_request, seed)
 
     The `nv` smallest-magnitude eigenpairs of the square symmetric map `L` by
     implicitly restarted Lanczos (ARPACK `dsaupd`, `which = :SM`).
@@ -40,10 +45,25 @@ struct ArpackDenseSolver <: Dleto.NullSolver end
     `‖L‖/shift`, and a shift small enough to separate the null space from
     the first nonzero eigenvalue costs more CG steps per application than the
     whole `:SM` solve.
+
+    REPRODUCIBILITY, and it is not free by default.  ARPACK's `info = 0` path
+    generates the start vector inside the Fortran library from a seed it keeps
+    in its own saved state ACROSS calls, so a second `eigs` on the same map in
+    the same process starts somewhere else and can converge to a different
+    subspace of a multiple eigenvalue.  Measured on the whitened restricted map
+    of the scrambled sphere at d = 48 in Float32 -- identical tensor, seed,
+    solver and tolerance -- three consecutive calls in one process gave
+    restricted nullity 2, 3, 3.  Pass `seed` and the start vector is drawn here
+    instead, from a `MersenneTwister`, and handed to ARPACK as `v0`: same map,
+    same `seed`, same `nv`/`tol`/`ncv` then give the same values and the same
+    nullity, and a benchmark row or a test assertion means something.  Which
+    vector it is does not matter numerically (any vector not orthogonal to the
+    wanted invariant subspace will do); that it is the SAME one twice does.
 """
 function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real = 1e-10,
                      ncv::Union{Nothing,Integer} = nothing, maxiter::Integer = 300,
-                     min_request::Integer = 16)
+                     min_request::Integer = 16,
+                     seed::Union{Nothing,Integer} = nothing)
     println("Using ArpackSolver...")
     n = size(L, 2)
     @assert size(L, 1) == n "ArpackSolver needs a square map; pass AᵗA."
@@ -74,9 +94,14 @@ function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real =
     # nev`; the caller acts on it only where it can matter (see
     # `NullVerdict`'s `status`).  Note that exhausting `maxiter` is not this
     # case: `Arpack.eigs` throws `XYAUPD_Exception` for that, which propagates.
+    # `v0 = T[]` is ARPACK's own "pick one for me" (`info = 0`), the
+    # irreproducible default; a seeded draw makes the call a function of its
+    # arguments.  Real, even for a complex map: `eigs` promotes it, and a real
+    # start vector is as generic as any other against a symmetric operator.
+    v0 = seed === nothing ? T[] : Vector{T}(randn(MersenneTwister(seed), RT, n))
     vals, vecs, nconv, niter = Arpack.eigs(L; nev = nev, ncv = ncv_, which = :SM,
                                            tol = Dleto.iter_tol(RT, tol),
-                                           maxiter = maxiter)
+                                           maxiter = maxiter, v0 = v0)
     λ = real.(vals)
     ord = sortperm(abs.(λ))[1:min(want, length(λ))]
     return (; vals = λ[ord], vecs = real.(vecs[:, ord]),
