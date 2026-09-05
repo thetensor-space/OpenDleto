@@ -47,7 +47,15 @@ case where that is all a caller wants; they always agree with `verdict` when
                 the count asked for, and the directions returned are the `nd`
                 smallest by singular value whether or not they are
                 derivations -- `lift_residuals` and `residuals` are how far
-                each one is from being one.
+                each one is from being one.  THE TWO ROUTES MEAN DIFFERENT
+                THINGS BY IT, which is why `requested_nd` and `returned` are
+                both reported: QuickDer solves without a ceiling and returns
+                exactly `nd` (when `Ω` constrains nothing -- see there),
+                reaching directions ABOVE the tolerance, while SylverLining's
+                `nd` is the cap it has always been and can only return values
+                the threshold already called null, so `returned <=
+                requested_nd` there and it never reaches a near-derivation.
+                The near-null hunt is QuickDer's.
 - `requested_nd` the caller's `nd`; `-1` (or any non-positive value) for the
                 automatic policy.
 - `nullity`     the count the deciding solve returned, BEFORE the lift filter
