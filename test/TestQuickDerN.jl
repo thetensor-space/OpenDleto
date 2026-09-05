@@ -1027,3 +1027,132 @@ end
         end
     end
 end
+
+# =========================================================================
+# 9. `nd > 0`: the caller places the cut, deliberately
+# =========================================================================
+#
+# On real data (the downstream video consumer's blocks) every tensor has only
+# its scalar derivations and the science is in the directions just above that
+# cut, at `σ/σ_max` of a few percent.  `nd > 0` asks for those by name:
+# `policy = :fixed_nd`, the lift filter reports instead of filtering, the Z-law
+# check is skipped (a near-derivation fails it by construction) and the
+# residual of each direction is measured instead.
+#
+# The contract this pins: exactly `nd` back, ordered by singular value, with
+# the exact derivations FIRST and unchanged, uncertified, and the residuals of
+# the near ones reported and larger.
+
+@testset "9. fixed nd" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # UniversalOp, so the intersection with Ω is the identity and a fixed
+        # count is exact -- the case the policy is for.  A random valence-4
+        # tensor's derivations are its 3 scalars, so `nd = 5` asks for two
+        # directions that are NOT derivations.
+        @testset "$T: nd = 5 on a true nullity of 3" for T in (Float64, Float32)
+            Random.seed!(20260904)
+            dims = (7, 6, 5, 4)
+            fr = [Index(d, "f$i") for (i, d) in enumerate(dims)]
+            Γ = ITensor(Array{T}(randn(dims...)), fr...)
+            Ω = IndTransverseOps(fr, UniversalOp())
+            ch = Matrix{Float64}(UniversalChisel(4))
+            m = get_derivation_method(:QuickDer; seed = 4242)
+
+            (_, _, exact, rex) = derTrOpsReduced(m, Ω, ch, Γ;
+                                                 return_diagnostics = true)
+            @test size(exact, 2) == 3
+            @test rex.policy === :auto
+            @test rex.certified
+
+            (_, _, ders, rep) = derTrOpsReduced(m, Ω, ch, Γ; nd = 5,
+                                                return_diagnostics = true)
+            # 1. FIVE COME BACK, and the report says who asked for them.
+            @test size(ders, 2) == 5
+            @test rep.policy === :fixed_nd
+            @test rep.requested_nd == 5
+            @test rep.returned == 5
+            @test rep.rule === :fixed
+
+            # 2. NEVER CERTIFIED when the count differs from the verdict's own
+            #    cut, which here it does (3 against 5).
+            @test rep.certified == false
+            @test rep.verdict.certified == false
+
+            # 3. ORDERED BY SINGULAR VALUE, and the report names the gap to the
+            #    first direction that was NOT returned.
+            @test length(rep.selected) == 5
+            @test issorted(rep.selected)
+            @test rep.next_value >= rep.selected[end]
+            @test isfinite(rep.next_value)
+
+            # 4. THE EXACT ONES ARE STILL THERE, and unchanged: every principal
+            #    angle between the automatic answer and the first three
+            #    directions here is zero.
+            Q1 = Matrix(qr(Float64.(exact)).Q)[:, 1:3]
+            Q2 = Matrix(qr(Float64.(ders[:, 1:3])).Q)[:, 1:3]
+            @test all(isapprox.(svdvals(Q1' * Q2), 1.0; atol = 1e-4))
+
+            # 5. THE RESIDUALS OF 4 AND 5 ARE REPORTED, AND LARGER.  This is
+            #    the number the consumer's science needs: how far from being a
+            #    derivation each near-null direction is.  Both the lift
+            #    residual and the Z-law residual say the same thing.
+            @test length(rep.residuals) == 5
+            @test length(rep.lift_residuals) == 5
+            for j in 1:3
+                @test rep.residuals[j] < 100 * sqrt(eps(T))
+                @test rep.lift_residuals[j] < 100 * sqrt(eps(T))
+            end
+            for j in 4:5
+                @test rep.residuals[j] > 1e-3
+                @test rep.lift_residuals[j] > 1e-3
+                @test rep.residuals[j] > 1e3 * maximum(rep.residuals[1:3])
+                @test rep.lift_residuals[j] > 1e3 * maximum(rep.lift_residuals[1:3])
+            end
+            # and the same ordering holds on the singular values themselves
+            @test rep.selected[4] > 1e3 * rep.selected[3]
+        end
+
+        # `nd == the true nullity` is the one fixed count the automatic rule
+        # can agree with, and then the certificate is allowed to stand.
+        @testset "nd equal to the verdict's own cut may certify" begin
+            Random.seed!(20260904)
+            fr = [Index(d, "g$i") for (i, d) in enumerate((9, 8, 7))]
+            Γ = ITensor(randn(9, 8, 7), fr...)
+            Ω = IndTransverseOps(fr, UniversalOp())
+            ch = Matrix{Float64}(UniversalChisel(3))
+            m = get_derivation_method(:QuickDer; seed = 4242)
+            (_, _, ders, rep) = derTrOpsReduced(m, Ω, ch, Γ; nd = 2,
+                                                return_diagnostics = true)
+            @test size(ders, 2) == 2
+            @test rep.policy === :fixed_nd
+            @test rep.requested_nd == 2
+            @test rep.certified                      # the cuts agree
+            @test rep.rule === :fixed                # but the rule is still :fixed
+            @test all(<(1e-10), rep.residuals)
+        end
+
+        # THE DOCUMENTED BOUNDARY.  Under a constrained Ω the intersection is a
+        # null space of the residual off Ω, so it mixes the directions handed
+        # to it and cannot be asked for a fixed dimension: the scrambled
+        # sphere's 13 universal derivations are 3 symmetric ones, and no
+        # 5-dimensional truncation of the 13 has a well-defined image.  The
+        # call warns twice and the report carries both counts rather than
+        # pretending.
+        @testset "a constrained Ω decides the count, and says so" begin
+            inp = build_sphere(10; valence = 3, T = Float64)
+            m = get_derivation_method(:QuickDer; seed = 4242)
+            out = @test_logs (:warn,) (:warn,) match_mode = :any begin
+                derTrOpsReduced(m, inp.Ω, Matrix{Float64}(inp.ch), inp.Γ;
+                                nd = 5, return_diagnostics = true)
+            end
+            rep = out[4]
+            @test rep.policy === :fixed_nd
+            @test rep.requested_nd == 5
+            @test rep.returned == size(out[3], 2)
+            @test rep.returned != 5                  # the intersection decided
+            @test rep.certified == false
+        end
+    end
+end
