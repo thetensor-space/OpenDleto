@@ -73,12 +73,20 @@ function derTrOpsReduced(
     tol::Real = TOL_DEFAULT,
     nd = -1,
     progress = false,
+    # Forwarded verbatim to whichever route answers, so the report says
+    # `method = :QuickDer` or `:SylverLining` -- which is the question a caller
+    # of `:Auto` most wants answered, and the reason the report never says
+    # `:Auto`.
+    return_diagnostics::Bool = false,
     kwargs...,
-)::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
+)
+    # No return-type annotation: see the note on the QuickDer method.  The
+    # three-tuple is unchanged when `return_diagnostics` is false.
     if autoder_applicable(method, Ω, P, Γ)
         try
             return derTrOpsReduced(method.quick, Ω, P, Γ; tol = tol, nd = nd,
-                                   progress = progress, kwargs...)
+                                   progress = progress,
+                                   return_diagnostics = return_diagnostics, kwargs...)
         catch err
             # QuickDer errors deliberately when its lift is infeasible or the
             # Z-law check fails: the tensor is not generic at these sizes.
@@ -89,5 +97,6 @@ function derTrOpsReduced(
         end
     end
     return derTrOpsReduced(method.fallback, Ω, P, Γ; tol = tol, nd = nd,
-                           progress = progress, kwargs...)
+                           progress = progress,
+                           return_diagnostics = return_diagnostics, kwargs...)
 end

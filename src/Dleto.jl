@@ -97,6 +97,12 @@ include("DletoBase.jl")
     include("solvers/QuickSylver.jl")
     include("solvers/SolverProgress.jl")
     include("solvers/NullSolvers.jl")
+    # DerivationReport: what a derivation solve decided and on what evidence.
+    # AFTER NullSolvers, because it carries a `NullVerdict` as a field and a
+    # struct's field types are evaluated at definition time.  The derivation
+    # methods above only NAME it inside function bodies, which is why they can
+    # be included first.
+    include("solvers/DerivationReport.jl")
 
 # Supporting Utilities
     # Tensor IO

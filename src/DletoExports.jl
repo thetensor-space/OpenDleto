@@ -84,6 +84,9 @@ export PROGRESS_TAGS, progress_spec
 export DerivationMethod, get_derivation_method
 export der, derReduced, derTrOps, derTrOpsReduced, den
 
+# DerivationReport.jl -- `derTrOpsReduced(...; return_diagnostics = true)`
+export DerivationReport
+
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
 export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod

@@ -23,6 +23,7 @@ using Dleto
 using ITensors
 using LinearAlgebra
 using Random
+using Logging
 using Dleto: compute_eltype, precision_floor, data_floor, tol_default, iter_tol,
              qd_tolerance, rank_rtol, precision_policy, gap_verdict,
              FLOOR_EPS, GAP_RATIO, TOL_DEFAULT, ITER_TOL_EPS
@@ -403,4 +404,60 @@ end
             @test expect_certified == (first_nonzero >= data_floor(Float16))
         end
     end
+end
+
+# --- the STORAGE type reaches the verdict, on QuickDer's own route ---------
+#
+# `derTrOpsReduced(::QuickDerMethod, ...)` promotes a Float16 tensor to Float32
+# before it touches the kernel, so `eltype` inside the kernel is the
+# ARITHMETIC's type and `solve_nullspace`'s default `store_eltype =
+# real(eltype(L))` describes the wrong number.  The consequence is not a
+# rounding difference, it is a false certificate: `data_floor(Float32)` is
+# 1.2e-7 and never binds, so the restricted verdict certified a cut whose first
+# value above it sat INSIDE the rounding of the Float16 input.
+#
+# Reported by the downstream video consumer on a 40x40x40 Float16 luma block
+# (`below = [1.65e-6, 3.26e-6]`, `above = [4.21e-4, 1.22e-3]`, `certified =
+# true`, against `eps(Float16) = 9.8e-4`) and reproduced here on a
+# near-degenerate ramp of the same shape family: measured on the tree before
+# the fix, `certified = true`; after it, `certified = false` with
+# `undecidable = 1`.  The Float32 run on the same data is untouched, which is
+# the other half of the claim -- this floor binds ONLY in the mixed case.
+@testset "the STORED type reaches QuickDer's restricted verdict" begin
+    d = 24
+    fr = [Index(d, "a$i") for i in 1:3]
+    Ω = IndTransverseOps(fr, UniversalOp())
+    ch = UniversalChisel(3)
+    # A smooth ramp plus a 3e-5 texture: the first value above the cut then
+    # lands at 7.2e-4 in Float16 and 1.8e-4 in Float32, i.e. between
+    # `eps(Float32)` and `eps(Float16)` -- the window in which the two storage
+    # types must give DIFFERENT verdicts on the same spectrum.
+    Random.seed!(20260904)
+    A = [1.0 + 0.01i + 0.02j + 0.005k for i in 1:d, j in 1:d, k in 1:d] .+
+        3e-5 .* randn(d, d, d)
+
+    # The verdict is the restricted solve's, which `derTrOpsReduced` reports on
+    # its `QuickDer restricted solve` debug record; `return_diagnostics` (the
+    # public route to the same numbers) is asserted in TestQuickDerN.
+    function restricted_verdict(T)
+        Γ = ITensor(Array{T}(A), fr...)
+        m = Dleto.get_derivation_method(:QuickDer; seed = 4242)
+        logs, _ = Test.collect_test_logs(min_level = Logging.Debug) do
+            derTrOpsReduced(m, Ω, ch, Γ)
+        end
+        rec = filter(r -> r.message == "QuickDer restricted solve", logs)
+        @test length(rec) == 1
+        return Dict(only(rec).kwargs)
+    end
+
+    v16 = restricted_verdict(Float16)
+    @test v16[:data_floor] ≈ data_floor(Float16)      # NOT eps(Float32)
+    @test v16[:undecidable] >= 1
+    @test v16[:certified] == false
+
+    v32 = restricted_verdict(Float32)
+    @test v32[:data_floor] ≈ data_floor(Float32)
+    @test v32[:undecidable] == 0
+    @test v32[:certified] == true
+    @test v32[:nullity] == v16[:nullity]              # the COUNT does not move
 end
