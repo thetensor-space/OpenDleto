@@ -1634,15 +1634,15 @@ restricted solve is made without a ceiling and one lookahead deeper, the
 residuals instead of cutting on them.  `-1` is the automatic policy, in which
 nothing below changes.
 """
-function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
+function _qdn_solve_and_lift(G::AbstractArray{Ts,N}, P::Matrix{Tc}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
-                             atol::Real, progress, store::Type, ndreq::Int) where {T,N}
+                             atol::Real, progress, store::Type, ndreq::Int) where {Ts,Tc,N}
     fixed = ndreq > 0
     dims = collect(size(G))
     m = size(P, 1)
     eaxes = [a for a in 1:N if engaged[a]]
     on_gpu = method.device === :gpu
-    haxs = [_qdn_axis(T, dims[a], r[a], method.restriction, rng) for a in 1:N]
+    haxs = [_qdn_axis(Tc, dims[a], r[a], method.restriction, rng) for a in 1:N]
     # Host axes build the answer (`_qdn_assemble`); device axes do the d^n work.
     axs = on_gpu ? _qdn_axes_device(haxs) : haxs
 
@@ -1651,7 +1651,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # d_a x R_a, and small: unfold on the device, then keep the host copy that
     # the restricted matrix, the lift operator and the adjoint all need.  This
     # is also the synchronisation point of the sketch stage on a device run.
-    Uf = Dict{Int, Matrix{T}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
+    Uf = Dict{Int, Matrix{Tc}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
     tstage = _qdn_stage!(:sketch, tstage)
 
     # ---- whitening (QuickDer-W).  `Us`/`Ss`/`sdims` are what the two solve
@@ -1681,7 +1681,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # larger budget: the Gram and the Cholesky live on a device with a 52 GB
     # working set, so the binding constraint there is the HOST copy, not the
     # solve (`QDN_GPU_DENSE_BUDGET_BYTES`).
-    dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(T)
+    dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(Tc)
     dense_budget = on_gpu ? QDN_GPU_DENSE_BUDGET_BYTES[] : QDN_DENSE_BUDGET_BYTES[]
     if dense_bytes <= dense_budget
         Mres = _qdn_restricted_matrix(Us, P, eaxes, r, sdims, coff, ncols)
@@ -1714,7 +1714,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # story (see the native-core-plan entry on the night board), and a
         # device round trip per apply would only add latency.
         Sh = wh === nothing ?
-             Dict{Int, Array{T,N}}(a => _qdn_host(S[a]) for a in eaxes) : wh[3]
+             Dict{Int, Array{Tc,N}}(a => _qdn_host(S[a]) for a in eaxes) : wh[3]
         L = _qdn_restricted_map(Sh, Us, P, eaxes, r, sdims, coff, ncols)
         fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
                                                   method.solver
@@ -1748,7 +1748,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     next_value = NaN
     if fixed
         keep = min(ndreq, size(vecs, 2))
-        (verdict, _) = _qdn_fixed_verdict(verdict, keep, atol, real(T), squared)
+        (verdict, _) = _qdn_fixed_verdict(verdict, keep, atol, real(Tc), squared)
         vals = vals[1:keep]
         vecs = vecs[:, 1:keep]
         selected = Float64[verdict.spectrum[i] for i in 1:keep]
@@ -1801,7 +1801,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # The trivial derivations the whitening truncation kept out of the solve.
     # Appended to whatever the solve returns, INCLUDING an empty answer, so
     # that whitened and unwhitened runs report the same space.
-    triv = wh === nothing ? Vector{Vector{Matrix{T}}}() :
+    triv = wh === nothing ? Vector{Vector{Matrix{Tc}}}() :
            _qdn_trivial_ders(G, wh[1], eaxes, dims, atol)
 
     k = size(vecs, 2)
@@ -1812,18 +1812,18 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
     # want `Y_a` (`d_a x r_a`).  `wh[1][a].un` is `R_a⁻¹`, or its pseudo-inverse
     # on the kept range when the mode was degenerate.
-    Yv = Matrix{Matrix{T}}(undef, N, k)
+    Yv = Matrix{Matrix{Tc}}(undef, N, k)
     for a in eaxes, i in 1:k
-        Yt = reshape(T.(vecs[(coff[a] + 1):(coff[a] + sdims[a] * r[a]), i]),
+        Yt = reshape(Tc.(vecs[(coff[a] + 1):(coff[a] + sdims[a] * r[a]), i]),
                      sdims[a], r[a])
         Yv[a, i] = wh === nothing ? Yt : wh[1][a].un * Yt
     end
 
     # ---- the lift, one thin QR per axis, shared by every basis vector
     lift = [a for a in eaxes if r[a] < dims[a]]
-    Zv = Matrix{Matrix{T}}(undef, N, k)
-    Rblocks = Matrix{T}[]
-    scale = zero(real(T))
+    Zv = Matrix{Matrix{Tc}}(undef, N, k)
+    Rblocks = Matrix{Tc}[]
+    scale = zero(real(Tc))
     # `tlift` chains the per-axis substages `:lift1`, `:lift2`, ...; `:lift`
     # below still carries the wall total (its `t0` is untouched), so only its
     # BYTE entry becomes the remainder after the substages took their share.
@@ -1839,12 +1839,12 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # (a few MB even at d = 300) and everything downstream of them -- the
         # right-hand sides, the QR, the residual filter -- is host work, so
         # they come back here.
-        Hs = Dict{Int, Array{T,N}}(b => _qdn_host(_qdn_pair_tensor(G, axs, a, b))
+        Hs = Dict{Int, Array{Tc,N}}(b => _qdn_host(_qdn_pair_tensor(G, axs, a, b))
                                    for b in eaxes if b != a)
 
-        B = zeros(T, m * Ra, k * ha)
+        B = zeros(Tc, m * Ra, k * ha)
         for i in 1:k, rho in 1:m
-            acc = zeros(T, Ra, ha)
+            acc = zeros(Tc, Ra, ha)
             for b in eaxes
                 (b == a || iszero(P[rho, b])) && continue
                 Wt = _qdn_ttm(Hs[b], Yv[b, i], b)
@@ -1910,18 +1910,18 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # the method correct and not merely generic: on a tensor whose restricted
     # null space is legitimately too large, the spurious directions are removed
     # and the genuine ones survive.
-    local C::Matrix{T}
+    local C::Matrix{Tc}
     lift_resid = zeros(Float64, k)                          # nothing to lift: exact
     if isempty(Rblocks)
-        C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
+        C = Matrix{Tc}(LinearAlgebra.I, k, k)                # nothing to lift
     else
-        RT = real(T)
+        RT = real(Tc)
         sc = max(scale, eps(RT))
         Rall = vcat(Rblocks...) ./ sc
         # `svd` gives a complete `V` only for a tall matrix; the per-axis QR
         # above already compresses each block to `k x k`, and the padding
         # covers the one case it cannot (a block with fewer than `k` rows).
-        size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(T, k - size(Rall, 1), k)))
+        size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(Tc, k - size(Rall, 1), k)))
         if fixed
             # THE CALLER PLACED THE CUT, so the filter must not move it.  Its
             # whole job is to discard restricted directions that are not the
@@ -1937,7 +1937,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
                   "gives the lift and Z-law residual of each. The Z-law check is " *
                   "skipped for the same reason; a near-derivation fails it by " *
                   "construction." maxlog = 1
-            C = Matrix{T}(LinearAlgebra.I, k, k)
+            C = Matrix{Tc}(LinearAlgebra.I, k, k)
             lift_resid = Float64[norm(view(Rall, :, i)) for i in 1:k]
         else
             F = svd(Rall)
@@ -1949,7 +1949,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
             # THE FLOOR IS `sqrt(eps)`, and that is the whole point of the change.
             # A lift residual does not bottom out at rounding, it bottoms out at
             # the accuracy of the triangular solve that produced `Z`, which is
-            # `sqrt(eps(T))` -- measured 1.3 to 2.9 times it in Float32 -- and that
+            # `sqrt(eps(Tc))` -- measured 1.3 to 2.9 times it in Float32 -- and that
             # is exactly why `sqrt(eps)` was the old CUTOFF.  As a cutoff it was on
             # the wrong side of the answer; as a FLOOR it says "everything at or
             # under the lift's own noise is zero", which flattens the ratios inside
@@ -1959,9 +1959,9 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
             # ratios can clear `gap_ratio`, and the cut lands inside it: measured,
             # that undercounts the raw sphere at 11 of 13 in Float64.
             #
-            # TODO(precision): `rank_rtol(T, m, n)` in Precision.jl is `max(m,n) *
-            # eps(compute_eltype(T))` -- a dimension-scaled bound for a
-            # rank-revealing factorization, not the dimension-free `sqrt(eps(T))`
+            # TODO(precision): `rank_rtol(Tc, m, n)` in Precision.jl is `max(m,n) *
+            # eps(compute_eltype(Tc))` -- a dimension-scaled bound for a
+            # rank-revealing factorization, not the dimension-free `sqrt(eps(Tc))`
             # this floor is (measured at 1.3-2.9x `sqrt(eps(Float32))`, the
             # accuracy of the triangular solve that produced `Z`).  Not an
             # obvious substitution; left as the measured constant.
@@ -1987,26 +1987,26 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     tstage = _qdn_stage!(:filter, tstage)
 
     kc = size(C, 2)
-    out = Vector{Vector{Matrix{T}}}(undef, kc)
+    out = Vector{Vector{Matrix{Tc}}}(undef, kc)
     for j in 1:kc
-        Ms = Vector{Matrix{T}}(undef, N)
+        Ms = Vector{Matrix{Tc}}(undef, N)
         for a in 1:N
             if !engaged[a]
                 # No unknown on a disengaged axis: its chisel column is zero, so
                 # every matrix satisfies the equation there and zero is the
                 # representative `SylverLining` returns after its engagement
                 # reduction expands.
-                Ms[a] = zeros(T, dims[a], dims[a])
+                Ms[a] = zeros(Tc, dims[a], dims[a])
                 continue
             end
-            Yc = zeros(T, dims[a], r[a])
+            Yc = zeros(Tc, dims[a], r[a])
             for i in 1:k
                 Yc .+= C[i, j] .* Yv[a, i]
             end
             if r[a] == dims[a]
-                Ms[a] = _qdn_assemble(haxs[a], Yc, zeros(T, dims[a], 0))
+                Ms[a] = _qdn_assemble(haxs[a], Yc, zeros(Tc, dims[a], 0))
             else
-                Zc = zeros(T, dims[a], dims[a] - r[a])
+                Zc = zeros(Tc, dims[a], dims[a] - r[a])
                 for i in 1:k
                     Zc .+= C[i, j] .* Zv[a, i]
                 end
