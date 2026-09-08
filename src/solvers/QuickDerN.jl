@@ -2417,16 +2417,27 @@ function derTrOpsReduced(
     ndreq = (nd isa Real && isfinite(nd) && nd > 0) ? floor(Int, nd) : -1
 
     tried = Vector{Int}[]
-    mats = nothing
-    ders = nothing
+    # The BEST attempt so far, not the last: a retry on a wider sketch is a new
+    # random restriction and can come back with FEWER directions than the
+    # attempt that asked for it (measured: the 5^4 Float16 sphere, 4 -> 3 when
+    # the ambiguity retry replaced its first answer).  An attempt supersedes
+    # the incumbent only if it keeps at least as many directions, ties going
+    # to the unambiguous cut.  Spurious directions are the Z-law veto's job
+    # below, as before.
+    best = nothing
     local info
     while true
         push!(tried, copy(r))
-        (mats, info) = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress,
-                                           T, ndreq)
-        if mats !== nothing
-            (ders, ambiguous) = _fastder_restrict_to_ops(Ω, mats, atol;
-                                                         return_ambiguous = true)
+        (mats_a, info_a) = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress,
+                                               T, ndreq)
+        if mats_a !== nothing
+            (ders_a, ambiguous) = _fastder_restrict_to_ops(Ω, mats_a, atol;
+                                                           return_ambiguous = true)
+            if best === nothing || size(ders_a, 2) > size(best.ders, 2) ||
+               (size(ders_a, 2) == size(best.ders, 2) && !ambiguous && best.ambiguous)
+                best = (mats = mats_a, info = info_a, ders = ders_a,
+                        ambiguous = ambiguous, r = copy(r))
+            end
             # Under `nd > 0` the intersection's own certificate is REPORTED,
             # not chased -- the docstring's "TWO BOUNDARIES" already says a
             # fixed count through a constrained Ω is a property of the space,
@@ -2439,11 +2450,15 @@ function derTrOpsReduced(
         bumped == r && break                      # already unrestricted
         r = bumped
     end
+    mats = best === nothing ? nothing : best.mats
     mats === nothing && _qdn_decline(
         "QuickDer: every restricted solution failed the lift consistency check at " *
         "restriction sizes $(tried) on dims $(dims). Γ is not generic enough for " *
         "this restriction; try `sizes = $(dims)`, `restriction = :random` if it " *
         "was :corner, or fall back to :SylverLining.")
+    info = best.info
+    ders = best.ders
+    r = best.r
 
     @debug "QuickDer after lift" nbasis = length(mats) rss_GB = Sys.maxrss() / 2^30
     tstage = time()
