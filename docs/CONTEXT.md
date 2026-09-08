@@ -1,9 +1,62 @@
 # OpenDleto — working context for AI chats
 
 Purpose: hand this file to a new chat so it starts with the context of prior sessions.
-Keep it updated as work progresses. Last updated 2026-09-04 (session 4: the whitened
-restriction, then the memory wall; session 3: valence-n stratification -- see the
-sections of those names).
+Keep it updated as work progresses. Last updated 2026-09-08 (session 5: the beta code
+review, `docs/beta/`; session 4: the whitened restriction, then the memory wall; session 3:
+valence-n stratification -- see the sections of those names).
+
+## Session 5 (2026-09-08): code review of `beta`, written to `docs/beta/`
+
+Branch `feature/every-breath-you-take/2026-09-08`, cut from `beta` (`2d87dc3`,
+`v1.5-beta-2026-09-04`).  Documents only; no source changed.  The user asked for a code review
+of everything on beta, its design choices, a change log, and (mid-session) a "new features"
+preview and a "coming features" list.  Everything is under `docs/beta/`; start at its
+`README.md`.
+
+How it was done: five parallel read-only reviewers, one per slice (QuickDer + AutoDer +
+DerivationReport; NullSolvers + Precision + the three solver extensions; SylverLining +
+FastDer3Valent + QuickSylver + the Metal kernel; the core type system, exports and
+`Project.toml`; repository hygiene, bench/, labs/, docs/), their reports kept verbatim in
+`docs/beta/review/`, consolidated by hand into `docs/beta/REVIEW.md`.  The suite was run once
+on the beta worktree (`JL_PROJECT=.../OpenDleto-beta bench/jl test/runtests.jl`): 51 testsets,
+14,279 passes, 0 failures, Arpack present because `bench/jl` stacks `@dleto-bench`.
+
+Headlines, so the next session does not have to re-derive them:
+
+* **Verdict: mergeable for a beta channel; no wrong certified answer found on the default
+  path.**  Four bugs on non-default paths (`coordinates(::EmptyOp)` reads only the first
+  column; QuickSylver's verification is absolute and so scale-dependent; `GramSolver` and
+  `LSMRSolver` are unseeded yet say `wants_seed = false`, so seeded `den` is not reproducible;
+  `testTranspose` never runs).  Twelve correctness risks, the important three: `:Auto`
+  swallows every exception including OOM and falls back to a strictly larger computation;
+  `backend = :metal` computes a Float64 tensor in fp32 while the precision policy sees Float64;
+  `den` drops the verdict and reads a failed solve as an empty densor.
+* **The recurring pattern**: a good idea implemented in one place and not carried through --
+  the precision policy (un-floored literals remain in the extensions, `ShiftInvertSolver`,
+  `engaged`, `realCanonicalForm`, `nondeg`), the verdict (`den` ignores it; `store_eltype`
+  defaults to the compute type), seeding (two solvers missed), the `derTrOpsReduced` seam
+  (four dialects of `tol` type, `nd` meaning, `return_diagnostics`, coordinate eltype), the
+  registry (methods still an `if/elseif`; `AutoSolver`'s preference list is a literal).
+* **Design verdicts** (`docs/beta/DESIGN-CHOICES.md`): keep the sketch restriction, whitening,
+  the verdict-as-value, the registry, `den` as a `LinearMap`, the device hooks; keep-but-finish
+  the seam, the precision policy, `:Auto`; revisit the global `Ref` tunables (policy belongs on
+  `QuickDerMethod`, outputs in `DerivationReport`), shared numerics living in
+  `FastDer3Valent.jl`, the include-order cycle (`NullSolvers.jl` calls `_qdn_stage!`), the
+  dependency arrangement (notebook/plotting stack as hard deps; KrylovKit/IterativeSolvers as
+  both deps and extension triggers; no `julia` compat; version 0.1.0).
+* **Hygiene blockers for a public release**: `labs/WWEIA2.ipynb` is 3,413 identical copies of
+  one markdown cell (5 MB); `labs/FastDerSphereComparison.ipynb` carries 8.2 MB of output over
+  7 KB of source; 15 orphan `bench/**/*.log` files with machine paths; **`bench/jl` defaults
+  `PROJECT` to the primary worktree, so running it inside the beta checkout tests `main`**
+  unless `JL_PROJECT` is set; README and `Installing-Dleto.md` contradict each other;
+  `.claude/settings.json` whitelists bare `julia`.
+* The ordered work list is `docs/beta/REVIEW.md` §10; the roadmap is
+  `docs/beta/COMING-FEATURES.md`.
+
+Not done this session: no fixes applied (the deliverable was the review), no merge to `beta`
+(approval gate), nothing pushed.  This CONTEXT file's own structure problems (no TOC, the
+09-04 material in three places, the superseded movie-cost numbers still live above their
+correction) are recorded in the review and left for the next housekeeping pass.
 
 ## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
 
