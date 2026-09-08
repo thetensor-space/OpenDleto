@@ -905,7 +905,12 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          dense ? :densify : :solve,
                          dense ? size(L, 2) : 0,
                          spec)
-    Lp = progress_wrap(L, tr)
+    # A dense solver whose `L` is already a matrix in a `LinearMap` wrapper
+    # (`_wraps_dense_matrix`) has nothing to report at the `:densify` stage --
+    # `_gram_dense`/`Matrix(::WrappedMap)` read or copy it in one step, no
+    # per-column applies at all -- so wrapping it here would only defeat that
+    # shortcut for a progress bar with nothing real to show. See `_gram_dense`.
+    Lp = (dense && _wraps_dense_matrix(L)) ? L : progress_wrap(L, tr)
 
     # Nullity seen at the last bracketed iterative solve; a repeat at a larger
     # request that reports the same count confirms it (see the loop).
@@ -1543,11 +1548,30 @@ The matrix behind `L`, without a needless copy when `L` is just a wrapper
 around a dense one.  `Matrix(::WrappedMap)` copies, and QuickDer's restricted
 matrix is 1.1 GB at valence 3 d = 200 and 3.3 GB at d = 300 -- a copy that is
 pure loss when nothing here mutates `M`.  Anything else (a genuine function
-map, a progress wrapper, a composition) goes through `Matrix`, which applies
-the map once per column, as before.
+map or a composition) goes through `Matrix`, which applies the map once per
+column, as before.
+
+A progress wrapper no longer defeats this: see `_wraps_dense_matrix`, which
+`solve_nullspace` checks before wrapping `L` for the `:densify` tag, so a
+dense-backed `L` reaches here unwrapped and this method still fires.
 """
 _gram_dense(L::LinearMap) = Matrix(L)
 _gram_dense(L::LinearMaps.WrappedMap{<:Any,<:StridedMatrix}) = L.lmap
+
+"""
+    _wraps_dense_matrix(L) -> Bool
+
+Whether `_gram_dense(L)` has the no-copy path, i.e. whether `L` already IS a
+`StridedMatrix` wearing a `LinearMap` wrapper rather than a genuine function
+map. Used to decide whether wrapping `L` for progress reporting before it is
+densified would defeat that path for nothing: reading `L.lmap` is instant, so
+there is no per-column work on that route worth reporting, and building a
+`FunctionMap` around it would force exactly the `Matrix(L)`-applies-the-map-
+once-per-column cost `_gram_dense` exists to avoid (1-3 GB and O(mn) applies
+at QuickDer's sizes, not merely a copy).
+"""
+_wraps_dense_matrix(::LinearMap) = false
+_wraps_dense_matrix(::LinearMaps.WrappedMap{<:Any,<:StridedMatrix}) = true
 
 # The subspace iteration starts from `randn(n, k + p)`; without a seed two calls
 # in one process resolve a multiple eigenvalue differently (see `wants_seed`).
