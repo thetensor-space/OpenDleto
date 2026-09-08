@@ -1171,3 +1171,75 @@ end
         end
     end
 end
+
+# =========================================================================
+# 10. Float16 storage: no full-tensor promotion copy
+# =========================================================================
+#
+# The 2026-09-08 memory task's target: `derTrOpsReduced(::QuickDerMethod)`
+# used to promote a Float16 tensor to a full Float32 `Array` before the
+# kernel touched it (`Array{Tc}(G0)`), so a Float16 run paid the SAME peak
+# memory as Float32 -- only `data_floor(Float16)` distinguished the two.  On
+# the CPU path `G` now stays `Float16` end to end and `_qdn_ttm`/`_qdn_ttm!`
+# promote one BLOCK at a time (see their docstring in QuickDerN.jl), so the
+# stage that first meets the whole tensor should allocate a small multiple of
+# the block budget, not `d^n * sizeof(Float32)` bytes.
+@testset "10. Float16 storage: no full-tensor promotion copy" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # d = 300: the tensor's OWN Float16 size (54 MB) is comfortably above
+        # the mixed `_qdn_ttm!`'s default 64 MB block, so a full promoted
+        # Float32 copy (108 MB) is clearly distinguishable from one block of
+        # it in the allocation count -- and small enough that a plain random
+        # dense tensor (no sphere, no `nondeg`) solves in well under a second.
+        d = 300
+        Random.seed!(20260908)
+        A16 = randn(Float16, d, d, d)
+        fr = [Index(d, "z$i") for i in 1:3]
+        Γ16 = ITensor(A16, fr...)
+        ch = Matrix{Float64}(UniversalChisel(3))
+        Ω = IndTransverseOps(fr, UniversalOp())
+        tensor_bytes_f32 = length(A16) * sizeof(Float32)
+
+        m = get_derivation_method(:QuickDer; seed = 20260908)
+        bytes = Dict{Symbol,NTuple{2,Float64}}()
+        Dleto.QDN_STAGE_BYTES[] = bytes
+        out16 = derTrOpsReduced(m, Ω, ch, Γ16; return_diagnostics = true)
+        stage_bytes = copy(bytes)
+        Dleto.QDN_STAGE_BYTES[] = nothing
+        (_, expand_map16, ders16, rep16) = out16
+
+        # (i) NO full-size Float32 array of the tensor: `:sketch` is the stage
+        # that makes the first (and only) pass meeting the whole `d^n`
+        # tensor, and its allocation is far below one Float32-sized copy of
+        # it -- bounded by a small multiple of the 64 MB block budget instead
+        # of growing with `d^n`.
+        @test haskey(stage_bytes, :sketch)
+        sketch_alloc = stage_bytes[:sketch][1]
+        @test sketch_alloc < 0.5 * tensor_bytes_f32
+        @test sketch_alloc < 300.0 * 2^20
+
+        # (ii) Float16 in, Float16 out, Float32 arithmetic.
+        @test eltype(ders16) === Float16
+        @test rep16.store_eltype === Float16
+        @test rep16.compute_eltype === Float32
+
+        # (iii) Agrees with the Float32 route on the same data (an exact,
+        # lossless widening -- every Float16 value is exactly representable
+        # in Float32, so this is the same arithmetic on the same numbers, not
+        # an approximation), to well within Float32 rounding: the SAME random
+        # sketches are drawn (same seed, and the sketch depends only on
+        # shapes, never on values), so the two routes solve the same
+        # restricted system and should agree far tighter than a loose
+        # cross-precision bound -- this asserts a generous one so the test is
+        # about the CONTRACT, not about matching floating-point bit patterns.
+        Γ32 = ITensor(Float32.(A16), fr...)
+        (_, expand_map32, ders32, rep32) = derTrOpsReduced(m, Ω, ch, Γ32;
+                                                           return_diagnostics = true)
+        @test size(ders16, 2) == size(ders32, 2)
+        @test rep16.nullity == rep32.nullity
+        maxdiff = maximum(abs.(Float32.(ders16) .- ders32))
+        @test maxdiff < 50 * sqrt(eps(Float32))
+    end
+end
