@@ -720,6 +720,86 @@ function _qdn_ttm!(out::AbstractArray{T,N}, G::AbstractArray{T,N},
 end
 
 """
+    _qdn_ttm(G::AbstractArray{Ts}, M::AbstractMatrix{Tc}, a) -> Array{Tc}
+    _qdn_ttm!(out::AbstractArray{Tc}, G::AbstractArray{Ts}, M::AbstractMatrix{Tc},
+              a, α = one(Tc), β = zero(Tc); block_bytes = 64 MB) -> out
+
+MIXED-ELTYPE mode product, reached only when `Ts !== Tc`: `G` stays in its OWN
+element type -- a Float16 HOST tensor is the reason this pair exists -- while
+`M` and the output are the COMPUTE type `Tc`.  CPU BLAS/LAPACK has no Float16
+kernel (`Dleto.compute_eltype`), so a same-type contraction needs `G` promoted
+to `Tc` first, and doing that ONCE for the whole tensor is exactly the
+up-front `Array{Tc}(G0)` copy `derTrOpsReduced` no longer makes.  Instead, one
+BLOCK of `G` (`block_bytes`, default 64 MB -- the same budget
+`_qdn_ttm_square!` uses) is copied into a small `Tc` buffer and immediately
+consumed by a same-type `mul!`, so the extra memory this needs is bounded by
+the block, not by `d^n`; the middle-axis case buffers one SLAB (`front x d`),
+matching the memory the same-type method's `view` already implies there. The
+total bytes converted over a whole pass are the same as promoting once --
+this changes the PEAK, not the total work.
+
+HOST ONLY, and deliberately so.  `derTrOpsReduced` keeps a `device = :gpu` run
+pre-promoted (`Ts === Tc` there always), so these methods are never reached on
+a device array and need no `_qdn_slab_is_cheap` cost model or permute
+fallback: on the host there is no permute route to weigh against a slab loop
+in the first place, unlike the same-type method above.
+"""
+function _qdn_ttm(G::AbstractArray{Ts,N}, M::AbstractMatrix{Tc}, a::Integer) where {Ts,Tc,N}
+    GA = G isa DenseArray ? G : Array(G)
+    out = similar(GA, Tc, ntuple(i -> i == a ? size(M, 2) : size(GA, i), N))
+    return _qdn_ttm!(out, GA, M, a)
+end
+
+function _qdn_ttm!(out::AbstractArray{Tc,N}, G::AbstractArray{Ts,N},
+                   M::AbstractMatrix{Tc}, a::Integer,
+                   α = one(Tc), β = zero(Tc);
+                   block_bytes::Real = 64.0 * 2^20) where {Ts,Tc,N}
+    GA = G isa DenseArray ? G : Array(G)
+    d = size(GA, a)
+    size(M, 1) == d || throw(DimensionMismatch(
+        "mode-$a product: matrix is $(size(M)) but axis $a has length $d"))
+    k = size(M, 2)
+    size(out) == ntuple(i -> i == a ? k : size(GA, i), N) || throw(DimensionMismatch(
+        "mode-$a product: output is $(size(out)) but $(size(GA)) with axis $a of " *
+        "length $k is $(ntuple(i -> i == a ? k : size(GA, i), N))"))
+    rest = length(GA) ÷ max(d, 1)
+    if a == 1
+        Gm = reshape(GA, d, rest)
+        Om = reshape(out, k, rest)
+        cols = clamp(floor(Int, block_bytes / (sizeof(Tc) * max(d, 1))), 1, max(rest, 1))
+        buf = Matrix{Tc}(undef, d, cols)
+        for lo in 1:cols:rest
+            hi = min(rest, lo + cols - 1)
+            B = view(buf, :, 1:(hi - lo + 1))
+            @views copyto!(B, Gm[:, lo:hi])           # promotes Ts -> Tc, one block
+            @views mul!(Om[:, lo:hi], transpose(M), B, α, β)
+        end
+    elseif a == N
+        Gm = reshape(GA, rest, d)
+        Om = reshape(out, rest, k)
+        rows = clamp(floor(Int, block_bytes / (sizeof(Tc) * max(d, 1))), 1, max(rest, 1))
+        buf = Matrix{Tc}(undef, rows, d)
+        for lo in 1:rows:rest
+            hi = min(rest, lo + rows - 1)
+            B = view(buf, 1:(hi - lo + 1), :)
+            @views copyto!(B, Gm[lo:hi, :])
+            @views mul!(Om[lo:hi, :], B, M, α, β)
+        end
+    else
+        front = prod(ntuple(i -> size(GA, i), a - 1))
+        back = prod(ntuple(i -> size(GA, a + i), N - a))
+        G3 = reshape(GA, front, d, back)
+        O3 = reshape(out, front, k, back)
+        buf = Matrix{Tc}(undef, front, d)
+        for b in 1:back
+            @views copyto!(buf, G3[:, :, b])
+            @views mul!(O3[:, :, b], buf, M, α, β)
+        end
+    end
+    return out
+end
+
+"""
     _qdn_ttm_square!(G, M, a; block_bytes) -> G
 
 The mode-`a` product `G ×_a M` for a SQUARE `M`, written back over `G`.
@@ -807,20 +887,54 @@ _qdn_host(x::AbstractArray{T,N}) where {T,N} = x isa Array{T,N} ? x : Array(to_c
 
 """
     _qdn_zeros_like(G, dims) -> array
+    _qdn_zeros_like(G, Tc, dims) -> array
 
-A zero array of shape `dims` on the same device as `G`.
+A zero array of shape `dims` on the same device as `G`, in `G`'s own element
+type or, with the three-argument form, in an explicitly given `Tc` -- which is
+what a caller accumulating in the COMPUTE type wants when `G` itself is a
+Float16 host tensor and the accumulator has to be Float32.
 """
 _qdn_zeros_like(G::AbstractArray{T}, dims::Tuple) where {T} =
     fill!(similar(G, T, dims), zero(T))
+_qdn_zeros_like(G::AbstractArray, ::Type{Tc}, dims::Tuple) where {Tc} =
+    fill!(similar(G, Tc, dims), zero(Tc))
 
 """
     _qdn_upload(G, A) -> AbstractMatrix
 
 The host matrix `A` on whichever device `G` lives on, so a mode product against
-the full tensor never drags `G` back to the host.
+the full tensor never drags `G` back to the host.  `G` and `A` need not share
+an element type -- `G` may be a Float16 host tensor with `A` in the Float32
+compute type -- since this only ever inspects which DEVICE `G` is on.
 """
-_qdn_upload(G::AbstractArray{T}, A::AbstractMatrix{T}) where {T} =
+_qdn_upload(G::AbstractArray, A::AbstractMatrix) =
     G isa Array ? A : to_gpu(A)
+
+"""
+    _qdn_safe_norm(G) -> Real
+
+`norm(G)` of the WHOLE tensor, without the two failure modes a naive one has
+at the ends of this file's type range -- and otherwise exactly `norm(G)`, in
+`G`'s own type, which callers that promise no promoted copy (`der_residual`'s
+"a Float32 tensor is checked entirely in Float32 and the answer comes back
+Float32") depend on.
+
+A HOST Float16 tensor may never have been promoted (see the mixed `_qdn_ttm`
+above): a plain sum of squares in Float16 risks overflow on a tensor of any
+real size, which promoting used to avoid for free, so ONLY this case
+accumulates in Float64 instead -- one pass, no extra array, same cost `norm`
+would have paid anyway. Float32 and Float64 host arrays have no such risk and
+take plain `norm`, unchanged.
+
+On the DEVICE, `G` is always `Tc` already (`derTrOpsReduced` keeps a
+`device = :gpu` run pre-promoted), so there is no Float16-overflow case to
+guard -- and Apple GPUs have no Float64 AT ALL, so accumulating in Float64
+there is not merely unnecessary but a hard error (`MtlArray{Float64}` throws
+"Metal does not support Float64 values"). Plain `norm` is exactly right on
+that path too.
+"""
+_qdn_safe_norm(G::AbstractArray) = norm(G)
+_qdn_safe_norm(G::Array{Float16}) = sqrt(sum(x -> Float64(x)^2, G))
 
 """
     _qdn_unfold(G, a) -> Matrix
@@ -1015,11 +1129,19 @@ _qdn_axes_device(axs::Vector{_QDNAxis{T}}) where {T} =
     _QDNAxis{T}[ax.ident ? ax : _QDNAxis{T}(ax.d, ax.r, false, to_gpu(ax.W), to_gpu(ax.Wp))
                 for ax in axs]
 
-_qdn_modeW(G::AbstractArray{T,N}, ax::_QDNAxis{T}, a::Integer) where {T,N} =
+# `Ts`/`Tc`, not one shared `T`: `G` may be a Float16 HOST tensor while `ax`
+# (built in the compute type) is Float32, so that the very first contraction
+# in a chain -- the one that meets the full `d^n` tensor -- promotes through
+# `_qdn_ttm`'s mixed method instead of through an up-front `Array{Tc}(G)` copy.
+# An `ident` axis (r == d, nothing to remove) returns `G` UNCHANGED, type and
+# all; the first non-`ident` axis in the chain is what actually converts to
+# `Tc`, and every axis after that sees a `Tc` array on both sides (the
+# same-type fast path).
+_qdn_modeW(G::AbstractArray{Ts,N}, ax::_QDNAxis{Tc}, a::Integer) where {Ts,Tc,N} =
     ax.ident ? (ax.r == size(G, a) ? G : _qdn_slice(G, a, 1:ax.r)) :
                _qdn_ttm(G, ax.W, a)
 
-_qdn_modeWp(G::AbstractArray{T,N}, ax::_QDNAxis{T}, a::Integer) where {T,N} =
+_qdn_modeWp(G::AbstractArray{Ts,N}, ax::_QDNAxis{Tc}, a::Integer) where {Ts,Tc,N} =
     ax.ident ? _qdn_slice(G, a, (ax.r + 1):ax.d) : _qdn_ttm(G, ax.Wp, a)
 
 """
@@ -1070,16 +1192,19 @@ cross sketch of axis 1, which cannot use axis 1, therefore meets the full
 tensor on the frame axis rather than on the column axis, trading `3F` launches
 for 3.
 """
-function _qdn_mode_order(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
-                         cand) where {T,N}
+function _qdn_mode_order(G::AbstractArray{Ts,N}, axs::Vector{_QDNAxis{Tc}},
+                         cand) where {Ts,Tc,N}
     order = Int[c for c in cand]
     (G isa Array || length(order) <= 1) && return order
     # Only the SHAPE feeds the cost, so the chain is walked as a size tuple and
-    # nothing is contracted twice.
+    # nothing is contracted twice.  The device branch below only ever runs with
+    # `Ts === Tc` in this file's own use (the GPU path keeps `G` pre-promoted),
+    # so costing on `Tc` (the array `_qdn_ttm` actually allocates once it
+    # converts) is right either way.
     sz = size(G)
     picked = Int[]
     while !isempty(order)
-        i = argmin([_qdn_mode_cost(sz, axs[c], c, T) for c in order])
+        i = argmin([_qdn_mode_cost(sz, axs[c], c, Tc) for c in order])
         c = order[i]
         push!(picked, c)
         deleteat!(order, i)
@@ -1117,8 +1242,14 @@ WHICH of the `W_c` goes first is `_qdn_mode_order`'s call on the device (the
 natural order on the host), for the same reason: exactly one of these passes
 meets the full tensor, so it is the one that has to be a copy-free GEMM.
 """
-function _qdn_pair_tensor(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
-                          a::Integer, b::Integer)::AbstractArray{T,N} where {T,N}
+# No return-type annotation: `X` starts as `G` (element type `Ts`, e.g. a
+# Float16 host tensor) and becomes `Tc` at the first axis whose sketch is not
+# `ident` -- the mixed `_qdn_ttm` promotes there -- so the return type is `Ts`
+# only in the degenerate case where every axis contracted here is `ident` AND
+# `a` is too (nothing at all was contracted, valence 2 with two saturated
+# axes); every other case returns `Tc`, which is what every caller needs.
+function _qdn_pair_tensor(G::AbstractArray{Ts,N}, axs::Vector{_QDNAxis{Tc}},
+                          a::Integer, b::Integer) where {Ts,Tc,N}
     X = G
     for c in _qdn_mode_order(G, axs, (c for c in 1:N if c != a && c != b))
         X = _qdn_modeW(X, axs[c], c)
@@ -1151,9 +1282,9 @@ element is the same `c` this function picks, so for any `b ≠ c` the ascending
 order of `N \\ {a, b}` is `[c; ascending(N \\ {a, b, c})]` -- exactly the
 prefix-then-rest split done here.
 """
-function _qdn_pair_tensors(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
-                           a::Integer, bs::AbstractVector{<:Integer}) where {T,N}
-    Hs = Dict{Int, AbstractArray{T,N}}()
+function _qdn_pair_tensors(G::AbstractArray{Ts,N}, axs::Vector{_QDNAxis{Tc}},
+                           a::Integer, bs::AbstractVector{<:Integer}) where {Ts,Tc,N}
+    Hs = Dict{Int, AbstractArray}()
     isempty(bs) && return Hs
     cand = [c for c in 1:N if c != a]
     c = _qdn_mode_order(G, axs, cand)[1]
@@ -1193,15 +1324,20 @@ products on distinct axes commute -- and exactly two passes here meet `d^n`:
 `_qdn_mode_cost` is therefore precisely the statement "let those two be the
 cheapest passes available".
 """
-function _qdn_cross_sketches(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
-                             engaged::AbstractVector{Bool}) where {T,N}
+# `pre` is untyped on element type: `pre[1]` is `G` itself (`Ts`, e.g. Float16
+# on the host) and `pre[2]` onward is `Tc` (the mixed `_qdn_ttm` promotes at
+# the first non-`ident` axis in the chain) -- and `N` is the tensor's valence,
+# 2-4 in every case this file is used for, so an abstractly-typed container of
+# `N` entries costs nothing worth specialising away.
+function _qdn_cross_sketches(G::AbstractArray{Ts,N}, axs::Vector{_QDNAxis{Tc}},
+                             engaged::AbstractVector{Bool}) where {Ts,Tc,N}
     ord = _qdn_mode_order(G, axs, 1:N)
-    pre = Vector{AbstractArray{T,N}}(undef, N)
+    pre = Vector{AbstractArray}(undef, N)
     pre[1] = G
     for i in 2:N
         pre[i] = _qdn_modeW(pre[i - 1], axs[ord[i - 1]], ord[i - 1])
     end
-    S = Dict{Int, AbstractArray{T,N}}()
+    S = Dict{Int, AbstractArray}()
     for i in 1:N
         engaged[ord[i]] || continue
         X = pre[i]
@@ -1400,14 +1536,14 @@ zeros to describe a 2 MB matrix. Truncating warns and names the field. Nothing
 is lost that was not already unrepresentable: the caller's `ders` is a dense
 `globalDim(Ω) x k` matrix, which at d = 500 is 6 MB per column of its own.
 """
-function _qdn_trivial_ders(G::AbstractArray{T,N}, wh::Dict{Int, _QDNWhite{T}},
+function _qdn_trivial_ders(G::AbstractArray{Ts,N}, wh::Dict{Int, _QDNWhite{Tc}},
                            eaxes::Vector{Int}, dims::Vector{Int},
-                           atol::Real) where {T,N}
-    out = Vector{Vector{Matrix{T}}}()
+                           atol::Real) where {Ts,Tc,N}
+    out = Vector{Vector{Matrix{Tc}}}()
     QDN_TRIVIAL_FACTORED[] = NamedTuple[]
     any(a -> wh[a].rank < dims[a], eaxes) || return out
-    gnorm = norm(G)
-    bound = real(T)(atol) * max(gnorm, eps(real(T)))
+    gnorm = _qdn_safe_norm(G)
+    bound = real(Tc)(atol) * max(gnorm, eps(real(Tc)))
     factored = NamedTuple[]
     for a in eaxes
         K = wh[a].K
@@ -1424,13 +1560,13 @@ function _qdn_trivial_ders(G::AbstractArray{T,N}, wh::Dict{Int, _QDNWhite{T}},
     isempty(factored) && return out
 
     total = sum(f -> size(f.K, 2) * dims[f.axis], factored)
-    per = float(sum(db -> db^2, dims)) * sizeof(T)         # one tuple, all axes
+    per = float(sum(db -> db^2, dims)) * sizeof(Tc)         # one tuple, all axes
     cap = max(1, floor(Int, QDN_TRIVIAL_MAX_BYTES[] / max(per, 1.0)))
     for f in factored, p in axes(f.K, 2), q in 1:dims[f.axis]
         length(out) >= cap && break
-        Ms = Vector{Matrix{T}}(undef, N)
+        Ms = Vector{Matrix{Tc}}(undef, N)
         for b in 1:N
-            Ms[b] = zeros(T, dims[b], dims[b])
+            Ms[b] = zeros(Tc, dims[b], dims[b])
         end
         Ms[f.axis][:, q] = view(f.K, :, p)
         push!(out, Ms)
@@ -1733,15 +1869,15 @@ restricted solve is made without a ceiling and one lookahead deeper, the
 residuals instead of cutting on them.  `-1` is the automatic policy, in which
 nothing below changes.
 """
-function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
+function _qdn_solve_and_lift(G::AbstractArray{Ts,N}, P::Matrix{Tc}, engaged::Vector{Bool},
                              r::Vector{Int}, method::QuickDerMethod, rng,
-                             atol::Real, progress, store::Type, ndreq::Int) where {T,N}
+                             atol::Real, progress, store::Type, ndreq::Int) where {Ts,Tc,N}
     fixed = ndreq > 0
     dims = collect(size(G))
     m = size(P, 1)
     eaxes = [a for a in 1:N if engaged[a]]
     on_gpu = method.device === :gpu
-    haxs = [_qdn_axis(T, dims[a], r[a], method.restriction, rng) for a in 1:N]
+    haxs = [_qdn_axis(Tc, dims[a], r[a], method.restriction, rng) for a in 1:N]
     # Host axes build the answer (`_qdn_assemble`); device axes do the d^n work.
     axs = on_gpu ? _qdn_axes_device(haxs) : haxs
 
@@ -1750,7 +1886,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # d_a x R_a, and small: unfold on the device, then keep the host copy that
     # the restricted matrix, the lift operator and the adjoint all need.  This
     # is also the synchronisation point of the sketch stage on a device run.
-    Uf = Dict{Int, Matrix{T}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
+    Uf = Dict{Int, Matrix{Tc}}(a => _qdn_host(_qdn_unfold(S[a], a)) for a in eaxes)
     tstage = _qdn_stage!(:sketch, tstage)
 
     # ---- whitening (QuickDer-W).  `Us`/`Ss`/`sdims` are what the two solve
@@ -1780,7 +1916,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # larger budget: the Gram and the Cholesky live on a device with a 52 GB
     # working set, so the binding constraint there is the HOST copy, not the
     # solve (`QDN_GPU_DENSE_BUDGET_BYTES`).
-    dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(T)
+    dense_bytes = float(_qdn_system_rows(m * R, ncols)) * ncols * sizeof(Tc)
     dense_budget = on_gpu ? QDN_GPU_DENSE_BUDGET_BYTES[] : QDN_DENSE_BUDGET_BYTES[]
     if dense_bytes <= dense_budget
         Mres = _qdn_restricted_matrix(Us, P, eaxes, r, sdims, coff, ncols)
@@ -1799,7 +1935,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # the same subspace as the unnarrowed route.
         dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
                   GramSolver(device = on_gpu ? :gpu : :cpu,
-                             gram_eltype = on_gpu ? nothing : _qdn_gram_narrow(T)) :
+                             gram_eltype = on_gpu ? nothing : _qdn_gram_narrow(Tc)) :
                   SVDSolver()
         solver_used = dsolver isa GramSolver ? :GramSolver : :SVDSolver
         Lmap = LinearMaps.LinearMap(Mres)
@@ -1820,7 +1956,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # story (see the native-core-plan entry on the night board), and a
         # device round trip per apply would only add latency.
         Sh = wh === nothing ?
-             Dict{Int, Array{T,N}}(a => _qdn_host(S[a]) for a in eaxes) : wh[3]
+             Dict{Int, Array{Tc,N}}(a => _qdn_host(S[a]) for a in eaxes) : wh[3]
         L = _qdn_restricted_map(Sh, Us, P, eaxes, r, sdims, coff, ncols)
         fsolver = method.solver === :AutoSolver ? _qdn_default_free_solver() :
                                                   method.solver
@@ -1860,7 +1996,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     next_value = NaN
     if fixed
         keep = min(ndreq, size(vecs, 2))
-        (verdict, _) = _qdn_fixed_verdict(verdict, keep, atol, real(T), squared)
+        (verdict, _) = _qdn_fixed_verdict(verdict, keep, atol, real(Tc), squared)
         vals = vals[1:keep]
         vecs = vecs[:, 1:keep]
         selected = Float64[verdict.spectrum[i] for i in 1:keep]
@@ -1913,7 +2049,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # The trivial derivations the whitening truncation kept out of the solve.
     # Appended to whatever the solve returns, INCLUDING an empty answer, so
     # that whitened and unwhitened runs report the same space.
-    triv = wh === nothing ? Vector{Vector{Matrix{T}}}() :
+    triv = wh === nothing ? Vector{Vector{Matrix{Tc}}}() :
            _qdn_trivial_ders(G, wh[1], eaxes, dims, atol)
 
     k = size(vecs, 2)
@@ -1924,18 +2060,18 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # Un-whiten: the solver worked in `Ỹ_a = R_a Y_a`, the lift and the answer
     # want `Y_a` (`d_a x r_a`).  `wh[1][a].un` is `R_a⁻¹`, or its pseudo-inverse
     # on the kept range when the mode was degenerate.
-    Yv = Matrix{Matrix{T}}(undef, N, k)
+    Yv = Matrix{Matrix{Tc}}(undef, N, k)
     for a in eaxes, i in 1:k
-        Yt = reshape(T.(vecs[(coff[a] + 1):(coff[a] + sdims[a] * r[a]), i]),
+        Yt = reshape(Tc.(vecs[(coff[a] + 1):(coff[a] + sdims[a] * r[a]), i]),
                      sdims[a], r[a])
         Yv[a, i] = wh === nothing ? Yt : wh[1][a].un * Yt
     end
 
     # ---- the lift, one thin QR per axis, shared by every basis vector
     lift = [a for a in eaxes if r[a] < dims[a]]
-    Zv = Matrix{Matrix{T}}(undef, N, k)
-    Rblocks = Matrix{T}[]
-    scale = zero(real(T))
+    Zv = Matrix{Matrix{Tc}}(undef, N, k)
+    Rblocks = Matrix{Tc}[]
+    scale = zero(real(Tc))
     # `tlift` chains the per-axis substages `:lift1`, `:lift2`, ...; `:lift`
     # below still carries the wall total (its `t0` is untouched), so only its
     # BYTE entry becomes the remainder after the substages took their share.
@@ -1952,7 +2088,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # right-hand sides, the QR, the residual filter -- is host work, so
         # they come back here.
         bs_a = [b for b in eaxes if b != a]
-        Hs = Dict{Int, Array{T,N}}(b => _qdn_host(v)
+        Hs = Dict{Int, Array{Tc,N}}(b => _qdn_host(v)
                                    for (b, v) in _qdn_pair_tensors(G, axs, a, bs_a))
 
         # `Wt = Hs[b] ×_b Y_{b,i}` and its axis-`a` unfolding depend only on
@@ -1960,12 +2096,12 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # does.  Computing it once per `(b, i)` and scaling per row (instead of
         # recomputing it inside the `rho` loop) cuts this part of the lift's
         # contraction work by a factor of `m` (3x for `CentroidChisel(3)`).
-        B = zeros(T, m * Ra, k * ha)
+        B = zeros(Tc, m * Ra, k * ha)
         for i in 1:k
-            Wu = Dict{Int, Matrix{T}}(b => Matrix(transpose(_qdn_unfold(
+            Wu = Dict{Int, Matrix{Tc}}(b => Matrix(transpose(_qdn_unfold(
                     _qdn_ttm(Hs[b], Yv[b, i], b), a))) for b in bs_a)
             for rho in 1:m
-                acc = zeros(T, Ra, ha)
+                acc = zeros(Tc, Ra, ha)
                 for b in bs_a
                     iszero(P[rho, b]) && continue
                     acc .-= P[rho, b] .* Wu[b]
@@ -2031,18 +2167,18 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # the method correct and not merely generic: on a tensor whose restricted
     # null space is legitimately too large, the spurious directions are removed
     # and the genuine ones survive.
-    local C::Matrix{T}
+    local C::Matrix{Tc}
     lift_resid = zeros(Float64, k)                          # nothing to lift: exact
     if isempty(Rblocks)
-        C = Matrix{T}(LinearAlgebra.I, k, k)                # nothing to lift
+        C = Matrix{Tc}(LinearAlgebra.I, k, k)                # nothing to lift
     else
-        RT = real(T)
+        RT = real(Tc)
         sc = max(scale, eps(RT))
         Rall = vcat(Rblocks...) ./ sc
         # `svd` gives a complete `V` only for a tall matrix; the per-axis QR
         # above already compresses each block to `k x k`, and the padding
         # covers the one case it cannot (a block with fewer than `k` rows).
-        size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(T, k - size(Rall, 1), k)))
+        size(Rall, 1) >= k || (Rall = vcat(Rall, zeros(Tc, k - size(Rall, 1), k)))
         if fixed
             # THE CALLER PLACED THE CUT, so the filter must not move it.  Its
             # whole job is to discard restricted directions that are not the
@@ -2058,7 +2194,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
                   "gives the lift and Z-law residual of each. The Z-law check is " *
                   "skipped for the same reason; a near-derivation fails it by " *
                   "construction." maxlog = 1
-            C = Matrix{T}(LinearAlgebra.I, k, k)
+            C = Matrix{Tc}(LinearAlgebra.I, k, k)
             lift_resid = Float64[norm(view(Rall, :, i)) for i in 1:k]
         else
             F = svd(Rall)
@@ -2070,7 +2206,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
             # THE FLOOR IS `sqrt(eps)`, and that is the whole point of the change.
             # A lift residual does not bottom out at rounding, it bottoms out at
             # the accuracy of the triangular solve that produced `Z`, which is
-            # `sqrt(eps(T))` -- measured 1.3 to 2.9 times it in Float32 -- and that
+            # `sqrt(eps(Tc))` -- measured 1.3 to 2.9 times it in Float32 -- and that
             # is exactly why `sqrt(eps)` was the old CUTOFF.  As a cutoff it was on
             # the wrong side of the answer; as a FLOOR it says "everything at or
             # under the lift's own noise is zero", which flattens the ratios inside
@@ -2080,9 +2216,9 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
             # ratios can clear `gap_ratio`, and the cut lands inside it: measured,
             # that undercounts the raw sphere at 11 of 13 in Float64.
             #
-            # TODO(precision): `rank_rtol(T, m, n)` in Precision.jl is `max(m,n) *
-            # eps(compute_eltype(T))` -- a dimension-scaled bound for a
-            # rank-revealing factorization, not the dimension-free `sqrt(eps(T))`
+            # TODO(precision): `rank_rtol(Tc, m, n)` in Precision.jl is `max(m,n) *
+            # eps(compute_eltype(Tc))` -- a dimension-scaled bound for a
+            # rank-revealing factorization, not the dimension-free `sqrt(eps(Tc))`
             # this floor is (measured at 1.3-2.9x `sqrt(eps(Float32))`, the
             # accuracy of the triangular solve that produced `Z`).  Not an
             # obvious substitution; left as the measured constant.
@@ -2108,26 +2244,26 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     tstage = _qdn_stage!(:filter, tstage)
 
     kc = size(C, 2)
-    out = Vector{Vector{Matrix{T}}}(undef, kc)
+    out = Vector{Vector{Matrix{Tc}}}(undef, kc)
     for j in 1:kc
-        Ms = Vector{Matrix{T}}(undef, N)
+        Ms = Vector{Matrix{Tc}}(undef, N)
         for a in 1:N
             if !engaged[a]
                 # No unknown on a disengaged axis: its chisel column is zero, so
                 # every matrix satisfies the equation there and zero is the
                 # representative `SylverLining` returns after its engagement
                 # reduction expands.
-                Ms[a] = zeros(T, dims[a], dims[a])
+                Ms[a] = zeros(Tc, dims[a], dims[a])
                 continue
             end
-            Yc = zeros(T, dims[a], r[a])
+            Yc = zeros(Tc, dims[a], r[a])
             for i in 1:k
                 Yc .+= C[i, j] .* Yv[a, i]
             end
             if r[a] == dims[a]
-                Ms[a] = _qdn_assemble(haxs[a], Yc, zeros(T, dims[a], 0))
+                Ms[a] = _qdn_assemble(haxs[a], Yc, zeros(Tc, dims[a], 0))
             else
-                Zc = zeros(T, dims[a], dims[a] - r[a])
+                Zc = zeros(Tc, dims[a], dims[a] - r[a])
                 for i in 1:k
                     Zc .+= C[i, j] .* Zv[a, i]
                 end
@@ -2182,14 +2318,14 @@ arrays (that is what the caller gets), so they are uploaded once here; the
 accumulator, the mode products and the `norm` are all device operations, and
 only the two scalars per check come back.
 """
-function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
-                     mats::Vector{Vector{Matrix{T}}}, method::QuickDerMethod,
-                     atol::Real, r::Vector{Int}, rng) where {T,N}
+function _qdn_verify(G::AbstractArray{Ts,N}, P::Matrix{Tc}, engaged::Vector{Bool},
+                     mats::Vector{Vector{Matrix{Tc}}}, method::QuickDerMethod,
+                     atol::Real, r::Vector{Int}, rng) where {Ts,Tc,N}
     (method.verify === :none || isempty(mats)) && return nothing
     dims = collect(size(G))
     m = size(P, 1)
-    gnorm = norm(G)
-    RT = real(T)
+    gnorm = _qdn_safe_norm(G)
+    RT = real(Tc)
     up = method.device === :gpu ? to_gpu : identity
 
     fail(res, bound) = _qdn_decline(
@@ -2244,7 +2380,7 @@ function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
         # `d x nslices` copy.
         Md = [engaged[a] ? up(a == ahat ? Ms[a][:, sel] : Ms[a]) : Ms[a] for a in 1:N]
         for rho in 1:m
-            E = _qdn_zeros_like(Gslice, size(Gslice))
+            E = _qdn_zeros_like(Gslice, Tc, size(Gslice))
             if !iszero(P[rho, ahat])
                 E .+= P[rho, ahat] .* _qdn_ttm(G, Md[ahat], ahat)
             end
@@ -2424,12 +2560,31 @@ function derTrOpsReduced(
 
     # STORAGE type vs COMPUTE type.  `Tc` is the arithmetic; it differs from `T`
     # only for Float16, which has no BLAS or LAPACK anywhere (see
-    # `Dleto.compute_eltype`).  The whole kernel below is written against one
-    # element type, so the promotion happens here, once, in the same pass that
-    # already materialises `G` -- and it is also what lets a Float16 tensor use
-    # `device = :gpu`, since Apple GPUs want exactly Float32.
+    # `Dleto.compute_eltype`).
+    #
+    # CPU: `G` stays in its OWN type `T`, full stop -- no `Array{Tc}(G0)`
+    # promotion copy of the whole tensor.  Every function this file hands `G`
+    # to (`_qdn_cross_sketches`, `_qdn_pair_tensor`, `_qdn_trivial_ders`,
+    # `_qdn_verify`) now accepts `G::AbstractArray{Ts}` alongside axes/operators
+    # in `Tc`, and `_qdn_ttm`/`_qdn_ttm!` have a mixed-eltype method that
+    # promotes ONE BLOCK of `G` at a time into a `Tc` buffer immediately
+    # consumed by a same-type `mul!` -- so the whole kernel still runs in `Tc`
+    # arithmetic, but the peak extra memory for a Float16 tensor is one block
+    # (default 64 MB), not `d^n` Float32 bytes on top of the `d^n` Float16
+    # bytes already there.  This is THE memory lever
+    # (bench/reports/2026-09-08/memory/README.md): a Float16 `stratify` now
+    # peaks at about half of the Float32 peak instead of the same.
+    #
+    # GPU: UNCHANGED.  `device = :gpu` still promotes up front, exactly as
+    # before this change.  The mixed methods above are host-only by
+    # construction (see their docstring) and this was not re-measured on a
+    # device in this pass, so its behaviour and memory profile are left alone.
     Tc = compute_eltype(T)
-    G = (T === Tc && G0 isa Array{T}) ? G0 : Array{Tc}(G0)
+    G = if method.device === :gpu
+        (T === Tc && G0 isa Array{T}) ? G0 : Array{Tc}(G0)
+    else
+        G0
+    end
 
     # One upload for the whole run: every pass over the full tensor (the cross
     # sketches, the pair tensors of the lift, the verification) then happens on
@@ -2621,6 +2776,6 @@ function _qdn_report(method::QuickDerMethod, Ω::TransverseOps, P::AbstractMatri
                             restriction = r, restricted_size = info.restricted_size,
                             lift_dim = info.lift_dim,
                             lift_residuals = info.lift_residuals,
-                            residuals = _der_zlaw_residuals(Ω, idm, ders, G, P),
+                            residuals = _der_zlaw_residuals(Ω, idm, ders, G, P, Tc),
                             stage_times = stages === nothing ? nothing : copy(stages))
 end

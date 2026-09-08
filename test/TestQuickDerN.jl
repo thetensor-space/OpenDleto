@@ -1290,3 +1290,99 @@ end
         end
     end
 end
+
+# =========================================================================
+# 12. Float16 storage: no full-tensor promotion copy
+# =========================================================================
+#
+# The 2026-09-08 memory task's target: `derTrOpsReduced(::QuickDerMethod)`
+# used to promote a Float16 tensor to a full Float32 `Array` before the
+# kernel touched it (`Array{Tc}(G0)`), so a Float16 run paid the SAME peak
+# memory as Float32 -- only `data_floor(Float16)` distinguished the two.  On
+# the CPU path `G` now stays `Float16` end to end and `_qdn_ttm`/`_qdn_ttm!`
+# promote one BLOCK at a time (see their docstring in QuickDerN.jl), so the
+# stage that first meets the whole tensor should allocate a small multiple of
+# the block budget, not `d^n * sizeof(Float32)` bytes.
+@testset "12. Float16 storage: no full-tensor promotion copy" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # d = 40 for the SOLVE below: small enough that the restricted system
+        # (156 MB at d = 100, per `_qdn_restriction_sizes`'s own docstring
+        # example, and smaller still here) stays under `QDN_DENSE_BUDGET_BYTES`
+        # and QuickDer takes the DENSE/SVD route -- deterministic, unlike the
+        # matrix-free iterative solvers (`KrylovSolver`/`ArpackSolver`), whose
+        # own state is not fully pinned by `method.seed` across separate calls
+        # in one process (`docs/CONTEXT.md`, the ARPACK start-vector note) and
+        # so is the wrong thing to compare two solves against for exact
+        # agreement.  The allocation claim (i) is checked at `d = 500`
+        # regardless, on `_qdn_ttm` directly -- it never solves anything.
+        d = 40
+        Random.seed!(20260908)
+        A16 = randn(Float16, d, d, d)
+        fr = [Index(d, "z$i") for i in 1:3]
+        Γ16 = ITensor(A16, fr...)
+        ch = Matrix{Float64}(UniversalChisel(3))
+        Ω = IndTransverseOps(fr, UniversalOp())
+        # (i) NO full-size Float32 array of the tensor -- checked on the unit
+        # this claim is actually about, `_qdn_ttm` itself, with `@allocated`
+        # rather than through the full solve: a solve's total allocation is
+        # dominated by the null solver's own iteration churn (measured
+        # separately, gigabytes of it on a matrix-free branch), which drowns
+        # out a one-time input copy of a few hundred MB and would make this
+        # assertion meaningless either way it came out.  Called directly, one
+        # mixed-eltype mode product on a `d = 500` Float16 tensor (a size
+        # `_qdn_ttm` never gets to see through the solve above, since the
+        # sketch shrinks every later pass) allocates its OUTPUT plus one block
+        # buffer -- not a second `d^3 x sizeof(Float32)` array, which a
+        # promote-then-contract implementation could not avoid.
+        let d2 = 500, k2 = 20
+            G2 = randn(Float16, d2, d2, d2)
+            M2 = randn(Float32, d2, k2)
+            Dleto._qdn_ttm(randn(Float16, 8, 8, 8), randn(Float32, 8, 3), 1)  # warm up
+            GC.gc(); GC.gc()
+            would_be_promoted = d2^3 * sizeof(Float32)
+            for a in (1, 2, 3)                      # edge (BLAS-block) and middle (slab)
+                GC.gc(); GC.gc()
+                b = @allocated Dleto._qdn_ttm(G2, M2, a)
+                @test b < 0.5 * would_be_promoted
+                @test b < 200.0 * 2^20              # a small multiple of the 64 MB block
+            end
+        end
+
+        # A fresh method instance per call, not one reused across both: the
+        # matrix-free iterative solvers keep state the `seed` keyword does not
+        # fully pin across separate calls in one process, and this size is
+        # meant to avoid that branch entirely (checked below) rather than
+        # merely hope the reuse is harmless.
+        out16 = derTrOpsReduced(get_derivation_method(:QuickDer; seed = 20260908),
+                                Ω, ch, Γ16; return_diagnostics = true)
+        (_, expand_map16, ders16, rep16) = out16
+
+        # (ii) Float16 in, Float16 out, Float32 arithmetic, and the DENSE
+        # route (deterministic -- the point of choosing `d = 40`).
+        @test eltype(ders16) === Float16
+        @test rep16.store_eltype === Float16
+        @test rep16.compute_eltype === Float32
+        @test rep16.solver in (:SVDSolver, :GramSolver)
+
+        # (iii) Agrees with the Float32 route on the same data (an exact,
+        # lossless widening -- every Float16 value is exactly representable
+        # in Float32, so this is the same arithmetic on the same numbers, not
+        # an approximation): the SAME random sketches are drawn (same seed,
+        # and the sketch depends only on shapes, never on values) into the
+        # SAME deterministic dense solve, so the two routes should agree far
+        # tighter than a loose cross-precision bound -- this asserts a
+        # generous one so the test is about the CONTRACT, not about matching
+        # floating-point bit patterns.
+        Γ32 = ITensor(Float32.(A16), fr...)
+        out32 = derTrOpsReduced(get_derivation_method(:QuickDer; seed = 20260908),
+                                Ω, ch, Γ32; return_diagnostics = true)
+        (_, expand_map32, ders32, rep32) = out32
+        @test rep32.solver in (:SVDSolver, :GramSolver)
+        @test size(ders16, 2) == size(ders32, 2)
+        @test rep16.nullity == rep32.nullity
+        maxdiff = maximum(abs.(Float32.(ders16) .- ders32))
+        @test maxdiff < 50 * sqrt(eps(Float32))
+    end
+end
