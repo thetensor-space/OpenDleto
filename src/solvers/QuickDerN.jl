@@ -1077,6 +1077,55 @@ function _qdn_pair_tensor(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
 end
 
 """
+    _qdn_pair_tensors(G, axs, a, bs) -> Dict{Int,Array}
+
+`H_{ab}` for every `b` in `bs`, for a FIXED lift axis `a` -- what the lift loop
+needs is one dictionary per `a`, not one `_qdn_pair_tensor` call per `(a,b)`
+pair.  Calling `_qdn_pair_tensor` once per `b` (the obvious reading of (L_a))
+pays `length(bs)` full-tensor passes, one per `b`, because each call starts
+its own chain from `G`.  Only ONE of those passes needs to touch the full
+tensor, exactly as in `_qdn_cross_sketches`: pick the axis `c ≠ a` that
+`_qdn_mode_order` puts first (cheapest on the device, smallest index on the
+host, matching `_qdn_pair_tensor`'s own choice there), contract `G` with `W_c`
+ONCE, and derive every `H_{ab}` with `b ≠ c` from that intermediate by
+contracting the rest of `N \\ {a, b, c}` (mode products commute, so `c` may be
+applied first regardless of where it sits in `_qdn_pair_tensor`'s own
+ordering) and finishing with `W_a⊥`. Only `b = c` itself cannot be derived
+this way -- `c`'s own axis must stay unsketched for `H_{ac}` -- so that one
+entry falls back to `_qdn_pair_tensor` directly, a second full pass. Total:
+2 full-tensor passes for the whole dictionary instead of `length(bs)`.
+
+On the host this reproduces `_qdn_pair_tensor(G, axs, a, b)` term for term:
+`_qdn_mode_order` there returns `N \\ {a}` in ascending order, whose first
+element is the same `c` this function picks, so for any `b ≠ c` the ascending
+order of `N \\ {a, b}` is `[c; ascending(N \\ {a, b, c})]` -- exactly the
+prefix-then-rest split done here.
+"""
+function _qdn_pair_tensors(G::AbstractArray{T,N}, axs::Vector{_QDNAxis{T}},
+                           a::Integer, bs::AbstractVector{<:Integer}) where {T,N}
+    Hs = Dict{Int, AbstractArray{T,N}}()
+    isempty(bs) && return Hs
+    cand = [c for c in 1:N if c != a]
+    c = _qdn_mode_order(G, axs, cand)[1]
+    others = [b for b in bs if b != c]
+    if !isempty(others)
+        pre = _qdn_modeW(G, axs[c], c)                  # the one full-tensor pass
+        rest_cand = [d for d in cand if d != c]
+        rest_order = _qdn_mode_order(pre, axs, rest_cand)
+        for b in others
+            X = pre
+            for d in rest_order
+                d == b && continue
+                X = _qdn_modeW(X, axs[d], d)
+            end
+            Hs[b] = _qdn_modeWp(X, axs[a], a)
+        end
+    end
+    c in bs && (Hs[c] = _qdn_pair_tensor(G, axs, a, c))  # the second full-tensor pass
+    return Hs
+end
+
+"""
     _qdn_cross_sketches(G, axs, engaged) -> Dict{Int,Array}
 
 `S_a = Γ ×_{b≠a} W_b` for every engaged axis `a`, built through a shared prefix
@@ -1839,18 +1888,27 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # (a few MB even at d = 300) and everything downstream of them -- the
         # right-hand sides, the QR, the residual filter -- is host work, so
         # they come back here.
-        Hs = Dict{Int, Array{T,N}}(b => _qdn_host(_qdn_pair_tensor(G, axs, a, b))
-                                   for b in eaxes if b != a)
+        bs_a = [b for b in eaxes if b != a]
+        Hs = Dict{Int, Array{T,N}}(b => _qdn_host(v)
+                                   for (b, v) in _qdn_pair_tensors(G, axs, a, bs_a))
 
+        # `Wt = Hs[b] ×_b Y_{b,i}` and its axis-`a` unfolding depend only on
+        # `(b, i)`, not on the chisel row `rho` -- only the scalar `P[rho,b]`
+        # does.  Computing it once per `(b, i)` and scaling per row (instead of
+        # recomputing it inside the `rho` loop) cuts this part of the lift's
+        # contraction work by a factor of `m` (3x for `CentroidChisel(3)`).
         B = zeros(T, m * Ra, k * ha)
-        for i in 1:k, rho in 1:m
-            acc = zeros(T, Ra, ha)
-            for b in eaxes
-                (b == a || iszero(P[rho, b])) && continue
-                Wt = _qdn_ttm(Hs[b], Yv[b, i], b)
-                acc .-= P[rho, b] .* transpose(_qdn_unfold(Wt, a))
+        for i in 1:k
+            Wu = Dict{Int, Matrix{T}}(b => Matrix(transpose(_qdn_unfold(
+                    _qdn_ttm(Hs[b], Yv[b, i], b), a))) for b in bs_a)
+            for rho in 1:m
+                acc = zeros(T, Ra, ha)
+                for b in bs_a
+                    iszero(P[rho, b]) && continue
+                    acc .-= P[rho, b] .* Wu[b]
+                end
+                B[((rho - 1) * Ra + 1):(rho * Ra), ((i - 1) * ha + 1):(i * ha)] = acc
             end
-            B[((rho - 1) * Ra + 1):(rho * Ra), ((i - 1) * ha + 1):(i * ha)] = acc
         end
 
         # One thin QR per axis, shared by every basis vector.  Condition (ii)
