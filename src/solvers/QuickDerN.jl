@@ -77,6 +77,40 @@ flip the route (`QDN_GRAM_MIN_COLS[] = typemax(Int)` forces the SVD).
 const QDN_GRAM_MIN_COLS = Ref(1000)
 
 """
+Whether the dense branch's `GramSolver` narrows stage 1 (the Gram, its
+Cholesky, the subspace iteration -- never stage 2's Rayleigh-Ritz, which
+always measures the ORIGINAL matrix) to Float32 when the compute type is
+Float64 -- Native-Core-Plan.md "Phase 2" candidate (b), `GramSolver`'s
+`gram_eltype` (`NullSolvers.jl`).  A no-op whenever the compute type is
+already narrower than Float64 (Float32, Float16-promoted-to-Float32): there
+is nothing to narrow.
+
+Measured on QuickDer's own restricted matrices, scrambled sphere v3
+d = 100 and 150 (`bench/reports/2026-09-08/restricted-solve/README.md`):
+through the real `solve_nullspace` verdict machinery, identical nullity,
+`certified`, `rule` and subspace (principal angle cosine 1.0 to 8 digits)
+as the unmodified Float64 route, at roughly half the Gram+Cholesky time
+(1.08s -> 0.58s at d=100, 6.10s -> 3.13s at d=150).  Not measured at
+d = 200 (skipped there: the two Grams together do not fit this machine's
+6 GB per-process budget) or on any chisel/valence/tensor family outside
+that report's six cases -- a `Ref` so a caller who hits a case where it
+does NOT hold can turn it off without editing this file.
+"""
+const QDN_GRAM_MIXED_PRECISION = Ref(true)
+
+"""
+    _qdn_gram_narrow(::Type{T}) -> Union{Nothing, Type}
+
+The `gram_eltype` `_qdn_solve_and_lift`'s dense branch passes to
+`GramSolver`, when `QDN_GRAM_MIXED_PRECISION[]` is set: `Float32` for
+`Float64`, `nothing` (no narrowing) for everything else -- in particular
+Float32 itself (already as narrow as this policy goes) and any complex
+type (untested; narrowing one is not this policy's claim).
+"""
+_qdn_gram_narrow(::Type{Float64}) = QDN_GRAM_MIXED_PRECISION[] ? Float32 : nothing
+_qdn_gram_narrow(::Type{T}) where {T} = nothing
+
+"""
 Byte budget for the DENSE restricted matrix on the host route.  Mirrors
 `DENSE_BUDGET_BYTES / 2` (`NullSolvers.jl`): the matrix plus the Gram plus the
 Cholesky factor all have to fit, so filling the whole null-solver budget with
@@ -1700,9 +1734,16 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # consistency filter and the Z-law check can afford.  Small systems
         # keep the SVD's full precision for free.  `GramSolver` is the one
         # solver that carries the device through: it forms the Gram, the
-        # Cholesky and the subspace solves on the GPU when asked.
+        # Cholesky and the subspace solves on the GPU when asked.  On the CPU,
+        # a Float64 compute type additionally narrows stage 1 to Float32
+        # (`_qdn_gram_narrow`, `QDN_GRAM_MIXED_PRECISION`) -- stage 2 still
+        # measures the full-precision matrix, and the two sphere cases this
+        # was checked against (2026-09-08) certify the same nullity and land
+        # the same subspace as the unnarrowed route.
         dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
-                  GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
+                  GramSolver(device = on_gpu ? :gpu : :cpu,
+                             gram_eltype = on_gpu ? nothing : _qdn_gram_narrow(T)) :
+                  SVDSolver()
         solver_used = dsolver isa GramSolver ? :GramSolver : :SVDSolver
         Lmap = LinearMaps.LinearMap(Mres)
         squared = wants_square(dsolver) && size(Lmap, 1) != size(Lmap, 2)
