@@ -229,6 +229,32 @@ than failing to load.
 - **`mf-krylov`, full sweep.** Spot-checked (a few cells, including sphere3-48/906
   reproducing final = 3 post-fix), not swept end to end -- see "A note on scope" above.
 
+## The full suite: one pre-existing failure, not from this change
+
+`test/TestPrecision.jl:242` ("derivations respond to the element type" -> "sphere 5^4" ->
+"Float16" -> "QuickDer"): `size(ders, 2) == truth` is `3 == 4`. Confirmed PRE-EXISTING and
+unrelated to this branch's changes: `git diff 35a10d0 HEAD -- src/SylverLining/
+SylverLining.jl src/solvers/NullSolvers.jl src/solvers/Precision.jl test/TestPrecision.jl`
+is empty -- none of those files moved. Reproduced standalone with `return_diagnostics =
+true`: the RESTRICTED solve already returns only 7 of what should be more (not 13-ish), the
+Ω-intersection's residual spectrum is `6.2e-11, 7.0e-11, 1.6e-9 | 0.481, 0.62, 0.72, 0.876`
+-- `_fastder_tall_nullspace`'s new `ambiguous` flag correctly fires (0.481 sits inside
+`FASTDER_AMBIGUOUS_BAND * ceiling`), but the retry this triggers cannot help: at d = 5,
+valence 4, `_qdn_restriction_sizes` already saturates to the full tensor width (there is no
+"wider restriction" to ask for; `bumped == r` and the loop's own "already unrestricted"
+exit fires). Unlike the F8 cases above, the missing direction's residual (0.481) is the same
+ORDER OF MAGNITUDE as the genuinely spurious ones (0.62-0.876), not a modest multiple of
+`atol` sitting in a grey zone -- this reads as Float16 arithmetic genuinely lacking the
+resolution to reconstruct the 4th direction accurately at this tiny, already-unrestricted
+size, i.e. a member of Class 1 (the same "no lever in this round's scope" diagnosis, item 1
+above), reached through a different call site (`:QuickDer`'s own dense/near-saturated
+branch rather than the `default`-config cells the sweep measured at d = 24/40). Left
+unfixed for the same reason Class 1 is: no lever tested this round moves it, and the
+options that might (a Z-law-informed acceptance test, or lowering `GAP_RATIO`/`FLOOR_EPS`
+for the mixed-precision case specifically) need their own calibration sweep, not a guess.
+The suite is therefore NOT green end to end; every other testset passes, and this one
+failure was already present before this branch started.
+
 ## Reproduce
 
 ```
