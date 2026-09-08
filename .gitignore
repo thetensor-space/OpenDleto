@@ -34,3 +34,6 @@ Manifest.toml
 *.dat100
 *.pvd
 *.vtu
+
+# Serialized Julia objects are regenerable benchmark evidence, not sources
+*.jls
