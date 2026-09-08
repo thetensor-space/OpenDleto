@@ -270,22 +270,29 @@ every axis, which every `localOps` in this package does.
 _der_scalar_dim(P::AbstractMatrix) = size(nullspace(Matrix{Float64}(P)), 2)
 
 """
-    _der_zlaw_residuals(Ω, expand_map, ders, G, P) -> Vector{Float64}
+    _der_zlaw_residuals(Ω, expand_map, ders, G, P, Tc::Type = eltype(G)) -> Vector{Float64}
 
 `Dleto.der_residual` of every column of `ders`, in the order returned.
 
 The columns are `Ω`-coordinates, so each is embedded back into one matrix per
 axis (`embedMatrices`, frame index first -- `der_residual`'s convention) and
-checked against `G` in the COMPUTE type: a Float16 answer checked in Float16
-would measure its own storage rounding rather than the equation.
+checked against `G` in the COMPUTE type `Tc`: a Float16 answer checked in
+Float16 would measure its own storage rounding rather than the equation.  `Tc`
+is a separate, explicit argument rather than `eltype(G)` because `G` itself
+may now be a Float16 HOST tensor that was never promoted (QuickDer's memory
+lever): the embedded operators `Ms` still need to be built in the compute
+type, and `der_residual`/`der_residual_squares` take their own arithmetic type
+from `Ms`, not from `G`, for exactly this reason. Defaulting to `eltype(G)`
+keeps the one other caller (SylverLining, which still hands this a
+pre-promoted `Gc`) unchanged.
 
 COSTS ONE PASS OVER THE TENSOR PER DIRECTION, which is why it is behind
 `return_diagnostics` and not computed on every call.  `der_residual` itself is
 blocked, so the memory is bounded whatever the size of `G`; the time is not.
 """
 function _der_zlaw_residuals(Ω::TransverseOps, expand_map, ders::AbstractMatrix,
-                             G::AbstractArray, P::AbstractMatrix)
-    Tc = eltype(G)
+                             G::AbstractArray, P::AbstractMatrix,
+                             Tc::Type = eltype(G))
     n = size(ders, 2)
     out = Vector{Float64}(undef, n)
     for j in 1:n

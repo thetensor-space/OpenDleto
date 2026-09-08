@@ -371,11 +371,20 @@ function der_residual(Γ::ITensor, D::Vector{ITensor}, chisel;
     return der_residual(G, Ms, P; block_bytes = block_bytes)
 end
 
-function der_residual(G::AbstractArray{T,N}, Ms::AbstractVector{<:AbstractMatrix},
-                      P::AbstractMatrix; block_bytes::Integer = 2^28) where {T,N}
-    RT = real(T)
+function der_residual(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatrix},
+                      P::AbstractMatrix; block_bytes::Integer = 2^28) where {Ts,N}
+    # The arithmetic type comes from `Ms`, not from `G`: `G` may be a Float16
+    # host tensor that was never promoted, and the operators being checked are
+    # already in whatever type the caller wants the check done in (see
+    # `der_residual_squares`, which is where the actual mixing happens).
+    Tc = isempty(Ms) ? Ts : eltype(Ms[1])
+    RT = real(Tc)
     sq = der_residual_squares(G, Ms, P; block_bytes = block_bytes)
-    scale = norm(G) * maximum(a -> norm(Ms[a]), 1:N)
+    # Float64-accumulated `norm`, not `norm(G)` in `G`'s own type: a naive sum
+    # of squares in Float16 risks overflow on a tensor of any real size, which
+    # promoting the whole tensor to Float32 first used to avoid for free.
+    gnorm = sqrt(sum(x -> Float64(x)^2, G))
+    scale = gnorm * maximum(a -> norm(Ms[a]), 1:N)
     return sqrt(sum(sq)) / max(scale, eps(RT))
 end
 
@@ -388,51 +397,61 @@ wants the rows separately because it tests each against a bound rather than
 folding them into one number.
 
 The blocking is what `der_residual` documents; the working set is two blocks of
-`block_bytes` in `G`'s own element type, whatever the size of `G`.  With a
-one-row chisel -- every case in `bench/` -- the accumulation order is exactly
-the single running sum the benchmark used, so the reported digits do not move;
-with several rows the per-row sums are the same quantity summed in a different
-order.
+`block_bytes` in `Ms`'s element type (the COMPUTE type, `Tc`), whatever the
+size of `G`.  With a one-row chisel -- every case in `bench/` -- the
+accumulation order is exactly the single running sum the benchmark used, so
+the reported digits do not move; with several rows the per-row sums are the
+same quantity summed in a different order.
+
+`G` and `Ms` need not share an element type: `Gb`, the per-block copy of `G`,
+is allocated in `Tc` and filled by `copyto!`, which promotes element by
+element as it copies -- so a Float16 `G` costs one block-sized `Tc` buffer,
+never a `Tc` copy of the whole tensor.  The one pass that meets `G` directly
+(`a == ca`, the blocked axis) goes through `_qdn_ttm!`'s mixed-eltype method
+instead.
 """
-function der_residual_squares(G::AbstractArray{T,N}, Ms::AbstractVector{<:AbstractMatrix},
+function der_residual_squares(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatrix},
                               P::AbstractMatrix;
-                              block_bytes::Integer = 2^28) where {T,N}
+                              block_bytes::Integer = 2^28) where {Ts,N}
     length(Ms) == N || error("der_residual: $(length(Ms)) operators for a valence-$N " *
                              "tensor; one per axis is needed.")
     size(P, 2) == N || error("der_residual: the chisel has $(size(P,2)) columns but " *
                              "the tensor has $N axes.")
-    Pm = Matrix{T}(P)
-    RT = real(T)
+    Tc = eltype(Ms[1])
+    Pm = Matrix{Tc}(P)
+    RT = real(Tc)
     dims = size(G)
     ca = argmax(collect(dims))                 # block along the LONGEST axis
     per = max(length(G) ÷ dims[ca], 1)         # entries per unit of that axis
-    step = clamp(fld(Int(block_bytes), sizeof(T) * per), 1, dims[ca])
+    step = clamp(fld(Int(block_bytes), sizeof(Tc) * per), 1, dims[ca])
     acc = zeros(RT, size(Pm, 1))
     # The two buffers are allocated ONCE, not once per block, so the bytes this
     # function asks for are bounded by `block_bytes` and do not grow with the
     # tensor -- which is the whole claim.  Both are overwritten in full at the
     # top of every block (`fill!` and `copyto!`), so reuse changes no arithmetic.
     # The last block is short and gets its own pair.
-    Efull = Array{T}(undef, ntuple(i -> i == ca ? step : dims[i], N))
-    Gfull = Array{T}(undef, size(Efull))
+    Efull = Array{Tc}(undef, ntuple(i -> i == ca ? step : dims[i], N))
+    Gfull = Array{Tc}(undef, size(Efull))
     for lo in 1:step:dims[ca]
         hi = min(dims[ca], lo + step - 1)
         w = hi - lo + 1
         blk = ntuple(i -> i == ca ? (lo:hi) : Colon(), N)
-        Eb = w == step ? Efull : Array{T}(undef, ntuple(i -> i == ca ? w : dims[i], N))
-        Gb = w == step ? Gfull : Array{T}(undef, size(Eb))
-        copyto!(Gb, view(G, blk...))
+        Eb = w == step ? Efull : Array{Tc}(undef, ntuple(i -> i == ca ? w : dims[i], N))
+        Gb = w == step ? Gfull : Array{Tc}(undef, size(Eb))
+        copyto!(Gb, view(G, blk...))            # promotes Ts -> Tc, one block
         for rho in axes(Pm, 1)
-            fill!(Eb, zero(T))
+            fill!(Eb, zero(Tc))
             for a in 1:N
                 c = Pm[rho, a]
                 iszero(c) && continue
                 if a == ca
                     # This block of the output is the whole tensor against the
-                    # selected COLUMNS of the operator on the blocked axis.
-                    _qdn_ttm!(Eb, G, view(Ms[a], :, lo:hi), a, c, one(T))
+                    # selected COLUMNS of the operator on the blocked axis --
+                    # the one pass that meets `G` directly, mixed-eltype when
+                    # `Ts !== Tc`.
+                    _qdn_ttm!(Eb, G, view(Ms[a], :, lo:hi), a, c, one(Tc))
                 else
-                    _qdn_ttm!(Eb, Gb, Ms[a], a, c, one(T))
+                    _qdn_ttm!(Eb, Gb, Ms[a], a, c, one(Tc))
                 end
             end
             acc[rho] += sum(abs2, Eb)
