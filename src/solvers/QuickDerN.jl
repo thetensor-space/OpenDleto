@@ -864,23 +864,27 @@ _qdn_upload(G::AbstractArray, A::AbstractMatrix) =
     _qdn_safe_norm(G) -> Real
 
 `norm(G)` of the WHOLE tensor, without the two failure modes a naive one has
-at the ends of this file's type range.
+at the ends of this file's type range -- and otherwise exactly `norm(G)`, in
+`G`'s own type, which callers that promise no promoted copy (`der_residual`'s
+"a Float32 tensor is checked entirely in Float32 and the answer comes back
+Float32") depend on.
 
-On the HOST, `G` may be a Float16 tensor that was never promoted (see the
-mixed `_qdn_ttm` above): a plain sum of squares in Float16 risks overflow on
-a tensor of any real size, which promoting used to avoid for free, so this
+A HOST Float16 tensor may never have been promoted (see the mixed `_qdn_ttm`
+above): a plain sum of squares in Float16 risks overflow on a tensor of any
+real size, which promoting used to avoid for free, so ONLY this case
 accumulates in Float64 instead -- one pass, no extra array, same cost `norm`
-would have paid anyway.
+would have paid anyway. Float32 and Float64 host arrays have no such risk and
+take plain `norm`, unchanged.
 
 On the DEVICE, `G` is always `Tc` already (`derTrOpsReduced` keeps a
 `device = :gpu` run pre-promoted), so there is no Float16-overflow case to
 guard -- and Apple GPUs have no Float64 AT ALL, so accumulating in Float64
 there is not merely unnecessary but a hard error (`MtlArray{Float64}` throws
-"Metal does not support Float64 values").  Plain `norm` is exactly right on
-that path.
+"Metal does not support Float64 values"). Plain `norm` is exactly right on
+that path too.
 """
 _qdn_safe_norm(G::AbstractArray) = norm(G)
-_qdn_safe_norm(G::Array) = sqrt(sum(x -> Float64(x)^2, G))
+_qdn_safe_norm(G::Array{Float16}) = sqrt(sum(x -> Float64(x)^2, G))
 
 """
     _qdn_unfold(G, a) -> Matrix

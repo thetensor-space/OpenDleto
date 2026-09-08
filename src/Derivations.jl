@@ -384,7 +384,7 @@ function der_residual(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatri
     # `G` may be an unpromoted Float16 tensor and a naive sum of squares risks
     # overflow; plain `norm` on a device array, where `G` is always `Tc`
     # already and Metal has no Float64 to accumulate in even if it were safe.
-    gnorm = _qdn_safe_norm(G)
+    gnorm = RT(_qdn_safe_norm(G))
     scale = gnorm * maximum(a -> norm(Ms[a]), 1:N)
     return sqrt(sum(sq)) / max(scale, eps(RT))
 end
