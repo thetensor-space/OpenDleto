@@ -161,6 +161,21 @@ end
 
 __isapproxzero(x::Number)::Bool = isapprox(x,0.0);
 
+"""
+    _isdiag_within(M, atol) -> Bool
+
+Whether every off-diagonal entry of `M` is within `atol` of zero.  `O(n^2)`,
+against the `O(n^3)` of the `eigen` it lets `realCanonicalForm` skip.
+"""
+function _isdiag_within(M::AbstractMatrix, atol::Real)
+    n, m = size(M)
+    @inbounds for j in 1:m, i in 1:n
+        i == j && continue
+        abs(M[i, j]) > atol && return false
+    end
+    return true
+end
+
 
 # to be moved into Utils.jl
 """
@@ -183,6 +198,26 @@ LAPACK returns a conjugate pair as adjacent eigenvalues `λ, conj(λ)`; that is
 checked rather than assumed, and the partner is found and moved next to its
 mate if it is not.
 
+A DIAGONAL `M` (scalar derivations `D_a = c_a·I` are the common case on a
+tensor with no structure beyond the chisel's own scalars, and stay diagonal
+under any per-axis change of basis, since `I` commutes with everything) skips
+the eigendecomposition entirely: `M = I·M` already satisfies the law with
+`D = M`, `T = I`, at an `O(n^2)` scan instead of an `O(n^3)` `eigen`.  Measured
+on a video-shaped tensor whose only derivations are scalar
+(`bench/StratifyOverheadProfile.jl`): this was 20-40% of `stratify`'s own
+non-solve time (dominated by `eigen` on matrices that were `c·I` up to
+arithmetic noise) before this check existed.
+
+The diagonal test uses `max(tol, sqrt(eps(RT)))`, not the caller's `tol`
+alone: a matrix that is exactly `c·I` mathematically still carries roundoff
+from whatever produced it -- measured at ~2e-5 RELATIVE on a Float32 video
+derivation, three orders of magnitude above the default `tol = 1e-10` -- so a
+literal `tol` comparison never fired for exactly the types this matters most
+for (Float32, Float16).  Both bounds only WIDEN the fast path relative to a
+plain `tol` check, and the returned `(D, T) = (M, I)` satisfies the law to
+whatever the actual off-diagonal noise is, the same sense in which the
+zero-matrix check below already accepts a merely-numerically-zero `M`.
+
 ```julia
 res = realCanonicalForm(M); isapprox(M * res.T, res.T * res.D)
 ```
@@ -195,6 +230,13 @@ function realCanonicalForm(M::AbstractMatrix; tol::Real=1e-10)::NamedTuple{(:D, 
     if all(x -> abs(x) < tol, M)
         # The zero matrix: identity frame.
         return (; D = zeros(RT, n, n), T = LinearAlgebra.Diagonal(ones(RT, n)))
+    end
+    diag_tol = max(RT(tol), sqrt(eps(RT))) * max(one(RT), maximum(abs, M))
+    if _isdiag_within(M, diag_tol)
+        # Already diagonal (the scalar case `c·I` included): `T = I` needs no
+        # factorisation, and the law `M*T == T*D` holds exactly since `D = M`.
+        return (; D = LinearAlgebra.Diagonal(RT.(LinearAlgebra.diag(M))),
+                  T = LinearAlgebra.Diagonal(ones(RT, n)))
     end
     if M isa LinearAlgebra.Symmetric || LinearAlgebra.issymmetric(M)
         eig = LinearAlgebra.eigen(LinearAlgebra.Symmetric(Matrix(M)))
