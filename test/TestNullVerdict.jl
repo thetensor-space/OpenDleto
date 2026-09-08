@@ -319,7 +319,18 @@ end
         M = randn(120, 100)
         M[:, 1:3] .= 0.0                      # an exact 3-dimensional null space
         L = LinearMaps.LinearMap(M)
+        # `GramSolver` takes no `seed` (it has no `wants_seed` trait) and draws
+        # its subspace from the GLOBAL rng, so the two calls below only agree
+        # bit-for-bit if that rng is in the SAME state before each -- without
+        # reseeding here, the second call inherits whatever state the first
+        # left it in and draws a DIFFERENT random subspace, converging to the
+        # same null space and the same genuine eigenvalues to ~9 digits but
+        # not to a bitwise match (measured: this is exactly what failed here
+        # first, and it is the algorithm's ordinary non-uniqueness on a
+        # repeated eigenvalue, not a `gram_eltype` bug).
+        Random.seed!(4243)
         r1 = Dleto.solve(Dleto.GramSolver(), L; nv = 8)
+        Random.seed!(4243)
         r2 = Dleto.solve(Dleto.GramSolver(gram_eltype = nothing), L; nv = 8)
         @test r1.vals == r2.vals
         @test r1.vecs == r2.vecs
