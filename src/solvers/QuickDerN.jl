@@ -861,6 +861,28 @@ _qdn_upload(G::AbstractArray, A::AbstractMatrix) =
     G isa Array ? A : to_gpu(A)
 
 """
+    _qdn_safe_norm(G) -> Real
+
+`norm(G)` of the WHOLE tensor, without the two failure modes a naive one has
+at the ends of this file's type range.
+
+On the HOST, `G` may be a Float16 tensor that was never promoted (see the
+mixed `_qdn_ttm` above): a plain sum of squares in Float16 risks overflow on
+a tensor of any real size, which promoting used to avoid for free, so this
+accumulates in Float64 instead -- one pass, no extra array, same cost `norm`
+would have paid anyway.
+
+On the DEVICE, `G` is always `Tc` already (`derTrOpsReduced` keeps a
+`device = :gpu` run pre-promoted), so there is no Float16-overflow case to
+guard -- and Apple GPUs have no Float64 AT ALL, so accumulating in Float64
+there is not merely unnecessary but a hard error (`MtlArray{Float64}` throws
+"Metal does not support Float64 values").  Plain `norm` is exactly right on
+that path.
+"""
+_qdn_safe_norm(G::AbstractArray) = norm(G)
+_qdn_safe_norm(G::Array) = sqrt(sum(x -> Float64(x)^2, G))
+
+"""
     _qdn_unfold(G, a) -> Matrix
 
 The mode-`a` unfolding of `G`: a `size(G,a) x prod(other dims)` matrix whose
@@ -1417,10 +1439,7 @@ function _qdn_trivial_ders(G::AbstractArray{Ts,N}, wh::Dict{Int, _QDNWhite{Tc}},
     out = Vector{Vector{Matrix{Tc}}}()
     QDN_TRIVIAL_FACTORED[] = NamedTuple[]
     any(a -> wh[a].rank < dims[a], eaxes) || return out
-    # Float64-accumulated, not `norm(G)` in `G`'s own type: `G` may be a
-    # Float16 host tensor here, and a naive sum of squares in Float16 risks
-    # overflow on a tensor of any real size.
-    gnorm = sqrt(sum(x -> Float64(x)^2, G))
+    gnorm = _qdn_safe_norm(G)
     bound = real(Tc)(atol) * max(gnorm, eps(real(Tc)))
     factored = NamedTuple[]
     for a in eaxes
@@ -2180,12 +2199,7 @@ function _qdn_verify(G::AbstractArray{Ts,N}, P::Matrix{Tc}, engaged::Vector{Bool
     (method.verify === :none || isempty(mats)) && return nothing
     dims = collect(size(G))
     m = size(P, 1)
-    # `norm(G)` in G's OWN type (Ts) is what host-Float16 storage would use if
-    # G were not promoted -- and a naive sum-of-squares in Float16 risks
-    # overflow on a tensor of any size, which promoting the whole tensor used
-    # to sidestep for free.  A single Float64-accumulated pass over G costs the
-    # same one read `norm` would anyway and needs no extra array.
-    gnorm = sqrt(sum(x -> Float64(x)^2, G))
+    gnorm = _qdn_safe_norm(G)
     RT = real(Tc)
     up = method.device === :gpu ? to_gpu : identity
 

@@ -120,53 +120,110 @@ function ml_row(label::AbstractString, T::Type, tensor_bytes::Real, build)
     return row
 end
 
-function mlmain()
-    rows = NamedTuple[]
+const ML_STAGE_ORDER = [:upload, :sketch, :whiten, :restricted, :solve, :lift, :filter,
+                        :verify, :restrict_ops]
+const ML_HEADER = vcat(["label", "T", "tensor_GB", "base_GB", "peak_GB", "delta_GB",
+                        "ratio", "seconds", "nullity", "certified", "status"],
+                       [string(s, "_alloc_GB") for s in ML_STAGE_ORDER])
+const ML_CASES = [
+    ("video-320x240x10", () -> (320, 240, 10)),
+    ("video-320x240x30", () -> (320, 240, 30)),
+    # NOT one of the two sizes the task specifies -- added because at
+    # 320x240x{10,30}x3 the tensor (4-52 MB) is far smaller than the ~1-2 GB
+    # Julia/BLAS/ARPACK process floor, so `Sys.maxrss()`'s page-granularity
+    # delta is dominated by that floor, not by the tensor (see the README).
+    # 640x480x90x3 Float32 is 331 MB, large enough to show against the same
+    # floor, and it is the exact shape docs/CONTEXT.md already measured, so
+    # its Float32 row here is a cross-check, not a new claim.
+    ("video-640x480x90", () -> (640, 480, 90)),
+]
 
-    # 640x480x90x3 is NOT one of the two sizes the task specifies -- it is
-    # added because at 320x240x{10,30}x3 the tensor (4-52 MB) is far smaller
-    # than the ~1-2 GB Julia/BLAS/ARPACK process floor, so `Sys.maxrss()`'s
-    # page-granularity delta is pure noise there (see the README: the ratio
-    # column at the small sizes does not move in the expected direction).
-    # 640x480x90x3 Float32 is 331 MB, large enough that a removed 331 MB
-    # promotion copy is visible over that same floor, and it is the exact
-    # shape session 4 already measured (`docs/CONTEXT.md`, "the lean sphere
-    # build"), so its Float32 numbers here are a cross-check against that
-    # entry, not a new claim.
-    for (H, W, F) in ((320, 240, 10), (320, 240, 30), (640, 480, 90))
+_ml_row_line(row) = join(vcat([row.label, row.T, row.tensor_GB, row.base_GB,
+                               row.peak_GB, row.delta_GB, row.ratio, row.seconds,
+                               row.nullity, row.certified, row.status],
+                              [haskey(row.stage_bytes, s) ? row.stage_bytes[s][1] * ML_GB : 0.0
+                               for s in ML_STAGE_ORDER]), ",")
+
+"""
+    ml_append(csv, row)
+
+Append one row to the CSV, writing the header first if the file is new.
+Used by the `--case` CLI form, where EACH row is its own fresh process (see
+the file header): appending, not rewriting, is what lets a bash loop of
+separate `bench/jl` invocations build up one ledger.
+"""
+function ml_append(csv::AbstractString, row)
+    isnew = !isfile(csv)
+    open(csv, "a") do io
+        isnew && println(io, join(ML_HEADER, ","))
+        println(io, _ml_row_line(row))
+    end
+end
+
+"""
+    mlmain(args)
+
+`args` empty: run every case in ONE process (loops all shapes x eltypes) and
+OVERWRITE the CSV.  Convenient for a quick look, but `Sys.maxrss()` is a
+process HIGH-WATER MARK that Julia rarely returns to the OS, so once a later
+case's peak is not larger than an earlier one's, `delta_GB` reads zero even
+though that case allocated plenty -- measured directly: running the sizes in
+one process shows exactly this (bench/reports/2026-09-08/memory/README.md,
+"why every row is its own process").
+
+`args = ["sphere", d, T]` or `["video", label, T]` (label from `ML_CASES`,
+e.g. `video-640x480x90`): run exactly ONE case and APPEND it to the CSV --
+each invocation is its OWN `bench/jl` process, so `Sys.maxrss()` is that
+process's alone and the confound above does not apply.  This is the form the
+reproduce commands in the README actually use.
+"""
+function mlmain(args)
+    outdir = joinpath(@__DIR__, "reports", "2026-09-08", "memory")
+    mkpath(outdir)
+    csv = joinpath(outdir, "ledger.csv")
+
+    if !isempty(args) && args[1] == "sphere"
+        d = parse(Int, args[2])
+        T = args[3] == "Float64" ? Float64 : args[3] == "Float32" ? Float32 : Float16
+        tb = float(d)^3 * sizeof(T)
+        row = ml_row("sphere d=$d valence=3", T, tb, () -> ml_sphere(d, T))
+        ml_append(csv, row)
+        println("appended -> ", csv)
+        return [row]
+    elseif !isempty(args) && args[1] == "video"
+        label = args[2]
+        (H, W, F) = only(f() for (l, f) in ML_CASES if l == label)
+        T = args[3] == "Float64" ? Float64 : args[3] == "Float32" ? Float32 : Float16
+        tb = float(H) * W * F * 3 * sizeof(T)
+        row = ml_row("video $(H)x$(W)x$(F)x3", T, tb, () -> ml_video(H, W, F, T))
+        ml_append(csv, row)
+        println("appended -> ", csv)
+        return [row]
+    end
+
+    rows = NamedTuple[]
+    for (label, shape) in ML_CASES
+        (H, W, F) = shape()
         for T in (Float64, Float32, Float16)
             tb = float(H) * W * F * 3 * sizeof(T)
             push!(rows, ml_row("video $(H)x$(W)x$(F)x3", T, tb,
                                 () -> ml_video(H, W, F, T)))
         end
     end
-
     for d in (100, 150)
         for T in (Float64, Float32, Float16)
             tb = float(d)^3 * sizeof(T)
             push!(rows, ml_row("sphere d=$d valence=3", T, tb, () -> ml_sphere(d, T)))
         end
     end
-
-    outdir = joinpath(@__DIR__, "reports", "2026-09-08", "memory")
-    mkpath(outdir)
-    stage_order = [:upload, :sketch, :whiten, :restricted, :solve, :lift, :filter,
-                   :verify, :restrict_ops]
-    csv = joinpath(outdir, "ledger.csv")
     open(csv, "w") do io
-        println(io, join(vcat(["label", "T", "tensor_GB", "base_GB", "peak_GB", "delta_GB",
-                                "ratio", "seconds", "nullity", "certified", "status"],
-                               [string(s, "_alloc_GB") for s in stage_order]), ","))
+        println(io, join(ML_HEADER, ","))
         for row in rows
-            sb = row.stage_bytes
-            stagevals = [haskey(sb, s) ? sb[s][1] * ML_GB : 0.0 for s in stage_order]
-            println(io, join(vcat([row.label, row.T, row.tensor_GB, row.base_GB,
-                                    row.peak_GB, row.delta_GB, row.ratio, row.seconds,
-                                    row.nullity, row.certified, row.status], stagevals), ","))
+            println(io, _ml_row_line(row))
         end
     end
-    println("wrote ", csv)
+    println("wrote ", csv, " (one process, see the docstring for the caveat)")
     return rows
 end
 
-abspath(PROGRAM_FILE) == (@__FILE__) && mlmain()
+abspath(PROGRAM_FILE) == (@__FILE__) && mlmain(ARGS)

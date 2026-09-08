@@ -380,10 +380,11 @@ function der_residual(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatri
     Tc = isempty(Ms) ? Ts : eltype(Ms[1])
     RT = real(Tc)
     sq = der_residual_squares(G, Ms, P; block_bytes = block_bytes)
-    # Float64-accumulated `norm`, not `norm(G)` in `G`'s own type: a naive sum
-    # of squares in Float16 risks overflow on a tensor of any real size, which
-    # promoting the whole tensor to Float32 first used to avoid for free.
-    gnorm = sqrt(sum(x -> Float64(x)^2, G))
+    # `_qdn_safe_norm` (QuickDerN.jl): Float64-accumulated on the HOST, where
+    # `G` may be an unpromoted Float16 tensor and a naive sum of squares risks
+    # overflow; plain `norm` on a device array, where `G` is always `Tc`
+    # already and Metal has no Float64 to accumulate in even if it were safe.
+    gnorm = _qdn_safe_norm(G)
     scale = gnorm * maximum(a -> norm(Ms[a]), 1:N)
     return sqrt(sum(sq)) / max(scale, eps(RT))
 end
