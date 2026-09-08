@@ -230,12 +230,13 @@ the slow d = 140 rows.  `existing_keys` is still checked first, so a partition
 that is re-run after an interruption skips whatever another partition (or an
 earlier attempt) already wrote.
 """
-function run_full!(; part::Integer = 0, nparts::Integer = 1)
+function run_full!(; part::Integer = 0, nparts::Integer = 1,
+                   types = TYPES, configs = CONFIGS)
     csv_header!()
     seen = existing_keys()
-    n = length(CASES) * length(TYPES) * length(SEEDS) * length(CONFIGS)
+    n = length(CASES) * length(types) * length(SEEDS) * length(configs)
     i = 0
-    for case in CASES, T in TYPES, seed in SEEDS, cfg in CONFIGS
+    for case in CASES, T in types, seed in SEEDS, cfg in configs
         i += 1
         (i - 1) % nparts == part || continue
         key = (case.name, string(T), string(seed), cfg.tag)
@@ -309,6 +310,17 @@ function main(args)
         else
             run_full!()
         end
+    elseif task == "full-subset"
+        # bench/jl bench/AccuracyGrid.jl full-subset <types_csv> <configs_csv>
+        # e.g. full-subset Float64,Float32 mf-arpack  -- for a bounded re-run
+        # against a subset of the grid (used to re-verify a fix without
+        # paying for the whole 432-cell sweep again; see
+        # bench/reports/2026-09-08/accuracy/README.md).
+        length(args) >= 3 || error("full-subset needs <types_csv> <configs_csv>")
+        types = Type[t == "Float64" ? Float64 : t == "Float32" ? Float32 : Float16
+                     for t in split(args[2], ',')]
+        configs = [config_by_tag(c) for c in split(args[3], ',')]
+        run_full!(types = types, configs = configs)
     elseif task == "cell"
         length(args) >= 5 || error("cell needs <case> <T> <seed> <config>")
         run_one(args[2], args[3], args[4], args[5])
