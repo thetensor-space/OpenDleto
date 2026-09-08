@@ -1,0 +1,28 @@
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+case,label,ncv,tol,restricted_rows,restricted_cols,nv,applies,seconds,converged,nconv,niter,below_1e-6,oracle_nullity
+video10,"video-160x120x10x3",0,1.0e-10,3300,3069,7,2790,0.258804,true,16,40,0,3
+video10,"video-160x120x10x3",0,1.0e-6,3300,3069,7,2790,0.217661,true,16,40,0,3
+video10,"video-160x120x10x3",0,1.0e-14,3300,3069,7,2790,0.21854,true,16,40,0,3
+video10,"video-160x120x10x3",128,1.0e-10,3300,3069,7,2814,0.26192,true,16,13,0,3
+video10,"video-160x120x10x3",256,1.0e-10,3300,3069,7,3292,0.354178,true,16,7,0,3
+video30,"video-160x120x30x3",0,1.0e-10,3900,3589,7,3154,0.290792,true,16,46,0,3
+video30,"video-160x120x30x3",0,1.0e-6,3900,3589,7,3154,0.284892,true,16,46,0,3
+video30,"video-160x120x30x3",0,1.0e-14,3900,3589,7,3154,0.28373,true,16,46,0,3
+video30,"video-160x120x30x3",128,1.0e-10,3900,3589,7,3220,0.34759,true,16,15,0,3
+video30,"video-160x120x30x3",256,1.0e-10,3900,3589,7,3744,0.448731,true,16,8,0,3
+video60,"video-160x120x60x3",0,1.0e-10,4620,4169,7,3070,0.341233,true,16,45,0,3
+video60,"video-160x120x60x3",0,1.0e-6,4620,4169,7,3070,0.33379,true,16,45,0,3
+video60,"video-160x120x60x3",0,1.0e-14,4620,4169,7,3070,0.334319,true,16,45,0,3
+video60,"video-160x120x60x3",128,1.0e-10,4620,4169,7,3014,0.36416,true,16,14,0,3
+video60,"video-160x120x60x3",256,1.0e-10,4620,4169,7,3748,0.509534,true,16,8,0,3
+sphere100,"sphere-v3-d100",0,1.0e-10,6859,5700,17,13180,2.53981,true,17,66,13,3
+sphere100,"sphere-v3-d100",0,1.0e-6,6859,5700,17,5544,1.03996,true,17,25,5,3
+sphere100,"sphere-v3-d100",0,1.0e-14,6859,5700,17,13724,2.53205,true,17,68,13,3
+sphere100,"sphere-v3-d100",128,1.0e-10,6859,5700,17,13080,2.42622,true,17,72,13,3
+sphere100,"sphere-v3-d100",256,1.0e-10,6859,5700,17,19634,4.27214,true,17,44,11,3
+sphere150,"sphere-v3-d150",0,1.0e-10,12167,10350,17,8188,2.44182,true,17,37,7,3
+sphere150,"sphere-v3-d150",0,1.0e-6,12167,10350,17,6652,1.96058,true,17,30,6,3
+sphere150,"sphere-v3-d150",0,1.0e-14,12167,10350,17,13912,4.1179,true,17,68,13,3
+sphere150,"sphere-v3-d150",128,1.0e-10,12167,10350,17,8028,2.33891,true,17,39,7,3
+sphere150,"sphere-v3-d150",256,1.0e-10,12167,10350,17,25492,9.16519,true,17,58,13,3

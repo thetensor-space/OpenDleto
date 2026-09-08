@@ -299,15 +299,37 @@ stays behind, and why:
 
 The device path is Float32-only (Apple GPUs have no Float64) and requires
 `gpu_available()`; both are checked with a clear error.
+
+`gram_eltype` -- CPU only, and `nothing` (the default, unchanged behaviour) --
+runs stage 1 (the Gram, its Cholesky, the subspace iteration) in a NARROWER
+type than `M`'s own, e.g. `GramSolver(gram_eltype = Float32)` on a Float64
+restricted matrix.  This is Native-Core-Plan.md's Phase 2 candidate (b): the
+Gram is `n x n` in HALF the bytes and the Cholesky is proportionally cheaper,
+which is the whole reason `QDN_DENSE_BUDGET_BYTES` cannot simply be raised
+today -- the Gram plus its factor have to fit alongside the matrix.  Stage 2
+still measures the ORIGINAL, full-precision `M` (never `gram_eltype.(M)`): the
+Ritz step is `svd(M · X)` with `X` promoted back to `M`'s own type, so a
+Float32 stage 1 only has to produce a subspace CONTAINING the null space
+(oversampling already covers exactly this uncertainty) and every reported `σ`
+still carries `M`'s own precision.  Measured on QuickDer's restricted matrix,
+valence 3 (`bench/reports/2026-09-08/restricted-solve/README.md`, "widening
+the dense/Gram route"): whether this actually widens the practical dense
+frontier, and whether the mixed subspace ever misses a direction the Float64
+one finds, are exactly what that report's numbers answer -- this docstring
+states the mechanism, not a verdict about it.
 """
 struct GramSolver <: NullSolver
     device::Symbol
+    gram_eltype::Union{Nothing,Type}
 end
 
-function GramSolver(; device::Symbol = :cpu)
+function GramSolver(; device::Symbol = :cpu, gram_eltype::Union{Nothing,Type} = nothing)
     device in (:cpu, :gpu) ||
         error("GramSolver: device must be :cpu or :gpu, got :$device.")
-    return GramSolver(device)
+    device === :gpu && gram_eltype !== nothing &&
+        error("GramSolver: gram_eltype is CPU only -- the GPU route is already " *
+              "Float32 throughout (GRAM_GPU_FACTOR), so there is nothing to narrow.")
+    return GramSolver(device, gram_eltype)
 end
 
 wants_square(::SVDSolver) = false
@@ -1509,7 +1531,6 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
     m, n = size(Mh)
     k = min(nv, n)
     k <= 0 && return (; vals = real(T)[], vecs = zeros(T, n, 0))
-    RT = real(T)
 
     on_gpu = s.device === :gpu
     if on_gpu
@@ -1520,7 +1541,18 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
             "GramSolver(device = :gpu) is Float32 only (Apple GPUs have no " *
             "Float64), but the matrix is $T.")
     end
-    M = on_gpu ? to_gpu(Mh) : Mh
+    # MIXED PRECISION (candidate (b), Native-Core-Plan.md "Phase 2"): stage 1
+    # (the Gram, its Cholesky, the subspace iteration) runs in `Tg`, which is
+    # narrower than `T` only when `s.gram_eltype` says so (CPU only -- the
+    # constructor refuses it together with `device = :gpu`, where `Tg == T`
+    # already).  Stage 2 always measures the ORIGINAL `Mh`, never `Tg.(Mh)`,
+    # so the reported `σ` keep `T`'s precision regardless of `Tg`; see the
+    # docstring's "Why the second stage is not optional" and its mixed-
+    # precision paragraph.
+    Tg = s.gram_eltype === nothing ? T : s.gram_eltype
+    RTg = real(Tg)
+    Mg = Tg === T ? Mh : Tg.(Mh)
+    M = on_gpu ? to_gpu(Mg) : Mg
     # Which half of stage 1 runs on the device.  `M` (and therefore the Gram
     # and `M·X`) is on the device whenever `device = :gpu`; the FACTORISATION
     # and its triangular solves are a separate decision, because MPS is bad at
@@ -1541,12 +1573,12 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
     # shifted, factored; subspace iteration with its inverse.  The shift scale
     # is the largest diagonal entry -- within a factor n of ‖G‖ and O(n) to
     # read; `opnorm` on a Symmetric takes a generic path that cost minutes at
-    # n = 5700.
+    # n = 5700.  All of stage 1 is in `Tg` (== `T` unless `gram_eltype` narrows it).
     tstage = time()
     Graw = if on_gpu
         M' * M
-    elseif T <: LinearAlgebra.BlasFloat
-        BLAS.syrk('U', 'T', one(T), M)
+    elseif Tg <: LinearAlgebra.BlasFloat
+        BLAS.syrk('U', 'T', one(Tg), M)
     else
         M' * M
     end
@@ -1559,13 +1591,13 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
     dv = view(Gm, diagind(Gm))
     # The `to_cpu` above, or this `maximum`'s scalar read, is the
     # synchronisation point that makes the Gram's time its own.
-    scale_g = max(maximum(abs, dv), eps(RT))
+    scale_g = max(maximum(abs, dv), eps(RTg))
     tstage = _qdn_stage!(:gram, tstage)
-    shift = _gram_shift_rel(RT) * scale_g
-    applied = zero(RT)
+    shift = _gram_shift_rel(RTg) * scale_g
+    applied = zero(RTg)
     C = nothing
     for attempt in 1:GRAM_SHIFT_TRIES
-        dv .+= T(shift - applied)
+        dv .+= Tg(shift - applied)
         applied = shift
         # `cholesky(::Symmetric)` copies its argument on both devices, so Gm
         # survives for the next attempt.  `check = false` because a failure
@@ -1575,21 +1607,22 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
             C = F
             break
         end
-        attempt < GRAM_SHIFT_TRIES && (shift *= RT(GRAM_SHIFT_ESCALATE))
+        attempt < GRAM_SHIFT_TRIES && (shift *= RTg(GRAM_SHIFT_ESCALATE))
     end
     C === nothing && error(
         "GramSolver: the Gram matrix would not factor even with a shift of " *
         "$(applied / scale_g) times its largest diagonal entry ($(GRAM_SHIFT_TRIES) " *
-        "attempts from $(_gram_shift_rel(RT))). The matrix is $(m)x$(n) in $T; " *
-        "in Float32 the Gram's own roundoff is n*eps and a system this large may " *
-        "simply need Float64 -- use :SVDSolver, or the CPU Float64 path.")
+        "attempts from $(_gram_shift_rel(RTg))). The matrix is $(m)x$(n) in $Tg " *
+        "(gram_eltype); in Float32 the Gram's own roundoff is n*eps and a system " *
+        "this large may simply need Float64 -- use gram_eltype = nothing, " *
+        ":SVDSolver, or the CPU Float64 path.")
 
     # `qr` is the one piece of the iteration with no Metal kernel, so the
     # re-orthonormalization happens on the host on `n x (k+p)` -- under a
     # megabyte per step, against an `m·n²` Gram.
     tstage = _qdn_stage!(:cholesky, tstage)
 
-    Xh = T.(randn(RT, n, kp))
+    Xh = Tg.(randn(RTg, n, kp))
     X = fac_gpu ? to_gpu(Xh) : Xh
     for _ in 1:steps
         X = C \ X
@@ -1597,24 +1630,29 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
         all(isfinite, Xh) || error(
             "GramSolver: the subspace iteration overflowed -- the Cholesky of " *
             "the shifted Gram factored but is numerically useless. The matrix " *
-            "is $(m)x$(n) in $T with a shift of $(applied / scale_g) times the " *
-            "largest diagonal entry; try :SVDSolver, or Float64.")
+            "is $(m)x$(n) in $Tg (gram_eltype) with a shift of $(applied / scale_g) " *
+            "times the largest diagonal entry; try gram_eltype = nothing, " *
+            ":SVDSolver, or Float64.")
         Xh = Matrix(qr(Xh).Q)[:, 1:kp]
         X = fac_gpu ? to_gpu(Xh) : Xh
     end
 
-    # Stage 2: Rayleigh--Ritz on M itself.  `svd(M X)` has the singular
-    # values of M on span(X); rotating X by V makes each column a Ritz vector
-    # with its own σ.  Ascending, so the null space leads -- and with
-    # oversampling, TRUNCATED to the k smallest, which is where every exact
-    # null direction is.  `M*X` is a device GEMM; the `m x (k+p)` svd is not
-    # (no Metal kernel) and does not matter.
+    # Stage 2: Rayleigh--Ritz on the ORIGINAL `Mh`, in `T`, never on `Tg.(Mh)`
+    # -- `svd(M X)` has the singular values of `Mh` on span(X); rotating X by
+    # V makes each column a Ritz vector with its own σ.  Ascending, so the
+    # null space leads -- and with oversampling, TRUNCATED to the k smallest,
+    # which is where every exact null direction is.  `Xf` promotes the
+    # (possibly `Tg`-precision) subspace basis to `T` once, here, so the
+    # returned `vecs` always carry `T`'s type regardless of `gram_eltype`.
+    # `M*X` is a device GEMM; the `m x (k+p)` svd is not (no Metal kernel) and
+    # does not matter.
     tstage = _qdn_stage!(:subspace, tstage)
-    MX = on_gpu ? M * (fac_gpu ? X : to_gpu(Xh)) : M * X
+    Xf = Tg === T ? Xh : T.(Xh)
+    MX = on_gpu ? M * (fac_gpu ? X : to_gpu(Xh)) : Mh * Xf
     F = svd(_gram_host(MX))
     ord = sortperm(F.S)[1:k]
     vals = F.S[ord]
-    vecs = Xh * F.V[:, ord]
+    vecs = on_gpu ? Xh * F.V[:, ord] : Xf * F.V[:, ord]
     tstage = _qdn_stage!(:ritz, tstage)
     return (; vals, vecs)
 end

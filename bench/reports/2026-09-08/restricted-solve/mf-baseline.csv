@@ -1,0 +1,10 @@
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+case,label,dims,valence,eltype,forced_mf,solver,restricted_rows,restricted_cols,applies,seconds,solve_seconds,sketch_seconds,whiten_seconds,lift_seconds,maxrss_GB,nullity,oracle_nullity,residual,certified,solver_status,nv_requests,status
+video10,"video-160x120x10x3","[160, 120, 10, 3]",4,Float32,1,ArpackSolver,3300,3069,7392,1.51294,1.46689,0.000637054,0.00383401,0.0152299,1.13235,3,3,2.03098e-05,true,ok,"[16, 32]","ok"
+video30,"video-160x120x30x3","[160, 120, 30, 3]",4,Float32,1,ArpackSolver,3900,3589,8002,1.02092,0.96648,0.00185513,0.00245094,0.012444,1.26105,3,3,1.00612e-05,true,ok,"[16, 32]","ok"
+video10,"video-160x120x10x3","[160, 120, 10, 3]",4,Float32,1,ArpackSolver,3300,3069,7392,0.772754,0.749379,0.00057888,0.00220513,0.00693583,1.20734,3,3,2.03098e-05,true,ok,"[16, 32]","ok"
+video30,"video-160x120x30x3","[160, 120, 30, 3]",4,Float32,1,ArpackSolver,3900,3589,8002,0.995619,0.943531,0.00109696,0.00234008,0.012032,1.24107,3,3,1.00612e-05,true,ok,"[16, 32]","ok"
+video60,"video-160x120x60x3","[160, 120, 60, 3]",4,Float32,1,ArpackSolver,4620,4169,7992,1.15237,1.05613,0.00232506,0.00266194,0.0193992,1.3477,3,3,1.22161e-05,true,ok,"[16, 32]","ok"
+sphere100,"sphere-v3-d100","[100, 100, 100]",3,Float64,1,ArpackSolver,6859,5700,36572,9.52742,9.43966,0.00206089,0.00299501,0.0309711,1.93596,3,3,2.34844e-11,true,ok,"[16, 32, 64]","ok"
+sphere150,"sphere-v3-d150","[150, 150, 150]",3,Float64,1,ArpackSolver,12167,10350,30138,10.7367,10.4405,0.0069921,0.00637388,0.0899,3.54097,3,3,2.23503e-13,true,ok,"[16, 32]","ok"

@@ -1,0 +1,4 @@
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+case,label,restricted_rows,restricted_cols,k,applies_rangefinder,seconds_rangefinder,applies_arpack,seconds_arpack,nullity_rangefinder,nullity_arpack,oracle_nullity,principal_angle_cos
+video10,"video-160x120x10x3",3300,3069,7,36863,3.16699,2814,1.41356,3,0,3,1

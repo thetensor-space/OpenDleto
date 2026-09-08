@@ -388,6 +388,15 @@ dimensions, any chisel with at least one engaged axis, and any
   `_qdn_default_free_solver()`, not `AutoSolver`'s own LSMR-first rule.  The
   dense branch picks between `SVDSolver` and `GramSolver` by size and ignores
   this (`QDN_GRAM_MIN_COLS`).
+- `solver_kwargs` extra keyword arguments forwarded to `solve_nullspace` on the
+  MATRIX-FREE branch only (the dense branch ignores it, same as `solver`) --
+  `nv0` (the first request), `min_above`, `gap_ratio`, or solver-specific ones
+  such as ARPACK's `ncv`, `tol`, `maxiter`, `min_request` (see
+  `ext/DletoArpackExt.jl`).  Do not put `tol`, `nd`, `seed`, `progress`,
+  `store_eltype` or `label` in here -- `_qdn_solve_and_lift` already passes
+  those explicitly and a duplicate keyword errors.  Default `NamedTuple()`,
+  which changes nothing (see `bench/RestrictedSolve.jl`, 2026-09-08, for the
+  measurements this knob exists to take).
 - `verify`       `:random` (default) checks the defining equation on `nslices`
   output slices of the largest engaged axis; `:full` checks all of it when
   `prod(dims) <= 2e7`; `:none` skips the check and is for benchmarking only.
@@ -443,12 +452,14 @@ struct QuickDerMethod <: DerivationMethod
     seed::Union{Nothing, Int}
     device::Symbol
     whiten::Bool
+    solver_kwargs::NamedTuple
 end
 
 function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
                         solver::Symbol = :AutoSolver, verify::Symbol = :random,
                         nslices::Integer = 4, seed = nothing,
-                        device::Symbol = :cpu, whiten::Bool = true)
+                        device::Symbol = :cpu, whiten::Bool = true,
+                        solver_kwargs::NamedTuple = NamedTuple())
     restriction in (:random, :corner) ||
         error("QuickDerMethod: restriction must be :random or :corner, got :$restriction.")
     verify in (:random, :full, :none) ||
@@ -456,10 +467,15 @@ function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
     nslices >= 1 || error("QuickDerMethod: nslices must be at least 1, got $nslices.")
     device in (:cpu, :gpu) ||
         error("QuickDerMethod: device must be :cpu or :gpu, got :$device.")
+    reserved = (:tol, :nd, :seed, :progress, :store_eltype, :label)
+    isempty(intersect(keys(solver_kwargs), reserved)) ||
+        error("QuickDerMethod: solver_kwargs may not set $(intersect(keys(solver_kwargs), reserved)) -- " *
+              "_qdn_solve_and_lift passes those explicitly.")
     return QuickDerMethod(restriction,
                           sizes === nothing ? nothing : Int[Int(s) for s in sizes],
                           solver, verify, Int(nslices),
-                          seed === nothing ? nothing : Int(seed), device, whiten)
+                          seed === nothing ? nothing : Int(seed), device, whiten,
+                          solver_kwargs)
 end
 
 # ---------------------------------------------------------------------------
@@ -1720,13 +1736,19 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         solver_used = fsolver isa Symbol ? fsolver : Symbol(nameof(typeof(fsolver)))
         squared = wants_square(fsolver isa Symbol ? SOLVER_REGISTRY[fsolver] : fsolver) &&
                   size(L, 1) != size(L, 2)
+        # `method.solver_kwargs` is forwarded ONLY here -- the matrix-free
+        # branch is the one with a solver worth tuning (ncv, the first
+        # request nv0, min_above, ...); the dense branch picks between
+        # SVDSolver and GramSolver by size and has no such knobs to receive
+        # them.  See the field's docstring for the reserved names.
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = fixed ? Inf : atol,
                                                 nd = _qdn_request(fixed, ndreq, ncols),
                                                 progress = progress,
                                                 seed = method.seed,
                                                 store_eltype = store,
-                                                label = "quickder restricted")
+                                                label = "quickder restricted",
+                                                method.solver_kwargs...)
         tstage = _qdn_stage!(:solve, tstage)
     end
 

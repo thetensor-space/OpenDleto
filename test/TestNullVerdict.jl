@@ -14,6 +14,7 @@ using Dleto
 using Dleto: gap_verdict, NullVerdict, FLOOR_EPS, GAP_RATIO
 using LinearAlgebra
 using LinearMaps
+using Random
 using Test
 
 # `Logging` is not in this package's [extras]/test target, so `Base.CoreLogging`
@@ -297,5 +298,56 @@ Dleto.solve(::StubSilentSolver, L::LinearMaps.LinearMap; nv::Integer = 10, kwarg
         res = solve_nullspace(Ld, :SVDSolver; tol = 1e-6, nv0 = 6)
         @test res.verdict.nullity == 3
         @test res.verdict.status === :ok
+    end
+end
+
+# --- GramSolver(gram_eltype = ...): candidate (b), Native-Core-Plan.md ------
+#
+# "GramSolver in Float32 syrk + Float64 Rayleigh-Ritz" -- stage 1 (the Gram,
+# its Cholesky, the subspace iteration) narrowed to `gram_eltype`, stage 2
+# (Rayleigh-Ritz) always on the ORIGINAL matrix.  `nothing` (the default) must
+# reproduce the unmodified solver exactly; a narrower `gram_eltype` must find
+# the SAME subspace (measured by principal angle, not by matching digits --
+# see bench/reports/2026-09-08/restricted-solve/README.md for why the
+# near-null VALUES differ between the two: a Float32 stage 1 only resolves
+# the subspace to Float32 precision, so its Ritz values bottom out there
+# instead of at Float64 rounding, even though stage 2 measures on the
+# original Float64 matrix).
+@testset "GramSolver(gram_eltype = ...)" begin
+    @testset "gram_eltype = nothing reproduces the unmodified solver" begin
+        Random.seed!(20260908)
+        M = randn(120, 100)
+        M[:, 1:3] .= 0.0                      # an exact 3-dimensional null space
+        L = LinearMaps.LinearMap(M)
+        r1 = Dleto.solve(Dleto.GramSolver(), L; nv = 8)
+        r2 = Dleto.solve(Dleto.GramSolver(gram_eltype = nothing), L; nv = 8)
+        @test r1.vals == r2.vals
+        @test r1.vecs == r2.vecs
+    end
+
+    @testset "gram_eltype = Float32 finds the same subspace as Float64" begin
+        Random.seed!(20260908)
+        M = randn(150, 120)
+        M[:, 1:4] .= 0.0
+        L = LinearMaps.LinearMap(M)
+        r64 = Dleto.solve(Dleto.GramSolver(), L; nv = 8)
+        r32 = Dleto.solve(Dleto.GramSolver(gram_eltype = Float32), L; nv = 8)
+        @test eltype(r32.vecs) === Float64      # stage 2 always returns M's own type
+        # Both must certify the same 4-dimensional null space: compare the
+        # leading 4 columns by principal angle, not by the raw sigma digits
+        # (see the testset docstring above).
+        Q64 = Matrix(qr(r64.vecs[:, 1:4]).Q)
+        Q32 = Matrix(qr(r32.vecs[:, 1:4]).Q)
+        @test minimum(svdvals(Q64' * Q32)) > 1 - 1e-6
+        scale = max(maximum(r64.vals), eps())
+        @test count(v -> v <= 1e-6 * scale, r64.vals) == 4
+        # The mixed route's own near-null cluster sits at Float32 precision,
+        # not Float64's -- a real, measured cost of narrowing stage 1, not a
+        # bug in the test's threshold.
+        @test count(v -> v <= 10 * eps(Float32) * scale, r32.vals) == 4
+    end
+
+    @testset "device = :gpu with gram_eltype set is refused at construction" begin
+        @test_throws ErrorException Dleto.GramSolver(device = :gpu, gram_eltype = Float32)
     end
 end
