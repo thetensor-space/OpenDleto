@@ -64,9 +64,14 @@ function _qs_lin_solve(M, rhs; atol::Float64=TOL_DEFAULT)
         throw(DimensionMismatch("Right-hand side has incompatible dimension."))
 
     F = svd(A; full=true)
-    r = rank(F; atol=atol, rtol=atol)
+    r = rank(F; rtol=atol)
     x = F \ b
-    isapprox(A * x, b; atol=atol, rtol=atol) || return nothing
+    # Consistency is RELATIVE to the data the residual came from.  The
+    # reference's `isapprox(...; atol, rtol)` let any tiny system pass and any
+    # large one fail (a solution is a solution at every scale); see
+    # `_qd_check_solution` in FastDer3Valent.jl for the same fix.
+    _qd_isrelzero(A * x - b, max(norm(A) * norm(x) + norm(b), eps(Float64)); atol=atol) ||
+        return nothing
     N = Matrix(transpose(F.Vt[(r + 1):end, :]))
     return x, N
 end
@@ -123,14 +128,22 @@ end
 function _qs_check_solution(R, S, T, frame; faster_randomized_check::Bool=false, atol::Float64=TOL_DEFAULT)
     isempty(frame) && return true
 
-    ok(X, Y, k) = isapprox(X * R[:, :, k] + S[:, :, k] * Y, T[:, :, k]; atol=atol, rtol=atol)
+    # The residual is measured against the size of the pair and the data, not
+    # against an absolute `atol`: with `T = 0` (every derivation call) the old
+    # `isapprox(lhs, 0; atol, rtol)` reduced to `norm(lhs) <= atol`, so a
+    # tensor scaled by 1e6 was rejected and one scaled by 1e-6 passed anything.
+    # Same rule as `_qd_check_solution`; whole-frame scale, not per slice, so a
+    # slice where every term is roundoff does not fail a relative test.
+    pair_scale(X, Y) = max(norm(X) * norm(R) + norm(S) * norm(Y) + norm(T), eps(Float64))
+    ok(X, Y, k, scale) =
+        _qd_isrelzero(X * R[:, :, k] + S[:, :, k] * Y - T[:, :, k], scale; atol=atol)
 
     if faster_randomized_check
         k = rand(axes(R, 3))
         X, Y = frame[rand(eachindex(frame))]
-        return ok(X, Y, k)
+        return ok(X, Y, k, pair_scale(X, Y))
     end
-    return all(ok(X, Y, k) for (X, Y) in frame for k in axes(R, 3))
+    return all(ok(X, Y, k, pair_scale(X, Y)) for (X, Y) in frame for k in axes(R, 3))
 end
 
 """Transcription of `select_double_restriction_sizes`."""
@@ -242,8 +255,15 @@ function derTrOpsReduced(
     Γ::ITensor;
     tol::Float64=TOL_DEFAULT,
     nd=-1,
-    kwargs...,
+    # The two per-call keywords of the `derTrOpsReduced` contract (see
+    # FastDer3Valent.jl for the reasoning): `progress` accepted and unused,
+    # `return_diagnostics` refused loudly.  No `kwargs...`: any other option
+    # (`backend`, ...) is a `MethodError` at the call, not a silent no-op.
+    progress=false,
+    return_diagnostics::Bool=false,
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
+    return_diagnostics && error(
+        "QuickSylverMethod does not produce a DerivationReport; use :QuickDer or :SylverLining.")
     engaged_axes = _qs_validate(Ω, P, Γ)
     fr = collect(inds(Γ))
     dims = [ITensors.dim(i) for i in fr]
@@ -264,7 +284,8 @@ function derTrOpsReduced(
         R, S, RHS;
         double_restriction_size_override=method.double_restriction_size_override,
         faster_randomized_check=method.faster_randomized_check,
-        atol=tol,
+        # Floored by the precision policy, like the other solve-and-lift routes.
+        atol=_qd_tolerance(Float64, tol),
     )
 
     # A homogeneous system: the frame's offsets from its first point span the

@@ -68,7 +68,15 @@ end
 function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}})
     isempty(Δ) && error("den: need at least one derivation to solve against.")
     fr = collect(frames(Ω))
-    C = Chisel(P, fr)
+    # The element type follows the DATA -- the derivations in `Δ` -- and the
+    # chisel is converted to it, not the other way round: chisels default to
+    # Float64, and letting that promote Float32 operators would make the
+    # densor the one route that silently computes (and answers) in Float64.
+    # (`Vector{Float64}` used to be hard-coded here, and the two maps carried
+    # no eltype, which also defaults to Float64.)
+    T = promote_type(Float32, (eltype(D) for Ds in Δ for D in Ds)...)
+    T = compute_eltype(T)
+    C = Chisel(Matrix{T}(P), fr)
     dims = [ITensors.dim(i) for i in fr]
     N = prod(dims)
     m = size(P, 1)
@@ -77,8 +85,8 @@ function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}}
     Δt = [ __transposeOps(D) for D in Δ ]
 
     function forward(svec)
-        s = ITensor(reshape(collect(svec), dims...), fr...)
-        out = Vector{Float64}(undef, length(Δ) * blk)
+        s = ITensor(reshape(Vector{T}(svec), dims...), fr...)
+        out = Vector{T}(undef, length(Δ) * blk)
         off = 0
         for D in Δ
             R = applyDerivation(s, D, C)
@@ -92,7 +100,7 @@ function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}}
         acc = nothing
         off = 0
         for Dt in Δt
-            R = ITensor(reshape(collect(rvec[off+1:off+blk]), m, dims...), ch_and_fr...)
+            R = ITensor(reshape(Vector{T}(rvec[off+1:off+blk]), m, dims...), ch_and_fr...)
             off += blk
             term = __denAdjointApply(R, Dt, C, fr)
             acc = acc === nothing ? term : acc + term
@@ -100,9 +108,9 @@ function denLM(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}}
         return vec(Array(acc, fr...))
     end
 
-    A = LinearMaps.LinearMap(forward, adjoint, length(Δ) * blk, N; ismutating=false)
-    AtA = LinearMaps.LinearMap(v -> adjoint(forward(v)), v -> adjoint(forward(v)),
-                               N, N; ismutating=false, issymmetric=true, isposdef=false)
+    A = LinearMaps.LinearMap{T}(forward, adjoint, length(Δ) * blk, N; ismutating=false)
+    AtA = LinearMaps.LinearMap{T}(v -> adjoint(forward(v)), v -> adjoint(forward(v)),
+                                  N, N; ismutating=false, issymmetric=true, isposdef=false)
     return (A, AtA, fr, dims)
 end
 
@@ -129,11 +137,17 @@ end
     - `Ω`: transverse operators, supplying the frame.
     - `P`: a linear chisel.
     - `Δ`: a spanning set of operators, as returned by `der`.
-    - `nd`: if positive, return at most this many basis tensors.
+    - `nd`: if positive, return at most this many basis tensors; the default
+      `-1` returns a basis, as `der` does.  (It used to default to 10, which
+      silently truncated the T-set while the Z-set was never truncated.)
     - `tol`: tolerance for the nullspace.
+
+    An EMPTY answer from a solve that did not converge is a failed solve, not
+    an empty densor, and raises -- the same rule QuickDer applies to its
+    restricted solve (see `NullVerdict.status`).
 """
 function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
-             tol::Real=TOL_DEFAULT, nd=10, solver::Symbol=:AutoSolver,
+             tol::Real=TOL_DEFAULT, nd=-1, solver::Symbol=:AutoSolver,
              progress=false) :: Vector{ITensor}
     (A, AtA, fr, dims) = denLM(Ω, P, Δ)
 
@@ -145,9 +159,21 @@ function den(Ω::TransverseOps, P::AbstractMatrix, Δ::Vector{Vector{ITensor}};
     # 14GB at n = 19 -- for a computation whose answer is a handful of vectors
     # and whose operator is a few tensor contractions.  All of that policy now
     # lives in `solve_nullspace`.
-    (vals, vecs) = solve_nullspace(A, solver; tol=tol, nd=nd,
-                                   progress=progress, label="den")
-    size(vecs, 2) == 0 && return ITensor[]
+    (vals, vecs, verdict) = solve_nullspace(A, solver; tol=tol, nd=nd,
+                                            store_eltype=real(eltype(A)),
+                                            progress=progress, label="den")
+    if size(vecs, 2) == 0
+        # The verdict's `status` is a separate veto from its `certified`: an
+        # unconverged solve has not computed the spectrum it reports, so its
+        # "nothing below the cut" is not evidence of an empty T-set.
+        verdict.status === :ok || error(
+            "den: the null solve reported :$(verdict.status) and found no densors. " *
+            "Read that as a FAILED solve, not as an empty densor space. Smallest " *
+            "values seen (relative to the operator norm): $(verdict.above). Try " *
+            "`solver = :LSMRSolver` (the projection solver, which never squares " *
+            "the map), `:SVDSolver` if the map is small, or a larger `tol`.")
+        return ITensor[]
+    end
     return [ ITensor(reshape(vecs[:, j], dims...), fr...) for j in 1:size(vecs, 2) ]
 end
 
@@ -171,7 +197,7 @@ den(::DerivationMethod, Ω::TransverseOps, P::AbstractMatrix, D::Vector{ITensor}
     the universal chisel, then for every tensor admitting them.  `Γ` must lie
     in the result, which is the Galois law.
 """
-function den(Γ::ITensor; tol::Real=TOL_DEFAULT, nd=10, solver::Symbol=:AutoSolver,
+function den(Γ::ITensor; tol::Real=TOL_DEFAULT, nd=-1, solver::Symbol=:AutoSolver,
              method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
     ch, fr, Ω = universalSetup(Γ)
     m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
@@ -204,7 +230,7 @@ function stratify(
             D, T = realCanonicalForm(Array(X, inds(X)...))
             ITensor(Matrix(T), inds(X)...)
         end for i in 1:length(der) ]
-    Σ = Γ * Xs
+    Σ = act(Γ, Xs)
 
     # Retag the indexes.  Each X_a carries the pair (a-th frame index, its
     # temporary partner), so contracting it against Γ consumes Γ's index and

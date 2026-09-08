@@ -16,9 +16,11 @@
 #
 # `AutoDerMethod` runs QuickDer whenever the setting allows it and lets
 # SylverLining answer everything else -- including the cases QuickDer itself
-# refuses, because a failed verification is exactly the signal that the tensor
-# is not generic enough for the sketch.  The only policy here is that order;
-# the null-solver policy stays where it belongs, in `solve_nullspace`.
+# DECLINES (`QuickDerDeclined`), because a failed verification is exactly the
+# signal that the tensor is not generic enough for the sketch.  Any other
+# exception out of QuickDer is a bug or a resource limit and propagates.  The
+# only policy here is that order; the null-solver policy stays where it
+# belongs, in `solve_nullspace`.
 #
 
 """
@@ -78,7 +80,12 @@ function derTrOpsReduced(
     # of `:Auto` most wants answered, and the reason the report never says
     # `:Auto`.
     return_diagnostics::Bool = false,
-    kwargs...,
+    # Per-call keywords are split BY DESTINATION, not forwarded as one splat:
+    # `backend` is SylverLining's kernel choice and goes only to the fallback
+    # (QuickDer has no such keyword; its options live on `QuickDerMethod`).
+    # There is no `kwargs...` sink -- an option neither route implements is a
+    # `MethodError` here rather than a silent no-op on whichever route answered.
+    backend::Symbol = method.fallback.backend,
 )
     # No return-type annotation: see the note on the QuickDer method.  The
     # three-tuple is unchanged when `return_diagnostics` is false.
@@ -86,17 +93,24 @@ function derTrOpsReduced(
         try
             return derTrOpsReduced(method.quick, Ω, P, Γ; tol = tol, nd = nd,
                                    progress = progress,
-                                   return_diagnostics = return_diagnostics, kwargs...)
+                                   return_diagnostics = return_diagnostics)
         catch err
-            # QuickDer errors deliberately when its lift is infeasible or the
-            # Z-law check fails: the tensor is not generic at these sizes.
-            # That is information, not a crash -- SylverLining handles it.
-            err isa InterruptException && rethrow()
-            @info "AutoDer: QuickDer declined ($(first(split(sprint(showerror, err), '\n')))); " *
-                  "falling back to SylverLining."
+            # QuickDer DECLINES deliberately -- `QuickDerDeclined` -- when its
+            # restricted solve found nothing without converging, its lift is
+            # infeasible or the Z-law check fails: the tensor is not generic at
+            # these sizes.  That is information, not a crash, and SylverLining
+            # handles it.  Anything else is a bug or a resource limit
+            # (`MethodError`, `OutOfMemoryError` on d^n, ...) and is rethrown:
+            # the fallback's operator is n·d^{n+1}, strictly larger, so
+            # swallowing an OOM here would retry with more memory, not less.
+            err isa QuickDerDeclined || rethrow()
+            # `@warn`, not `@info`: the fallback is exact but 65-150x slower at
+            # this size, which a caller timing a loop of blocks wants to see.
+            @warn "AutoDer: QuickDer declined; falling back to SylverLining " *
+                  "(exact, and far slower at this size)." reason = err.msg
         end
     end
     return derTrOpsReduced(method.fallback, Ω, P, Γ; tol = tol, nd = nd,
-                           progress = progress,
-                           return_diagnostics = return_diagnostics, kwargs...)
+                           progress = progress, backend = backend,
+                           return_diagnostics = return_diagnostics)
 end

@@ -47,6 +47,25 @@ end
         end
     end
 
+    @testset "only a QuickDerDeclined is caught; other errors propagate" begin
+        # `device = :gpu` on a Float64 tensor is a plain `error` from QuickDer's
+        # device check (no backend, or a backend that has no Float64): that
+        # describes the CALL, not the tensor, and :Auto must not answer a
+        # different question on the CPU behind the caller's back.
+        big = ITensor(randn(10, 10, 10, 10), [Index(10, "c$i") for i in 1:4]...)
+        Ωg = IndTransverseOps(collect(inds(big)), UniversalOp())
+        Pg = UniversalChisel(4)
+        gpu = get_derivation_method(:Auto; device = :gpu)
+        @test Dleto.autoder_applicable(gpu, Ωg, Pg, big)
+        err = try
+            derTrOpsReduced(gpu, Ωg, Pg, big; tol = 1e-8); nothing
+        catch e
+            e
+        end
+        @test err isa ErrorException
+        @test !(err isa QuickDerDeclined)
+    end
+
     @testset "stratify defaults to :Auto and recovers the valence-4 sphere" begin
         include(joinpath(@__DIR__, "..", "bench", "SphereHarness.jl"))
         inp = build_sphere(12; valence = 4)

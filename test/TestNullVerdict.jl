@@ -141,11 +141,11 @@ end
             D = Diagonal(T.(top .* relvals))
             L = LinearMaps.LinearMap(D; issymmetric = true)
 
-            (vals, vecs) = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6)
+            (vals, vecs) = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = eltype(L))
             @test length(vals) == 3
             @test size(vecs) == (6, 3)
 
-            full = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6)
+            full = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = eltype(L))
             @test full.verdict isa NullVerdict
             @test full.verdict.nullity == 3
             @test full.verdict.rule == :gap
@@ -167,7 +167,7 @@ end
 
         local res
         logs = Test.collect_test_logs() do
-            res = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6)
+            res = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = Float32)
         end |> first
         @test res.verdict.nullity == 4
         @test res.verdict.floor_binding
@@ -189,7 +189,7 @@ end
         relvals = Float32[0, 0, 0, 3f-6, 1f-2, 1]
         D = Diagonal(Float32.(5.0f0 .* relvals))
         L = LinearMaps.LinearMap(D; issymmetric = true)
-        res = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6)
+        res = solve_nullspace(L, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = Float32)
         @test 3f-6 > FLOOR_EPS * eps(Float32)      # the premise
         @test res.verdict.nullity == 3
         # And it is still visible to the caller, as the first value above the
@@ -205,9 +205,39 @@ end
         # A near-derivation FAR above the floor is both kept out and certified.
         far = Float32[0, 0, 0, 1f-3, 1f-1, 1]
         Lf = LinearMaps.LinearMap(Diagonal(Float32.(5.0f0 .* far)); issymmetric = true)
-        resf = solve_nullspace(Lf, :SVDSolver; tol = 1e-6, nv0 = 6)
+        resf = solve_nullspace(Lf, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = Float32)
         @test resf.verdict.nullity == 3
         @test resf.verdict.certified
+
+        # A Float32 map without `store_eltype` is refused: Float32 is what
+        # Float16 promotes to, so the arithmetic cannot say what the data was,
+        # and guessing "Float32" is how a Float16 tensor once certified a cut
+        # inside its own rounding.  Float64 has no such ambiguity and defaults.
+        @test promotes_to(Float32)
+        @test !promotes_to(Float64)
+        @test !promotes_to(Float16)
+        @test_throws ErrorException solve_nullspace(Lf, :SVDSolver; tol = 1e-6, nv0 = 6)
+
+        # `AutoSolver`'s matrix-free order drops LOBPCG (:CGSolver) below
+        # Float64 on BOTH shapes; the filter used to apply to square maps only.
+        sq32, rect32 = LinearMaps.LinearMap(rand(Float32, 6, 6)), LinearMaps.LinearMap(rand(Float32, 8, 4))
+        sq64, rect64 = LinearMaps.LinearMap(rand(6, 6)), LinearMaps.LinearMap(rand(8, 4))
+        @test :CGSolver ∉ Dleto.matrix_free_solvers(sq32)
+        @test :CGSolver ∉ Dleto.matrix_free_solvers(rect32)
+        @test :CGSolver ∈ Dleto.matrix_free_solvers(sq64)
+        @test :CGSolver ∈ Dleto.matrix_free_solvers(rect64)
+        # Told the data was Float16, a first value above the cut of 5e-4
+        # relative -- under eps(Float16) = 9.8e-4, but 500x the Float32
+        # precision floor -- is counted as undecidable and withholds the
+        # certificate, while the same map with Float32 storage certifies.
+        near16 = Float32[0, 0, 0, 5f-4, 1f-1, 1]
+        L16 = LinearMaps.LinearMap(Diagonal(near16); issymmetric = true)
+        res32 = solve_nullspace(L16, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = Float32)
+        @test res32.verdict.nullity == 3 && res32.verdict.certified
+        res16 = solve_nullspace(L16, :SVDSolver; tol = 1e-6, nv0 = 6, store_eltype = Float16)
+        @test res16.verdict.nullity == 3
+        @test res16.verdict.undecidable >= 1
+        @test !res16.verdict.certified
     end
 end
 

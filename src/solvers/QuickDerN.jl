@@ -64,6 +64,27 @@ using LinearAlgebra
 using LinearMaps
 using Random
 
+"""
+    QuickDerDeclined <: Exception
+
+QuickDer DECLINED the problem: the restricted null solve did not converge and
+found nothing, the lift was inconsistent at every restriction size tried, or
+the Z-law veto fired on the lifted answer.  A decline is information about the
+tensor at these sizes -- it is not generic enough for the sketch -- not a
+crash.  `AutoDerMethod` catches exactly this type and falls back to
+SylverLining; everything else (`MethodError`, `DimensionMismatch`,
+`OutOfMemoryError`, ...) is a bug or a resource limit and is rethrown, because
+a fallback whose operator is `n·d^{n+1}` must never hide an out-of-memory on
+`d^n`.  Validation errors (a wrong `Ω`, a chisel of the wrong width, a device
+that is not there) are plain `error`s, not declines: they describe the CALL,
+and a fallback would silently answer a different question.
+"""
+struct QuickDerDeclined <: Exception
+    msg::String
+end
+Base.showerror(io::IO, e::QuickDerDeclined) = print(io, "QuickDerDeclined: ", e.msg)
+_qdn_decline(msg::AbstractString) = throw(QuickDerDeclined(String(msg)))
+
 # ---------------------------------------------------------------------------
 # The method
 # ---------------------------------------------------------------------------
@@ -243,22 +264,6 @@ being able to read directly rather than inferring it from wall time.
 """
 const QDN_APPLY_COUNT = Ref(-1)
 
-"""
-    QDN_LAST_SOLVE_STATUS :: Ref{Symbol}
-
-The `status` of the restricted null solve of the LAST `_qdn_solve_and_lift`
-attempt: `:ok`, `:unconverged` or `:capped` (see `NullVerdict`).  Set by the
-kernel, reset per attempt, in the idiom `QDN_APPLY_COUNT` and
-`QDN_TRIVIAL_FACTORED` already use in this file.
-
-It is out of band because `_qdn_solve_and_lift` returns the lifted
-derivations, and the caller only learns that the answer is EMPTY after
-`_fastder_restrict_to_ops` has intersected them with `Ω` -- one step past the
-kernel.  An empty answer from a solve that did not converge is a failure, not
-"Γ conforms to no pattern for this chisel", and `derTrOpsReduced` needs both
-facts in the same place to say so.
-"""
-const QDN_LAST_SOLVE_STATUS = Ref(:ok)
 
 @inline function _qdn_tick!()
     c = QDN_APPLY_COUNT[]
@@ -1571,10 +1576,13 @@ function _qdn_fixed_verdict(v, k::Integer, atol::Real, ::Type{RT},
     # was taken with: "how many of the values above the cut would the fixed
     # threshold still have called null" is a question about `thr`.
     near = max(count(<(thr), v.spectrum) - Int(k), 0)
-    return (NullVerdict(fx.nullity, :fixed, agrees, v.status, fx.gap, v.gap_ratio,
-                        v.floor, fx.floor_binding, v.data_floor, fx.undecidable,
-                        thr, near, fx.below, fx.above, v.spectrum, v.scale,
-                        v.requested),
+    # Keyword copy of `v`: the fields the fixed cut changes, named.  (This
+    # used to be a 17-argument positional rebuild against a struct defined in
+    # another file.)
+    return (NullVerdict(v; nullity = fx.nullity, rule = :fixed, certified = agrees,
+                        gap = fx.gap, floor_binding = fx.floor_binding,
+                        undecidable = fx.undecidable, threshold = thr,
+                        near_null = near, below = fx.below, above = fx.above),
             agrees)
 end
 
@@ -1593,7 +1601,7 @@ caller's cue to retry with a larger `r`.
 `info` is the evidence, for `DerivationReport`: the restricted solve's
 `NullVerdict`, the shape of the restricted system, which null solver ran, and
 the lift residual of every accepted direction.  It is RETURNED rather than
-published through a `Ref` like `QDN_LAST_SOLVE_STATUS` -- this function is
+published through a module-level `Ref` -- this function is
 internal and has one caller, so there is nothing for the out-of-band idiom to
 buy here, and a returned value cannot go stale after an error.  It is filled on
 every exit including the two early ones, because the retry loop wants the
@@ -1730,7 +1738,6 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         tstage = _qdn_stage!(:solve, tstage)
     end
 
-    QDN_LAST_SOLVE_STATUS[] = verdict.status
 
     # ---- the fixed-count policy, if the caller asked for one.  The solve was
     # made without a ceiling and one lookahead deeper than `ndreq`, so the cut
@@ -1783,7 +1790,7 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
     # Z-law check in `_qdn_verify`, which test the answer itself and are a
     # stronger statement than any convergence flag.
     if size(vecs, 2) == 0 && verdict.status !== :ok
-        error("QuickDer: the restricted null solve reported :$(verdict.status) and " *
+        _qdn_decline("QuickDer: the restricted null solve reported :$(verdict.status) and " *
               "found no null directions in the $(_qdn_system_rows(m * R, ncols)) x " *
               "$(ncols) restricted system. That is a FAILED solve, not an empty " *
               "derivation space; smallest values seen (relative to the operator " *
@@ -2064,7 +2071,7 @@ function _qdn_verify(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vector{Bool},
     RT = real(T)
     up = method.device === :gpu ? to_gpu : identity
 
-    fail(res, bound) = error(
+    fail(res, bound) = _qdn_decline(
         "QuickDer: the lifted solution does not satisfy the derivation equation " *
         "(relative residual $(res) against the bound $(bound)). The tensor is not " *
         "generic enough for the restriction sizes r = $(r) on dims $(dims); retry " *
@@ -2153,7 +2160,7 @@ function _qdn_validate(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
 end
 
 """
-    _qdn_empty_result(Ω, T, r, dims)
+    _qdn_empty_result(Ω, T, r, dims, status)
 
 The empty derivation space -- `(Ω, id, zeros(T, globalDim(Ω), 0))` -- UNLESS
 the restricted solve that produced it did not converge, in which case this
@@ -2177,10 +2184,13 @@ three -- silently, and green in the test suite.  With the fallback reporting
 falls back to SylverLining, which is exact.
 """
 function _qdn_empty_result(Ω::TransverseOps, ::Type{T}, r::Vector{Int},
-                           dims::Vector{Int}) where {T}
-    QDN_LAST_SOLVE_STATUS[] === :ok || error(
+                           dims::Vector{Int}, status::Symbol) where {T}
+    # `status` is the restricted solve's, read off the `info` the kernel
+    # returns -- not off a module-level `Ref`, which a concurrent call or an
+    # error between the solve and this line could leave stale.
+    status === :ok || _qdn_decline(
         "QuickDer: the restricted null solve reported " *
-        ":$(QDN_LAST_SOLVE_STATUS[]) and the lifted answer is EMPTY. Read that " *
+        ":$(status) and the lifted answer is EMPTY. Read that " *
         "as a FAILED solve, not as an empty derivation space -- a solver that " *
         "undercounts a restricted null space lifts to derivations that miss Ω " *
         "entirely. Restriction sizes r = $(r) on dims $(dims). Try " *
@@ -2271,7 +2281,10 @@ function derTrOpsReduced(
     nd = -1,
     progress = false,
     return_diagnostics::Bool = false,
-    kwargs...,
+    # No `kwargs...`: every per-call option is named above, and the method's
+    # options (`whiten`, `sizes`, `device`, ...) live on `QuickDerMethod`.  An
+    # unknown keyword is a `MethodError` at the call, not a silent no-op --
+    # `derTrOpsReduced(m, ...; whiten = false)` used to do nothing at all.
 )
     # NO RETURN-TYPE ANNOTATION any more, and the reason is mechanical rather
     # than a loosening of the contract: the return is a 3-tuple or, with
@@ -2302,7 +2315,6 @@ function derTrOpsReduced(
     # the device, and nothing sends `d^n` bytes back.
     _qdn_check_device(method.device, Tc)
     _qdn_stage_reset!()
-    QDN_LAST_SOLVE_STATUS[] = :ok
     tstage = time()
     Gk = method.device === :gpu ? to_gpu(G) : G
     tstage = _qdn_stage!(:upload, tstage)
@@ -2343,7 +2355,7 @@ function derTrOpsReduced(
         bumped == r && break                      # already unrestricted
         r = bumped
     end
-    mats === nothing && error(
+    mats === nothing && _qdn_decline(
         "QuickDer: every restricted solution failed the lift consistency check at " *
         "restriction sizes $(tried) on dims $(dims). Γ is not generic enough for " *
         "this restriction; try `sizes = $(dims)`, `restriction = :random` if it " *
@@ -2367,7 +2379,7 @@ function derTrOpsReduced(
     report(ders) = return_diagnostics ?
         _qdn_report(method, Ω, P, G, ders, info, T, Tc, dims, r, ndreq) : nothing
     if isempty(mats)
-        (rΩ, id_map, ders) = _qdn_empty_result(Ω, T, r, dims)
+        (rΩ, id_map, ders) = _qdn_empty_result(Ω, T, r, dims, info.verdict.status)
         return return_diagnostics ? (rΩ, id_map, ders, report(ders)) :
                                     (rΩ, id_map, ders)
     end
@@ -2395,7 +2407,7 @@ function derTrOpsReduced(
               "carry both numbers." maxlog = 1
     end
     if size(ders, 2) == 0
-        (rΩ, id_map, e) = _qdn_empty_result(Ω, T, r, dims)
+        (rΩ, id_map, e) = _qdn_empty_result(Ω, T, r, dims, info.verdict.status)
         return return_diagnostics ? (rΩ, id_map, e, report(e)) : (rΩ, id_map, e)
     end
     if ndreq > 0 && size(ders, 2) > ndreq

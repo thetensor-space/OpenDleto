@@ -36,6 +36,33 @@ The review found **no defect that produces a wrong certified answer on the defau
 Recommended reading order for the author: §3 (bugs) and §4 (correctness risks) first; they are
 short and each has a one-line fix. §7 is the ordered work list.
 
+### Status, 2026-09-08 (branch `fix-you/beta-bugs-b1-b4`, off the review branch)
+
+All four bugs and all twelve correctness risks below were fixed the same day, at the
+author's direction, with a regression test for each. Test-suite result on the fix branch:
+52 testsets, 14,374 passes, 0 failures, 0 errors (Julia 1.12 via `bench/jl`, Arpack present); the review's baseline was 51 testsets and 14,279 passes.
+
+| Item | Fix applied |
+|---|---|
+| B1 | `coordinates(::EmptyOp)` tests every entry; negative membership tests added. |
+| B2 | QuickSylver's consistency and verification checks are relative to the data's scale (as FastDer's already were); `atol` floored by the precision policy; scale-invariance test at 1e-6…1e6. |
+| B3 | `GramSolver` and `LSMRSolver` take `seed`, declare `wants_seed = true`; reproducibility tests for both. |
+| B4 | The Transpose testset calls `testTranspose`. |
+| C1 | `QuickDerDeclined <: Exception` thrown at the four deliberate decline sites; `:Auto` catches only that, rethrows everything else, logs the fallback at `@warn`. Asserting on that warning exposed that the existing "`:Auto` recovers" test never reached QuickDer (the 12³ sphere is under `AUTODER_MIN_ENTRIES`); it now sets `min_entries = 0`. |
+| C2 | `backend = :metal` sets the compute type to Float32 whatever the tensor's type; verdict and report follow. |
+| C3 | `den` raises on an empty answer from a non-`:ok` solve; `nd` defaults to `-1` (a basis), as for `der`. |
+| C4 | `store_eltype` defaults to the compute type only where no narrower type promotes to it; a Float32 map without it is refused (`promotes_to`, exported). |
+| C5 | `:CGSolver` is dropped below Float64 on both map shapes. |
+| C6 | `kwargs...` removed from the QuickDer, FastDer3Valent and QuickSylver methods; the contract's two per-call keywords (`progress`, `return_diagnostics`) are named on every method, and the two oracles refuse `return_diagnostics = true` with a message instead of returning a 3-tuple; `:Auto` routes `backend` to SylverLining only and has no sink. |
+| C7 | `NullVerdict(v; field = value, …)` keyword copy-constructor in `NullSolvers.jl`; both positional rebuilds use it. |
+| C8 | `QDN_LAST_SOLVE_STATUS` deleted; `_qdn_empty_result` takes the status from the kernel's returned `info`. |
+| C9 | `denLM` is generic in the element type (follows the derivations, chisel converted to match); `den` passes `store_eltype`. |
+| C10 | `ArpackDenseSolver` deleted; small dense maps go to `SVDSolver`. |
+| C11 | The pirated `Base.:*` / `Base.:+` methods are replaced by the named verb `act(Γ, Xs)` (exported); `stratify`, `randomize_tensor`, tensor synthesis and the SphereLab notebook updated; the swapped forms, the scalar chain and the `+` methods had no users and are gone. |
+| C12 | `realCanonicalForm` recognises conjugate pairs by `imag(λ)`, checks LAPACK's pairing, rejects non-real input; regression tests for the nearly defective case, a genuine pair, a mixed spectrum and the symmetric path. |
+
+The remaining sections describe the code as reviewed, before these fixes.
+
 ---
 
 ## 2. The test run

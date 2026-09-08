@@ -53,10 +53,40 @@ Headlines, so the next session does not have to re-derive them:
 * The ordered work list is `docs/beta/REVIEW.md` §10; the roadmap is
   `docs/beta/COMING-FEATURES.md`.
 
-Not done this session: no fixes applied (the deliverable was the review), no merge to `beta`
-(approval gate), nothing pushed.  This CONTEXT file's own structure problems (no TOC, the
-09-04 material in three places, the superseded movie-cost numbers still live above their
-correction) are recorded in the review and left for the next housekeeping pass.
+Not done in the review pass: no merge to `beta` (approval gate), nothing pushed.  This
+CONTEXT file's own structure problems (no TOC, the 09-04 material in three places, the
+superseded movie-cost numbers still live above their correction) are recorded in the review
+and left for the next housekeeping pass.
+
+### Session 5, part 2: the review's bugs and correctness risks, fixed
+
+Branch `fix-you/beta-bugs-b1-b4`, cut from the review branch.  The user asked, item by item,
+for B1-B4 and C1-C12 of `docs/beta/REVIEW.md`; all sixteen landed with a regression test each
+(the status table at the top of REVIEW.md says what was done for each).  Decisions taken on
+the way that the next session should know:
+
+* **`QuickDerDeclined`** is the one exception `:Auto` catches (exported).  Validation errors
+  (wrong `Ω`, chisel width, a device that is not there) stay plain `error`s and propagate:
+  they describe the call, and a fallback would answer a different question.  The fallback is
+  logged at `@warn`, not `@info`.
+* **`store_eltype` is required for Float32 maps** (`promotes_to(Float32)` is true because
+  Float16 promotes to it).  Float64 maps still default.  Every in-tree caller passes it; a
+  bench script with a Float32 map and no `store_eltype` will now error and must say what the
+  data was.
+* **`act(Γ, Xs)`** replaces `Γ * Xs` (type piracy on `ITensor × Vector`).  Γ-first only; the
+  swapped forms, the scalar chain and `ITensor + Array` had no users anywhere and were
+  deleted rather than renamed.  `labs/SphereLab.ipynb` updated (four cells).
+* **`den` defaults to a basis** (`nd = -1`) and raises on an empty answer from an
+  unconverged solve; `denLM` follows the data's element type (chisel converted to it).
+* **`:metal` computes in Float32 whatever it is handed**, and the precision policy now knows
+  (`Tc = Float32` when `backend === :metal`).  Direct `sylvesterLM(...; backend = :metal)`
+  on a Float64 tensor is unchanged.
+* `ArpackDenseSolver` is gone (shift-invert about zero on a singular matrix); small dense
+  maps go to `SVDSolver`.
+* `realCanonicalForm` classifies by `imag(λ)` with a partner check; RISK3 of the September
+  review is closed.
+
+Test-suite result on the fix branch: 52 testsets, 14,374 passes, 0 failures, 0 errors (Julia 1.12 via `bench/jl`, Arpack present); the review's baseline was 51 testsets and 14,279 passes.
 
 ## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
 

@@ -141,17 +141,19 @@ fixes that.
 matrix_free_solvers() =
     filter(s -> haskey(SOLVER_REGISTRY, s),
            [:LSMRSolver, :CGSolver, :ArpackSolver, :KrylovSolver])
-matrix_free_solvers(L) =
-    size(L, 1) == size(L, 2) ?
-        filter(s -> haskey(SOLVER_REGISTRY, s),
-               # LOBPCG (:CGSolver) is excluded below Float64: its Float32
-               # Cholesky of the block Gram matrix fails and the block collapses
-               # to 1-3 vectors, so it cannot hold a null space of dimension 3
-               # whatever its tolerance (precision-study.md, Exp. 2b, 5).
-               real(eltype(L)) === Float64 ?
-                   [:ArpackSolver, :KrylovSolver, :CGSolver, :LSMRSolver] :
-                   [:ArpackSolver, :KrylovSolver, :LSMRSolver]) :
-        matrix_free_solvers()
+function matrix_free_solvers(L)
+    order = size(L, 1) == size(L, 2) ?
+        [:ArpackSolver, :KrylovSolver, :CGSolver, :LSMRSolver] :
+        [:LSMRSolver, :CGSolver, :ArpackSolver, :KrylovSolver]
+    # LOBPCG (:CGSolver) is excluded below Float64 on EITHER shape: its Float32
+    # Cholesky of the block Gram matrix fails and the block collapses to 1-3
+    # vectors, so it cannot hold a null space of dimension 3 whatever its
+    # tolerance (precision-study.md, Exp. 2b, 5).  That is a property of the
+    # solver, not of the map -- the filter used to apply to square maps only,
+    # so a Float32 rectangular map still met LOBPCG second in line.
+    real(eltype(L)) === Float64 || filter!(!=(:CGSolver), order)
+    return filter(s -> haskey(SOLVER_REGISTRY, s), order)
+end
 
 """
     wants_square(::NullSolver) -> Bool
@@ -220,7 +222,9 @@ that a Float32 undercount cannot be attributed to the code that shows it.
 
 `solve_nullspace` therefore forwards its own `seed` only to the solvers whose
 trait says `true`, because most `solve` methods take a fixed keyword list and
-a dense factorization has no random start to fix.  A seeded solver must be
+a dense factorization (`SVDSolver`, `LUSolver`) has no random start to fix.
+`GramSolver` is NOT such a factorization -- its subspace iteration starts from a
+random block -- so it takes the seed too.  A seeded solver must be
 bit-reproducible: same map, same `seed`, same `nv` and `tol` -> same values.
 """
 wants_seed(::NullSolver) = false
@@ -387,7 +391,7 @@ function solve(L, sym::Symbol=:SVDSolver; kwargs...)
         string(available_solvers()) *
         ". Extension solvers need their package loaded first " *
         "(KrylovKit for :KrylovSolver, IterativeSolvers for :LanczosSolver " *
-        "and :CGSolver, Arpack for :ArpackSolver and :ArpackDenseSolver).")
+        "and :CGSolver, Arpack for :ArpackSolver).")
     return solve(SOLVER_REGISTRY[sym], L; kwargs...)
 end
 
@@ -529,6 +533,24 @@ struct NullVerdict
     spectrum::Vector{Float64}
     scale::Float64
     requested::Int
+end
+
+"""
+    NullVerdict(v::NullVerdict; field = value, ...) -> NullVerdict
+
+A copy of `v` with the named fields replaced.  The positional constructor has
+seventeen fields -- five `Float64`s and four `Int`s in a row -- so a positional
+rebuild mis-assigns silently the moment a field is inserted or reordered.
+Every rebuild outside this file's own constructor calls goes through this
+(`_with_status` here, `_qdn_fixed_verdict` in QuickDerN.jl).  An unknown
+field name is an error, not a silent no-op.
+"""
+function NullVerdict(v::NullVerdict; kwargs...)
+    for k in keys(kwargs)
+        k in fieldnames(NullVerdict) ||
+            throw(ArgumentError("NullVerdict has no field `$k`; fields are $(fieldnames(NullVerdict))."))
+    end
+    return NullVerdict((get(kwargs, f, getfield(v, f)) for f in fieldnames(NullVerdict))...)
 end
 
 function Base.show(io::IO, v::NullVerdict)
@@ -695,10 +717,7 @@ withdraws a certificate; a `:ok` stamp cannot restore one that the spectrum or
 the data floor already refused.
 """
 _with_status(v::NullVerdict, status::Symbol) =
-    NullVerdict(v.nullity, v.rule, v.certified && status === :ok, status, v.gap,
-                v.gap_ratio, v.floor,
-                v.floor_binding, v.data_floor, v.undecidable, v.threshold, v.near_null,
-                v.below, v.above, v.spectrum, v.scale, v.requested)
+    NullVerdict(v; status = status, certified = v.certified && status === :ok)
 
 export NullVerdict, gap_verdict
 
@@ -792,9 +811,16 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
                          # `eltype(L)` when a caller promoted it to solve (a
                          # Float16 tensor solved in Float32).  Only the data
                          # floor depends on it; see `Dleto.data_floor`.
-                         store_eltype::Type = real(eltype(L)),
+                         # Defaults to the compute type EXCEPT where that type
+                         # is one a narrower storage type promotes to
+                         # (`promotes_to`, i.e. Float32): there it is required,
+                         # because the compute type is the wrong default in the
+                         # very case the data floor exists for, and the wrong
+                         # answer is silent.  See `_resolve_store_eltype`.
+                         store_eltype::Union{Nothing,Type} = nothing,
                          progress = false, label::AbstractString = "null solve",
                          kwargs...)
+    store_eltype = _resolve_store_eltype(store_eltype, real(eltype(L)), label)
     N = size(L, 2)
     want_all = nd <= 0
     first_request = nv0 === nothing ? initial_request(solver, L) : Int(nv0)
@@ -1050,6 +1076,27 @@ function solve_nullspace(L, solver::Union{Symbol,NullSolver};
     finally
         finish!(tr)
     end
+end
+
+"""
+    _resolve_store_eltype(store_eltype, RT, label) -> Type
+
+The stored element type a `solve_nullspace` call is about.  `store_eltype`
+given: that.  Not given and `RT` is a type nothing promotes to (Float64): `RT`.
+Not given and `RT` is a promotion target (`promotes_to(RT)`, i.e. Float32):
+an error, because the arithmetic cannot say whether the data was Float32 or
+Float16, and defaulting to the compute type is exactly how a Float16 tensor
+once certified a cut inside its own rounding (CONTEXT, session 4 part 4).
+"""
+function _resolve_store_eltype(store_eltype, RT::Type, label::AbstractString)
+    store_eltype === nothing || return store_eltype
+    promotes_to(RT) || return RT
+    error("$label: the map computes in $RT, which is also what a narrower storage " *
+          "type promotes to (`compute_eltype(Float16) === Float32`), so the stored " *
+          "type cannot be read off the arithmetic. Pass `store_eltype = $RT` if the " *
+          "data really is $RT, or the type it was stored in if it was promoted. The " *
+          "data floor -- what keeps a Float16 result from being certified beyond " *
+          "Float16's resolution -- depends on it, and the wrong default is silent.")
 end
 
 function solve_nullspace(L, solver::Symbol = :AutoSolver; kwargs...)
@@ -1502,8 +1549,12 @@ the map once per column, as before.
 _gram_dense(L::LinearMap) = Matrix(L)
 _gram_dense(L::LinearMaps.WrappedMap{<:Any,<:StridedMatrix}) = L.lmap
 
+# The subspace iteration starts from `randn(n, k + p)`; without a seed two calls
+# in one process resolve a multiple eigenvalue differently (see `wants_seed`).
+wants_seed(::GramSolver) = true
+
 function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
-               steps::Integer = 4)
+               steps::Integer = 4, seed = nothing)
     Mh = _gram_dense(L)
     T = eltype(Mh)
     m, n = size(Mh)
@@ -1589,7 +1640,8 @@ function solve(s::GramSolver, L::LinearMap; nv::Integer = 10, tol = nothing,
     # megabyte per step, against an `m·n²` Gram.
     tstage = _qdn_stage!(:cholesky, tstage)
 
-    Xh = T.(randn(RT, n, kp))
+    rng = seed === nothing ? Random.default_rng() : MersenneTwister(seed)
+    Xh = T.(randn(rng, RT, n, kp))
     X = fac_gpu ? to_gpu(Xh) : Xh
     for _ in 1:steps
         X = C \ X

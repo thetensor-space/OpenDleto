@@ -48,7 +48,7 @@ function randomize_tensor(
         outer = __new_index_for_randomization(fr[a])
         mats[a] = ITensor( mat, fr[a], outer )
     end
-    return (;Δ=Γ*mats, Xs=mats)
+    return (;Δ=act(Γ, mats), Xs=mats)
 end
 
 

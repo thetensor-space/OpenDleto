@@ -182,7 +182,7 @@ end
 
 const ROSTER = [:AutoSolver, :SVDSolver, :LUSolver, :LSMRSolver, :KrylovSolver,
                 :LanczosSolver, :CGSolver, :ShiftInvertSolver,
-                :ArpackSolver, :ArpackDenseSolver]
+                :ArpackSolver]
 
 """Silence the solvers' own chatter (`println`s and `@info`) during a run."""
 quietly(f) = with_logger(NullLogger()) do

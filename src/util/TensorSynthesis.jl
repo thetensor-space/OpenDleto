@@ -37,7 +37,7 @@ function __randomize_tensor(Γ::ITensor,f::Function,extratags="randomized")::Nam
     frame = inds(Γ)
     matrices = f(frame)
     X = [ ITensor(Matrix(matrices[a]), frame[a], addtags(frame[a],extratags)) for a in 1:ndims(Γ) ]
-    return (;Γ=(Γ*X), X)
+    return (;Γ=act(Γ, X), X)
 end
 # I am applying f to the list of axis, 
 # because I want to be able to make transformations to be the same if the axis are the same

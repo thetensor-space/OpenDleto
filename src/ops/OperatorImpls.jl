@@ -115,9 +115,10 @@ end;
 
 function coordinates(LΩ::EmptyOp, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing}
     sizes=size(M)
-    dim=sizes[1]
     (sizes[1]==sizes[2]) || return nothing
-    all(__isapproxzero, vcat([M[1:dim] for i=1:sizes[1]]...)) || return nothing
+    # Every entry, not `M[1:dim]` (linear indexing: the FIRST COLUMN, repeated
+    # `dim` times), which accepted any matrix whose first column was zero.
+    all(__isapproxzero, M) || return nothing
     return zeros(0)
 end;
 

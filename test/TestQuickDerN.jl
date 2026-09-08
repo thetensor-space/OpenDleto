@@ -707,16 +707,31 @@ end
         saved = Dleto.QDN_DENSE_BUDGET_BYTES[]
         try
             Dleto.QDN_DENSE_BUDGET_BYTES[] = 0.0
-            # :QuickDer alone must RAISE rather than report an empty space.
-            @test_throws ErrorException der(
-                get_derivation_method(:QuickDer; whiten = false, seed = 4242,
-                                      solver = :KrylovSolver),
+            # :QuickDer alone must DECLINE rather than report an empty space --
+            # and decline with its own type, which is the only thing :Auto catches.
+            @test QuickDerDeclined <: Exception
+            declined = try
+                der(get_derivation_method(:QuickDer; whiten = false, seed = 4242,
+                                          solver = :KrylovSolver),
+                    Ω, P, Γ; tol = QD_TOL)
+                nothing
+            catch e
+                e
+            end
+            @test declined isa QuickDerDeclined
+            # The solve's status travels with the decline (it used to be read
+            # back off a module-level Ref, which could go stale).
+            @test occursin(r"reported :(unconverged|capped)", declined.msg)
+            # ... and :Auto turns that decline into the right answer, saying so
+            # at warn level (a 65-150x slower path is not an @info).
+            # `min_entries = 0`: this 12^3 sphere has 1728 entries, under
+            # AutoDer's default 2000, so without it QuickDer never runs here and
+            # SylverLining answers directly -- which is how this half of the
+            # test passed vacuously before the warning was asserted.
+            auto = @test_logs (:warn, r"QuickDer declined") match_mode = :any der(
+                get_derivation_method(:Auto; whiten = false, seed = 4242,
+                                      solver = :KrylovSolver, min_entries = 0),
                 Ω, P, Γ; tol = QD_TOL)
-            @test Dleto.QDN_LAST_SOLVE_STATUS[] !== :ok
-            # ... and :Auto turns that raise into the right answer.
-            auto = der(get_derivation_method(:Auto; whiten = false, seed = 4242,
-                                             solver = :KrylovSolver),
-                       Ω, P, Γ; tol = QD_TOL)
             @test length(auto) == 3
             for D in auto
                 @test der_residual(Γ, D, P) < RESID64

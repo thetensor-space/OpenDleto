@@ -98,7 +98,14 @@ function derTrOpsReduced(method::SylverLiningMethod,
     # at the end, so a Float16 tensor still yields Float16 coordinates -- the
     # data's precision is preserved, not inflated.
     T = eltype(Γ)
-    Tc = compute_eltype(T)
+    # `:metal` runs fp32 whatever it is handed (Apple GPUs have no Float64), so
+    # there the compute type follows the BACKEND, not the data: the null solver
+    # then floors at Float32 and the report says Float32.  Before this a
+    # Float64 tensor on `:metal` was solved with a Float64 floor and a Float64
+    # `tol²` -- nine decades under fp32 noise -- so the honesty machinery built
+    # for Float16 was bypassed by the one backend whose arithmetic is narrower
+    # than its input.  The answer is still rounded back to `T` at the end.
+    Tc = backend === :metal ? Float32 : compute_eltype(T)
     Γc = T === Tc ? Γ :
          ITensor(Array{Tc}(ITensors.array(Γ, Γ_frame...)), Γ_frame...)
     # Compute reduced operators (matching what sylvesterLM does internally)

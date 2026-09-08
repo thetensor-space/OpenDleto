@@ -66,9 +66,14 @@ end
 
     @testset "the trait says who takes a seed" begin
         # `solve_nullspace` may only forward `seed` to a solver that has the
-        # keyword; a dense factorization has no random start to fix.
+        # keyword; a dense factorization has no random start to fix.  The
+        # GramSolver is NOT one: its subspace iteration starts from a random
+        # block, and it used to draw that from the global RNG while declaring
+        # `wants_seed = false` -- so QuickDer's dense route was unseeded.
         @test !Dleto.wants_seed(Dleto.SVDSolver())
-        @test !Dleto.wants_seed(Dleto.GramSolver())
+        @test !Dleto.wants_seed(Dleto.LUSolver())
+        @test Dleto.wants_seed(Dleto.GramSolver())
+        @test Dleto.wants_seed(Dleto.SOLVER_REGISTRY[:LSMRSolver])
         @test Dleto.wants_seed(Dleto.AutoSolver())
         @test Dleto.seed_opts(Dleto.SVDSolver(), 7) === (;)
         @test Dleto.seed_opts(Dleto.AutoSolver(), 7) === (; seed = 7)
@@ -116,6 +121,29 @@ end
         @test a.verdict.nullity == b.verdict.nullity == 3
         @test length(a.verdict.spectrum) == length(b.verdict.spectrum)
         @test maximum(abs.(a.verdict.spectrum .- b.verdict.spectrum)) <= 1e-12
+    end
+
+    @testset "GramSolver: same seed, same start block, same answer" begin
+        gram = Dleto.GramSolver()
+        a = solve_nullspace(L, gram; tol = 1e-6, nv0 = 8, seed = 4242)
+        b = solve_nullspace(L, gram; tol = 1e-6, nv0 = 8, seed = 4242)
+        @test a.verdict.nullity == b.verdict.nullity == 3
+        @test length(a.verdict.spectrum) == length(b.verdict.spectrum)
+        # Bit-identical: the same `MersenneTwister(seed)` block, the same
+        # deterministic factorizations.
+        @test a.verdict.spectrum == b.verdict.spectrum
+        @test a.vals == b.vals
+        @test a.vecs == b.vecs
+    end
+
+    @testset "LSMRSolver: same seed, same candidates, same answer" begin
+        lsmr = Dleto.SOLVER_REGISTRY[:LSMRSolver]
+        a = solve_nullspace(L, lsmr; tol = 1e-6, nv0 = 8, seed = 4242)
+        b = solve_nullspace(L, lsmr; tol = 1e-6, nv0 = 8, seed = 4242)
+        @test a.verdict.nullity == b.verdict.nullity == 3
+        @test length(a.verdict.spectrum) == length(b.verdict.spectrum)
+        @test a.verdict.spectrum == b.verdict.spectrum
+        @test a.vecs == b.vecs
     end
 
     @testset "CGSolver: same seed, same spectrum and same nullity" begin

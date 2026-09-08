@@ -236,6 +236,29 @@ compute_eltype(::Type{Complex{T}}) where {T<:AbstractFloat} = Complex{compute_el
 compute_eltype(::Type{T}) where {T<:Number} = T
 
 """
+The storage types `compute_eltype` promotes.  Today only `Float16`; a new
+promotion rule above must be listed here so `promotes_to` stays truthful.
+"""
+const PROMOTED_STORAGE_TYPES = (Float16,)
+
+"""
+    promotes_to(T) -> Bool
+
+Whether some NARROWER storage type computes in `T`: `promotes_to(Float32)` is
+true because `compute_eltype(Float16) === Float32`, and nothing else is.
+
+Why a solver needs to know: handed a map whose eltype is `Float32`, it cannot
+tell whether the data was STORED in Float32 or stored in Float16 and promoted,
+and the data floor -- the veto that keeps a Float16 result from being
+certified beyond Float16's resolution -- depends on which.  `solve_nullspace`
+therefore refuses to guess in exactly this case and requires `store_eltype`
+(the guess it used to make, the compute type, was the one that produced a
+false Float16 certificate).
+"""
+promotes_to(::Type{T}) where {T} =
+    any(S -> S !== T && compute_eltype(S) === T, PROMOTED_STORAGE_TYPES)
+
+"""
     precision_floor(T) -> Float64
 
 The RELATIVE level below which a value returned by a solver on `T`-data is

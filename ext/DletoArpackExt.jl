@@ -5,10 +5,9 @@ using LinearMaps
 using LinearAlgebra
 using Random
 
-export ArpackDenseSolver, ArpackSolver
+export ArpackSolver
 
 struct ArpackSolver <: Dleto.NullSolver end
-struct ArpackDenseSolver <: Dleto.NullSolver end
 
 # Takes `seed` and turns it into an explicit start vector; see the `v0` note in
 # `solve` below for why the default is not reproducible.
@@ -108,18 +107,15 @@ function Dleto.solve(::ArpackSolver, L::LinearMap; nv::Integer = 20, tol::Real =
               converged = nconv >= nev, nconv = Int(nconv), niter = Int(niter))
 end
 
-function Dleto.solve(::ArpackDenseSolver, L::LinearMap; nv::Integer = 20)
-    println("Using ArpackDenseSolver...")
-    M = Matrix(L) # Convert LinearMap to dense Matrix to allow LU-Factorization
-    nev = clamp(nv, 1, size(M, 2) - 2)
-    vals, vecs = Arpack.eigs(M; nev=nev, which=:LM, sigma=0.0)
-    return (;vals=real.(vals), vecs=real.(vecs))
-end
+# There is deliberately no dense ARPACK solver.  The one that lived here called
+# `eigs(M; sigma = 0.0)`, i.e. shift-invert about ZERO on a matrix that is
+# singular by construction (it is being asked for its null space), and returned
+# no `converged` field.  A matrix small enough to densify goes to `SVDSolver`,
+# which is exact and rank-revealing; a large one belongs to `ArpackSolver`.
 
 function __init__()
     println("Loading Dleto Arpack Extension")
     Dleto.register_solver!(:ArpackSolver, ArpackSolver())
-    Dleto.register_solver!(:ArpackDenseSolver, ArpackDenseSolver())
 end
 
 

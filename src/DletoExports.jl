@@ -33,8 +33,9 @@ export randomize_tensor
 # NonDegenerate.jl
 export nondeg
 
-# DletoUtil.jl
+# DletoBase.jl
 export ⊕
+export act                                  # one operator per axis acting on a tensor
 # what is this? is this tensor product of tensors? why not \otimes?
 
 # Chisels.jl
@@ -70,7 +71,7 @@ export TransverseOpsSymmetries
 
 # Precision.jl -- the floating-point policy every solver consults
 export compute_eltype, precision_floor, data_floor, tol_default, iter_tol
-export rank_rtol, qd_tolerance, precision_policy
+export rank_rtol, qd_tolerance, precision_policy, promotes_to
 
 export NullSolver
 export solve_nullspace, available_solvers, register_solver!
@@ -90,6 +91,7 @@ export DerivationReport
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
 export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod
+export QuickDerDeclined
 
 # Densors.jl
 export stratify, denLM

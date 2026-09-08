@@ -617,8 +617,18 @@ function derTrOpsReduced(
     Γ::ITensor;
     tol::Real=TOL_DEFAULT,
     nd=-1,
-    kwargs...,
+    # The two per-call keywords of the `derTrOpsReduced` contract, named so
+    # that `stratify` and `der` can pass them to any method.  This oracle has
+    # no long stage to report and builds no `DerivationReport`, so the first is
+    # accepted and unused and the second is refused loudly rather than by a
+    # `BoundsError` on the caller's 4-tuple destructure.  No `kwargs...`: any
+    # other option is a `MethodError` at the call, not a silent no-op.
+    progress=false,
+    return_diagnostics::Bool=false,
 )::Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<:Number}}
+    return_diagnostics && error(
+        "FastDer3ValentMethod does not produce a DerivationReport; use :QuickDer " *
+        "(the same solve-and-lift, any valence, with diagnostics) or :SylverLining.")
     _fastder_validate_compatibility(Ω, P, Γ)
 
     # Read Γ in Ω's frame order, which is the order the coordinates use.

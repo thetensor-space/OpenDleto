@@ -124,6 +124,24 @@ const BROKEN_SOLVERS = Symbol[]
 
         # Three engaged axes must be refused, not silently mishandled.
         @test_throws ErrorException der(:QuickSylver, UniversalChisel(3), Γ; tol=1e-6)
+
+        # Scale invariance.  QuickSylver's verification used to be ABSOLUTE
+        # (`isapprox(lhs, 0; atol)`), so `1e6 .* Γ` threw "did not find a
+        # correct affine frame" and `1e-6 .* Γ` would have accepted anything.
+        @testset "scale invariance" begin
+            P = AdjointChisel(3, 1, 2)
+            A = randn(dims...)
+            base = der(:QuickSylver, P, ITensor(A, frame...); tol=1e-6)
+            @test length(base) == 1
+            for c in (1e-6, 1e-3, 1e3, 1e6)
+                Γc = ITensor(c .* A, frame...)
+                scaled = der(:QuickSylver, P, Γc; tol=1e-6)
+                @test length(scaled) == length(base)
+                for D in scaled
+                    @test der_residual(Γc, D, P) < LAW_TOL
+                end
+            end
+        end
     end
 
     # The general solver must satisfy the law for the other chisels too.
@@ -282,6 +300,27 @@ flat(s::ITensor, fr) = vec(Array(s, fr...))
         basis = den(Ω, P, Δ; tol=1e-6, nd=-1)
         @test length(den(Ω, P, Δ; tol=1e-6, nd=2)) == min(2, length(basis))
         @test length(den(Ω, P, Δ; tol=1e-6, nd=10^6)) == length(basis)
+        # The default is a basis, as for `der` (it used to be 10, a silent cap).
+        @test length(den(Ω, P, Δ; tol=1e-6)) == length(basis)
+    end
+
+    # The map's element type follows the derivations handed in; `denLM` used
+    # to hard-code Float64 (and untyped LinearMaps default to it), so the
+    # densor was the one route that silently computed and answered in Float64.
+    @testset "eltype follows the data" begin
+        # The diagonal tensor again, stored in Float32.  (A random tensor
+        # would make the map identically zero -- scalar derivations only, and
+        # they annihilate every tensor -- which is a different test.)
+        Γ32 = ITensor(Float32.(Array(Γ, frame...)), frame...)
+        Δ32 = der(:SylverLining, Ω, P, Γ32; tol=1e-4)
+        @test all(eltype(D) === Float32 for Ds in Δ32 for D in Ds)
+        (A32, AtA32, _, _) = denLM(Ω, P, Δ32)
+        @test eltype(A32) === Float32
+        @test eltype(AtA32) === Float32
+        @test eltype(A32 * ones(Float32, size(A32, 2))) === Float32
+        t32 = den(Ω, P, Δ32; tol=1e-4)
+        @test !isempty(t32)                 # Γ32 lies in its own densor
+        @test all(eltype(t) === Float32 for t in t32)
     end
 end
 

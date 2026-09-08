@@ -72,9 +72,12 @@ LSMRSolver(; lsmr_tol = 1e-12, lsmr_maxiter = 1000, rank_tol = 1e-8,
 # It takes the rectangular map -- that is the entire point.
 Dleto.wants_square(::LSMRSolver) = false
 Dleto.densifies(::LSMRSolver, L) = false
+# The k candidate vectors are random; seeded, the projected basis (and so the
+# nullity a rank-revealing QR reads off it) is reproducible (see `Dleto.wants_seed`).
+Dleto.wants_seed(::LSMRSolver) = true
 
 function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
-                     kwargs...)
+                     seed = nothing, kwargs...)
     println("Using LSMRSolver...")
     rows, n = size(L)
     k = clamp(nv + m.margin, 1, n)
@@ -121,9 +124,10 @@ function Dleto.solve(m::LSMRSolver, L::LinearMap; nv::Integer = 10, tol = 1e-10,
     # already-nearly-null vector is standard iterative refinement -- ‖Az‖ is
     # now tiny, so the same relative tolerance buys a far smaller absolute
     # correction, and the error contracts by the same factor each pass.
+    rng = seed === nothing ? Random.default_rng() : MersenneTwister(seed)
     Z = Matrix{T}(undef, n, k)
     for j in 1:k
-        z = randn(T, n)
+        z = randn(rng, T, n)
         project!(z)
         for _ in 1:m.refine
             project!(z)
