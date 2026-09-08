@@ -197,9 +197,34 @@ entered with that tag, grouped, with the user-visible effect.
   singular value, skips the Z-law check, reports residuals per direction; `certified` only
   if the automatic verdict would have cut at exactly `nd`. (`523723d`)
 
-### `v1.5-beta-2026-09-04..beta`
+### `v1.6-beta-2026-09-08` — the review's bugs and correctness risks fixed
+(`2d87dc3..35a10d0`) — B1–B4 and C1–C12 of [REVIEW.md](REVIEW.md); see its status table.
+`QuickDerDeclined`, `act`, `promotes_to` exported; `ArpackDenseSolver` removed; `den`
+defaults to a basis; `store_eltype` required for Float32 maps. 52 testsets, 14,374 passes.
 
-Only the merge commit `2d87dc3`; `beta` HEAD is the tagged state.
+### `v1.7-beta-2026-09-08` — the stratify speed/accuracy campaign
+(`35a10d0..` this tag; five levers, one branch each, merged via
+`feature/dont-stop-believin/2026-09-08`; 57 testsets, 14,392 passes)
+
+- **Mixed-precision Gram on the dense route** (`GramSolver(gram_eltype = Float32)`, default
+  through `QDN_GRAM_MIXED_PRECISION`): 1.5–1.8× on dense-route solves, identical verdicts.
+  `QuickDerMethod.solver_kwargs` forwards options to the matrix-free solver.
+- **Accuracy**: `_fastder_restrict_to_ops` reports an ambiguous cut and QuickDer's retry
+  fires on it, keeping the best attempt. Float32 lost derivations 5 → 0 over 96 sphere cells;
+  zero false certificates. `bench/AccuracyGrid.jl`.
+- **`realCanonicalForm`** skips the eigendecomposition on an already-scalar derivation:
+  stratify overhead on the video shape 22.5% → 3.0%.
+- **Lift**: shared-prefix pair tensors, hoisted RHS (bit-identical); `progress = true` no
+  longer re-densifies the restricted matrix.
+- **Memory**: storage vs compute type threaded through the QuickDer kernel; a Float16 tensor
+  is never promoted whole (`bench/MemoryLedger.jl`).
+- **Benchmarks**: `bench/StratifyMatrix.jl` (the grid), `StratifyKnobTune.jl`,
+  `StratifyOverheadProfile.jl`, `LiftCost.jl`, `RestrictedSolve*.jl`; reports under
+  `bench/reports/2026-09-08/`. `.jls` blobs are ignored.
+
+### `v1.7-beta-2026-09-08..beta`
+
+Nothing; `beta` HEAD is the tagged state.
 
 ---
 

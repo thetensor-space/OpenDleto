@@ -113,6 +113,58 @@ under `bench/reports/2026-09-08/<topic>/`:
 
 Merging is by review here, then to beta as a tagged step with a Codex message, as before.
 
+**Outcome (same day).**  All five landed; integration branch green at 57 testsets, 14,392
+passes; shipped as `v1.7-beta-2026-09-08`.  What each measured:
+
+* stratify-matrix: `bench/StratifyMatrix.jl` is the judge from now on.  The only knob the
+  grid exercises is `QDN_GRAM_MIN_COLS`, validated exactly at its crossover (SVD wins 4-40x
+  below 1000 columns, Gram 1.4-32x above).  `QDN_DENSE_BUDGET_BYTES` never binds on the grid
+  (forcing matrix-free lost 2.6-14.5x everywhere); `AUTODER_MIN_ENTRIES` and the per-eltype
+  solver order are never reached.  `realCanonicalForm` skips `eigen` when the derivation is
+  already scalar (off-diagonals at rounding): stratify's own overhead on the video shape
+  22.5% -> 3.0% of the call, identical answers on all 27 cells.
+* restricted-solve: on the matrix-free branch no ARPACK `ncv`/`nv0`/`tol`/`min_above` beats
+  the defaults (larger `ncv` is worse everywhere; a fixed small one breaks escalation); the
+  randomized range finder and LSMR lose 3-900x; the Kronecker preconditioner has nothing left
+  to do after whitening.  The win is the DENSE route: `GramSolver(gram_eltype = Float32)` --
+  Float32 `syrk`, Float64 Rayleigh-Ritz -- 1.50x at d = 100 and 1.83x at d = 150 with
+  identical nullity/certified/subspace; default via `QDN_GRAM_MIXED_PRECISION[] = true`.
+  `QuickDerMethod.solver_kwargs` forwards options to the matrix-free solve.
+* precision-accuracy: the Float32 lost-derivation failures (5 of 96 sphere cells, one seed in
+  eight) were not in the restricted solve but in `_fastder_restrict_to_ops`: a genuine
+  direction's residual off Ω lands 15-122x `qd_tolerance` on some seeds, past the 32x
+  ceiling.  No ceiling or gap ratio fixes it; a wider restriction does.  The cut now reports
+  `ambiguous` (anything in `(atol, 4*ceiling]` just past the kept count) and
+  `derTrOpsReduced`'s existing 1.5x retry fires on it; the retry keeps the BEST attempt (a
+  wider random sketch can return fewer -- the 5^4 Float16 sphere went 4 -> 3 before that
+  rule).  After: 0 of 96, zero false certificates anywhere, no constant moved.  Still open:
+  18 Float16 cells where the dense/saturated route smears the null-cluster gap and
+  `gap_verdict` picks the wrong one (needs a Z-law-informed acceptance test or a Float16
+  policy call), and one `LAPACKException` in `SVDSolver` (Float32, one seed).
+* lift-shared-prefix: shared-prefix pair tensors and the hoisted RHS are bit-identical and
+  worth 1.1-1.2x on the lift stage at valence 4 (nothing at valence 3, by construction); the
+  lift is 2-12% of the call, so wall time does not move.  `progress = true` no longer turns
+  the dense restricted matrix into a `FunctionMap` and re-derives it column by column
+  (983x on a 2000^2 map; 1-3 GB at d = 200..300).
+* one-copy: `Ts` (stored) vs `Tc` (compute) threaded through the QuickDer kernel; a Float16
+  host tensor is contracted through a mixed-eltype `_qdn_ttm` one 64 MB block at a time
+  instead of being promoted whole (kernel: 83 MB / 20 MB against a 477 MB Float32 copy at
+  d = 500).  End-to-end peak RSS at affordable sizes is dominated by the ~0.7 GB process
+  floor and solver churn, so the Float16-vs-Float32 ratio reads 0.97-1.19x there, not 0.5;
+  the saving shows at movie length.  SylverLining's own promotion copy and the GPU path are
+  unchanged (follow-ons).
+
+Projection at a one-minute cap on this machine, from the measured points (5 threads):
+valence 3 sphere d ~ 250-280, valence 4 d ~ 165-175, video 640x480xFx3 Float32 F ~ 800
+(fit 18 s + 0.053 s/frame; ~12 GB).  The eigensolve is the wall in every row.  Native core:
+still no stage measured 2x off its floor -- the dense route is at the BLAS floor, the
+matrix-free route is ARPACK -- so the gate in Native-Core-Plan stays shut; cold start
+(PrecompileTools / juliac) is the real latency item.
+
+Process lesson recorded in memory: long runs go to the background and the agent ends its
+turn; five polling Sonnet agents exhausted the session limit in ~1.5 h and were killed with
+nothing committed.  Resumed with that rule, all five finished.
+
 ## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
 
 Branch `feature/under-pressure/2026-09-04` (work done on a worktree branch off it).
