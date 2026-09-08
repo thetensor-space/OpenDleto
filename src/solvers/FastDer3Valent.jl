@@ -459,12 +459,23 @@ The cut on that residual spectrum is a GAP, not the bare `atol`; see
 """
 function _fastder_restrict_to_ops(Ω::IndTransverseOps,
                                   basis::AbstractVector{<:AbstractVector{<:AbstractMatrix}},
-                                  atol::Real)
+                                  atol::Real;
+                                  # See `_fastder_tall_nullspace`'s `return_rule`: when
+                                  # true, a second value comes back saying whether the
+                                  # cut this call made was a clean `:gap` (or the `:exact`
+                                  # wide-matrix case) or fell back to `:threshold` -- the
+                                  # signal `derTrOpsReduced`'s retry loop uses to widen the
+                                  # restriction instead of silently keeping a truncated
+                                  # answer (see F8 / docs/CONTEXT.md "Session 4, part 3").
+                                  return_ambiguous::Bool = false)
     val = valency(Ω)
     dims = axisDims(Ω)
     k = length(basis)
     Tnum = k == 0 ? Float64 : promote_type(map(eltype, first(basis))...)
-    k == 0 && return zeros(Tnum, globalDim(Ω), 0)
+    if k == 0
+        ders = zeros(Tnum, globalDim(Ω), 0)
+        return return_ambiguous ? (ders, false) : ders
+    end
     all(m -> length(m) == val, basis) ||
         error("_fastder_restrict_to_ops: every basis element needs one matrix per " *
               "axis (valency $(val)).")
@@ -479,7 +490,8 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
 
     projs = [_fastder_projector(Ω.localOps[a], dims[a], Tnum) for a in 1:val]
     if all(isnothing, projs)
-        return hcat([Vector{Tnum}(unsafe_coordinates(Ω, m)) for m in mats]...)
+        ders = hcat([Vector{Tnum}(unsafe_coordinates(Ω, m)) for m in mats]...)
+        return return_ambiguous ? (ders, false) : ders
     end
 
     # residual of each basis element off Ω, axis blocks stacked
@@ -490,7 +502,7 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
         Da = mats[i][a]
         Res[(rows[a] + 1):rows[a + 1], i] = vec(Da - projs[a].embed(projs[a].coords(Da)))
     end
-    C = _fastder_tall_nullspace(Res, Tnum(atol))
+    (C, _, ambig) = _fastder_tall_nullspace(Res, Tnum(atol); return_rule = true)
     nc = size(C, 2)
 
     ders = zeros(Tnum, globalDim(Ω), nc)
@@ -502,7 +514,7 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
                                        projs[a].coords(Da)
         end
     end
-    return ders
+    return return_ambiguous ? (ders, ambig) : ders
 end
 
 """
@@ -527,6 +539,23 @@ genuine cluster | first spurious value:
 so 32 sits in the middle of a two-decade window in every case.
 """
 const FASTDER_RESTRICT_CEILING = Ref(32.0)
+
+"""
+    FASTDER_AMBIGUOUS_BAND :: Ref{Float64}
+
+How far above `FASTDER_RESTRICT_CEILING * atol` a value may sit and still
+count as a near-miss the ceiling excluded, for `_fastder_tall_nullspace`'s
+`ambiguous` flag (see there).  4, chosen against the same measured table as
+`FASTDER_RESTRICT_CEILING`: the smallest first-spurious value across d =
+48..140 is 338x `atol`, so a band out to `4 * 32 = 128x` never reaches it --
+the four documented calibration cases are never flagged -- while the seed
+that drops a genuine direction (122x `atol`, see `_fastder_tall_nullspace`)
+falls inside it. Widening this band trades false negatives (a real loss goes
+unflagged, and unfixed) for false positives (one wasted retry on a case that
+was already correct); 4 is the smallest multiplier the known failing case
+needs, so it is the conservative end of that trade.
+"""
+const FASTDER_AMBIGUOUS_BAND = Ref(4.0)
 
 """
     _fastder_tall_nullspace(A, atol) -> Matrix
@@ -568,10 +597,21 @@ residual matrix is pure roundoff and has no gap in it at all).
 """
 function _fastder_tall_nullspace(A::AbstractMatrix, atol::Real;
                                  gap_ratio::Real = GAP_RATIO,
-                                 ceiling::Real = FASTDER_RESTRICT_CEILING[] * atol)
+                                 ceiling::Real = FASTDER_RESTRICT_CEILING[] * atol,
+                                 return_rule::Bool = false)
     m, n = size(A)
-    m < n && return nullspace(A; atol = atol, rtol = zero(atol))
-    n == 0 && return zeros(eltype(A), 0, 0)
+    if m < n
+        # No gap logic at all in this branch (F8): the map is already wide, so
+        # `nullspace` returns an EXACT null space rather than a cut on a
+        # measured spectrum -- there is nothing here that a wider restriction
+        # or a wider ceiling could improve, so this is never "ambiguous".
+        V = nullspace(A; atol = atol, rtol = zero(atol))
+        return return_rule ? (V, :exact, false) : V
+    end
+    if n == 0
+        V = zeros(eltype(A), 0, 0)
+        return return_rule ? (V, :exact, false) : V
+    end
     F = svd(A)
     below = count(<=(atol), F.S)
     # `gap_verdict` reads an ASCENDING spectrum and `F.S` is descending, so the
@@ -582,8 +622,39 @@ function _fastder_tall_nullspace(A::AbstractMatrix, atol::Real;
     (_, v) = gap_verdict(asc, 1.0; threshold = Float64(ceiling),
                          floor = Float64(atol), gap_ratio = gap_ratio)
     keep = v.rule === :gap ? v.nullity : below
-    @debug "restrict_to_ops residual spectrum" atol ceiling below keep rule = v.rule gap = v.gap svals = string(round.(asc; sigdigits = 3))
-    return F.V[:, (n - keep + 1):n]
+    # AMBIGUOUS, for the caller that wants to know: NOT simply "no gap
+    # cleared" (`v.rule`), because that misses the more dangerous of the two
+    # measured failures.  Two distinct ways a genuine direction is dropped
+    # (both on the scrambled sphere valence 3, Float32,
+    # bench/reports/2026-09-08/accuracy/):
+    #
+    # (a) `v.rule === :gap`, CONFIDENTLY at the wrong position.  d = 48, seed
+    #     20260906: a 121x gap clears `gap_ratio` between the 2nd and 3rd
+    #     genuine directions, because the 3rd sits at 122x `atol` -- two
+    #     orders of magnitude above this docstring's calibration table
+    #     (up to 1.30x) -- and never enters the gap test at all once it is
+    #     outside `ceiling`.  Invisible to any ratio computed among the
+    #     ADMITTED values, at any `gap_ratio`.
+    # (b) `v.rule !== :gap`, the fallback.  d = 100, seed 20260908: no ratio
+    #     clears `gap_ratio` anywhere, so `keep` reverts to `below` -- the
+    #     STRICT `<= atol` count -- and a genuine direction at 15x `atol`
+    #     (comfortably inside `ceiling`, just not below the floor) is left
+    #     out along with the truly spurious ones.
+    #
+    # Both are the same shape: a value the ceiling would have admitted (or
+    # nearly would have) sits just past `keep`.  So `ambiguous` looks past
+    # `keep` for anything in `(atol, FASTDER_AMBIGUOUS_BAND * ceiling]` --
+    # 4x the ceiling, comfortably below every first-spurious value this
+    # file's docstring measured (338x-784x `atol`), so a normal,
+    # well-separated case never trips it, and comfortably above both 122x
+    # and 15x. See the retry this feeds in `derTrOpsReduced` (QuickDerN.jl),
+    # which asks for a wider restriction rather than trying to pick a
+    # ceiling (or a fallback) that covers every seed.
+    band = FASTDER_AMBIGUOUS_BAND[] * ceiling
+    ambiguous = keep < n && any(v -> atol < v <= band, @view asc[(keep + 1):end])
+    @debug "restrict_to_ops residual spectrum" atol ceiling below keep rule = v.rule gap = v.gap ambiguous svals = string(round.(asc; sigdigits = 3))
+    V = F.V[:, (n - keep + 1):n]
+    return return_rule ? (V, v.rule, ambiguous) : V
 end
 
 """
@@ -593,9 +664,9 @@ one-matrix-per-axis convention above.
 """
 _fastder_restrict_to_ops(Ω::IndTransverseOps,
                          basis::AbstractVector{<:NTuple{3, AbstractMatrix}},
-                         atol::Real) =
+                         atol::Real; kwargs...) =
     _fastder_restrict_to_ops(Ω, [_fastder_triple_matrices(X, Y, Z) for (X, Y, Z) in basis],
-                             atol)
+                             atol; kwargs...)
 
 function _fastder_validate_compatibility(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     ndims(Γ) == 3 || error("FastDer3ValentMethod currently supports only valency-3 tensors.")

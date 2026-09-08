@@ -1171,3 +1171,65 @@ end
         end
     end
 end
+
+# --- 10. accuracy regression: the Ω-intersection ceiling drop (F8) ------
+#
+# bench/reports/2026-09-08/accuracy/ ("true-colors/precision-accuracy"): the
+# scrambled sphere valence 3, forced matrix-free, Float32, `:ArpackSolver`,
+# certain seeds -- d = 48 seeds 20260906/07, d = 64 seed 20260906, d = 100
+# seeds 20260908/09 all measured -- return only 2 of the 3 symmetric
+# derivations. The RESTRICTED solve is correct (nullity 13, the sphere's
+# universal count); the loss is in `_fastder_restrict_to_ops`'s intersection
+# with Ω: the third symmetric direction's residual off Ω lands at 15x-122x
+# `qd_tolerance(Float32)` on these seeds -- one to two orders of magnitude
+# above `FASTDER_RESTRICT_CEILING`'s own calibration table (up to 1.30x,
+# FastDer3Valent.jl), so it never enters that function's gap test at all
+# (seeds 906/907 at d=48, 906 at d=64) or is swept out by the `:threshold`
+# fallback's strict `<= atol` count (seeds 908/909 at d=100) -- see
+# `_fastder_tall_nullspace`'s `ambiguous` flag for both mechanisms.
+#
+# The fix: `derTrOpsReduced`'s existing "one retry with r bumped 50%" (before
+# this, triggered only when the lift rejected every solution) now ALSO fires
+# when `_fastder_restrict_to_ops` reports `ambiguous` under the automatic
+# policy.  Pinned here at d = 48 (the fastest of the five measured cells,
+# ~10s) so a regression cannot silently return.
+@testset "10. accuracy regression: Ω-intersection ceiling drop (F8)" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # Arpack is a weakdep, not in the manifest (docs/CONTEXT.md); this is
+        # the specific solver the failure was measured on (see above), so
+        # skip rather than silently test nothing when it is unavailable --
+        # `bench/jl` always has it, a bare `Pkg.test` may not.
+        have_arpack = try
+            @eval using Arpack
+            true
+        catch
+            @info "TestQuickDerN 10: Arpack is not available in this " *
+                  "environment; the Ω-intersection regression is skipped."
+            false
+        end
+        if !have_arpack
+            @test_skip false
+        else
+            saved = Dleto.QDN_DENSE_BUDGET_BYTES[]
+            try
+                Dleto.QDN_DENSE_BUDGET_BYTES[] = 0.0   # force matrix-free
+                inp = build_sphere(48; valence = 3, T = Float32, seed = 20260906)
+                m = get_derivation_method(:QuickDer; seed = 20260906,
+                                          solver = :ArpackSolver)
+                (_, _, ders, rep) = derTrOpsReduced(m, inp.Ω, Matrix{Float64}(inp.ch),
+                                                    inp.Γ; return_diagnostics = true)
+                @test rep.nullity == 13         # the restricted solve was never wrong
+                @test size(ders, 2) == 3        # the three symmetric derivations
+                @test rep.returned == 3
+                for j in 1:size(ders, 2)
+                    D = embedITensors(inp.Ω, ders[:, j])
+                    @test der_residual(inp.Γ, D, Matrix{Float64}(inp.ch)) < 1e-2
+                end
+            finally
+                Dleto.QDN_DENSE_BUDGET_BYTES[] = saved
+            end
+        end
+    end
+end
