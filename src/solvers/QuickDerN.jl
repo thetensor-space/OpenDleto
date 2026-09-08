@@ -98,6 +98,40 @@ flip the route (`QDN_GRAM_MIN_COLS[] = typemax(Int)` forces the SVD).
 const QDN_GRAM_MIN_COLS = Ref(1000)
 
 """
+Whether the dense branch's `GramSolver` narrows stage 1 (the Gram, its
+Cholesky, the subspace iteration -- never stage 2's Rayleigh-Ritz, which
+always measures the ORIGINAL matrix) to Float32 when the compute type is
+Float64 -- Native-Core-Plan.md "Phase 2" candidate (b), `GramSolver`'s
+`gram_eltype` (`NullSolvers.jl`).  A no-op whenever the compute type is
+already narrower than Float64 (Float32, Float16-promoted-to-Float32): there
+is nothing to narrow.
+
+Measured on QuickDer's own restricted matrices, scrambled sphere v3
+d = 100 and 150 (`bench/reports/2026-09-08/restricted-solve/README.md`):
+through the real `solve_nullspace` verdict machinery, identical nullity,
+`certified`, `rule` and subspace (principal angle cosine 1.0 to 8 digits)
+as the unmodified Float64 route, at roughly half the Gram+Cholesky time
+(1.08s -> 0.58s at d=100, 6.10s -> 3.13s at d=150).  Not measured at
+d = 200 (skipped there: the two Grams together do not fit this machine's
+6 GB per-process budget) or on any chisel/valence/tensor family outside
+that report's six cases -- a `Ref` so a caller who hits a case where it
+does NOT hold can turn it off without editing this file.
+"""
+const QDN_GRAM_MIXED_PRECISION = Ref(true)
+
+"""
+    _qdn_gram_narrow(::Type{T}) -> Union{Nothing, Type}
+
+The `gram_eltype` `_qdn_solve_and_lift`'s dense branch passes to
+`GramSolver`, when `QDN_GRAM_MIXED_PRECISION[]` is set: `Float32` for
+`Float64`, `nothing` (no narrowing) for everything else -- in particular
+Float32 itself (already as narrow as this policy goes) and any complex
+type (untested; narrowing one is not this policy's claim).
+"""
+_qdn_gram_narrow(::Type{Float64}) = QDN_GRAM_MIXED_PRECISION[] ? Float32 : nothing
+_qdn_gram_narrow(::Type{T}) where {T} = nothing
+
+"""
 Byte budget for the DENSE restricted matrix on the host route.  Mirrors
 `DENSE_BUDGET_BYTES / 2` (`NullSolvers.jl`): the matrix plus the Gram plus the
 Cholesky factor all have to fit, so filling the whole null-solver budget with
@@ -393,6 +427,15 @@ dimensions, any chisel with at least one engaged axis, and any
   `_qdn_default_free_solver()`, not `AutoSolver`'s own LSMR-first rule.  The
   dense branch picks between `SVDSolver` and `GramSolver` by size and ignores
   this (`QDN_GRAM_MIN_COLS`).
+- `solver_kwargs` extra keyword arguments forwarded to `solve_nullspace` on the
+  MATRIX-FREE branch only (the dense branch ignores it, same as `solver`) --
+  `nv0` (the first request), `min_above`, `gap_ratio`, or solver-specific ones
+  such as ARPACK's `ncv`, `tol`, `maxiter`, `min_request` (see
+  `ext/DletoArpackExt.jl`).  Do not put `tol`, `nd`, `seed`, `progress`,
+  `store_eltype` or `label` in here -- `_qdn_solve_and_lift` already passes
+  those explicitly and a duplicate keyword errors.  Default `NamedTuple()`,
+  which changes nothing (see `bench/RestrictedSolve.jl`, 2026-09-08, for the
+  measurements this knob exists to take).
 - `verify`       `:random` (default) checks the defining equation on `nslices`
   output slices of the largest engaged axis; `:full` checks all of it when
   `prod(dims) <= 2e7`; `:none` skips the check and is for benchmarking only.
@@ -448,12 +491,14 @@ struct QuickDerMethod <: DerivationMethod
     seed::Union{Nothing, Int}
     device::Symbol
     whiten::Bool
+    solver_kwargs::NamedTuple
 end
 
 function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
                         solver::Symbol = :AutoSolver, verify::Symbol = :random,
                         nslices::Integer = 4, seed = nothing,
-                        device::Symbol = :cpu, whiten::Bool = true)
+                        device::Symbol = :cpu, whiten::Bool = true,
+                        solver_kwargs::NamedTuple = NamedTuple())
     restriction in (:random, :corner) ||
         error("QuickDerMethod: restriction must be :random or :corner, got :$restriction.")
     verify in (:random, :full, :none) ||
@@ -461,10 +506,15 @@ function QuickDerMethod(; restriction::Symbol = :random, sizes = nothing,
     nslices >= 1 || error("QuickDerMethod: nslices must be at least 1, got $nslices.")
     device in (:cpu, :gpu) ||
         error("QuickDerMethod: device must be :cpu or :gpu, got :$device.")
+    reserved = (:tol, :nd, :seed, :progress, :store_eltype, :label)
+    isempty(intersect(keys(solver_kwargs), reserved)) ||
+        error("QuickDerMethod: solver_kwargs may not set $(intersect(keys(solver_kwargs), reserved)) -- " *
+              "_qdn_solve_and_lift passes those explicitly.")
     return QuickDerMethod(restriction,
                           sizes === nothing ? nothing : Int[Int(s) for s in sizes],
                           solver, verify, Int(nslices),
-                          seed === nothing ? nothing : Int(seed), device, whiten)
+                          seed === nothing ? nothing : Int(seed), device, whiten,
+                          solver_kwargs)
 end
 
 # ---------------------------------------------------------------------------
@@ -1741,9 +1791,16 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         # consistency filter and the Z-law check can afford.  Small systems
         # keep the SVD's full precision for free.  `GramSolver` is the one
         # solver that carries the device through: it forms the Gram, the
-        # Cholesky and the subspace solves on the GPU when asked.
+        # Cholesky and the subspace solves on the GPU when asked.  On the CPU,
+        # a Float64 compute type additionally narrows stage 1 to Float32
+        # (`_qdn_gram_narrow`, `QDN_GRAM_MIXED_PRECISION`) -- stage 2 still
+        # measures the full-precision matrix, and the two sphere cases this
+        # was checked against (2026-09-08) certify the same nullity and land
+        # the same subspace as the unnarrowed route.
         dsolver = ncols >= QDN_GRAM_MIN_COLS[] ?
-                  GramSolver(device = on_gpu ? :gpu : :cpu) : SVDSolver()
+                  GramSolver(device = on_gpu ? :gpu : :cpu,
+                             gram_eltype = on_gpu ? nothing : _qdn_gram_narrow(T)) :
+                  SVDSolver()
         solver_used = dsolver isa GramSolver ? :GramSolver : :SVDSolver
         Lmap = LinearMaps.LinearMap(Mres)
         squared = wants_square(dsolver) && size(Lmap, 1) != size(Lmap, 2)
@@ -1777,13 +1834,19 @@ function _qdn_solve_and_lift(G::AbstractArray{T,N}, P::Matrix{T}, engaged::Vecto
         solver_used = fsolver isa Symbol ? fsolver : Symbol(nameof(typeof(fsolver)))
         squared = wants_square(fsolver isa Symbol ? SOLVER_REGISTRY[fsolver] : fsolver) &&
                   size(L, 1) != size(L, 2)
+        # `method.solver_kwargs` is forwarded ONLY here -- the matrix-free
+        # branch is the one with a solver worth tuning (ncv, the first
+        # request nv0, min_above, ...); the dense branch picks between
+        # SVDSolver and GramSolver by size and has no such knobs to receive
+        # them.  See the field's docstring for the reserved names.
         (vals, vecs, verdict) = solve_nullspace(L, fsolver;
                                                 tol = fixed ? Inf : atol,
                                                 nd = _qdn_request(fixed, ndreq, ncols),
                                                 progress = progress,
                                                 seed = method.seed,
                                                 store_eltype = store,
-                                                label = "quickder restricted")
+                                                label = "quickder restricted",
+                                                method.solver_kwargs...)
         tstage = _qdn_stage!(:solve, tstage)
     end
 

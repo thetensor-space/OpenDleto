@@ -1233,3 +1233,60 @@ end
         end
     end
 end
+
+# --- 11. mixed-precision GramSolver on the dense branch, the new default ---
+#
+# `QDN_GRAM_MIXED_PRECISION` (default true) narrows the dense branch's
+# `GramSolver` to Float32 for stage 1 (Gram, Cholesky, subspace iteration)
+# when the compute type is Float64 -- Native-Core-Plan.md "Phase 2" candidate
+# (b), measured on QuickDer's own restricted matrices at d = 100 and 150
+# (bench/reports/2026-09-08/restricted-solve/README.md).  Pinned here through
+# the REAL end-to-end pipeline, not just the solver call in isolation
+# (test/TestNullVerdict.jl covers that): flipping the `Ref` off must be the
+# only thing that changes.
+@testset "11. mixed-precision GramSolver on the dense branch" begin
+    if !QUICKDER_AVAILABLE
+        @test_skip false
+    else
+        # d = 48 valence 3: r = 13, cols = 3*48*13 = 1872 >= QDN_GRAM_MIN_COLS
+        # (1000), so this is a real exercise of the dense branch's GramSolver,
+        # not SVDSolver, and small enough to be a fast test.
+        inp = build_sphere(48; valence = 3, T = Float64)
+        Ω, P, Γ = inp.Ω, Matrix{Float64}(inp.ch), inp.Γ
+        m = get_derivation_method(:QuickDer; seed = 4242)
+
+        saved = Dleto.QDN_GRAM_MIXED_PRECISION[]
+        local rep_mixed, rep_plain, ders_mixed, ders_plain, map_mixed, map_plain
+        try
+            Dleto.QDN_GRAM_MIXED_PRECISION[] = true
+            (_, map_mixed, ders_mixed, rep_mixed) =
+                derTrOpsReduced(m, Ω, P, Γ; return_diagnostics = true)
+            Dleto.QDN_GRAM_MIXED_PRECISION[] = false
+            (_, map_plain, ders_plain, rep_plain) =
+                derTrOpsReduced(m, Ω, P, Γ; return_diagnostics = true)
+        finally
+            Dleto.QDN_GRAM_MIXED_PRECISION[] = saved
+        end
+
+        @test rep_mixed.solver === :GramSolver
+        @test rep_plain.solver === :GramSolver
+        @test rep_mixed.verdict.nullity == rep_plain.verdict.nullity
+        @test rep_mixed.verdict.certified == rep_plain.verdict.certified
+        @test rep_mixed.verdict.certified            # this case certifies at all
+        @test rep_mixed.verdict.rule == rep_plain.verdict.rule
+        @test size(ders_mixed, 2) == size(ders_plain, 2)
+        # Same SPAN, not the same digits (stage 1's Cholesky and subspace
+        # iteration ran in Float32 for `rep_mixed`): principal angle, not `==`.
+        Q1 = Matrix(qr(Float64.(ders_mixed)).Q)
+        Q2 = Matrix(qr(Float64.(ders_plain)).Q)
+        k = size(ders_mixed, 2)
+        @test k > 0
+        @test minimum(svdvals(Q1' * Q2)) > 1 - 1e-6
+        # And both answers are genuine derivations, embedded back the same way
+        # section 8's test above does.
+        for j in 1:k
+            D = embedITensors(Ω, map_mixed * ders_mixed[:, j])
+            @test der_residual(Γ, D, P) < 100 * sqrt(eps(Float64))
+        end
+    end
+end

@@ -476,6 +476,32 @@ not grow with the tensor.  Measured on 60x60x40x3 Float32: 0.36 MB against
 same shape does in Float64 -- nothing is promoted, and the answer comes back
 Float32.
 
+## End of 2026-09-04: where things stand and what is next
+
+Beta went v1.1 -> v1.5 in one day, every push verified `origin/beta == tag` (after v1.2 and v1.3
+first landed on a stray `beta-read-only` branch the downstream created in the beta worktree --
+see the coordination memory; the push step now asserts the worktree branch and the remote head).
+`beta` = `2d87dc3` = `v1.5-beta-2026-09-04`, 14,277 tests green over 53 testsets.
+
+Open items, in the order to take them tomorrow:
+1. **Residuals by default when `nd > 0`** -- a positive `nd` without `return_diagnostics` returns
+   unverified near-derivations today (documented, warned). Small.
+2. **The restricted eigensolve is the video lever** (mis-attributed as flat earlier in the day;
+   the GPU agent's per-stage map corrected it). In order: measure honestly now that solves are
+   seeded; shift-invert / polynomial filter on the whitened operator (spectrum in [0, n],
+   identity diagonal blocks); stop the frame-axis restriction growing with movie length. Also
+   the 1-in-8 lost copy of a multiple eigenvalue in the restricted solve (seed-dependent).
+3. **Float16 storage on the device** -- mixed-eltype `_qdn_ttm` so the 6.6 GB Float32 host copy
+   disappears; the Float16 payoff is memory, not speed (half GEMM ~1x single on MPS).
+4. `Dleto.gpu_warmup(dims, T)` -- Metal specialization costs ~14 s cold on the movie shape.
+5. Downstream questions still open: real clone vs reading the beta worktree; fixed-`nd` vs a
+   singular-value threshold for the approximate policy; whether `DerivationReport` is complete.
+
+One-minute 640x480 movie, best prediction from the measurements (no run): ~2-3.5 min, central
+~2.5 min, ~19-26 GB in Float32 on the CPU path; the eigensolve is the whole uncertainty; the
+exact answer on real video is the scalar family (nullity 3) and the science is in the
+near-derivations, now reachable with `:fixed_nd` + `return_diagnostics`.
+
 ## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
 
 Branch `aint-no-mountain-high-enough/valence-n-stratify`.  Coordination board with every

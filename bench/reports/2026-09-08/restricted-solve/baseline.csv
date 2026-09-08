@@ -1,0 +1,11 @@
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+case,label,dims,valence,eltype,forced_mf,solver,restricted_rows,restricted_cols,applies,seconds,solve_seconds,sketch_seconds,whiten_seconds,lift_seconds,maxrss_GB,nullity,oracle_nullity,residual,certified,solver_status,nv_requests,status
+video10,"video-160x120x10x3","[160, 120, 10, 3]",4,Float32,0,GramSolver,3300,3069,0,1.21526,1.13412,0.00124788,0.00470901,0.018162,1.05106,3,3,2.26363e-06,true,ok,"[16]","ok"
+video30,"video-160x120x30x3","[160, 120, 30, 3]",4,Float32,0,GramSolver,3900,3589,0,0.658891,0.594139,0.00183201,0.0026648,0.0167539,1.11447,3,3,2.90229e-06,true,ok,"[16]","ok"
+video10,"video-160x120x10x3","[160, 120, 10, 3]",4,Float32,0,GramSolver,3300,3069,0,0.525004,0.488877,0.000400066,0.00233698,0.00742793,1.05208,3,3,2.26363e-06,true,ok,"[16]","ok"
+video30,"video-160x120x30x3","[160, 120, 30, 3]",4,Float32,0,GramSolver,3900,3589,0,0.628684,0.565794,0.00133014,0.00255585,0.0171001,1.11978,3,3,2.90229e-06,true,ok,"[16]","ok"
+video60,"video-160x120x60x3","[160, 120, 60, 3]",4,Float32,0,GramSolver,4620,4169,0,0.766191,0.660947,0.0026021,0.002913,0.0239918,1.17665,3,3,1.50014e-06,true,ok,"[16]","ok"
+sphere100,"sphere-v3-d100","[100, 100, 100]",3,Float64,0,GramSolver,6859,5700,0,1.96856,1.82465,0.00183296,0.00267792,0.034081,1.86737,3,3,2.74291e-14,true,ok,"[16]","ok"
+sphere150,"sphere-v3-d150","[150, 150, 150]",3,Float64,0,GramSolver,12167,10350,0,8.98117,8.58921,0.00787711,0.006037,0.156759,3.5338,3,3,3.49827e-15,true,ok,"[16]","ok"
+sphere200,"sphere-v3-d200","[200, 200, 200]",3,Float64,0,GramSolver,17576,15600,0,28.0613,27.2342,0.0122671,0.0111279,0.250112,6.36903,3,3,2.26066e-14,true,ok,"[16]","ok"
