@@ -2337,6 +2337,22 @@ function derTrOpsReduced(
     # restricted system saw solutions that no true derivation restricts to,
     # i.e. r was too small for THIS tensor; a bigger r is the only cure that
     # does not change the method.
+    #
+    # The SAME retry now also fires when the lift succeeds but the
+    # intersection with `Ω` (`_fastder_restrict_to_ops`, below) could not cut
+    # its residual spectrum on a clean gap -- `rule === :threshold`, the
+    # `ambiguous` flag.  F8 / docs/CONTEXT.md "Session 4, part 3": a genuine
+    # symmetric direction's residual off `Ω` can land anywhere from `atol` to
+    # a few hundred `atol` depending on the random scramble, and
+    # `FASTDER_RESTRICT_CEILING` cannot be widened to cover every seed without
+    # also admitting spurious directions -- but a WIDER restriction shrinks
+    # that residual for the genuine directions (measured: sphere valence 3,
+    # d = 48, Float32, the seed that drops a symmetric derivation at the
+    # default sizes recovers it at `r .+ 2`; see bench/reports/2026-09-08/
+    # accuracy/README.md).  So the fix is the SAME lever this loop already
+    # pulls for an empty lift, not a new constant: ask for a less degenerate
+    # restriction and let the existing gap test decide again.
+    #
     # A POSITIVE `nd` is a policy, not a cap; see the docstring.  Normalised
     # here once, because `nd` is deliberately untyped across this API (the
     # SylverLining route accepts `Inf`).
@@ -2344,12 +2360,22 @@ function derTrOpsReduced(
 
     tried = Vector{Int}[]
     mats = nothing
+    ders = nothing
     local info
     while true
         push!(tried, copy(r))
         (mats, info) = _qdn_solve_and_lift(Gk, Pm, eng, r, method, rng, atol, progress,
                                            T, ndreq)
-        mats === nothing || break
+        if mats !== nothing
+            (ders, ambiguous) = _fastder_restrict_to_ops(Ω, mats, atol;
+                                                         return_ambiguous = true)
+            # Under `nd > 0` the intersection's own certificate is REPORTED,
+            # not chased -- the docstring's "TWO BOUNDARIES" already says a
+            # fixed count through a constrained Ω is a property of the space,
+            # and retrying would just spend the one extra solve on a cut whose
+            # meaning does not change with `r`.
+            (ndreq > 0 || !ambiguous) && break
+        end
         length(tried) >= 2 && break
         bumped = [min(dims[a], max(r[a] + 1, ceil(Int, 1.5 * r[a]))) for a in 1:n]
         bumped == r && break                      # already unrestricted
@@ -2384,10 +2410,12 @@ function derTrOpsReduced(
                                     (rΩ, id_map, ders)
     end
 
-    # Universal derivations, cut down to the ones that live in Ω.  Rounded back
-    # to the stored type: a Float16 tensor gets Float16 derivations, carrying
-    # exactly the precision its data justifies and no more.
-    ders = _fastder_restrict_to_ops(Ω, mats, atol)
+    # Universal derivations, cut down to the ones that live in Ω -- already
+    # computed inside the retry loop above (`ders`), so that an ambiguous cut
+    # there could ask for a wider restriction before this function ever sees
+    # it.  Rounded back to the stored type: a Float16 tensor gets Float16
+    # derivations, carrying exactly the precision its data justifies and no
+    # more.
     ders = eltype(ders) === T ? ders : Matrix{T}(ders)
     tstage = _qdn_stage!(:restrict_ops, tstage)
     @debug "QuickDer after restrict_to_ops" nders = size(ders, 2) rss_GB = Sys.maxrss() / 2^30
