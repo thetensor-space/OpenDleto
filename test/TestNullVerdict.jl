@@ -14,6 +14,7 @@ using Dleto
 using Dleto: gap_verdict, NullVerdict, FLOOR_EPS, GAP_RATIO
 using LinearAlgebra
 using LinearMaps
+using Random
 using Test
 
 # `Logging` is not in this package's [extras]/test target, so `Base.CoreLogging`
@@ -327,5 +328,56 @@ Dleto.solve(::StubSilentSolver, L::LinearMaps.LinearMap; nv::Integer = 10, kwarg
         res = solve_nullspace(Ld, :SVDSolver; tol = 1e-6, nv0 = 6)
         @test res.verdict.nullity == 3
         @test res.verdict.status === :ok
+    end
+end
+
+# =========================================================================
+# progress = true must not defeat `_gram_dense`'s no-copy path (M11,
+# docs/beta/REVIEW.md S6 -- "progress = true wraps the map in a FunctionMap,
+# which defeats _gram_dense's no-copy path").  QuickDer's dense branch hands
+# `GramSolver` a `LinearMaps.LinearMap(Matrix)` -- a `WrappedMap` around a
+# `StridedMatrix`, `_gram_dense`'s no-copy case (NullSolvers.jl).  Before this
+# fix, `progress = true` always wrapped that in a ticking `FunctionMap`
+# ahead of `_gram_dense`, so `Matrix(Lp)` re-derived the whole matrix one
+# column at a time (`kp` applications of an `n x n` matrix, not a copy)
+# instead of reading `L.lmap`.  The fix (`_wraps_dense_matrix`,
+# `solve_nullspace`) skips wrapping in exactly that case, since a subsequent
+# `Matrix(::WrappedMap)`/`_gram_dense` read has nothing per-column to report
+# anyway.
+# =========================================================================
+@testset "progress reporting does not defeat _gram_dense's no-copy path" begin
+    n = 30
+    Q = Matrix(qr(randn(MersenneTwister(7), n, n)).Q)
+    λ = vcat(zeros(3), collect(range(0.1, 1.0; length = n - 3)))
+    M = Q * Diagonal(λ) * transpose(Q)
+    L = LinearMaps.LinearMap(M; issymmetric = true)
+
+    @testset "_wraps_dense_matrix / _gram_dense" begin
+        @test Dleto._wraps_dense_matrix(L)
+        # The no-copy path: the SAME object comes back, not a copy of it.
+        @test Dleto._gram_dense(L) === M
+
+        # A genuine function map -- no matrix behind it -- is not exempt: it
+        # must still go through `Matrix(L)`, wrapped or not.
+        Lfun = LinearMaps.LinearMap{Float64}(v -> M * v, v -> M' * v, n, n;
+                                             issymmetric = true)
+        @test !Dleto._wraps_dense_matrix(Lfun)
+        @test Dleto._gram_dense(Lfun) == M          # correct, but a copy
+        @test Dleto._gram_dense(Lfun) !== M
+    end
+
+    base = solve_nullspace(L, :GramSolver; tol = 1e-6, nv0 = 8, seed = 4242)
+    @test base.verdict.nullity == 3
+
+    @testset "progress = $(repr(p))" for p in (false, true, :densify, :solve,
+                                               :all, [:densify, :solve])
+        res = solve_nullspace(L, :GramSolver; tol = 1e-6, nv0 = 8, seed = 4242,
+                              progress = p)
+        @test res.verdict.nullity == base.verdict.nullity
+        # BIT-IDENTICAL: progress only decides whether a counter ticks and a
+        # line gets printed, never the arithmetic.  Same seed, same dense
+        # Gram route either way.
+        @test res.vals == base.vals
+        @test res.vecs == base.vecs
     end
 end
