@@ -88,6 +88,31 @@ the way that the next session should know:
 
 Test-suite result on the fix branch: 52 testsets, 14,374 passes, 0 failures, 0 errors (Julia 1.12 via `bench/jl`, Arpack present); the review's baseline was 51 testsets and 14,279 passes.
 
+## Session 5, part 3 (2026-09-08): the stratify speed/accuracy campaign
+
+Goal set by the user: make `stratify` as fast and accurate as possible across Float16/32/64
+and sizes, with the work done by lower-model agents in parallel and the machine shared with
+Codex through `.coop`.  Integration branch for the day:
+`feature/dont-stop-believin/2026-09-08` (off `beta` = `v1.6-beta-2026-09-08`).  Compute:
+one aggregate reservation in `STATE/compute.yaml` (20 GB, 12 threads, `bench`, yieldable);
+every Julia run capped at 6 GB RSS through `bench/jl` with `JL_SLOTS=3 JL_THREADS=4`; the
+memwatch reporter running; Codex asked (queue message 16:28 UTC) for the shapes, precisions
+and time budgets that matter to the video pipeline.
+
+Five agents, one lever each, each on its own worktree and branch, each required to measure
+before touching code, keep answers bit-close, leave the suite green, and write a dated report
+under `bench/reports/2026-09-08/<topic>/`:
+
+| branch | lever | what "done" looks like |
+|---|---|---|
+| `everybody-wants-to-rule-the-world/stratify-matrix` | `bench/StratifyMatrix.jl`: the grid (sphere v3 d 30..150, v4 d 20..60, video 120x90xFx3; F16/32/64) as the judge; `stratify`'s own overhead; tuning `QDN_DENSE_BUDGET_BYTES`, `QDN_GRAM_MIN_COLS`, `AUTODER_MIN_ENTRIES`, per-eltype solver order | baseline vs tuned table; defaults changed only with evidence |
+| `higher-ground/lift-shared-prefix` | the lift's redundant full-tensor passes (A-F6/F7: `_qdn_pair_tensor` shares no prefix; the RHS recomputes per chisel row) and the progress wrapper defeating `_gram_dense`'s no-copy path (M11) | lift-stage time before/after, bit-closeness |
+| `under-pressure/restricted-solve` | the restricted eigensolve (~90 % of the movie cost): ARPACK `ncv`/`nv0`, solver comparison on the same whitened map, Float32-syrk Gram + Float64 Ritz to widen the dense route, randomized range finder for the complement | seconds and applies per cell, unchanged nullity/certificate |
+| `true-colors/precision-accuracy` | the 1-in-8 lost eigenvalue copy over a six-seed grid; restriction slack vs confirmation pass; Float16 false certificates; the Float32 cut on non-universal Ω | failure counts before/after per type, one pinned regression cell |
+| `everything-in-its-right-place/one-copy` | the tensor lives once: ITensor boundary without a copy, mixed-eltype `_qdn_ttm` so Float16 storage is never promoted whole, `stratify` copies | peak RSS / tensor before/after; Float16 peaks at ~half of Float32 |
+
+Merging is by review here, then to beta as a tagged step with a Codex message, as before.
+
 ## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
 
 Branch `feature/under-pressure/2026-09-04` (work done on a worktree branch off it).
