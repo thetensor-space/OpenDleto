@@ -211,13 +211,15 @@ representable in Float32), promoting the whole tensor once and promoting it
 block by block produce bit-identical inputs to bit-identical GEMMs. Cross-
 checked empirically rather than taken purely on the argument: comparing the
 new Float16 route against a native-Float32-storage run on the same
-(losslessly widened) data, both seeded identically so they draw the same
-random sketches, the two answers agree to `< 50 * sqrt(eps(Float32)) ≈
-8.4e-3` (measured maximum difference well under that bound in the CI-run
-test case; see `test/TestQuickDerN.jl` §10, part (iii)) -- the residual
-difference that exists is the STORE-TYPE rounding of the returned
-coordinates to Float16 (by design: "Float16 storage stays Float16 on the
-host" applies to the answer too), not a computational discrepancy.
+(losslessly widened) data, both seeded identically (`d = 40`, the deterministic
+dense/`GramSolver` route on both sides) so they draw the same random
+sketches, the two answers agree to a MEASURED maximum difference of
+**2.29e-5**, against the test's asserted bound `50 * sqrt(eps(Float32)) ≈
+1.73e-2` (`test/TestQuickDerN.jl` §10, part (iii)) -- three orders of
+magnitude inside it. The residual difference that remains is the STORE-TYPE
+rounding of the returned coordinates to Float16 (by design: "Float16 storage
+stays Float16 on the host" applies to the answer too), not a computational
+discrepancy.
 `store_eltype === Float16`, `compute_eltype === Float32`,
 `eltype(ders) === Float16` in every case (part (ii)).
 
