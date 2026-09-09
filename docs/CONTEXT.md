@@ -1221,3 +1221,29 @@ rather than by fitting wall time, the `640 x 480 x F x 3` run is not shaped the 
 - **Memory, not speed, is the binding constraint for the minute.** Peak device allocation is
   1.87x the tensor, so F = 1800 Float32 projects to ~12 GB on device next to a 6.6 GB host
   copy, against a ~10 GB budget. That is what Float16 is for.
+
+## Notebook warm-up noise, 2026-09-09: precompiling inside the IJulia kernel
+
+`labs/Chiseling101.ipynb` greeted a fresh kernel with `Precompiling ITensors ... (cache
+misses: wrong dep version loaded ...)` followed by a wall of `SYSTEM: caught exception of
+type :MethodError while trying to print a failed Task notice; giving up`. Nothing was broken;
+the cause is a version split between two environments that share one process.
+
+- The stock IJulia kernel starts in the default environment (`@v1.12`) and loads IJulia's
+  own dependencies from there (Preferences, JSON, ZMQ, ...). The notebook then activates
+  `OpenDleto/` and `using ITensors` finds that the project Manifest pins a *different*
+  version of an already-loaded package (here Preferences 1.5.1 vs 1.5.2). Every cache built
+  against the Manifest version is rejected ("wrong dep version loaded"), so the kernel
+  recompiles in-process. The "failed Task notice" spam is IJulia's stdio choking on the
+  parallel precompile's task failures; it is a symptom, not a second problem.
+- Cure applied here: `Pkg.update("Preferences")` in the project (Manifest.toml is
+  gitignored, so this is per-machine) and `Pkg.precompile()` through `bench/jl`. With the
+  two environments agreeing, one cache set serves both the kernel and `bench/jl`, and the
+  load is silent in both.
+- Cure for anyone else: a project-aware kernel, `IJulia.installkernel("Julia (Dleto)",
+  "--project=@.")`, which loads IJulia from the project Manifest so no split can occur. The
+  notebook's loading section now says so. The diagnostic is `Base.isprecompiled(id)` (which
+  respects loaded modules) versus `Base.isprecompiled(id; ignore_loaded=true)` after
+  `import IJulia; Pkg.activate(".")`; a `false`/`true` pair is the skew.
+- Do not "fix" this by silencing the logger around `using`: a multi-minute recompile with no
+  output looks hung, which is scarier than the banner.
