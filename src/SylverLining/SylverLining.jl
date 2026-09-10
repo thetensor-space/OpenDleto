@@ -198,7 +198,7 @@ function sylvesterLM_itensor(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor) 
 
     Γ_frame = inds(Γ)
     val = ndims(Γ)
-    engsize = valency(Ω)
+    engsize = valence(Ω)
     @assert engsize == size(P, 2) "Incompatable Chisel"
     T = eltype(Γ)
     P_typed = Matrix{T}(P)
@@ -515,7 +515,7 @@ end
 
 function _transverse_embed_all!(x::AbstractVector, Ω::TransverseOps,
                                 Ys::Vector{<:AbstractMatrix})
-    copyto!(x, unsafe_transposeEmbed(Ω, [Ys[a] for a in 1:valency(Ω)]))
+    copyto!(x, unsafe_transposeEmbed(Ω, [Ys[a] for a in 1:valence(Ω)]))
     return x
 end
 
@@ -538,7 +538,7 @@ statement in the source rather than one per backend.
 """
 function _sylver_plan(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     Γ_frame = inds(Γ)
-    engsize = valency(Ω)
+    engsize = valence(Ω)
     @assert engsize == size(P, 2) "Incompatable Chisel"
 
     T = eltype(Γ)

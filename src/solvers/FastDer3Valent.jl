@@ -438,8 +438,8 @@ what `derTrOpsReduced` on `Ω` returns.
 
 `basis` is a vector of derivations, each given as one operator matrix PER AXIS
 in the `embedITensors` convention (frame index first, i.e. the index that meets
-the tensor).  Any valency: `QuickDerN` hands in `Vector{Matrix}` of length
-`valency(Ω)` directly.  The valence-3 kernel's `(X, Y, Z)` triples are accepted
+the tensor).  Any valence: `QuickDerN` hands in `Vector{Matrix}` of length
+`valence(Ω)` directly.  The valence-3 kernel's `(X, Y, Z)` triples are accepted
 too, through the method below that runs them past `_fastder_triple_matrices`
 first -- that kernel's `X` acts by LEFT multiplication and so needs a
 transpose, which is exactly the transposing this function must not do for
@@ -468,7 +468,7 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
                                   # restriction instead of silently keeping a truncated
                                   # answer (see F8 / docs/CONTEXT.md "Session 4, part 3").
                                   return_ambiguous::Bool = false)
-    val = valency(Ω)
+    val = valence(Ω)
     dims = axisDims(Ω)
     k = length(basis)
     Tnum = k == 0 ? Float64 : promote_type(map(eltype, first(basis))...)
@@ -478,7 +478,7 @@ function _fastder_restrict_to_ops(Ω::IndTransverseOps,
     end
     all(m -> length(m) == val, basis) ||
         error("_fastder_restrict_to_ops: every basis element needs one matrix per " *
-              "axis (valency $(val)).")
+              "axis (valence $(val)).")
 
     # `collect` so the normalisation below cannot write through to the caller's
     # own matrices.
@@ -669,9 +669,9 @@ _fastder_restrict_to_ops(Ω::IndTransverseOps,
                              atol; kwargs...)
 
 function _fastder_validate_compatibility(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
-    ndims(Γ) == 3 || error("FastDer3ValentMethod currently supports only valency-3 tensors.")
+    ndims(Γ) == 3 || error("FastDer3ValentMethod currently supports only valence-3 tensors.")
     Ω isa IndTransverseOps || error("FastDer3ValentMethod currently requires IndTransverseOps.")
-    valency(Ω) == 3 || error("FastDer3ValentMethod currently requires valency-3 transverse operators.")
+    valence(Ω) == 3 || error("FastDer3ValentMethod currently requires valence-3 transverse operators.")
     all(i -> hasind(Γ, i), frames(Ω)) || error("FastDer3ValentMethod: Γ does not carry the frame of Ω.")
 
     size(P, 2) == 3 || error("FastDer3ValentMethod currently requires a 3-column chisel.")

@@ -1,4 +1,5 @@
 using Random
+using Dleto.TensorSpace: unwrap
 
 @testset "orthogonal randomization materializes a dense tensor" begin
     # The input has sparse numerical support but ordinary (non-QN) ITensors
@@ -8,7 +9,8 @@ using Random
     d = 6
     r2 = (d - 1.0)^2
     us = [r2 * (i / (d - 1) - 1 / 3) for i in 0:d-1]
-    S = randSurfaceTensor(us, us, us, 1e-9 * r2)
+    Sw = randSurfaceTensor(us, us, us, 1e-9 * r2)
+    S = unwrap(Sw)
     fr = collect(inds(S))
     Δ = randomize_tensor(S; type = :orthogonal).Δ
     support = Array(S, fr...)

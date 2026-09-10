@@ -55,7 +55,7 @@ syms = [[1, 1, 1, 1], [1, 2, 1, 2, 2, 1], [1, 2, 3, -1, 2, 3],
         [1, 2, -2, -2, 5, -5, -1, -1], [1, -1, 3, 3, -3, 1, 7, 8]]
 
 # Sample count scaled to the size of the map, so that high-valence frames
-# (the symmetry sweep below reaches valency 10) stay affordable.
+# (the symmetry sweep below reaches valence 10) stay affordable.
 adaptive_samples(f::LinearMap) = clamp(1_000_000 ÷ max(1, size(f, 1)), 5, 100)
 
 function testTranspose(f::LinearMap, num::Integer)
@@ -104,7 +104,7 @@ function testGlobalOp(Ω::TransverseOps; ntimes::Integer=5)
         )
             @testset "Random $name chisels" begin
                 for _ in 1:ntimes
-                    eng = [rand(1:10) % 2 == 1 for _ in 1:valency(Ω)]
+                    eng = [rand(1:10) % 2 == 1 for _ in 1:valence(Ω)]
                     # CentroidChisel needs at least two engaged axes to be nonempty.
                     needed = name == "Centroid" ? 2 : 1
                     if sum(eng) >= needed
@@ -118,7 +118,7 @@ end
 
 @testset "SylverLining Independent Tests" begin
     for val in 3:5
-        @testset "Valency $val Tests" begin
+        @testset "Valence $val Tests" begin
             for _ in 1:5
                 axisdim = rand(2:10, val)
                 frame = axisdim .|> (i -> Index(i, "dim $i"))
@@ -131,7 +131,7 @@ end
 
 @testset "SylverLining Trivial Symmetry Tests" begin
     for val in 3:5
-        @testset "Valency $val Tests" begin
+        @testset "Valence $val Tests" begin
             for _ in 1:5
                 axisdim = rand(2:10, val)
                 frame = axisdim .|> (i -> Index(i, "dim $i"))

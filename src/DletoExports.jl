@@ -35,7 +35,11 @@ export nondeg
 
 # DletoBase.jl
 export ⊕
+export direct_sum
 export act                                  # one operator per axis acting on a tensor
+export tutorial_defaults
+export warmup
+export ts
 # what is this? is this tensor product of tensors? why not \otimes?
 
 # Chisels.jl
@@ -58,10 +62,12 @@ export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
 
 # Transverse.jl
 export TransverseOps
+export UniversalOps, DiagonalOps, SymmetricOps, AntiSymmetricOps, ScalarOps
 export embedMatrices, unsafe_embedMatrices
 export embedITensors, unsafe_embedITensors
 export embedITensorsSwapped, unsafe_embedITensorsSwapped
-export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
+export globalDim, axisDims, valence, valency, frames, framesTemporary, reduceByEngaged
+export is_orthogonal
 
 # GlobalOperatorsIndependant.jl
 export IndTransverseOps

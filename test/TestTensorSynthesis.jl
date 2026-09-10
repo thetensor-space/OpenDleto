@@ -1,7 +1,8 @@
 function testNorm(deltas::Vector{<:Vector{<:Number}}, ch::Matrix, num::Integer) ::Bool
     for _ = 1:num
-        IT = randTensorChisel(deltas, 0.1, ch)
-        norm = ITensorNormChisel(IT, deltas, ch)
+        ITw = randTensorChisel(deltas, 0.1, ch)
+        IT = Dleto.TensorSpace.unwrap(ITw)
+        norm = ITensorNormChisel(ITw, deltas, ch)
         frame = inds(IT)
         @assert (norm >= 0) && (norm <= 1) "Norm should be between 0 and 1"
         @assert norm < 0.1 "Warning Norm too large"
@@ -33,7 +34,7 @@ end;
 @testset "Testing Tensor Synthesis" begin
     for val = 2:6
         # @show val
-        @testset "Valency $val Tests" begin
+        @testset "Valence $val Tests" begin
             axisdim = rand(5:10, val)
             deltas = randn.(axisdim) 
             @test testNorm(deltas, UniversalChisel(val), 10)

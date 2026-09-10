@@ -61,6 +61,20 @@ Pkg.develop(path="/path/to/OpenDleto")
 using Dleto
 ```
 
+### Optional TensorSpace Soft Operators
+
+Core Dleto keeps `*`/`+` off foreign tensor types to avoid global method piracy.
+If you want the old ergonomic style, opt into the soft wrapper namespace:
+
+```julia
+using Dleto
+using Dleto.TensorSpace: ts
+
+rn = randomize_tensor(Γ)
+Γ_rand = ts(Γ) * rn.Xs      # soft wrapper for act(Γ, rn.Xs)
+Σ = ts(Γ) + Δ               # soft wrapper for Γ ⊕ Δ
+```
+
 ### Option 2: Direct from GitHub
 
 ```julia

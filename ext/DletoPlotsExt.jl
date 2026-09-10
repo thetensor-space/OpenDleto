@@ -39,6 +39,9 @@ using Plots
 # Global variable to store the default compare layout
 const COMPARE_LAYOUT = Ref{Symbol}(:widescreen)
 
+_unwrap_plot_input(x) = x
+_unwrap_plot_input(x::Dleto.TensorSpace.TensorElement) = Dleto.TensorSpace.unwrap(x)
+
 """
     set_compare_layout(layout::Symbol)
 
@@ -104,10 +107,12 @@ function Dleto.compare(left, right;
     # Use global default if layout not specified
     actual_layout = isnothing(layout) ? get_compare_layout() : layout
 
-    the_left = (typeof(left) <: ITensor) ? Array(left, inds(left)) : left
+    left_unwrapped = _unwrap_plot_input(left)
+    the_left = (typeof(left_unwrapped) <: ITensor) ? Array(left_unwrapped, inds(left_unwrapped)) : left_unwrapped
     left_txt = repr("text/plain", the_left)
 
-    the_right = (typeof(right) <: ITensor) ? Array(right,inds(right)) : right
+    right_unwrapped = _unwrap_plot_input(right)
+    the_right = (typeof(right_unwrapped) <: ITensor) ? Array(right_unwrapped, inds(right_unwrapped)) : right_unwrapped
     right_txt = repr("text/plain", the_right)
     
     if actual_layout == :vertical
@@ -232,6 +237,8 @@ function Dleto.plot_tensor(tensor, threshold::Float64=1e-4;
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
                    title::String="3D Tensor Visualization", color::Symbol=:blue
     )
+
+    tensor = _unwrap_plot_input(tensor)
 
     # Convert ITensor to array for processing
     arr = (typeof(tensor) <: ITensor) ? Array(tensor, inds(tensor)...) : tensor

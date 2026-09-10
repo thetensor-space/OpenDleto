@@ -78,7 +78,7 @@ function reduceByEngaged(FCh::Chisel, engaged::Dict{Index,Bool})::Chisel
 end
 
 function applyDerivation(Γ::ITensor, Xes::Vector{ITensor}, FCh::Chisel )::ITensor
-    @assert all(Xes .|> (x ->ndims(x) == 2) ) == true "all Xes must have valancy 2"
+    @assert all(Xes .|> (x ->ndims(x) == 2) ) == true "all Xes must have valence 2"
     @assert all(Xes .|> (x -> xor( (inds(x) .|> i -> haskey(FCh.idx, i))...) ) ) == true "incompatible indexes"
     @assert all(FCh.frames .|> i -> i in inds(Γ )) == true "Γ misses some indexes"
     Γ_frame_ch = (FCh.ch_axis, inds(Γ)...)

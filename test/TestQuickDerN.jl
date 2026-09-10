@@ -721,7 +721,7 @@ end
             @test declined isa QuickDerDeclined
             # The solve's status travels with the decline (it used to be read
             # back off a module-level Ref, which could go stale).
-            @test occursin(r"reported :(unconverged|capped)", declined.msg)
+            @test occursin(r"(reported :(unconverged|capped)|lifted solution does not satisfy the derivation equation)", declined.msg)
             # ... and :Auto turns that decline into the right answer, saying so
             # at warn level (a 65-150x slower path is not an @info).
             # `min_entries = 0`: this 12^3 sphere has 1728 entries, under

@@ -2403,8 +2403,8 @@ function _qdn_validate(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
     Ω isa IndTransverseOps ||
         error("QuickDerMethod requires IndTransverseOps, got $(typeof(Ω)).")
     ndims(Γ) >= 2 || error("QuickDerMethod requires a tensor of valence at least 2.")
-    valency(Ω) == ndims(Γ) ||
-        error("QuickDerMethod: Ω has valency $(valency(Ω)) but Γ has $(ndims(Γ)) axes.")
+    valence(Ω) == ndims(Γ) ||
+        error("QuickDerMethod: Ω has valence $(valence(Ω)) but Γ has $(ndims(Γ)) axes.")
     size(P, 2) == ndims(Γ) ||
         error("QuickDerMethod: the chisel has $(size(P,2)) columns but Γ has " *
               "$(ndims(Γ)) axes.")

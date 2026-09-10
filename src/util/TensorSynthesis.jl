@@ -84,7 +84,7 @@ randTensorSupport(deltas::Vector{Vector}, frames::Vector{Index}, cutoff::Number,
 
 Generate a random tensor with supported on the constarint  dist(...) < cutoff
 """
-function rand_den(
+function _rand_den_itensor(
         # deltas::Vector{Vector{K}} where K <: Number,
         # frames::Vector{Index{L}} where L,
         deltas::Vector{<:AbstractVector{<:Number}},
@@ -118,15 +118,27 @@ end
 
 
 
-rand_den(deltas::Vector{<:AbstractVector{<:Number}},cutoff::Number,dist::Function)::ITensor =
+rand_den(
+    deltas::Vector{<:AbstractVector{<:Number}},
+    frames::Vector{<:Index},
+    cutoff::Number,
+    dist::Function
+) = TensorSpace.tensor(_rand_den_itensor(deltas, frames, cutoff, dist))
+
+
+rand_den(deltas::Vector{<:AbstractVector{<:Number}},cutoff::Number,dist::Function) =
 rand_den(deltas, [ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)], cutoff,dist);
 
 
-randTensorChisel(deltas::Vector{<:AbstractVector{<:Number}}, frames::Vector{<:Index}, cutoff::Number, ch::Matrix)::ITensor = 
-rand_den(deltas,frames,cutoff, x -> __dist(ch, x));
+randTensorChisel(
+    deltas::Vector{<:AbstractVector{<:Number}},
+    frames::Vector{<:Index},
+    cutoff::Number,
+    ch::Matrix
+) = TensorSpace.tensor(_rand_den_itensor(deltas, frames, cutoff, x -> __dist(ch, x)))
 
-randTensorChisel(deltas::Vector{<:AbstractVector{<:Number}}, cutoff::Number, ch::Matrix)::ITensor = 
-rand_den(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, x -> __dist(ch, x));        
+randTensorChisel(deltas::Vector{<:AbstractVector{<:Number}}, cutoff::Number, ch::Matrix) = 
+randTensorChisel(deltas,[ Index(length(deltas[a]), "a$a") for a in 1:length(deltas)],cutoff, ch);
 
 #-------------------------------
 # test if the support of a tensor is restricted by a distance function

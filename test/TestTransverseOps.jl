@@ -99,7 +99,7 @@ end;
 
 function testReducedbyEngaged(Ω::TransverseOps, num::Integer,testzeros::Bool=true)
     globaldim = globalDim(Ω)
-    val=valency(Ω)
+    val=valence(Ω)
     for _=1:num
         eng = [ rand(1:10) % 2 == 1 for i in 1:val ]
         reducedval= sum(eng)
@@ -134,7 +134,7 @@ function testReducedbyEngaged(Ω::TransverseOps, num::Integer,testzeros::Bool=tr
     return true;
 end;
 
-# @testset "TransverseOps Valency 0 Tests" begin
+# @testset "TransverseOps Valence 0 Tests" begin
 #     Ω = IndTransverseOps(Index{Int64}[],Operator[])
 # #    @test testInverse(Ω, 100)
 #     @test testTranspose(Ω, 100)
@@ -142,7 +142,7 @@ end;
 
 @testset "TransverseOpsIndependant Tests" begin
     for val = 1:10
-        @testset "Valency $val Tests" begin
+        @testset "Valence $val Tests" begin
             for _ = 1:30
                 axisdim = rand(1:15, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))
@@ -156,9 +156,26 @@ end;
     end
 end
 
+@testset "is_orthogonal helper tests" begin
+    M = ITensors.NDTensors.random_orthog(6, 6)
+    @test is_orthogonal(M)
+    @test !is_orthogonal([1.0 0.0; 0.0 2.0])
+
+    i = Index(6, "i")
+    j = Index(6, "j")
+    X = ITensor(M, i, j)
+    @test is_orthogonal(X)
+
+    bad = ITensor([1.0 0.0; 0.0 2.0], Index(2, "a"), Index(2, "b"))
+    @test !is_orthogonal(bad)
+
+    @test is_orthogonal([X])
+    @test !is_orthogonal([X, bad])
+end
+
 @testset "TransverseOpsSymmetires Tests" begin
     for val = 1:10
-        @testset "No Symmetry Valency $val Tests" begin
+        @testset "No Symmetry Valence $val Tests" begin
             for _ = 1:30
                 axisdim = rand(1:15, val)
                 frames = axisdim .|>  (i-> Index(i,"dim $i"))

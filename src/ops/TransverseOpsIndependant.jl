@@ -55,7 +55,7 @@ struct IndTransverseOps <: TransverseOps
         val =  length(fr);
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
-        @assert val > 0 "Do not accept Valency 0"; 
+        @assert val > 0 "Do not accept Valence 0"; 
         axisDims = fr .|> ITensors.dim;
         localDims =[ localDim(localOps[i], axisDims[i]) for i=1:val];
         globalDim = sum(localDims);
@@ -80,7 +80,7 @@ globalDim(GΩ::IndTransverseOps)::Integer  = GΩ.globalDim;
 
 axisDims(GΩ::IndTransverseOps)::Vector{<:Integer} = GΩ.axisDims;
 
-valency(GΩ::IndTransverseOps)::Integer = GΩ.val
+valence(GΩ::IndTransverseOps)::Integer = GΩ.val
 
 frames(GΩ::IndTransverseOps) = GΩ.frames
 framesTemporary(GΩ::IndTransverseOps) = GΩ.framesTemp

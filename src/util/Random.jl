@@ -39,7 +39,7 @@ f is a function with an argumen index and returns :invertible or :orthogonal
 function randomize_tensor(
     Γ::ITensor; 
     type::Symbol =:invertible,
-    ):: NamedTuple{(:Δ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+    )
     f = (_) -> type
     fr = inds(Γ)
     mats = Vector{ITensor}(undef, length(fr))
@@ -48,7 +48,7 @@ function randomize_tensor(
         outer = __new_index_for_randomization(fr[a])
         mats[a] = ITensor( mat, fr[a], outer )
     end
-    return (;Δ=act(Γ, mats), Xs=mats)
+    return (;Δ=TensorSpace.tensor(act(Γ, mats)), Xs=mats)
 end
 
 

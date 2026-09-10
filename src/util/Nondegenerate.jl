@@ -48,7 +48,7 @@
 function nondeg(Γ::ITensor, 
                 A::Vector{Index{T}} where T; 
                 mode::Symbol=:trunc,
-                tol::Float64=1e-10):: NamedTuple{(:Δ, :Es), Tuple{ITensor, Vector{ITensor}}} 
+                tol::Float64=1e-10)
 #MDK, I think what you call :ful is actually HoSVD, and calling it Tucker might upset someone...
 
     fr = inds(Γ)
@@ -89,7 +89,7 @@ function nondeg(Γ::ITensor,
         end
         i = i + 1
     end
-    return (;Δ = Δ, Es=Es[1:(i-1)])
+    return (;Δ = TensorSpace.tensor(Δ), Es=Es[1:(i-1)])
 end;
 
 nondeg(Γ::ITensor; mode::Symbol=:trunc, tol::Float64=1e-10) = nondeg(Γ, collect(inds(Γ)); mode=mode, tol=tol);

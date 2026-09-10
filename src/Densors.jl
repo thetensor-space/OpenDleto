@@ -224,7 +224,7 @@ end
 function stratify(
         Γ::ITensor, 
         der::Vector{ITensor}
-    ) :: NamedTuple{(:Σ, :Xs), Tuple{ITensor, Vector{ITensor}}}
+    )
     Xs = [
         let X = der[i]
             D, T = realCanonicalForm(Array(X, inds(X)...))
@@ -246,7 +246,7 @@ function stratify(
         length(orig) == 1 && length(temp) == 1 || continue
         Σ = replaceind(Σ, temp[1], orig[1])
     end
-    return (;Σ=Σ, Xs=Xs)
+    return (;Σ=TensorSpace.tensor(Σ), Xs=Xs)
 end
 
 

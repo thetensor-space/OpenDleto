@@ -38,6 +38,9 @@ function der_residual(Γ::ITensor, D::Vector{ITensor}, P::AbstractMatrix)
     return norm(R) / max(scale, eps())
 end
 
+der_residual(Γ::Dleto.TensorSpace.TensorElement, D::Vector{ITensor}, P::AbstractMatrix) =
+    der_residual(Dleto.TensorSpace.unwrap(Γ), D, P)
+
 """Random linear combination of a basis of derivations, axis by axis."""
 function combine(basis::Vector{Vector{ITensor}}, coefs::Vector{<:Number})
     val = length(first(basis))
@@ -334,7 +337,7 @@ end
     @test length(Δ) > size(nullspace(P), 2)   # more than just the scalars
 
     # The default (nd <= 0) must not cap the basis.  It used to be rewritten to
-    # the valency, so this tensor's 6-dimensional derivation space came back as
+    # the valence, so this tensor's 6-dimensional derivation space came back as
     # 3 vectors.  Oracle: the diagonal tensor admits exactly the diagonal
     # triples with a_i + b_i + c_i = 0, i.e. 2 per index, so dim = 2n.
     @test length(Δ) == length(der(SylverLiningMethod(), Ω, P, Γ; tol=1e-6, nd=10^6))

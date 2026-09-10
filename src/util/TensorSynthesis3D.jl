@@ -39,7 +39,7 @@ function randSurfaceTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    ):: ITensor
+    )
     return randTensorChisel([xes,yes,zes],cutoff,UniversalChisel(3))
 end;
 
@@ -55,7 +55,7 @@ function randFaceCurveTensor(
         yes::Vector, 
         zes::Vector,
         cutoff::Number
-    )::ITensor
+    )
     return randTensorChisel([xes,yes,zes],cutoff,AdjointChisel(3,1,2))
 end;
 
@@ -71,7 +71,7 @@ function randCurveTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    )::ITensor
+    )
     return randTensorChisel([xes,yes,zes],cutoff,CentroidChisel(3))
 end
 

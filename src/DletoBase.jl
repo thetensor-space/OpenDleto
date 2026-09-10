@@ -157,6 +157,57 @@ end
     return iΓ ⊕ Δ
 end
 
+"""
+    direct_sum(Γ, Δ, Γs...)
+
+Named direct-sum helper for tutorials and scripts that prefer ASCII names.
+This is equivalent to chaining `⊕` left-to-right.
+"""
+direct_sum(Γ, Δ) = Γ ⊕ Δ
+direct_sum(Γ, Δ, Γs...) = foldl(⊕, Γs; init = Γ ⊕ Δ)
+
+"""
+    tutorial_defaults(; layout=(1,2), pic_size=(900,400), tol=1e-6, compare_layout=:widescreen)
+
+Notebook-friendly defaults for Chiseling tutorials. Returns a named tuple with
+`layout`, `pic_size`, and `tol`, and applies `set_compare_layout(compare_layout)`
+when that API is available.
+"""
+function tutorial_defaults(; layout::Tuple{Int, Int}=(1, 2),
+                             pic_size::Tuple{Int, Int}=(900, 400),
+                             tol::Real=1e-6,
+                             compare_layout::Symbol=:widescreen)
+    if @isdefined(set_compare_layout) && hasmethod(set_compare_layout, Tuple{Symbol})
+        set_compare_layout(compare_layout)
+    end
+    return (; layout = layout, pic_size = pic_size, tol = Float64(tol))
+end
+
+"""
+    warmup(; dims=(6,5,4), tol=1e-6, T=Float64, run_stratify=true, run_nondeg=true, gc_after=true, verbose=true)
+
+Run a small representative tensor workflow to trigger JIT compilation for common
+Dleto paths used in notebooks and scripts.
+"""
+function warmup(; dims::NTuple{3, Int}=(6, 5, 4),
+                  tol::Real=1e-6,
+                  T::DataType=Float64,
+                  run_stratify::Bool=true,
+                  run_nondeg::Bool=true,
+                  gc_after::Bool=true,
+                  verbose::Bool=true)
+    verbose && println("Warming up Dleto kernels... (first run compiles methods)")
+    Γw = randn(T, dims...)
+    rw = randomize_tensor(Γw)
+    Γrand = hasproperty(rw, :Δ) ? rw.Δ : rw[1]
+    run_stratify && stratify(Γrand; tol=tol)
+    run_nondeg && nondeg(Γrand, mode=:trunc)
+    gc_after && GC.gc()
+    verbose && println("Warmup complete.")
+    return (; dims = dims, tol = Float64(tol), eltype = T,
+              stratify = run_stratify, nondeg = run_nondeg)
+end
+
 # --- Utiliity functions ---
 
 __isapproxzero(x::Number)::Bool = isapprox(x,0.0);

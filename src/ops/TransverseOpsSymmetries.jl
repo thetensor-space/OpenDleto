@@ -64,7 +64,7 @@ struct TransverseOpsSymmetries <: TransverseOps
         symmetries ::Vector{<:Integer}, 
         duals :: Union{Vector{Bool},BitVector}) = (
         val =  length(fr);
-        @assert val > 0 "Do not accept Valency 0"; 
+        @assert val > 0 "Do not accept Valence 0"; 
         @assert val == length(localOps) "Incompatable data";
         @assert (fr .|> ITensors.dim) == (frTemp .|> ITensors.dim) "Incompatable dimensions";
         axisDims = fr .|> ITensors.dim;
@@ -111,7 +111,7 @@ globalDim(GΩ::TransverseOpsSymmetries)::Integer  = GΩ.globalDim;
 
 axisDims(GΩ::TransverseOpsSymmetries)::Vector{<:Integer} = GΩ.axisDims;
 
-valency(GΩ::TransverseOpsSymmetries)::Integer = GΩ.val
+valence(GΩ::TransverseOpsSymmetries)::Integer = GΩ.val
 
 frames(GΩ::TransverseOpsSymmetries) = GΩ.frames
 

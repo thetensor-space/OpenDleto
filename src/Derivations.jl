@@ -50,7 +50,7 @@ Supported symbols:
   otherwise or whenever QuickDer's own verification rejects its answer
   (`src/solvers/AutoDer.jl`).  The default for `stratify`.
 - `:SylverLining` -- the general method: build the derivation--densor operator
-  as a `LinearMap` and hand it to a null solver.  Any chisel, any valency, any
+    as a `LinearMap` and hand it to a null solver.  Any chisel, any valence, any
   operator space.
 - `:QuickDer` -- the *derivation* solve-and-lift at ANY valence
   (`src/solvers/QuickDerN.jl`, docs/design/QuickDer-valence-n.md): sketch every
@@ -61,7 +61,7 @@ Supported symbols:
   valence `n >= 2`, any dimensions, any chisel with at least one engaged axis,
   any `IndTransverseOps`.
 - `:QuickDer3` -- the valence-3 transcription of Liu's `quick-der-lib.jl`, kept
-  as the reference oracle for `:QuickDer`.  Valency 3, one-row fully engaged
+    as the reference oracle for `:QuickDer`.  Valence 3, one-row fully engaged
   chisel, corner restriction, dense solve.  Alias: `:FastDer3Valent`.
 - `:QuickSylver` -- Liu's *Sylvester* solve-and-lift (`quicksylver-lib.jl`):
   the same idea for `XR + SY = T`, restricting two axes and lifting an affine

@@ -234,9 +234,9 @@ end
 # ---------------------------------------------------------------------------
 
 function _qs_validate(Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor)
-    ndims(Γ) == 3 || error("QuickSylverMethod currently supports only valency-3 tensors.")
+    ndims(Γ) == 3 || error("QuickSylverMethod currently supports only valence-3 tensors.")
     Ω isa IndTransverseOps || error("QuickSylverMethod currently requires IndTransverseOps.")
-    valency(Ω) == 3 || error("QuickSylverMethod currently requires valency-3 transverse operators.")
+    valence(Ω) == 3 || error("QuickSylverMethod currently requires valence-3 transverse operators.")
     all(op -> op isa UniversalOp, Ω.localOps) ||
         error("QuickSylverMethod currently requires UniversalOp() on every axis.")
     size(P, 2) == 3 || error("QuickSylverMethod currently requires a 3-column chisel.")
