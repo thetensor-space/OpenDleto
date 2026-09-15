@@ -17,6 +17,13 @@ Reproduce from the repo root:
 bench/jl timing/StratifyTiming.jl 150 60      # maxd 150, 60 s budget
 ```
 
+Watch it with `timing/sweep.log`, which the driver writes as it goes. The
+**warm-up runs before the first row is written** and can take many minutes: 54
+configurations, several of which iterate to convergence on a badly conditioned
+system and cost tens of seconds even at `d = 6`. The log names each one as it
+completes, so a quiet sweep can be told apart from a hung one. `sweep.log` is
+gitignored.
+
 The notebook runs on the `julia-1.12` IJulia kernel and activates this project
 itself, so open it from inside `timing/`.
 

@@ -89,6 +89,7 @@ using ITensors
 using LinearAlgebra
 using Printf
 using Random
+using Dates
 
 # The solver extensions.  See THE SOLVER AXIS above: these are not optional
 # imports, they decide which solvers exist and therefore what `:AutoSolver`
@@ -112,8 +113,14 @@ haskey(Dleto.SOLVER_REGISTRY, :ArpackSolver) ||
           "Every :AutoSolver row would silently fall through to a slower solver; " *
           "fix the environment rather than measuring that.")
 const CSV    = joinpath(@__DIR__, "stratify-timing.csv")
+# A companion log beside the CSV.  The warm-up alone can run for many minutes
+# before the first row is written, and a sweep with no visible output is
+# indistinguishable from a hung one -- so progress goes to a file the user can
+# open, not only to whatever terminal happened to launch it.
+const LOG    = joinpath(@__DIR__, "sweep.log")
 const DS     = 10:5:MAXD
 const VALENCE = 3
+const WARMD   = 6
 
 # ------------------------------------------------------------ configurations
 #
@@ -226,6 +233,17 @@ const HEADER = "d,valence,eltype,solve_tol,target,ops,method,solver,der_seconds,
 
 isfile(CSV) || open(io -> println(io, HEADER), CSV, "w")
 
+"Print to stdout and append to `timing/sweep.log`."
+function logln(s::AbstractString)
+    println(s)
+    flush(stdout)
+    open(io -> println(io, s), LOG, "a")
+    return nothing
+end
+
+open(io -> println(io, "\n# ---- run started ", Dates.format(Dates.now(), "yyyy-mm-dd HH:MM:SS"),
+                   " ----"), LOG, "a")
+
 function emit(row)
     line = @sprintf("%d,%d,%s,%.0e,%.0e,%s,%s,%s,%.4f,%.4f,%.4f,%d,%d,%.3e,%s,%.3e,%.4f,%s,%s,%d,%s",
                     row.d, VALENCE, row.eltype, SOLVE_TOL, row.target, row.ops,
@@ -234,36 +252,40 @@ function emit(row)
                     isnan(row.residual) ? "false" : string(row.residual <= row.target),
                     row.lsq_err, row.support, row.perm_ok, row.dims, row.nnz,
                     replace(row.status, ',' => ';'))
-    println(line)
-    flush(stdout)
+    logln(line)
     open(io -> println(io, line), CSV, "a")
 end
 
-println("# StratifyTiming: d = $(first(DS)):5:$(last(DS)), budget $(BUDGET) s, " *
-        "solve_tol $(SOLVE_TOL), targets 1e-8 (Float32) / 1e-16 (Float64)")
-println("# solvers: $(join(String.(NULL_SOLVERS), ", "))")
+logln("# StratifyTiming: d = $(first(DS)):5:$(last(DS)), budget $(BUDGET) s, " *
+      "solve_tol $(SOLVE_TOL), targets 1e-8 (Float32) / 1e-16 (Float64)")
+logln("# solvers: $(join(String.(NULL_SOLVERS), ", "))")
 # The warm-up is long -- 27 configurations over four facets, each carrying its
 # own specialization -- and it runs before a single row is written.  Report it,
 # so a sweep that has not yet produced output is visibly working rather than
 # apparently hung, and skip the second pass on anything already slow: a solver
 # that takes seconds at d = 8 is not one whose JIT cost will matter at d = 150.
-println("# warming up at d = 8 (", sum(length(c.ops) for c in CONFIGS) * length(ELTYPES),
-        " configurations; no rows are written until this finishes) ...")
+logln("# warming up at d = $WARMD (" *
+      string(sum(length(c.ops) for c in CONFIGS) * length(ELTYPES)) *
+      " configurations; no rows are written until this finishes) ...")
 let done = 0, total = sum(length(c.ops) for c in CONFIGS) * length(ELTYPES)
     for T in ELTYPES, opsname in (:universal, :symmetric)
-        inp = build_sphere(8; valence = VALENCE, T = T, ops = OPSPACE[opsname])
+        inp = build_sphere(WARMD; valence = VALENCE, T = T, ops = OPSPACE[opsname])
         for cfg in CONFIGS
             opsname in cfg.ops || continue
             r = timed_stratify(inp, cfg, SOLVE_TOL)
-            r.total_s < 5.0 && timed_stratify(inp, cfg, SOLVE_TOL)
+            # A second pass only where it is nearly free.  Several of these
+            # solvers iterate to convergence on a badly conditioned system and
+            # cost tens of seconds even at d = 6, where JIT is a rounding error
+            # on the total -- and the sweep re-measures anything under a second
+            # anyway, so the fast configurations are covered twice over.
+            r.total_s < 2.0 && timed_stratify(inp, cfg, SOLVE_TOL)
             done += 1
-            @printf("#   [%2d/%2d] %-8s %-9s %-24s %6.2f s\n",
-                    done, total, T, opsname, cfg.name, r.total_s)
-            flush(stdout)
+            logln(@sprintf("#   [%2d/%2d] %-8s %-9s %-24s %6.2f s",
+                           done, total, T, opsname, cfg.name, r.total_s))
         end
     end
 end
-println(HEADER)
+logln(HEADER)
 
 # -------------------------------------------------------------------- sweep
 #
@@ -314,4 +336,4 @@ for d in DS
     end
 end
 
-println("# done -> $CSV")
+logln("# done -> $CSV")
