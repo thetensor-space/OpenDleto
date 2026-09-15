@@ -8,13 +8,16 @@ the **derivation solve** and the **stratification itself** timed apart.
 |---|---|
 | `StratifyTiming.jl` | the driver — builds the input, sweeps `d`, writes the CSV |
 | `stratify-timing.csv` | the measurements, one row per `(d, eltype, ops, method)` |
-| `StratifyTiming.ipynb` | Plotly visualization of the CSV |
+| `StratifyTiming.ipynb` | Julia (IJulia) notebook: PlotlyJS visualization of the CSV |
 
 Reproduce from the repo root:
 
 ```bash
 bench/jl timing/StratifyTiming.jl 200 60      # maxd 200, 60 s budget
 ```
+
+The notebook runs on the `julia-1.12` IJulia kernel and activates this project
+itself, so open it from inside `timing/`.
 
 `bench/jl` is the project's Julia wrapper (thread, heap and RSS budget for a
 shared machine). Never invoke bare `julia` here.
