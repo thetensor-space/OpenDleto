@@ -242,13 +242,24 @@ end
 println("# StratifyTiming: d = $(first(DS)):5:$(last(DS)), budget $(BUDGET) s, " *
         "solve_tol $(SOLVE_TOL), targets 1e-8 (Float32) / 1e-16 (Float64)")
 println("# solvers: $(join(String.(NULL_SOLVERS), ", "))")
-println("# warming up at d = 8 ...")
-for T in ELTYPES, opsname in (:universal, :symmetric)
-    inp = build_sphere(8; valence = VALENCE, T = T, ops = OPSPACE[opsname])
-    for cfg in CONFIGS
-        opsname in cfg.ops || continue
-        for _ in 1:2
-            timed_stratify(inp, cfg, SOLVE_TOL)
+# The warm-up is long -- 27 configurations over four facets, each carrying its
+# own specialization -- and it runs before a single row is written.  Report it,
+# so a sweep that has not yet produced output is visibly working rather than
+# apparently hung, and skip the second pass on anything already slow: a solver
+# that takes seconds at d = 8 is not one whose JIT cost will matter at d = 150.
+println("# warming up at d = 8 (", sum(length(c.ops) for c in CONFIGS) * length(ELTYPES),
+        " configurations; no rows are written until this finishes) ...")
+let done = 0, total = sum(length(c.ops) for c in CONFIGS) * length(ELTYPES)
+    for T in ELTYPES, opsname in (:universal, :symmetric)
+        inp = build_sphere(8; valence = VALENCE, T = T, ops = OPSPACE[opsname])
+        for cfg in CONFIGS
+            opsname in cfg.ops || continue
+            r = timed_stratify(inp, cfg, SOLVE_TOL)
+            r.total_s < 5.0 && timed_stratify(inp, cfg, SOLVE_TOL)
+            done += 1
+            @printf("#   [%2d/%2d] %-8s %-9s %-24s %6.2f s\n",
+                    done, total, T, opsname, cfg.name, r.total_s)
+            flush(stdout)
         end
     end
 end
