@@ -472,7 +472,12 @@ Same body as `stratify(Ω, ch, Γ)`, unrolled so the nullity is recorded.
 """
 function run_stratify(inp; method::Symbol = :SylverLining, solver::Symbol = :AutoSolver,
                       tol::Real = 1e-6, nd = -1, score::Bool = true, method_kwargs...)
-    Ω, ch, Γ = inp.Ω, inp.ch, inp.Γ
+    Ω, ch = inp.Ω, inp.ch
+    # `nondeg` returns a `TensorSpace.TensorElement`, so `build_sphere`'s
+    # Float64 path (which keeps its output as-is) carries a wrapper where the
+    # converted Float32 path carries a bare ITensor.  The solvers want the bare
+    # one; unwrap rather than convert, so no copy is made.
+    Γ = inp.Γ isa Dleto.TensorSpace.TensorElement ? inp.Γ.value : inp.Γ
     res = nothing
     nullity = 0
     status = "ok"
@@ -494,8 +499,12 @@ function run_stratify(inp; method::Symbol = :SylverLining, solver::Symbol = :Aut
     end
     # No `S`, no score: the memory-lean build drops the original tensor
     # `reconstruction` fits against (`build_sphere`'s `keep_S`).
-    sc = (res !== nothing && score && inp.S !== nothing) ?
-         reconstruction(inp, res.Σ, res.Xs) :
+    # `stratify` wraps its result the same way; `reconstruction` wants the
+    # ITensor.
+    Σ = res === nothing ? nothing :
+        (res.Σ isa Dleto.TensorSpace.TensorElement ? res.Σ.value : res.Σ)
+    sc = (Σ !== nothing && score && inp.S !== nothing) ?
+         reconstruction(inp, Σ, res.Xs) :
          (; lsq_err = NaN, support = NaN, perm_ok = false)
     return (; seconds = st.time, bytes = st.bytes, nullity, sc.lsq_err, sc.support,
               sc.perm_ok, status, res)

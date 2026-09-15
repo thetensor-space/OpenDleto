@@ -1,0 +1,210 @@
+d,valence,eltype,tol,ops,method,solver,der_seconds,strat_seconds,total_seconds,bytes,nullity,lsq_err,support,perm_ok,dims,nnz,status
+10,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,0.5464,0.0002,0.5466,3075200,14,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,2.4162,0.0002,2.4164,3070896,14,8.644e-01,0.2529,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,Auto,none,3.1009,0.0003,3.1012,3077152,14,7.058e-01,0.5019,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,QuickDer,none,2.3377,0.0002,2.3379,6871952,14,9.380e-01,0.1201,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,QuickDer3,none,2.2775,0.0003,2.2778,4137024,14,9.453e-01,0.1065,false,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,0.9426,0.0003,0.9428,1185904,3,5.065e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,0.4115,0.0002,0.4117,1181600,3,2.820e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,Auto,none,0.2378,0.0002,0.2380,1187856,3,7.438e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SymmetricGram,none,0.7351,0.0002,0.7353,4362360,3,2.049e-06,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,universal,SylverLining/Auto,AutoSolver,0.6527,0.0002,0.6529,5787824,13,8.680e-01,0.2466,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,SylverLining/SVD,SVDSolver,1.0183,0.0002,1.0185,5783616,13,6.229e-01,0.6121,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,Auto,none,1.0882,0.0003,1.0885,5789776,13,9.347e-01,0.1264,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,QuickDer,none,1.8559,0.0004,1.8563,5952384,13,8.695e-01,0.2440,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,QuickDer3,none,1.2511,0.0004,1.2515,7764448,13,8.671e-01,0.2481,false,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,0.8760,0.0002,0.8762,2080000,3,2.849e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,0.4102,0.0003,0.4105,2075792,3,1.312e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,Auto,none,0.6449,0.0002,0.6451,2081952,3,1.148e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0602,0.0001,0.0603,6177288,3,5.150e-15,1.0000,true,10 10 10,55,ok
+15,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,43.7380,0.0006,43.7386,793392688,13,5.028e-01,0.7472,false,15 15 15,120,ok
+15,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,3.6690,0.0006,3.6696,18843760,13,4.705e-01,0.7786,false,15 15 15,120,ok
+15,3,Float32,1e-08,universal,Auto,none,4.0117,0.0002,4.0120,7606672,13,4.817e-01,0.7680,false,15 15 15,120,ok
+15,3,Float32,1e-08,universal,QuickDer,none,1.2651,0.0002,1.2653,7604720,13,3.320e-01,0.8898,false,15 15 15,120,ok
+15,3,Float32,1e-08,universal,QuickDer3,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,15 15 15,120,error: FastDer3Valent did not find a correct solution triple at (a';b';c') = (8;8;8). Retry with larger sizes via triple_restriction_size_override.
+15,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,1.7261,0.0002,1.7263,4329632,3,1.161e-05,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,2.1932,0.0002,2.1934,4325328,3,5.695e-06,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-08,symmetric,Auto,none,2.9241,0.0002,2.9243,143160480,3,1.061e-04,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-08,symmetric,SymmetricGram,none,0.8605,0.0002,0.8606,13987544,3,4.397e-06,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-16,universal,SylverLining/Auto,AutoSolver,60.8937,0.0005,60.8942,865260176,13,4.930e-01,0.7570,false,15 15 15,120,ok
+15,3,Float64,1e-16,universal,SylverLining/SVD,SVDSolver,3.9195,0.0003,3.9197,28658416,13,4.809e-01,0.7687,false,15 15 15,120,ok
+15,3,Float64,1e-16,universal,Auto,none,2.6445,0.0002,2.6447,15078496,13,6.083e-01,0.6299,false,15 15 15,120,ok
+15,3,Float64,1e-16,universal,QuickDer,none,2.1220,0.0002,2.1222,15076544,13,4.591e-01,0.7893,false,15 15 15,120,ok
+15,3,Float64,1e-16,universal,QuickDer3,none,4.3358,0.0094,4.3452,26545776,13,3.392e-01,0.8849,false,15 15 15,120,ok
+15,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,0.9001,0.0002,0.9003,8805488,3,3.211e-13,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,1.8214,0.0004,1.8217,8801280,3,3.374e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-16,symmetric,Auto,none,3.2736,0.0002,3.2737,119374288,3,2.118e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-16,symmetric,SymmetricGram,none,1.6377,0.0002,1.6378,18131912,3,7.077e-15,1.0000,true,15 15 15,120,ok
+20,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,21.3514,0.0011,21.3526,108941648,13,4.046e-01,0.8363,false,20 20 20,210,ok
+20,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,15.1302,0.0003,15.1306,63589520,13,4.142e-01,0.8285,false,20 20 20,210,ok
+20,3,Float32,1e-08,universal,Auto,none,4.4850,0.0003,4.4852,15404688,13,3.482e-01,0.8787,false,20 20 20,210,ok
+20,3,Float32,1e-08,universal,QuickDer,none,2.7327,0.0003,2.7330,15402736,13,1.987e-01,0.9605,false,20 20 20,210,ok
+20,3,Float32,1e-08,universal,QuickDer3,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,20 20 20,210,error: FastDer3Valent did not find a correct solution triple at (a';b';c') = (9;9;9). Retry with larger sizes via triple_restriction_size_override.
+20,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,2.7402,0.0004,2.7406,5763312,3,1.057e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,3.2372,0.0002,3.2374,13217824,3,9.288e-06,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-08,symmetric,Auto,none,3.5577,0.0004,3.5581,16557888,3,1.786e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-08,symmetric,SymmetricGram,none,1.4896,0.0004,1.4900,34941176,3,3.056e-05,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-16,universal,SylverLining/SVD,SVDSolver,25.0687,0.0007,25.0695,83475120,13,1.469e-01,0.9784,false,20 20 20,210,ok
+20,3,Float64,1e-16,universal,Auto,none,3.7118,0.0003,3.7121,42203392,13,5.280e-01,0.7212,false,20 20 20,210,ok
+20,3,Float64,1e-16,universal,QuickDer,none,3.8367,0.0003,3.8370,42201440,13,1.167e-01,0.9864,false,20 20 20,210,ok
+20,3,Float64,1e-16,universal,QuickDer3,none,3.5513,0.0003,3.5517,60075552,13,4.654e-01,0.7834,false,20 20 20,210,ok
+20,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,6.8897,0.0005,6.8902,21342832,3,4.456e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,2.8188,0.0002,2.8190,33616624,3,1.952e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-16,symmetric,Auto,none,4.1828,0.0004,4.1832,44217456,3,1.388e-13,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-16,symmetric,SymmetricGram,none,1.4625,0.0004,1.4630,51538040,3,7.780e-15,1.0000,true,20 20 20,210,ok
+25,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,54.8875,0.0009,54.8884,219091872,13,4.110e-01,0.8311,false,25 25 25,325,ok
+25,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,56.4109,0.0004,56.4113,101430096,13,4.312e-01,0.8141,false,25 25 25,325,ok
+25,3,Float32,1e-08,universal,Auto,none,9.5963,0.0004,9.5967,27480304,13,2.956e-01,0.9126,false,25 25 25,325,ok
+25,3,Float32,1e-08,universal,QuickDer,none,7.3452,0.0004,7.3456,27478352,13,4.426e-01,0.8041,false,25 25 25,325,ok
+25,3,Float32,1e-08,universal,QuickDer3,none,7.3575,0.0004,7.3579,51417280,13,4.079e-01,0.8336,false,25 25 25,325,ok
+25,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,2.8133,0.0005,2.8139,9205024,3,5.012e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,10.0319,0.0003,10.0321,37070384,3,7.508e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-08,symmetric,Auto,none,10.2539,0.0003,10.2541,29176992,3,2.105e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-08,symmetric,SymmetricGram,none,3.4198,0.0003,3.4200,81345352,3,6.722e-06,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-16,universal,SylverLining/SVD,SVDSolver,68.1007,0.0078,68.1085,215565744,13,3.178e-01,0.8990,false,25 25 25,325,ok
+25,3,Float64,1e-16,universal,Auto,none,15.8184,0.0010,15.8194,56401568,13,2.425e-01,0.9412,false,25 25 25,325,ok
+25,3,Float64,1e-16,universal,QuickDer,none,9.5994,0.0005,9.5999,56399616,13,2.935e-01,0.9139,false,25 25 25,325,ok
+25,3,Float64,1e-16,universal,QuickDer3,none,13.9418,0.0010,13.9428,91667760,13,3.395e-01,0.8847,false,25 25 25,325,ok
+25,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,6.8851,0.0007,6.8858,28625536,3,6.896e-13,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,12.5642,0.0003,12.5646,73863216,3,2.073e-13,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-16,symmetric,Auto,none,13.2171,0.0003,13.2174,58834944,3,9.164e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-16,symmetric,SymmetricGram,none,4.0175,0.0003,4.0179,111612792,3,1.449e-14,1.0000,true,25 25 25,325,ok
+30,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,109.3513,0.0650,109.4164,243551232,13,2.982e-01,0.9111,false,30 30 30,465,ok
+30,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,151.1141,0.0881,151.2022,217274832,13,1.924e-01,0.9630,false,30 30 30,465,ok
+30,3,Float32,1e-08,universal,Auto,none,11.9776,0.0005,11.9780,46694128,13,9.608e-02,0.9908,false,30 30 30,465,ok
+30,3,Float32,1e-08,universal,QuickDer,none,16.3826,0.1491,16.5316,46692176,13,4.267e-02,0.9982,false,30 30 30,465,ok
+30,3,Float32,1e-08,universal,QuickDer3,none,21.2045,0.0005,21.2050,82953776,13,3.808e-01,0.8550,false,30 30 30,465,ok
+30,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,9.1313,0.1839,9.3152,13238208,3,6.844e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,42.5054,0.1282,42.6337,75497808,3,2.228e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-08,symmetric,Auto,none,14.6901,0.0004,14.6905,51693776,3,2.142e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-08,symmetric,SymmetricGram,none,5.9451,0.0003,5.9454,161078248,3,4.912e-06,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-16,universal,Auto,none,25.1159,0.1288,25.2447,104947216,13,3.237e-01,0.8952,false,30 30 30,465,ok
+30,3,Float64,1e-16,universal,QuickDer,none,21.7689,0.1241,21.8930,104945264,13,3.322e-01,0.8896,false,30 30 30,465,ok
+30,3,Float64,1e-16,universal,QuickDer3,none,27.9831,0.0845,28.0676,161289200,13,3.038e-01,0.9077,false,30 30 30,465,ok
+30,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,56.9389,0.1007,57.0396,118778448,3,1.340e-12,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,55.3057,0.0790,55.3847,113669904,3,6.152e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-16,symmetric,Auto,none,22.7671,0.0772,22.8443,126966592,3,9.896e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-16,symmetric,SymmetricGram,none,4.1757,0.0954,4.2711,191829272,3,1.883e-14,1.0000,true,30 30 30,465,ok
+35,3,Float32,1e-08,universal,Auto,none,3.1001,0.1884,3.2885,116559216,13,2.260e-01,0.9489,false,35 35 35,630,ok
+35,3,Float32,1e-08,universal,QuickDer,none,2.7083,0.2102,2.9185,45295184,13,1.418e-01,0.9799,false,35 35 35,630,ok
+35,3,Float32,1e-08,universal,QuickDer3,none,37.2972,0.2308,37.5280,181733696,22,6.670e-01,0.5551,false,35 35 35,630,ok
+35,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,42.1438,0.1729,42.3168,16068320,3,1.666e-04,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,161.1716,0.0538,161.2253,107995680,3,6.740e-05,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-08,symmetric,Auto,none,2.6835,0.2181,2.9016,46885184,3,6.555e-05,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-08,symmetric,SymmetricGram,none,6.4741,0.0245,6.4987,175899416,3,4.079e-05,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-16,universal,Auto,none,3.9689,0.0000,3.9689,124250864,0,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-16
+35,3,Float64,1e-16,universal,QuickDer,none,2.4963,0.0000,2.4963,68125984,0,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-16
+35,3,Float64,1e-16,universal,QuickDer3,none,43.6718,0.1036,43.7754,262105888,13,1.362e-01,0.9814,false,35 35 35,630,ok
+35,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,84.0181,0.1836,84.2017,52690176,3,1.915e-13,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,198.8801,0.1645,199.0445,216647104,3,1.029e-13,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-16,symmetric,Auto,none,2.3229,0.0000,2.3229,57576640,0,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-16
+35,3,Float64,1e-16,symmetric,SymmetricGram,none,6.5731,0.1046,6.6777,350269608,3,4.643e-14,1.0000,true,35 35 35,630,ok
+40,3,Float32,1e-08,universal,Auto,none,2.9165,0.0017,2.9182,53110944,13,2.455e-01,0.9397,false,40 40 40,820,ok
+40,3,Float32,1e-08,universal,QuickDer,none,3.0046,0.0147,3.0193,53108928,13,2.219e-01,0.9507,false,40 40 40,820,ok
+40,3,Float32,1e-08,universal,QuickDer3,none,38.9385,0.1021,39.0407,153715136,13,2.778e-01,0.9228,false,40 40 40,820,ok
+40,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,67.7789,0.2903,68.0692,25841712,3,6.945e-05,1.0000,true,40 40 40,820,ok
+40,3,Float32,1e-08,symmetric,Auto,none,1.5750,0.1182,1.6932,51139248,3,3.211e-05,1.0000,true,40 40 40,820,ok
+40,3,Float32,1e-08,symmetric,SymmetricGram,none,14.6830,0.0739,14.7568,527808824,3,3.062e-05,1.0000,true,40 40 40,820,ok
+40,3,Float64,1e-16,universal,Auto,none,2.3144,0.0000,2.3144,59273280,0,NaN,NaN,false,40 40 40,820,error: no nontrivial derivations at tol = 1.0e-16
+40,3,Float64,1e-16,universal,QuickDer,none,2.9287,0.0000,2.9287,59271328,0,NaN,NaN,false,40 40 40,820,error: no nontrivial derivations at tol = 1.0e-16
+40,3,Float64,1e-16,universal,QuickDer3,none,46.8565,0.1199,46.9764,333173024,13,2.552e-01,0.9349,false,40 40 40,820,ok
+40,3,Float64,1e-16,symmetric,Auto,none,3.1465,0.0000,3.1465,59551808,0,NaN,NaN,false,40 40 40,820,error: no nontrivial derivations at tol = 1.0e-16
+40,3,Float64,1e-16,symmetric,SymmetricGram,none,8.6987,0.1021,8.8008,666594360,3,1.677e-14,1.0000,true,40 40 40,820,ok
+45,3,Float32,1e-08,universal,Auto,none,2.2722,0.1787,2.4508,78183744,13,2.183e-01,0.9523,false,45 45 45,1035,ok
+45,3,Float32,1e-08,universal,QuickDer,none,1.8948,0.2291,2.1239,78181792,13,1.730e-01,0.9701,false,45 45 45,1035,ok
+45,3,Float32,1e-08,universal,QuickDer3,none,61.0844,0.0815,61.1660,252052608,14,2.782e-01,0.9226,false,45 45 45,1035,ok
+45,3,Float32,1e-08,symmetric,Auto,none,3.7368,0.1398,3.8766,76076496,3,1.230e-04,1.0000,true,45 45 45,1035,ok
+45,3,Float32,1e-08,symmetric,SymmetricGram,none,16.7019,0.1303,16.8323,775330136,3,1.539e-05,1.0000,true,45 45 45,1035,ok
+45,3,Float64,1e-16,universal,Auto,none,2.6698,0.0000,2.6698,88648800,0,NaN,NaN,false,45 45 45,1035,error: no nontrivial derivations at tol = 1.0e-16
+45,3,Float64,1e-16,universal,QuickDer,none,2.9424,0.0000,2.9424,88646848,0,NaN,NaN,false,45 45 45,1035,error: no nontrivial derivations at tol = 1.0e-16
+45,3,Float64,1e-16,universal,QuickDer3,none,73.8514,0.1036,73.9549,463320992,13,1.692e-01,0.9714,false,45 45 45,1035,ok
+45,3,Float64,1e-16,symmetric,Auto,none,2.4299,0.0000,2.4299,84028512,0,NaN,NaN,false,45 45 45,1035,error: no nontrivial derivations at tol = 1.0e-16
+45,3,Float64,1e-16,symmetric,SymmetricGram,none,10.2766,0.1410,10.4176,994053832,3,2.255e-14,1.0000,true,45 45 45,1035,ok
+50,3,Float32,1e-08,universal,Auto,none,6.0937,0.0712,6.1648,102768688,11,1.799e-01,0.9676,false,50 50 50,1275,ok
+50,3,Float32,1e-08,universal,QuickDer,none,6.0834,0.2776,6.3610,103630880,14,1.525e-01,0.9768,false,50 50 50,1275,ok
+50,3,Float32,1e-08,symmetric,Auto,none,9.8324,0.0000,9.8324,387531056,0,NaN,NaN,false,50 50 50,1275,error: no nontrivial derivations at tol = 1.0e-8
+50,3,Float32,1e-08,symmetric,SymmetricGram,none,18.3644,0.0105,18.3748,1297617944,3,2.323e-05,1.0000,true,50 50 50,1275,ok
+50,3,Float64,1e-16,universal,Auto,none,3.2392,0.0000,3.2392,140172928,0,NaN,NaN,false,50 50 50,1275,error: no nontrivial derivations at tol = 1.0e-16
+50,3,Float64,1e-16,universal,QuickDer,none,2.4490,0.0000,2.4490,140170976,0,NaN,NaN,false,50 50 50,1275,error: no nontrivial derivations at tol = 1.0e-16
+50,3,Float64,1e-16,symmetric,Auto,none,5.0475,0.0000,5.0475,140172928,0,NaN,NaN,false,50 50 50,1275,error: no nontrivial derivations at tol = 1.0e-16
+50,3,Float64,1e-16,symmetric,SymmetricGram,none,14.1231,0.1394,14.2625,1460548616,3,2.584e-14,1.0000,true,50 50 50,1275,ok
+55,3,Float32,1e-08,universal,Auto,none,5.6237,0.2117,5.8354,130388944,13,9.736e-02,0.9905,false,55 55 55,1540,ok
+55,3,Float32,1e-08,universal,QuickDer,none,5.7518,0.1785,5.9303,118180848,13,1.336e-01,0.9822,false,55 55 55,1540,ok
+55,3,Float32,1e-08,symmetric,Auto,none,4.4728,0.1659,4.6388,125143888,3,4.855e-05,1.0000,true,55 55 55,1540,ok
+55,3,Float32,1e-08,symmetric,SymmetricGram,none,22.6814,0.0573,22.7387,1558306312,3,1.022e-05,1.0000,true,55 55 55,1540,ok
+55,3,Float64,1e-16,universal,Auto,none,4.6310,0.0000,4.6310,195267488,0,NaN,NaN,false,55 55 55,1540,error: no nontrivial derivations at tol = 1.0e-16
+55,3,Float64,1e-16,universal,QuickDer,none,6.9809,0.0000,6.9809,192201728,0,NaN,NaN,false,55 55 55,1540,error: no nontrivial derivations at tol = 1.0e-16
+55,3,Float64,1e-16,symmetric,Auto,none,6.0952,0.0000,6.0952,203312032,0,NaN,NaN,false,55 55 55,1540,error: no nontrivial derivations at tol = 1.0e-16
+55,3,Float64,1e-16,symmetric,SymmetricGram,none,16.0411,0.1398,16.1809,2059953256,3,2.682e-14,1.0000,true,55 55 55,1540,ok
+60,3,Float32,1e-08,universal,Auto,none,5.2963,0.0022,5.2985,154735216,14,1.420e-01,0.9798,false,60 60 60,1830,ok
+60,3,Float32,1e-08,universal,QuickDer,none,4.3121,0.2234,4.5355,154733200,14,2.633e-01,0.9307,false,60 60 60,1830,ok
+60,3,Float32,1e-08,symmetric,Auto,none,5.3568,0.2704,5.6272,164281536,3,4.920e-04,1.0000,true,60 60 60,1830,ok
+60,3,Float32,1e-08,symmetric,SymmetricGram,none,30.5740,0.3229,30.8969,2098213144,3,2.924e-05,1.0000,true,60 60 60,1830,ok
+60,3,Float64,1e-16,universal,Auto,none,7.9387,0.0000,7.9387,241145376,0,NaN,NaN,false,60 60 60,1830,error: no nontrivial derivations at tol = 1.0e-16
+60,3,Float64,1e-16,universal,QuickDer,none,4.1796,0.0000,4.1796,241143424,0,NaN,NaN,false,60 60 60,1830,error: no nontrivial derivations at tol = 1.0e-16
+60,3,Float64,1e-16,symmetric,Auto,none,6.8769,0.0000,6.8769,241145376,0,NaN,NaN,false,60 60 60,1830,error: no nontrivial derivations at tol = 1.0e-16
+60,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,60 60 60,1830,error: ArgumentError: SymmetricGram estimates 1145197440 bytes for d=60; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+65,3,Float32,1e-08,universal,Auto,none,7.5579,0.0029,7.5608,164140992,13,4.486e-02,0.9980,false,65 65 65,2145,ok
+65,3,Float32,1e-08,universal,QuickDer,none,7.6000,0.2178,7.8178,164139040,13,7.827e-02,0.9939,false,65 65 65,2145,ok
+65,3,Float32,1e-08,symmetric,Auto,none,9.2228,0.2500,9.4729,176687360,3,9.989e-01,0.0095,false,65 65 65,2145,ok
+65,3,Float32,1e-08,symmetric,SymmetricGram,none,40.9763,0.0012,40.9775,2944301816,3,1.024e-05,1.0000,true,65 65 65,2145,ok
+65,3,Float64,1e-16,universal,Auto,none,6.7516,0.0000,6.7516,207603232,0,NaN,NaN,false,65 65 65,2145,error: no nontrivial derivations at tol = 1.0e-16
+65,3,Float64,1e-16,universal,QuickDer,none,9.1293,0.0000,9.1293,207601280,0,NaN,NaN,false,65 65 65,2145,error: no nontrivial derivations at tol = 1.0e-16
+65,3,Float64,1e-16,symmetric,Auto,none,5.8475,0.0000,5.8475,207603232,0,NaN,NaN,false,65 65 65,2145,error: no nontrivial derivations at tol = 1.0e-16
+65,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,65 65 65,2145,error: ArgumentError: SymmetricGram estimates 1573381160 bytes for d=65; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+70,3,Float32,1e-08,universal,Auto,none,8.0658,0.0029,8.0687,233140592,13,1.042e-01,0.9891,false,70 70 70,2485,ok
+70,3,Float32,1e-08,universal,QuickDer,none,7.9395,0.1586,8.0981,233138640,13,1.051e-01,0.9890,false,70 70 70,2485,ok
+70,3,Float32,1e-08,symmetric,Auto,none,10.3509,0.3840,10.7349,244348736,3,2.291e-04,1.0000,true,70 70 70,2485,ok
+70,3,Float32,1e-08,symmetric,SymmetricGram,none,44.9883,0.0015,44.9898,4039664408,3,1.043e-05,1.0000,true,70 70 70,2485,ok
+70,3,Float64,1e-16,universal,Auto,none,6.9796,0.0000,6.9796,317572288,0,NaN,NaN,false,70 70 70,2485,error: no nontrivial derivations at tol = 1.0e-16
+70,3,Float64,1e-16,universal,QuickDer,none,6.3712,0.0000,6.3712,317570336,0,NaN,NaN,false,70 70 70,2485,error: no nontrivial derivations at tol = 1.0e-16
+70,3,Float64,1e-16,symmetric,Auto,none,8.6530,0.0000,8.6530,317572288,0,NaN,NaN,false,70 70 70,2485,error: no nontrivial derivations at tol = 1.0e-16
+70,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,70 70 70,2485,error: ArgumentError: SymmetricGram estimates 2111830280 bytes for d=70; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+75,3,Float32,1e-08,universal,Auto,none,9.6636,0.0962,9.7598,269697760,13,1.092e-01,0.9881,false,75 75 75,2850,ok
+75,3,Float32,1e-08,universal,QuickDer,none,11.5042,0.1943,11.6985,269695808,13,1.937e-01,0.9625,false,75 75 75,2850,ok
+75,3,Float32,1e-08,symmetric,Auto,none,11.3268,0.2003,11.5271,282711104,3,4.440e-05,1.0000,true,75 75 75,2850,ok
+75,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,75 75 75,2850,error: ArgumentError: SymmetricGram estimates 1389020400 bytes for d=75; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+75,3,Float64,1e-16,universal,Auto,none,7.9799,0.0000,7.9799,340317376,0,NaN,NaN,false,75 75 75,2850,error: no nontrivial derivations at tol = 1.0e-16
+75,3,Float64,1e-16,universal,QuickDer,none,5.2524,0.0000,5.2524,340315424,0,NaN,NaN,false,75 75 75,2850,error: no nontrivial derivations at tol = 1.0e-16
+75,3,Float64,1e-16,symmetric,Auto,none,6.6953,0.0000,6.6953,340317376,0,NaN,NaN,false,75 75 75,2850,error: no nontrivial derivations at tol = 1.0e-16
+75,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,75 75 75,2850,error: ArgumentError: SymmetricGram estimates 2778040800 bytes for d=75; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+80,3,Float32,1e-08,universal,Auto,none,7.2806,0.1474,7.4280,363049824,13,1.331e-01,0.9823,false,80 80 80,3240,ok
+80,3,Float32,1e-08,universal,QuickDer,none,11.3605,0.1188,11.4793,363047872,13,1.228e-01,0.9849,false,80 80 80,3240,ok
+80,3,Float32,1e-08,symmetric,Auto,none,12.8728,0.0738,12.9466,378407680,3,1.774e-04,1.0000,true,80 80 80,3240,ok
+80,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,80 80 80,3240,error: ArgumentError: SymmetricGram estimates 1795399360 bytes for d=80; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+80,3,Float64,1e-16,universal,Auto,none,8.6622,0.0000,8.6622,467284016,0,NaN,NaN,false,80 80 80,3240,error: no nontrivial derivations at tol = 1.0e-16
+80,3,Float64,1e-16,universal,QuickDer,none,10.9840,0.0000,10.9840,467282064,0,NaN,NaN,false,80 80 80,3240,error: no nontrivial derivations at tol = 1.0e-16
+80,3,Float64,1e-16,symmetric,Auto,none,9.4099,0.0000,9.4099,467284016,0,NaN,NaN,false,80 80 80,3240,error: no nontrivial derivations at tol = 1.0e-16
+80,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,80 80 80,3240,error: ArgumentError: SymmetricGram estimates 3590798720 bytes for d=80; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+85,3,Float32,1e-08,universal,Auto,none,13.9928,0.2051,14.1979,382577600,13,1.336e-01,0.9821,false,85 85 85,3655,ok
+85,3,Float32,1e-08,universal,QuickDer,none,7.6322,0.1734,7.8056,382575712,13,1.274e-01,0.9838,false,85 85 85,3655,ok
+85,3,Float32,1e-08,symmetric,Auto,none,9.8935,0.1167,10.0101,399821984,3,9.178e-05,1.0000,true,85 85 85,3655,ok
+85,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,85 85 85,3655,error: ArgumentError: SymmetricGram estimates 2285090020 bytes for d=85; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+85,3,Float64,1e-16,universal,Auto,none,12.3233,0.0000,12.3233,487109040,0,NaN,NaN,false,85 85 85,3655,error: no nontrivial derivations at tol = 1.0e-16
+85,3,Float64,1e-16,universal,QuickDer,none,8.2892,0.0000,8.2892,487107088,0,NaN,NaN,false,85 85 85,3655,error: no nontrivial derivations at tol = 1.0e-16
+85,3,Float64,1e-16,symmetric,Auto,none,8.4014,0.0000,8.4014,487109040,0,NaN,NaN,false,85 85 85,3655,error: no nontrivial derivations at tol = 1.0e-16
+85,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,85 85 85,3655,error: ArgumentError: SymmetricGram estimates 4570180040 bytes for d=85; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+90,3,Float32,1e-08,universal,Auto,none,13.2077,0.2817,13.4894,415858256,13,2.283e-02,0.9995,false,90 90 90,4095,ok
+90,3,Float32,1e-08,universal,QuickDer,none,11.4300,0.1432,11.5732,412677808,13,9.250e-02,0.9914,false,90 90 90,4095,ok
+90,3,Float32,1e-08,symmetric,Auto,none,12.6014,0.3269,12.9282,428775328,3,3.661e-05,1.0000,true,90 90 90,4095,ok
+90,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,90 90 90,4095,error: ArgumentError: SymmetricGram estimates 2868775380 bytes for d=90; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+90,3,Float64,1e-16,universal,Auto,none,10.6098,0.0000,10.6098,566860256,0,NaN,NaN,false,90 90 90,4095,error: no nontrivial derivations at tol = 1.0e-16
+90,3,Float64,1e-16,universal,QuickDer,none,12.9651,0.0000,12.9651,566858304,0,NaN,NaN,false,90 90 90,4095,error: no nontrivial derivations at tol = 1.0e-16
+90,3,Float64,1e-16,symmetric,Auto,none,10.9169,0.0000,10.9169,566860256,0,NaN,NaN,false,90 90 90,4095,error: no nontrivial derivations at tol = 1.0e-16
+90,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,90 90 90,4095,error: ArgumentError: SymmetricGram estimates 5737550760 bytes for d=90; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+95,3,Float32,1e-08,universal,Auto,none,15.4249,0.5996,16.0245,467278528,13,1.324e-01,0.9825,false,95 95 95,4560,ok
+95,3,Float32,1e-08,universal,QuickDer,none,15.1155,1.2542,16.3697,467276576,13,1.124e-01,0.9874,false,95 95 95,4560,ok
+95,3,Float32,1e-08,symmetric,Auto,none,13.4656,1.2256,14.6912,491187440,3,4.409e-05,1.0000,true,95 95 95,4560,ok
+95,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,95 95 95,4560,error: ArgumentError: SymmetricGram estimates 3557783440 bytes for d=95; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+95,3,Float64,1e-16,universal,Auto,none,12.9386,0.0000,12.9386,616094176,0,NaN,NaN,false,95 95 95,4560,error: no nontrivial derivations at tol = 1.0e-16
+95,3,Float64,1e-16,universal,QuickDer,none,10.9133,0.0000,10.9133,616092224,0,NaN,NaN,false,95 95 95,4560,error: no nontrivial derivations at tol = 1.0e-16
+95,3,Float64,1e-16,symmetric,Auto,none,12.5963,0.0000,12.5963,616094176,0,NaN,NaN,false,95 95 95,4560,error: no nontrivial derivations at tol = 1.0e-16
+95,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,95 95 95,4560,error: ArgumentError: SymmetricGram estimates 7115566880 bytes for d=95; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+100,3,Float32,1e-08,universal,Auto,none,17.8633,1.6433,19.5066,636008816,13,1.464e-01,0.9786,false,100 100 100,5050,ok
+100,3,Float32,1e-08,universal,QuickDer,none,14.7064,0.4706,15.1770,636006864,13,1.404e-01,0.9803,false,100 100 100,5050,ok
+100,3,Float32,1e-08,symmetric,Auto,none,19.4411,0.2130,19.6541,655010832,3,4.293e-05,1.0000,true,100 100 100,5050,ok
+100,3,Float32,1e-08,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,100 100 100,5050,error: ArgumentError: SymmetricGram estimates 4364087200 bytes for d=100; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+100,3,Float64,1e-16,universal,Auto,none,14.0605,0.0000,14.0605,766794768,0,NaN,NaN,false,100 100 100,5050,error: no nontrivial derivations at tol = 1.0e-16
+100,3,Float64,1e-16,universal,QuickDer,none,13.6844,0.0000,13.6844,766792816,0,NaN,NaN,false,100 100 100,5050,error: no nontrivial derivations at tol = 1.0e-16
+100,3,Float64,1e-16,symmetric,Auto,none,14.5819,0.0000,14.5819,766794768,0,NaN,NaN,false,100 100 100,5050,error: no nontrivial derivations at tol = 1.0e-16
+100,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,NaN,false,100 100 100,5050,error: ArgumentError: SymmetricGram estimates 8728174400 bytes for d=100; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
