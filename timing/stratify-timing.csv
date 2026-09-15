@@ -1,0 +1,19 @@
+d,valence,eltype,tol,ops,method,solver,der_seconds,strat_seconds,total_seconds,bytes,nullity,lsq_err,support,perm_ok,dims,nnz,status
+10,3,Float32,1e-08,universal,SylverLining/Auto,AutoSolver,0.5464,0.0002,0.5466,3075200,14,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,SylverLining/SVD,SVDSolver,2.4162,0.0002,2.4164,3070896,14,8.644e-01,0.2529,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,Auto,none,3.1009,0.0003,3.1012,3077152,14,7.058e-01,0.5019,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,QuickDer,none,2.3377,0.0002,2.3379,6871952,14,9.380e-01,0.1201,false,10 10 10,55,ok
+10,3,Float32,1e-08,universal,QuickDer3,none,2.2775,0.0003,2.2778,4137024,14,9.453e-01,0.1065,false,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SylverLining/Auto,AutoSolver,0.9426,0.0003,0.9428,1185904,3,5.065e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SylverLining/SVD,SVDSolver,0.4115,0.0002,0.4117,1181600,3,2.820e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,Auto,none,0.2378,0.0002,0.2380,1187856,3,7.438e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-08,symmetric,SymmetricGram,none,0.7351,0.0002,0.7353,4362360,3,2.049e-06,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,universal,SylverLining/Auto,AutoSolver,0.6527,0.0002,0.6529,5787824,13,8.680e-01,0.2466,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,SylverLining/SVD,SVDSolver,1.0183,0.0002,1.0185,5783616,13,6.229e-01,0.6121,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,Auto,none,1.0882,0.0003,1.0885,5789776,13,9.347e-01,0.1264,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,QuickDer,none,1.8559,0.0004,1.8563,5952384,13,8.695e-01,0.2440,false,10 10 10,55,ok
+10,3,Float64,1e-16,universal,QuickDer3,none,1.2511,0.0004,1.2515,7764448,13,8.671e-01,0.2481,false,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SylverLining/Auto,AutoSolver,0.8760,0.0002,0.8762,2080000,3,2.849e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SylverLining/SVD,SVDSolver,0.4102,0.0003,0.4105,2075792,3,1.312e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,Auto,none,0.6449,0.0002,0.6451,2081952,3,1.148e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-16,symmetric,SymmetricGram,none,0.0602,0.0001,0.0603,6177288,3,5.150e-15,1.0000,true,10 10 10,55,ok
