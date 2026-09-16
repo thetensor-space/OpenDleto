@@ -1,9 +1,52 @@
 # OpenDleto — working context for AI chats
 
 Purpose: hand this file to a new chat so it starts with the context of prior sessions.
-Keep it updated as work progresses. Last updated 2026-09-08 (session 5: the beta code
-review, `docs/beta/`; session 4: the whitened restriction, then the memory wall; session 3:
-valence-n stratification -- see the sections of those names).
+Keep it updated as work progresses. Last updated 2026-09-16 (session 6: streaming
+stratification; session 5: the beta code review, `docs/beta/`; session 4: the whitened
+restriction, then the memory wall; session 3: valence-n stratification -- see the sections
+of those names).
+
+## Session 6 (2026-09-16): streaming stratification, phases 1 and 2
+
+Branch `and-the-beat-goes-on/streaming-stratification`, cut from
+`time-after-time/stratify-timing`.  The question: frames of a video arrive one at a time, so
+one axis is never complete -- can stratification still run, building the restricted core from
+what has arrived and lifting as the stream fills in?
+
+The design note is `docs/design/Streaming-Stratification.md`; read it before touching this.
+The three things worth not re-deriving:
+
+* **The stream axis must be DISENGAGED in the chisel.**  An engaged axis carries a `d_a x d_a`
+  unknown, so an engaged stream axis is an unknown that grows without bound.  With it
+  disengaged, frames enter as EQUATIONS -- `_qs_system_matrix` in QuickSylver.jl is already a
+  `vcat` of one block per slice of the disengaged axis, and that slice index IS the frame
+  index -- so the derivation space is monotonically non-increasing along the stream.
+  Candidates only die; a streaming answer is optimistic, never wrong in the dangerous
+  direction; and the frame where the space collapses is a principled scene cut.
+* **The restriction sizes do not involve the stream length.**  Both conditions in
+  `_qdn_restriction_sizes` sum over ENGAGED axes only, so `d_t` appears in neither and `r_t`
+  is a declared budget.  QuickSylver's own sizing rule gives the warm-up length,
+  `c >= (r+s)/m` -- about 35 frames at 640x480 with `m = 32` -- and it gets easier as frames
+  accumulate.
+* **What accumulates.**  The cross sketches `S_a = Γ ×_{b≠a} W_b` and the lift's pair tensors
+  `H_ab = Γ ×_a W_a⊥ ×_{c∉{a,b}} W_c` are both contractions against fixed matrices on every
+  axis but one or two, and `t` is never one of those two -- so each is one rank-one update per
+  frame into a fixed-size buffer.  The Z-law residual was ALREADY an accumulator
+  (`der_residual_squares` blocks along `argmax(dims)`), and decomposes exactly frame by frame.
+
+Shipped: `src/solvers/StreamingCore.jl` (`StreamingCore` + `push!` for phase 1,
+`StreamingResidual` + `push!` + `der_residual` for phase 2), `test/TestStreamingCore.jl`.
+Both accumulators call `_qdn_cross_sketches` / `_qdn_pair_tensors` / `der_residual_squares`
+VERBATIM on a singleton-reshaped frame rather than transcribing them, so the two routes
+cannot drift; the tests are equivalence tests against exactly those functions.
+
+Not done, and the next commit: **phase 3** -- inject the accumulated core into
+`_qdn_solve_and_lift` (two optional keywords, skipping the sketch stage and using the stored
+pair tensors), then the candidate-set lift.  The research part of phase 3 is that the lift's
+right-hand side `N_R(X_I)` is AFFINE in the restricted solution, so per-candidate accumulators
+recombine under the same linear combination when the candidate space shrinks.  Known gaps are
+section 6 of the design note: `_qdn_trivial_ders` re-reads Γ, the `realCanonicalForm` change of
+basis jumps when the space shrinks, host arrays only.
 
 ## Session 5 (2026-09-08): code review of `beta`, written to `docs/beta/`
 
