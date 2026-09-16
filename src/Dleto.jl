@@ -91,6 +91,10 @@ include("DletoBase.jl")
     include("solvers/FastDer3Valent.jl")
     # QuickDer: the same solve-and-lift generalised to any valence
     include("solvers/QuickDerN.jl")
+    # StreamingCore: QuickDer's sufficient statistics accumulated one frame at
+    # a time, for a tensor whose stream axis is never complete.  After
+    # QuickDerN, whose sketch and pair-tensor contractions it calls verbatim.
+    include("solvers/StreamingCore.jl")
     # AutoDer: QuickDer when the setting allows it, SylverLining otherwise
     include("solvers/AutoDer.jl")
     # QuickSylver: double-restriction solve-and-lift for adjoint-type chisels

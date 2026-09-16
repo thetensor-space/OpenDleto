@@ -99,6 +99,10 @@ export sylvesterLM, SylverLiningMethod
 export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod
 export QuickDerDeclined
 
+# StreamingCore.jl
+export StreamingCore, StreamingResidual
+export crosssketches, pairtensors, streamsketch, batchaxes, nframes, framenorm
+
 # Densors.jl
 export stratify, denLM
 
