@@ -1,0 +1,2 @@
+d,valence,eltype,solve_tol,target,ops,method,solver,threads,heap_hint_gb,timeout_s,der_seconds,strat_seconds,total_seconds,bytes,nullity,residual,meets_target,lsq_err,support,perm_ok,dims,nnz,status
+125,3,Float32,1e-08,1e-08,universal,CPU/SylverLining/Auto,AutoSolver,16,40.0,60.0,NaN,NaN,NaN,0,0,NaN,false,NaN,NaN,false,125 125 125,7875,timeout

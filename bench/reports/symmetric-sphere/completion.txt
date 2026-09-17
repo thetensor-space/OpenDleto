@@ -1,0 +1,2 @@
+Final full-precision and inverse validation runs complete (exit 0).
+The earlier mixed baseline was stopped during the optional slow FastDer case; see slow-method-limit.txt.

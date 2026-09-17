@@ -1,0 +1,46 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== MacStudio timing sweep: float32 ===
+CSV: /Users/algeboy/CODE/OpenDleto/timing/../timing/stratify-fast-stable-cpu-gpu-120s-from250.csv
+Start: 2026-09-16 21:26:33
+Sweep start_d: 250
+Trials per config: 1
+BLAS threads: 16
+CSV reset: false
+Warmup: true
+Warmup dims: 125, 150, 200, 250
+Shard: 1/1
+GPU configs enabled: true
+Method include filter: 'CPU/Auto,CPU/QuickDer/Arpack,CPU/QuickDer/Gram,GPU/QuickDer/Gram'
+Method exclude filter: ''
+Dimension range: 250:25:500
+Configs in this shard: CPU/Auto, CPU/QuickDer/Arpack, CPU/QuickDer/Gram, GPU/QuickDer/Gram
+
+=== warmup for float32 ===
+  warmup dims: 125, 150, 200, 250
+  warmup d=125 ops=universal method=CPU/Auto solver=none time=7.677 s
+  warmup d=125 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=1.443 s
+  warmup d=125 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=1.312 s
+  warmup d=125 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=1.317 s
+  warmup d=125 ops=symmetric method=CPU/Auto solver=none time=1.504 s
+  warmup d=150 ops=universal method=CPU/Auto solver=none time=3.355 s
+  warmup d=150 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=3.459 s
+  warmup d=150 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=2.749 s
+  warmup d=150 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=3.670 s
+  warmup d=150 ops=symmetric method=CPU/Auto solver=none time=2.874 s
+  warmup d=200 ops=universal method=CPU/Auto solver=none time=6.556 s
+  warmup d=200 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=6.268 s
+  warmup d=200 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=5.992 s
+  warmup d=200 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=7.791 s
+  warmup d=200 ops=symmetric method=CPU/Auto solver=none time=7.069 s
+  warmup d=250 ops=universal method=CPU/Auto solver=none time=16.117 s
+  warmup d=250 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=15.936 s
+  warmup d=250 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=16.680 s
+  warmup d=250 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=15.774 s
+  warmup d=250 ops=symmetric method=CPU/Auto solver=none time=14.858 s
+
+=== profile float32 ===
+  eltype = Float32, solve_tol = 1.0e-8, threads = 16, heap = 40.0 GB, timeout = 120.0 s
+  start_d = 250
+preparing d=250 ops=universal...                    [                        ]    1/  88   1.1% | d=250 [████              ]   1/  5  20.0% | universal CPU/Auto             t1 timeout=120s status=running[                        ]    1/  88   1.1% | d=250 [████              ]   1/  5  20.0% | universal CPU/Auto             t1 timeout=120s status=ok (solver 14.784s | wall 15.649s)[█                       ]    2/  88   2.3% | d=250 [███████           ]   2/  5  40.0% | universal CPU/QuickDer/Arpack  t1 timeout=120s status=running[█                       ]    2/  88   2.3% | d=250 [███████           ]   2/  5  40.0% | universal CPU/QuickDer/Arpack  t1 timeout=120s status=ok (solver 15.932s | wall 16.704s)[█                       ]    3/  88   3.4% | d=250 [███████████       ]   3/  5  60.0% | universal CPU/QuickDer/Gram    t1 timeout=120s status=running[█                       ]    3/  88   3.4% | d=250 [███████████       ]   3/  5  60.0% | universal CPU/QuickDer/Gram    t1 timeout=120s status=ok (solver 16.184s | wall 17.560s)[█                       ]    4/  88   4.5% | d=250 [██████████████    ]   4/  5  80.0% | universal GPU/QuickDer/Gram    t1 timeout=120s status=running

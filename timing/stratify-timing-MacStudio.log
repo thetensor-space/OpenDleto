@@ -1,0 +1,99 @@
+
+[41302] signal 15: Terminated: 15
+in expression starting at /Users/algeboy/CODE/OpenDleto/timing/StratifyTimingMacStudio.jl:341
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+_ZN4llvm16RegisterOperands7collectERKNS_12MachineInstrERKNS_18TargetRegisterInfoERKNS_19MachineRegisterInfoEbb at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm18RegPressureTracker20bumpDownwardPressureEPKNS_12MachineInstrE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm18RegPressureTracker27getMaxDownwardPressureDeltaEPKNS_12MachineInstrERNS_16RegPressureDeltaENS_8ArrayRefINS_14PressureChangeEEENS6_IjEE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm16GenericScheduler17pickNodeFromQueueERNS_13SchedBoundaryERKNS_20GenericSchedulerBase10CandPolicyERKNS_18RegPressureTrackerERNS3_14SchedCandidateE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm16GenericScheduler21pickNodeBidirectionalERb at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm16GenericScheduler8pickNodeERb at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm17ScheduleDAGMILive8scheduleEv at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN12_GLOBAL__N_120MachineSchedulerBase15scheduleRegionsERN4llvm17ScheduleDAGInstrsEb at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN12_GLOBAL__N_116MachineScheduler20runOnMachineFunctionERN4llvm15MachineFunctionE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm19MachineFunctionPass13runOnFunctionERNS_8FunctionE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm13FPPassManager13runOnFunctionERNS_8FunctionE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm13FPPassManager11runOnModuleERNS_6ModuleE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm6legacy15PassManagerImpl3runERNS_6ModuleE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+_ZN4llvm3orc14SimpleCompilerclERNS_6ModuleE at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libLLVM.dylib (unknown line)
+operator() at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jitlayers.cpp:1561
+addModule at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jitlayers.cpp:2044
+jl_compile_codeinst_now at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jitlayers.cpp:626
+jl_compile_codeinst_impl at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jitlayers.cpp:824
+jl_compile_method_internal at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/gf.c:3524
+_jl_invoke at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/gf.c:4002 [inlined]
+ijl_apply_generic at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/gf.c:4210
+#solve#523 at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:1342
+solve at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:1331 [inlined]
+#solve_nullspace#510 at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:945
+unknown function (ip: 0x308337a1b) at (unknown file)
+solve_nullspace at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:822
+unknown function (ip: 0x308320d73) at (unknown file)
+#solve_nullspace#511 at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:1135
+solve_nullspace at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:1129
+unknown function (ip: 0x15cc84d73) at (unknown file)
+#derTrOpsReduced#233 at /Users/algeboy/CODE/OpenDleto/src/SylverLining/SylverLining.jl:158
+derTrOpsReduced at /Users/algeboy/CODE/OpenDleto/src/SylverLining/SylverLining.jl:58 [inlined]
+macro expansion at ./timing.jl:689 [inlined]
+#timed_stratify##0 at /Users/algeboy/CODE/OpenDleto/timing/StratifyTimingMacStudio.jl:65
+#quietly##2 at /Users/algeboy/CODE/OpenDleto/bench/SphereHarness.jl:458 [inlined]
+RedirectStdStream at ./stream.jl:1464
+#quietly##0 at /Users/algeboy/CODE/OpenDleto/bench/SphereHarness.jl:457 [inlined]
+with_logstate at ./logging/logging.jl:540
+with_logger at ./logging/logging.jl:651 [inlined]
+quietly at /Users/algeboy/CODE/OpenDleto/bench/SphereHarness.jl:456 [inlined]
+timed_stratify at /Users/algeboy/CODE/OpenDleto/timing/StratifyTimingMacStudio.jl:62
+unknown function (ip: 0x15c7611df) at (unknown file)
+warmup_profile at /Users/algeboy/CODE/OpenDleto/timing/StratifyTimingMacStudio.jl:174
+main at /Users/algeboy/CODE/OpenDleto/timing/StratifyTimingMacStudio.jl:336
+unknown function (ip: 0x1300d4777) at (unknown file)
+jl_apply at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/./julia.h:2391 [inlined]
+do_call at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/interpreter.c:123
+eval_stmt_value at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/interpreter.c:194
+eval_body at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/interpreter.c:689
+jl_interpret_toplevel_thunk at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/interpreter.c:898
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1035
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:975
+ijl_toplevel_eval at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1047 [inlined]
+ijl_toplevel_eval_in at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/toplevel.c:1092
+eval at ./boot.jl:489
+include_string at ./loading.jl:2870
+_include at ./loading.jl:2930
+include at ./Base.jl:306
+exec_options at ./client.jl:317
+_start at ./client.jl:550
+jfptr__start_38197.1 at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/sys.dylib (unknown line)
+jl_apply at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/./julia.h:2391 [inlined]
+true_main at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jlapi.c:971
+jl_repl_entrypoint at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-R17H3W25T9.0/build/default-honeycrisp-R17H3W25T9-0/julialang/julia-release-1-dot-12/src/jlapi.c:1139
+unknown function (ip: 0x0) at (unknown file)
+Allocations: 228374024 (Pool: 228372240; Big: 1784); GC: 82

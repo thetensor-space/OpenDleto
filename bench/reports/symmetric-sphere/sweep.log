@@ -1,0 +1,56 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+START warmup
+Using SVDSolver...
+Converting LinearMap to Matrix for SVD...
+RESULT warmup elapsed=49.6637659072876 (dim = 10, seed = 50, noise = 0.0, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "10x10x10", orthogonality_error = 4.164428423150196e-16, signal_residual = 0.0, seconds = 19.068593458, bytes = 1733246624, nullity = 3, solver_nullity = 13, scalar_dim = 2, class = "recovery", lsq_err = 9.091397757437607e-13, support = 0.9999999999999999, perm_ok = true, full_residual = 5.106233837486529e-13, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START exact d50 seed 17
+RESULT exact d50 seed 17 elapsed=5.076884984970093 (dim = 50, seed = 17, noise = 0.0, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 7.898881644920014e-16, signal_residual = 0.0, seconds = 4.952253625, bytes = 325034224, nullity = 0, solver_nullity = 13, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "no derivations", status = "ok", artifacts = nothing)
+START exact d50 seed 50
+RESULT exact d50 seed 50 elapsed=19.107396125793457 (dim = 50, seed = 50, noise = 0.0, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 0.0, seconds = 14.735471875, bytes = 729466544, nullity = 3, solver_nullity = 13, scalar_dim = 2, class = "recovery", lsq_err = 0.0009872971327282494, support = 0.9999990252447257, perm_ok = true, full_residual = 4.642365258988389e-5, full_residual_status = "ok", status = "ok", artifacts = (points = "/Users/algeboy/CODE/OpenDleto/bench/reports/symmetric-sphere/results_quickder_quickder_densor_gaussian_autosolver_nd-1_d50_seed50_noise0_tol1e-06_points.csv", svg = "/Users/algeboy/CODE/OpenDleto/bench/reports/symmetric-sphere/results_quickder_quickder_densor_gaussian_autosolver_nd-1_d50_seed50_noise0_tol1e-06_xy.svg"))
+START exact d50 seed 91
+RESULT exact d50 seed 91 elapsed=13.88952898979187 (dim = 50, seed = 91, noise = 0.0, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 6.331673938910674e-16, signal_residual = 0.0, seconds = 13.462062083, bytes = 714428560, nullity = 3, solver_nullity = 13, scalar_dim = 2, class = "recovery", lsq_err = 3.681625960144605e-6, support = 0.9999999999868516, perm_ok = true, full_residual = 1.367514395211547e-7, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START exact tolerance 1.0e-8
+RESULT exact tolerance 1.0e-8 elapsed=6.3590428829193115 (dim = 50, seed = 50, noise = 0.0, tol = 1.0e-8, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 0.0, seconds = 5.3191215, bytes = 143750528, nullity = 0, solver_nullity = 0, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "no derivations", status = "ok", artifacts = nothing)
+START exact tolerance 0.0001
+RESULT exact tolerance 0.0001 elapsed=16.344684839248657 (dim = 50, seed = 50, noise = 0.0, tol = 0.0001, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 0.0, seconds = 14.518065, bytes = 733319600, nullity = 3, solver_nullity = 13, scalar_dim = 2, class = "recovery", lsq_err = 0.07743043097392599, support = 0.9940045284576033, perm_ok = true, full_residual = 0.00022055806973643626, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START noise 1.0e-8 tolerance 1.0e-6
+RESULT noise 1.0e-8 tolerance 1.0e-6 elapsed=13.07906699180603 (dim = 50, seed = 50, noise = 1.0e-8, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.99999999838965e-9, seconds = 12.130490583, bytes = 673428912, nullity = 0, solver_nullity = 9, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "no derivations", status = "ok", artifacts = nothing)
+START noise 1.0e-8 tolerance 0.001
+RESULT noise 1.0e-8 tolerance 0.001 elapsed=15.38090205192566 (dim = 50, seed = 50, noise = 1.0e-8, tol = 0.001, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.99999999838965e-9, seconds = 12.890889833, bytes = 733146064, nullity = 2, solver_nullity = 14, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = 0.00014055043930108347, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START noise 1.0e-6 tolerance 1.0e-6
+RESULT noise 1.0e-6 tolerance 1.0e-6 elapsed=15.686346054077148 (dim = 50, seed = 50, noise = 1.0e-6, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.999999999994754e-7, seconds = 12.871426916, bytes = 629197360, nullity = 0, solver_nullity = 3, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "no derivations", status = "ok", artifacts = nothing)
+START noise 1.0e-6 tolerance 0.001
+RESULT noise 1.0e-6 tolerance 0.001 elapsed=15.17699909210205 (dim = 50, seed = 50, noise = 1.0e-6, tol = 0.001, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.999999999994754e-7, seconds = 14.384339208, bytes = 717022032, nullity = 2, solver_nullity = 11, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = 9.222486217297168e-5, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START noise 0.0001 tolerance 1.0e-6
+RESULT noise 0.0001 tolerance 1.0e-6 elapsed=16.217902898788452 (dim = 50, seed = 50, noise = 0.0001, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.999999999999602e-5, seconds = 13.87835425, bytes = 612411520, nullity = 0, solver_nullity = 2, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "no derivations", status = "ok", artifacts = nothing)
+START noise 0.0001 tolerance 0.001
+RESULT noise 0.0001 tolerance 0.001 elapsed=15.063549995422363 (dim = 50, seed = 50, noise = 0.0001, tol = 0.001, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "densor", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 9.999999999999602e-5, seconds = 10.788545292, bytes = 622008656, nullity = 2, solver_nullity = 2, scalar_dim = 2, class = "scalar-only", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = 3.1947905824612615e-5, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START literal lattice d50
+RESULT literal lattice d50 elapsed=1.6924710273742676 (dim = 50, seed = 50, noise = 0.0, tol = 1.0e-6, method = "QuickDer", actual_method = "QuickDer", solver = "AutoSolver", nd = -1, sampling = "lattice", amplitudes = "gaussian", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "", orthogonality_error = NaN, signal_residual = NaN, seconds = 0.0, bytes = 0, nullity = 0, solver_nullity = 0, scalar_dim = 2, class = "error", lsq_err = NaN, support = NaN, perm_ok = false, full_residual = NaN, full_residual_status = "not run", status = "error: MethodError: no method matching act(::Dleto.TensorSpace.TensorElement, ::Vector{ITensor})", artifacts = nothing)
+START FastDer d50
+
+[45009] signal 15: Terminated: 15
+in expression starting at /Users/algeboy/CODE/OpenDleto/bench/SymmetricSphereSweep.jl:29
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+inner_thread at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libopenblas64_.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+Allocations: 159619716 (Pool: 159618445; Big: 1271); GC: 161
+[ Info: quickder restricted: nullity 13 certified (rule :gap), cut at the Float64 precision floor 1.7763568394002505e-15 (relative) -- a near-derivation hidden below that floor would look identical. Values around the cut: [9.41984873156568e-16, 1.1432021933474718e-15, 1.7528612512617679e-15] | [0.00018917909047598636, 0.017493551707928358, 0.020343335148175663]
+┌ Warning: quickder restricted: nullity 0 is UNCERTIFIED -- no gap of 100.0x in the spectrum below the threshold 1.4901161193847656e-8 (relative). Values around the cut: Float64[] | [3.4186927517036553e-7, 3.474412192314392e-7, 3.5844163417968906e-7]. Consider Float64, an explicit `tol`, or `nd`.
+└ @ Dleto ~/CODE/OpenDleto/src/solvers/NullSolvers.jl:1075
+
+JOB interrupted

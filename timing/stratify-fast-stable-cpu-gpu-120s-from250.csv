@@ -1,0 +1,4 @@
+d,valence,eltype,solve_tol,target,ops,method,solver,threads,heap_hint_gb,timeout_s,der_seconds,strat_seconds,total_seconds,bytes,nullity,residual,meets_target,lsq_err,support,perm_ok,dims,nnz,status
+250,3,Float32,1e-08,1e-08,universal,CPU/Auto,none,16,40.0,120.0,14.6643,0.1201,14.7844,6798004032,13,2.6594710789140663e-7,false,0.052591245765649657,0.9972341608927511,false,250 250 250,31375,ok
+250,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Arpack,ArpackSolver,16,40.0,120.0,15.8109,0.1212,15.9321,6796396448,13,6.96486324613943e-7,false,0.08383841415904854,0.9929711203324346,false,250 250 250,31375,ok
+250,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Gram,GramSolver,16,40.0,120.0,15.6824,0.5013,16.1837,6795642784,13,3.4774151913552487e-7,false,0.0924217831310452,0.9914582140307131,false,250 250 250,31375,ok

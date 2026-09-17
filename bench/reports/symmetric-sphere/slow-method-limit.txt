@@ -1,0 +1,1 @@
+FastDer d50: stopped after at least 111.2s without a result; this is a lower bound, not a completed timing.

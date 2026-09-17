@@ -1,0 +1,7 @@
+d,valence,eltype,solve_tol,target,ops,method,solver,threads,heap_hint_gb,timeout_s,der_seconds,strat_seconds,total_seconds,bytes,nullity,residual,meets_target,lsq_err,support,perm_ok,dims,nnz,status
+300,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Arpack,ArpackSolver,16,40.0,60.0,NaN,NaN,NaN,0,0,NaN,false,NaN,NaN,false,300 300 300,45150,timeout
+300,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Gram,GramSolver,16,40.0,60.0,57.2014,0.2667,57.4680,14623732496,13,2.844137156898796e-7,false,0.017480197416795865,0.9996944427377638,false,300 300 300,45150,ok
+300,3,Float32,1e-08,1e-08,universal,GPU/QuickDer/Gram,GramSolver,16,40.0,60.0,31.6750,0.2970,31.9720,14207364704,13,7.82903100571275e-7,false,0.038577353360836966,0.9985117878613384,false,300 300 300,45150,ok
+325,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Gram,GramSolver,16,40.0,60.0,NaN,NaN,NaN,0,0,NaN,false,NaN,NaN,false,325 325 325,52975,timeout
+325,3,Float32,1e-08,1e-08,universal,GPU/QuickDer/Gram,GramSolver,16,40.0,60.0,47.6020,0.2329,47.8348,18645338192,13,8.314847832480154e-8,false,NaN,NaN,false,325 325 325,52975,ok
+350,3,Float32,1e-08,1e-08,universal,GPU/QuickDer/Gram,GramSolver,16,40.0,60.0,NaN,NaN,NaN,0,0,NaN,false,NaN,NaN,false,350 350 350,61425,timeout

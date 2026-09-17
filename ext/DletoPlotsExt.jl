@@ -233,9 +233,33 @@ end
     - `threshold`: Minimum absolute value for entries to be plotted (default: 1e
     # Arguments
 """
-function Dleto.plot_tensor(tensor, threshold::Float64=1e-4;
+function Dleto.plot_tensor(tensor; threshold::Float64=1e-4,
                    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
-                   title::String="3D Tensor Visualization", color::Symbol=:blue
+                   title::String="3D Tensor Visualization", color::Symbol=:blue,
+                   max_points::Int=1000,
+                   proportional::Bool=true
+    )
+    return Dleto.plot_tensor(tensor, threshold;
+        xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+        title=title, color=color, max_points=max_points, proportional=proportional)
+end
+
+function Dleto.plot_tensor(tensor::Dleto.TensorSpace.TensorElement;
+    threshold::Float64=1e-4,
+    xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+    title::String="3D Tensor Visualization", color::Symbol=:blue,
+    max_points::Int=1000,
+    proportional::Bool=true)
+    return Dleto.plot_tensor(Dleto.TensorSpace.unwrap(tensor), threshold;
+        xlabel=xlabel, ylabel=ylabel, zlabel=zlabel,
+        title=title, color=color, max_points=max_points, proportional=proportional)
+end
+
+function Dleto.plot_tensor(tensor, threshold::Float64;
+                   xlabel::String="X", ylabel::String="Y", zlabel::String="Z",
+                   title::String="3D Tensor Visualization", color::Symbol=:blue,
+                   max_points::Int=1000,
+                   proportional::Bool=true
     )
 
     tensor = _unwrap_plot_input(tensor)
@@ -260,10 +284,10 @@ function Dleto.plot_tensor(tensor, threshold::Float64=1e-4;
     if length(indices) == 0
         @warn "No tensor entries exceed the threshold of $threshold. Nothing to plot."
         return nothing
-    elseif length(indices) > 1000
-        @warn "More than 1,000 viewable entries, plotting only the largest points."
-        # Keep only the top 1,000 entries by value
-        sorted_indices = sortperm(values, rev=true)[1:1000]
+    elseif length(indices) > max_points
+        @warn "More than $(max_points) viewable entries, plotting the largest points."
+        # Keep only the largest entries by value while allowing larger plots.
+        sorted_indices = sortperm(values, rev=true)[1:max_points]
         x_coords = x_coords[sorted_indices]
         y_coords = y_coords[sorted_indices]
         z_coords = z_coords[sorted_indices]
@@ -271,15 +295,17 @@ function Dleto.plot_tensor(tensor, threshold::Float64=1e-4;
     end
     # @info "Plotting $(length(indices)) points with value-proportional sizes..."
 
-    # Scale marker sizes proportional to values
-    # Normalize values to a reasonable marker size range (1-5)
+    # Scale marker sizes proportional to values unless the caller opts out.
     if length(values) > 0
         min_val, max_val = extrema(values)
-        if min_val ≈ max_val
-            marker_sizes = fill(5.0, length(values))  # All same size if all values equal
+        if proportional
+            if min_val ≈ max_val
+                marker_sizes = fill(5.0, length(values))
+            else
+                marker_sizes = 1.0 .+ 4.0 .* (values .- min_val) ./ (max_val - min_val)
+            end
         else
-            # Scale values to range [1, 5] for marker sizes
-            marker_sizes = 1.0 .+ 4.0 .* (values .- min_val) ./ (max_val - min_val)
+            marker_sizes = fill(2.0, length(values))
         end
     else
         marker_sizes = Float64[]

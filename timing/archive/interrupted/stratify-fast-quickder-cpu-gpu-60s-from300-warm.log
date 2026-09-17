@@ -1,0 +1,56 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== MacStudio timing sweep: float32 ===
+CSV: /Users/algeboy/CODE/OpenDleto/timing/../timing/stratify-fast-quickder-cpu-gpu-60s-from300-warm.csv
+Start: 2026-09-16 14:08:18
+Sweep start_d: 300
+Trials per config: 1
+BLAS threads: 16
+CSV reset: true
+Warmup: true
+Shard: 1/1
+GPU configs enabled: true
+Method include filter: 'CPU/QuickDer/Arpack,CPU/QuickDer/Gram,GPU/QuickDer/Gram'
+Method exclude filter: ''
+Dimension range: 300:25:1000
+Configs in this shard: CPU/QuickDer/Arpack, CPU/QuickDer/Gram, GPU/QuickDer/Gram
+
+=== warmup for float32 ===
+  warmup d=10 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=6.167 s
+  warmup d=10 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=0.008 s
+  warmup d=10 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=0.031 s
+  warmup d=15 ops=universal method=CPU/QuickDer/Arpack solver=ArpackSolver time=0.027 s
+  warmup d=15 ops=universal method=CPU/QuickDer/Gram solver=GramSolver time=0.032 s
+  warmup d=15 ops=universal method=GPU/QuickDer/Gram solver=GramSolver time=0.033 s
+
+=== profile float32 ===
+  eltype = Float32, solve_tol = 1.0e-8, threads = 16, heap = 40.0 GB, timeout = 60.0 s
+  start_d = 300
+preparing d=300 ops=universal...                    [                        ]    1/ 174   0.6% | d=300 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=running[                        ]    1/ 174   0.6% | d=300 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=timeout (wall 152.93s)[                        ]    2/ 174   1.1% | d=300 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=running[                        ]    2/ 174   1.1% | d=300 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=ok (solver 57.468s | wall 59.854s)[                        ]    3/ 174   1.7% | d=300 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=running[                        ]    3/ 174   1.7% | d=300 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=ok (solver 31.972s | wall 34.924s)preparing d=300 ops=symmetric...                    
+  d=300 complete: retired 1 solver paths
+preparing d=325 ops=universal...                    [█                       ]    4/ 174   2.3% | d=325 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[█                       ]    5/ 174   2.9% | d=325 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=running[█                       ]    5/ 174   2.9% | d=325 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=timeout (wall 71.78s)[█                       ]    6/ 174   3.4% | d=325 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=running[█                       ]    6/ 174   3.4% | d=325 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=ok (solver 47.835s | wall 48.051s)preparing d=325 ops=symmetric...                    
+  d=325 complete: retired 1 solver paths
+preparing d=350 ops=universal...                    [█                       ]    7/ 174   4.0% | d=350 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[█                       ]    8/ 174   4.6% | d=350 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[█                       ]    9/ 174   5.2% | d=350 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=running[█                       ]    9/ 174   5.2% | d=350 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=timeout (wall 62.53s)preparing d=350 ops=symmetric...                    
+  d=350 complete: retired 1 solver paths
+preparing d=375 ops=universal...                    [█                       ]   10/ 174   5.7% | d=375 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[██                      ]   11/ 174   6.3% | d=375 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[██                      ]   12/ 174   6.9% | d=375 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=375 ops=symmetric...                    
+  d=375 complete: no new retirements
+preparing d=400 ops=universal...                    [██                      ]   13/ 174   7.5% | d=400 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[██                      ]   14/ 174   8.0% | d=400 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[██                      ]   15/ 174   8.6% | d=400 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=400 ops=symmetric...                    
+  d=400 complete: no new retirements
+preparing d=425 ops=universal...                    [██                      ]   16/ 174   9.2% | d=425 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[██                      ]   17/ 174   9.8% | d=425 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[██                      ]   18/ 174  10.3% | d=425 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=425 ops=symmetric...                    
+  d=425 complete: no new retirements
+preparing d=450 ops=universal...                    [███                     ]   19/ 174  10.9% | d=450 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[███                     ]   20/ 174  11.5% | d=450 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[███                     ]   21/ 174  12.1% | d=450 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=450 ops=symmetric...                    
+  d=450 complete: no new retirements
+preparing d=475 ops=universal...                    [███                     ]   22/ 174  12.6% | d=475 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[███                     ]   23/ 174  13.2% | d=475 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[███                     ]   24/ 174  13.8% | d=475 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=475 ops=symmetric...                    
+  d=475 complete: no new retirements
+preparing d=500 ops=universal...                    [███                     ]   25/ 174  14.4% | d=500 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[████                    ]   26/ 174  14.9% | d=500 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[████                    ]   27/ 174  15.5% | d=500 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=500 ops=symmetric...                    
+  d=500 complete: no new retirements
+preparing d=525 ops=universal...                    [████                    ]   28/ 174  16.1% | d=525 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[████                    ]   29/ 174  16.7% | d=525 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[████                    ]   30/ 174  17.2% | d=525 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=525 ops=symmetric...                    
+  d=525 complete: no new retirements
+preparing d=550 ops=universal...                    [████                    ]   31/ 174  17.8% | d=550 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[████                    ]   32/ 174  18.4% | d=550 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[█████                   ]   33/ 174  19.0% | d=550 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=550 ops=symmetric...                    
+  d=550 complete: no new retirements
+preparing d=575 ops=universal...                    [█████                   ]   34/ 174  19.5% | d=575 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[█████                   ]   35/ 174  20.1% | d=575 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[█████                   ]   36/ 174  20.7% | d=575 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=575 ops=symmetric...                    
+  d=575 complete: no new retirements
+preparing d=600 ops=universal...                    [█████                   ]   37/ 174  21.3% | d=600 [██████            ]   1/  3  33.3% | universal CPU/QuickDer/Arpack  t1 timeout=60s status=skipped (retired@d=300)[█████                   ]   38/ 174  21.8% | d=600 [████████████      ]   2/  3  66.7% | universal CPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=325)[█████                   ]   39/ 174  22.4% | d=600 [██████████████████]   3/  3 100.0% | universal GPU/QuickDer/Gram    t1 timeout=60s status=skipped (retired@d=350)preparing d=600 ops=symmetric...                    
+  d=600 complete: no new retirements
+preparing d=625 ops=universal...                    

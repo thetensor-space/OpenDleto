@@ -1,0 +1,10 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+START direct warmup
+RESULT direct warmup (dim = 6, seed = 50, noise = 0.0, tol = Inf, method = "SymmetricGram", actual_method = "SymmetricGram", solver = "AutoSolver", actual_report_solver = "DenseEigen", nd = 3, sampling = "densor", amplitudes = "gaussian", gram_precision = "full", dense_solver = "auto", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "6x6x6", orthogonality_error = 4.334215255599246e-16, signal_residual = 0.0, seconds = 1.814416792, bytes = 171245840, nullity = 3, solver_nullity = 3, scalar_dim = 2, class = "recovery", lsq_err = 1.511589895094332e-13, support = 1.0000000000000002, perm_ok = true, full_residual = 1.4549787880453696e-15, full_residual_status = "ok", status = "ok", artifacts = nothing)
+START direct d50 noise 0.0
+RESULT direct d50 noise 0.0 (dim = 50, seed = 50, noise = 0.0, tol = Inf, method = "SymmetricGram", actual_method = "SymmetricGram", solver = "AutoSolver", actual_report_solver = "DenseEigen", nd = 3, sampling = "densor", amplitudes = "gaussian", gram_precision = "full", dense_solver = "auto", cutoff = 1.5, nondeg_tol = 1.0e-10, active_dims = "50x50x50", orthogonality_error = 3.912779823266898e-15, signal_residual = 0.0, seconds = 91.666153875, bytes = 1136668992, nullity = 3, solver_nullity = 3, scalar_dim = 2, class = "recovery", lsq_err = 2.883064587945254e-13, support = 1.000000000000001, perm_ok = true, full_residual = 7.061946846988833e-14, full_residual_status = "ok", status = "ok", artifacts = (points = "/Users/algeboy/CODE/OpenDleto/bench/reports/symmetric-sphere/direct_symmetricgram_symmetricgram_densor_gaussian_full_auto_autosolver_nd3_d50_seed50_noise0_tolInf_points.csv", svg = "/Users/algeboy/CODE/OpenDleto/bench/reports/symmetric-sphere/direct_symmetricgram_symmetricgram_densor_gaussian_full_auto_autosolver_nd3_d50_seed50_noise0_tolInf_isometric.svg"))
+START direct d50 noise 1.0e-6
+
+[45570] signal 2: Interrupt: 2
+in expression starting at /tmp/sphere-final.jl:10

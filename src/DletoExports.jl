@@ -97,6 +97,7 @@ export DerivationReport
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
 export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod
+export SymmetricGramMethod
 export QuickDerDeclined
 
 # StreamingCore.jl

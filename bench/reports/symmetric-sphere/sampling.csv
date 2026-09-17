@@ -1,0 +1,4 @@
+dim,radius,points,active_slices_per_axis,diagonal_chisel_rank,diagonal_nullity
+20,18,57,17,44,7
+50,48,48,19,39,18
+52,50,171,41,108,15

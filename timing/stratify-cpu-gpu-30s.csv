@@ -1,0 +1,7 @@
+d,valence,eltype,solve_tol,target,ops,method,solver,threads,heap_hint_gb,timeout_s,der_seconds,strat_seconds,total_seconds,bytes,nullity,residual,meets_target,lsq_err,support,perm_ok,dims,nnz,status
+125,3,Float32,1e-08,1e-08,universal,CPU/Auto,none,16,40.0,30.0,5.8706,1.2714,7.1421,3309923568,13,5.161875265002891e-7,false,0.03208612546383413,0.9989704805554233,false,125 125 125,7875,ok
+125,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Auto,AutoSolver,16,40.0,30.0,0.9682,0.1585,1.1267,1005113216,13,4.420134871452319e-7,false,0.23495342526140725,0.9447968909856198,false,125 125 125,7875,ok
+125,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Arpack,ArpackSolver,16,40.0,30.0,1.0126,0.0091,1.0218,991815200,13,3.20699882649933e-7,false,0.09748108349544791,0.9904974383648972,false,125 125 125,7875,ok
+125,3,Float32,1e-08,1e-08,universal,CPU/QuickDer/Gram,GramSolver,16,40.0,30.0,0.9172,0.0095,0.9268,991815200,13,2.8481349545472767e-7,false,0.08612052522290192,0.9925832551384007,false,125 125 125,7875,ok
+125,3,Float32,1e-08,1e-08,universal,CPU/QuickDer3,none,16,40.0,30.0,26.6126,0.0140,26.6266,4120247552,13,8.092328016573447e-7,false,0.11301972573464134,0.9872265415992665,false,125 125 125,7875,ok
+125,3,Float32,1e-08,1e-08,universal,CPU/SylverLining/Auto,AutoSolver,16,40.0,30.0,NaN,NaN,NaN,0,0,NaN,false,NaN,NaN,false,125 125 125,7875,timeout

@@ -107,6 +107,8 @@ include("DletoBase.jl")
     # methods above only NAME it inside function bodies, which is why they can
     # be included first.
     include("solvers/DerivationReport.jl")
+    # Dense symmetric normal equations for the cubic all-symmetric setting.
+    include("solvers/SymmetricGram.jl")
 
 # Supporting Utilities
     # Tensor IO

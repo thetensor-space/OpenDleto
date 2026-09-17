@@ -1,0 +1,1 @@
+Stopped after the exact d50 dense-eigen baseline completed (91.666s); remaining cases moved to the inverse-subspace implementation.

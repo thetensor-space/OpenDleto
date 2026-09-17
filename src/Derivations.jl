@@ -66,6 +66,12 @@ Supported symbols:
 - `:QuickSylver` -- Liu's *Sylvester* solve-and-lift (`quicksylver-lib.jl`):
   the same idea for `XR + SY = T`, restricting two axes and lifting an affine
   frame.  Chisels with exactly two engaged axes, e.g. `AdjointChisel`.
+- `:SymmetricGram` -- dense normal equations for real Float32/Float64 cubic
+  tensors with `SymmetricOp()` on every axis and the exact all-ones
+  `UniversalChisel(3)`.  A positive `nd` is required and selects that many
+  smallest approximate modes; `tol` controls inverse-subspace convergence,
+  never the number of returned modes.  This is intentionally opt-in and is
+  not considered by `:Auto`.
 
 All three lift solvers are "solve-and-lift"; they differ in how many axes get
 restricted and therefore in which chisels and valencies they can handle.
@@ -85,10 +91,12 @@ function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
         return FastDer3ValentMethod(; kwargs...)
     elseif method === :QuickSylver
         return QuickSylverMethod(; kwargs...)
+    elseif method === :SymmetricGram
+        return SymmetricGramMethod(; kwargs...)
     end
     error("Unknown derivation method symbol: $method. " *
           "Known: :Auto, :SylverLining, :QuickDer, :QuickDer3 (alias :FastDer3Valent), " *
-          ":QuickSylver.")
+          ":QuickSylver, :SymmetricGram.")
 end
 
 """

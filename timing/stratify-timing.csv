@@ -1,1 +1,459 @@
 d,valence,eltype,solve_tol,target,ops,method,solver,der_seconds,strat_seconds,total_seconds,bytes,nullity,residual,meets_target,lsq_err,support,perm_ok,dims,nnz,status
+10,3,Float32,1e-06,1e-08,universal,SylverLining/Auto,AutoSolver,3.4155,0.0002,3.4157,3075056,14,4.971e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/SVD,SVDSolver,3.6153,0.0121,3.6274,3070896,14,1.715e-05,false,8.644e-01,0.2529,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/LU,LUSolver,0.9927,0.0003,0.9931,1809728,14,3.409e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,0.0344,0.0002,0.0345,2697776,13,3.026e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/Arpack,ArpackSolver,1.6222,0.0002,1.6224,5581520,14,9.370e-06,false,3.312e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/Krylov,KrylovSolver,20.4761,0.0002,20.4763,14932832,14,2.201e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,0.0065,0.0000,0.0065,7448976,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float32,1e-06,1e-08,universal,SylverLining/CG,CGSolver,127.5036,0.0002,127.5038,81731984,3,2.750e-05,false,8.818e-01,0.2224,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,SylverLining/LSMR,LSMRSolver,2.5145,0.0000,2.5145,89288992,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,15.9986,0.0000,15.9986,381913984,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float32,1e-06,1e-08,universal,Auto,none,5.6252,0.0002,5.6253,3077008,14,6.833e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,1.2058,0.0002,1.2060,3202352,13,1.949e-07,false,8.986e-01,0.1924,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,5.6722,0.0003,5.6725,3202352,13,1.775e-07,false,4.940e-01,0.7560,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,2.6250,0.0002,2.6252,3202352,13,1.904e-07,false,9.700e-01,0.0591,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,universal,QuickDer3,none,2.5837,0.0002,2.5839,16170864,14,3.320e-05,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,0.7828,0.0002,0.7829,1185760,3,5.745e-07,false,5.065e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/SVD,SVDSolver,0.3956,0.0002,0.3958,1181600,3,4.679e-07,false,2.820e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,0.8965,0.0003,0.8968,836160,3,2.321e-07,false,2.805e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,0.5427,0.0003,0.5430,1308720,3,4.575e-07,false,7.967e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,1.4647,0.0003,1.4650,1430528,3,6.984e-07,false,4.986e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,8.8698,0.0003,8.8701,3278592,3,1.017e-06,false,1.687e-05,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,0.0016,0.0000,0.0016,2586176,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/CG,CGSolver,29.1060,0.0002,29.1062,25804992,1,1.815e-06,false,7.525e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/LSMR,LSMRSolver,20.8338,0.0002,20.8339,368068240,3,3.646e-08,false,1.617e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,1.2319,0.0000,1.2319,108546576,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float32,1e-06,1e-08,symmetric,Auto,none,1.1592,0.0002,1.1594,1187712,3,4.241e-07,false,4.518e-06,1.0000,true,10 10 10,55,ok
+10,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,1.6333,0.0001,1.6335,3809592,3,9.947e-08,false,2.465e-06,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/Auto,AutoSolver,1.9178,0.0002,1.9180,5787680,13,3.462e-14,false,9.060e-01,0.1791,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/SVD,SVDSolver,4.4610,0.0004,4.4614,5783616,13,1.107e-13,false,8.680e-01,0.2466,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/LU,LUSolver,1.4131,0.0004,1.4135,3316464,13,1.145e-13,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,0.6755,0.0002,0.6757,4747792,13,3.070e-14,false,9.753e-01,0.0488,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/Arpack,ArpackSolver,3.9588,0.0002,3.9590,11798032,13,1.658e-14,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/Krylov,KrylovSolver,53.2717,0.0004,53.2721,89295632,13,1.378e-13,false,8.562e-01,0.2670,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,0.0032,0.0000,0.0032,14321952,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float64,1e-06,1e-16,universal,SylverLining/CG,CGSolver,271.7436,0.0002,271.7438,168263776,13,4.827e-13,false,8.783e-01,0.2286,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,SylverLining/LSMR,LSMRSolver,3.0678,0.0000,3.0678,154626880,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float64,1e-06,1e-16,universal,SylverLining/ShiftInvert,ShiftInvertSolver,21.3152,0.0000,21.3152,798817728,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float64,1e-06,1e-16,universal,Auto,none,3.5728,0.0002,3.5730,5789632,13,5.617e-14,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,3.1224,0.0003,3.1228,5952384,13,3.247e-16,false,8.663e-01,0.2495,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,3.5706,0.0003,3.5709,5952384,13,2.920e-16,false,9.455e-01,0.1060,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,6.7297,0.0002,6.7299,5952384,13,2.885e-16,false,1.000e+00,0.0000,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,universal,QuickDer3,none,1.0549,0.0002,1.0551,13611296,13,5.521e-16,false,8.260e-01,0.3178,false,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,0.5317,0.0002,0.5318,2079856,3,8.495e-16,false,2.849e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/SVD,SVDSolver,0.4398,0.0002,0.4400,2075792,3,7.759e-16,false,1.312e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,0.5488,0.0002,0.5489,1405248,3,6.336e-16,false,1.046e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,0.8685,0.0001,0.8686,2360112,3,8.622e-16,false,3.312e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,1.5040,0.0001,1.5042,2054288,3,1.308e-15,false,1.866e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/Krylov,KrylovSolver,16.2794,0.0003,16.2796,10957328,3,9.567e-15,false,1.178e-13,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,0.0025,0.0000,0.0025,6893616,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/CG,CGSolver,22.6438,0.0002,22.6439,16638000,3,6.543e-14,false,3.961e-13,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/LSMR,LSMRSolver,18.6470,0.0003,18.6472,614764208,3,1.630e-16,false,7.290e-15,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,1.5150,0.0000,1.5150,52504736,0,NaN,false,NaN,NaN,false,10 10 10,55,error: no nontrivial derivations at tol = 1.0e-6
+10,3,Float64,1e-06,1e-16,symmetric,Auto,none,0.9755,0.0002,0.9757,2081808,3,1.098e-15,false,1.839e-14,1.0000,true,10 10 10,55,ok
+10,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,1.1110,0.0002,1.1111,6177288,3,2.665e-16,false,4.753e-15,1.0000,true,10 10 10,55,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/Auto,AutoSolver,4.0257,0.0005,4.0262,33827072,13,1.135e-05,false,4.720e-01,0.7772,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/SVD,SVDSolver,9.0485,0.0003,9.0487,13846640,13,4.623e-06,false,2.386e-01,0.9431,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/LU,LUSolver,1.4171,0.0003,1.4173,6936896,8,1.701e-04,false,3.185e-01,0.8985,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,4.1138,0.0002,4.1141,8552288,6,4.578e-05,false,4.073e-01,0.8341,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/Arpack,ArpackSolver,1.8778,0.0003,1.8780,16810784,13,6.419e-06,false,6.883e-01,0.5263,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/Krylov,KrylovSolver,72.4539,0.0005,72.4544,67292016,13,8.234e-06,false,4.886e-01,0.7613,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,0.0175,0.0000,0.0175,18698288,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float32,1e-06,1e-08,universal,SylverLining/LSMR,LSMRSolver,10.1649,0.0000,10.1649,179442976,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,0.8790,0.0000,0.8790,81535248,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float32,1e-06,1e-08,universal,Auto,none,5.0626,0.0004,5.0630,7606672,13,1.802e-07,false,1.246e-01,0.9845,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,4.5880,0.0180,4.6059,7604720,13,2.129e-07,false,4.034e-01,0.8373,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,9.5683,0.0002,9.5685,7604720,13,1.058e-07,false,3.573e-01,0.8723,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,8.4110,0.0002,8.4112,7604720,13,1.233e-07,false,4.968e-01,0.7532,false,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,universal,QuickDer3,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,15 15 15,120,error: FastDer3Valent did not find a correct solution triple at (a';b';c') = (8;8;8). Retry with larger sizes via triple_restriction_size_override.
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,1.9395,0.0002,1.9397,4329488,3,6.897e-07,false,1.161e-05,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/SVD,SVDSolver,4.6539,0.0002,4.6541,4325328,3,8.362e-07,false,5.695e-06,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,1.3762,0.0002,1.3764,2457408,3,5.074e-07,false,5.079e-06,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,1.3079,0.0002,1.3081,3317104,3,4.020e-07,false,1.098e-05,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,1.2867,0.0168,1.3036,2422352,3,6.499e-07,false,1.436e-05,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,4.2487,0.0002,4.2489,3465360,3,1.686e-06,false,1.043e-05,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,0.0073,0.0000,0.0073,8923824,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/CG,CGSolver,132.0781,0.0002,132.0783,77167616,1,9.285e-07,false,5.032e-06,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/LSMR,LSMRSolver,9.8819,0.0002,9.8821,103344768,3,2.633e-06,false,3.842e-06,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,8.1230,0.0000,8.1230,377304352,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float32,1e-06,1e-08,symmetric,Auto,none,6.8356,0.0002,6.8358,104383936,3,1.760e-06,false,1.025e-04,1.0000,true,15 15 15,120,ok
+15,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,1.3182,0.0119,1.3301,12821784,3,1.247e-07,false,6.608e-06,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/Auto,AutoSolver,4.4260,0.0003,4.4263,27078352,13,3.229e-15,false,5.006e-01,0.7494,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/SVD,SVDSolver,12.4845,0.0003,12.4848,27069168,13,5.729e-15,false,6.065e-01,0.6322,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/LU,LUSolver,1.7736,0.0003,1.7739,13402016,13,7.601e-15,false,6.646e-01,0.5583,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,3.7733,0.0003,3.7736,16334480,13,6.494e-14,false,2.528e-01,0.9361,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/Arpack,ArpackSolver,4.3398,0.0003,4.3400,27925088,13,4.361e-15,false,6.448e-01,0.5842,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/Krylov,KrylovSolver,96.3374,0.0005,96.3379,206566768,13,4.174e-14,false,3.086e-01,0.9048,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,0.0361,0.0000,0.0361,35419296,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float64,1e-06,1e-16,universal,SylverLining/LSMR,LSMRSolver,12.3913,0.0000,12.3913,328734400,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float64,1e-06,1e-16,universal,SylverLining/ShiftInvert,ShiftInvertSolver,13.0551,0.0000,13.0551,1813092512,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float64,1e-06,1e-16,universal,Auto,none,5.3369,0.0002,5.3371,15078496,13,6.320e-16,false,7.048e-01,0.5033,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,6.6831,0.0002,6.6834,15076544,13,1.244e-15,false,5.673e-01,0.6781,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,5.3637,0.0002,5.3639,15076544,13,6.878e-16,false,1.951e-01,0.9619,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,3.4287,0.0375,3.4662,15076544,13,5.702e-16,false,6.761e-01,0.5429,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,universal,QuickDer3,none,5.5141,0.0002,5.5143,26545696,13,1.367e-15,false,5.176e-01,0.7321,false,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,3.8769,0.0004,3.8773,8805344,3,1.056e-15,false,2.898e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/SVD,SVDSolver,5.8021,0.0004,5.8025,8801280,3,1.484e-15,false,3.211e-13,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,0.8595,0.0002,0.8597,4586672,3,6.041e-16,false,3.800e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,1.8092,0.0002,1.8094,6302672,3,6.079e-16,false,2.412e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,1.1010,0.0002,1.1012,4275456,3,4.758e-15,false,1.755e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/Krylov,KrylovSolver,10.3067,0.0004,10.3070,12114112,3,2.632e-15,false,4.617e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,0.0138,0.0000,0.0138,16952768,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/CG,CGSolver,101.1719,0.0003,101.1722,52797296,3,8.034e-13,false,1.029e-11,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/LSMR,LSMRSolver,174.8010,0.0002,174.8012,2598246496,3,1.150e-16,false,7.783e-15,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,11.4753,0.0000,11.4753,818975872,0,NaN,false,NaN,NaN,false,15 15 15,120,error: no nontrivial derivations at tol = 1.0e-6
+15,3,Float64,1e-06,1e-16,symmetric,Auto,none,4.9189,0.0002,4.9190,80529616,3,1.262e-14,false,5.925e-14,1.0000,true,15 15 15,120,ok
+15,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,1.9232,0.0003,1.9235,18131912,3,3.776e-16,false,1.023e-14,1.0000,true,15 15 15,120,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/Auto,AutoSolver,2.4409,0.0003,2.4412,14901280,13,1.128e-05,false,2.009e-01,0.9597,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/SVD,SVDSolver,41.8316,0.0006,41.8322,58379408,13,2.224e-06,false,3.092e-01,0.9044,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/LU,LUSolver,13.7322,0.0003,13.7325,19824032,12,1.700e-05,false,4.710e-01,0.7781,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,2.7924,0.0003,2.7927,22428544,6,1.204e-05,false,4.892e-01,0.7607,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/Arpack,ArpackSolver,2.1645,0.0003,2.1648,14413808,13,1.671e-05,false,5.597e-01,0.6867,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,0.1923,0.0000,0.1923,36533136,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float32,1e-06,1e-08,universal,SylverLining/LSMR,LSMRSolver,18.6386,0.0000,18.6386,285283008,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,1.2400,0.0000,1.2400,103550048,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float32,1e-06,1e-08,universal,Auto,none,7.6017,0.0003,7.6020,17518224,13,3.300e-07,false,4.028e-01,0.8377,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,10.5935,0.0003,10.5938,17516272,13,1.763e-07,false,4.216e-02,0.9982,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,5.3142,0.0003,5.3145,17516272,13,2.943e-07,false,4.583e-01,0.7900,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,9.9523,0.0003,9.9526,17516272,13,4.715e-07,false,6.537e-01,0.5726,false,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,universal,QuickDer3,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,20 20 20,210,error: FastDer3Valent did not find a correct solution triple at (a';b';c') = (9;9;9). Retry with larger sizes via triple_restriction_size_override.
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,1.8209,0.0004,1.8213,3626096,3,7.781e-07,false,6.044e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/SVD,SVDSolver,6.2941,0.0002,6.2943,13217824,3,6.476e-07,false,9.437e-06,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,1.2238,0.0004,1.2243,6281520,3,2.514e-07,false,1.340e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,1.4740,0.0004,1.4744,7612800,3,5.956e-07,false,1.575e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,1.6169,0.0004,1.6173,3778176,3,4.902e-07,false,1.956e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,6.9959,0.0006,6.9965,5924320,3,7.175e-07,false,8.514e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,0.0176,0.0000,0.0176,14808208,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/LSMR,LSMRSolver,410.5777,0.0002,410.5779,3358457984,3,3.449e-08,false,3.429e-06,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,35.0471,0.0000,35.0471,1292604416,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float32,1e-06,1e-08,symmetric,Auto,none,8.9045,0.0002,8.9047,16426816,3,6.486e-06,false,1.650e-05,1.0000,true,20 20 20,210,ok
+20,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,2.3959,0.0002,2.3961,33068024,3,1.594e-07,false,4.268e-06,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/Auto,AutoSolver,5.2219,0.0004,5.2223,22203872,13,9.140e-15,false,3.652e-01,0.8667,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/SVD,SVDSolver,45.7264,0.0004,45.7268,83475120,13,5.035e-15,false,4.931e-01,0.7569,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/LU,LUSolver,13.5722,0.0004,13.5726,38903648,13,2.222e-15,false,5.348e-01,0.7140,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,6.0195,0.0004,6.0199,43916880,13,1.496e-14,false,2.149e-01,0.9538,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/Arpack,ArpackSolver,5.8196,0.0004,5.8200,24247568,13,2.197e-15,false,4.747e-01,0.7747,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,0.1419,0.0000,0.1419,79989696,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float64,1e-06,1e-16,universal,SylverLining/LSMR,LSMRSolver,26.3515,0.0000,26.3515,534178528,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float64,1e-06,1e-16,universal,SylverLining/ShiftInvert,ShiftInvertSolver,44.6153,0.0000,44.6153,5042475520,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float64,1e-06,1e-16,universal,Auto,none,8.4972,0.0003,8.4976,29948160,13,1.073e-15,false,4.473e-01,0.7999,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,10.3076,0.0003,10.3079,29946208,13,6.429e-16,false,3.396e-01,0.8846,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,9.3620,0.0003,9.3624,29946208,13,5.356e-16,false,6.255e-01,0.6087,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,8.6551,0.0003,8.6555,29946208,13,4.421e-16,false,5.098e-01,0.7401,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,universal,QuickDer3,none,11.0143,0.0004,11.0147,51687936,13,1.493e-15,false,3.220e-01,0.8963,false,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,0.6949,0.0003,0.6952,6012384,3,9.050e-16,false,2.706e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/SVD,SVDSolver,8.6671,0.0005,8.6676,23966448,3,8.233e-16,false,2.918e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,2.0591,0.0003,2.0594,12032928,3,4.207e-16,false,3.092e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,3.1200,0.0002,3.1202,14772944,3,8.215e-16,false,2.036e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,1.2203,0.0003,1.2206,6017168,3,1.129e-15,false,9.502e-14,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/Krylov,KrylovSolver,34.5837,0.0004,34.5841,45833344,3,2.122e-15,false,7.916e-13,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,0.0747,0.0000,0.0747,38297440,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float64,1e-06,1e-16,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,12.8598,0.0000,12.8598,756105728,0,NaN,false,NaN,NaN,false,20 20 20,210,error: no nontrivial derivations at tol = 1.0e-6
+20,3,Float64,1e-06,1e-16,symmetric,Auto,none,11.7145,0.0002,11.7147,31962224,3,4.403e-14,false,8.373e-13,1.0000,true,20 20 20,210,ok
+20,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,3.6453,0.0005,3.6458,45885560,3,2.290e-16,false,1.031e-14,1.0000,true,20 20 20,210,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/Auto,AutoSolver,21.4727,0.0004,21.4731,16312496,13,6.949e-06,false,3.655e-01,0.8664,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/SVD,SVDSolver,107.3995,0.0004,107.3999,101430096,13,1.595e-06,false,3.746e-01,0.8597,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/LU,LUSolver,31.0787,0.0004,31.0791,46257168,7,1.033e-04,false,2.384e-01,0.9432,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,1.8689,0.0004,1.8693,50058784,3,7.642e-06,false,3.324e-01,0.8895,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/Arpack,ArpackSolver,26.2407,0.0004,26.2411,16295296,13,1.363e-06,false,2.049e-01,0.9580,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,0.3238,0.0000,0.3238,70776384,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float32,1e-06,1e-08,universal,SylverLining/LSMR,LSMRSolver,45.3858,0.0000,45.3858,440760432,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,2.8185,0.0000,2.8185,163680080,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float32,1e-06,1e-08,universal,Auto,none,13.5657,0.0004,13.5661,27480304,13,2.512e-07,false,2.625e-01,0.9311,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,25.2522,0.0004,25.2526,27478352,13,2.533e-07,false,5.549e-02,0.9969,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,21.0650,0.0009,21.0659,27478352,13,2.551e-07,false,3.257e-01,0.8939,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,11.4004,0.0004,11.4008,27478352,13,2.582e-07,false,3.406e-01,0.8840,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,universal,QuickDer3,none,20.7950,0.0004,20.7954,51413680,13,6.559e-07,false,6.074e-02,0.9963,false,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,1.1291,0.0003,1.1294,4876912,3,7.706e-07,false,1.568e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/SVD,SVDSolver,24.5199,0.0003,24.5202,34432560,3,5.980e-07,false,1.115e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,5.7575,0.0005,5.7580,16844608,3,3.108e-07,false,6.473e-06,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,4.3476,0.0003,4.3479,18979216,3,4.243e-07,false,2.035e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,0.8208,0.0005,0.8213,4878464,3,9.435e-07,false,2.400e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,9.5757,0.0003,9.5759,9219216,3,9.420e-07,false,1.321e-04,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,0.1559,0.0000,0.1559,34252992,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float32,1e-06,1e-08,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,92.3475,0.0000,92.3475,2487583856,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float32,1e-06,1e-08,symmetric,Auto,none,18.8603,0.0003,18.8606,31585440,3,1.569e-06,false,4.031e-05,1.0000,true,25 25 25,325,ok
+25,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,6.1709,0.0003,6.1712,75779656,3,2.062e-07,false,5.369e-06,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/Auto,AutoSolver,396.5659,0.0005,396.5664,51363616,13,1.296e-14,false,3.659e-01,0.8661,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/SVD,SVDSolver,181.8555,0.0243,181.8798,201442736,13,3.964e-15,false,5.324e-02,0.9972,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/LU,LUSolver,44.6535,0.0015,44.6550,91320928,13,1.217e-15,false,3.378e-01,0.8859,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,4.2381,0.0005,4.2386,99160400,13,1.387e-14,false,8.744e-02,0.9924,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/Arpack,ArpackSolver,94.7808,0.0010,94.7818,31123040,13,3.039e-15,false,7.264e-04,1.0000,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,1.0128,0.0000,1.0128,196700496,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float64,1e-06,1e-16,universal,SylverLining/LSMR,LSMRSolver,62.0703,0.0000,62.0703,839056912,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float64,1e-06,1e-16,universal,SylverLining/ShiftInvert,ShiftInvertSolver,84.7087,0.0000,84.7087,6469342336,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float64,1e-06,1e-16,universal,Auto,none,40.5688,0.0005,40.5693,54337184,13,6.182e-16,false,4.058e-01,0.8353,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,34.3421,0.0005,34.3426,54335232,13,5.136e-16,false,3.543e-01,0.8745,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,41.8083,0.0005,41.8088,54335232,13,4.001e-16,false,2.070e-01,0.9572,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,33.9487,0.0005,33.9492,54335232,13,4.853e-16,false,6.126e-02,0.9962,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,universal,QuickDer3,none,28.6960,0.0010,28.6970,90378400,13,1.614e-15,false,2.837e-01,0.9195,false,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,1.0177,0.0003,1.0180,8655184,3,4.352e-16,false,4.025e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/SVD,SVDSolver,48.5647,0.0003,48.5651,78762032,3,1.718e-15,false,4.134e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,12.5000,0.0003,12.5003,32955616,3,4.162e-16,false,1.608e-13,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,9.1633,0.0003,9.1636,37256208,3,6.741e-16,false,6.044e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,0.9131,0.0003,0.9134,8497728,3,8.600e-16,false,2.568e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/Krylov,KrylovSolver,71.4921,0.0007,71.4928,71002288,3,2.247e-15,false,5.712e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,0.1661,0.0000,0.1661,58295824,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float64,1e-06,1e-16,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,55.9614,0.0000,55.9614,2193729520,0,NaN,false,NaN,NaN,false,25 25 25,325,error: no nontrivial derivations at tol = 1.0e-6
+25,3,Float64,1e-06,1e-16,symmetric,Auto,none,32.6518,0.0006,32.6525,57294848,3,4.448e-15,false,2.532e-14,1.0000,true,25 25 25,325,ok
+25,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,7.2952,0.0003,7.2955,117379960,3,3.837e-16,false,1.123e-14,1.0000,true,25 25 25,325,ok
+30,3,Float32,1e-06,1e-08,universal,SylverLining/Auto,AutoSolver,135.1333,0.2008,135.3341,16157408,13,1.109e-06,false,3.073e-01,0.9056,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,SylverLining/LU,LUSolver,123.3926,0.0011,123.3937,106724064,13,5.808e-07,false,3.273e-01,0.8928,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,39.5323,0.3489,39.8812,112373024,11,4.744e-06,false,2.204e-01,0.9514,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,SylverLining/Arpack,ArpackSolver,105.8751,0.0005,105.8756,15652912,13,2.123e-06,false,3.455e-01,0.8806,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,5.4230,0.0000,5.4230,111737088,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float32,1e-06,1e-08,universal,SylverLining/LSMR,LSMRSolver,1040.6345,0.0000,1040.6345,639982704,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,50.8004,0.0000,50.8004,243004432,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float32,1e-06,1e-08,universal,Auto,none,54.6285,0.1060,54.7345,46694128,13,3.459e-07,false,2.252e-01,0.9493,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,46.0055,0.0012,46.0067,46692176,13,2.886e-07,false,2.388e-01,0.9430,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,44.2804,0.0005,44.2810,46692176,13,3.828e-07,false,3.153e-01,0.9006,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,48.0467,0.2583,48.3050,46692176,13,2.490e-07,false,2.431e-01,0.9409,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,universal,QuickDer3,none,41.0108,0.0005,41.0113,82953072,13,7.785e-07,false,3.317e-01,0.8900,false,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,14.3919,0.0533,14.4452,6972128,3,5.422e-07,false,1.521e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/SVD,SVDSolver,75.7566,0.0003,75.7569,75497808,3,5.521e-07,false,1.635e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,30.7306,0.2189,30.9495,31064672,3,2.668e-07,false,1.318e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,12.8241,0.0003,12.8244,33909936,3,5.509e-07,false,3.750e-04,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,15.5040,0.1360,15.6400,6968688,3,5.145e-07,false,1.317e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,15.8340,0.1065,15.9405,14883104,3,7.431e-07,false,6.523e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,2.4787,0.0000,2.4787,31570240,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float32,1e-06,1e-08,symmetric,Auto,none,36.6631,0.0003,36.6634,49170640,3,8.143e-07,false,1.421e-05,1.0000,true,30 30 30,465,ok
+30,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,14.1100,0.0446,14.1547,159420136,3,1.496e-07,false,5.351e-05,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,SylverLining/LU,LUSolver,99.9970,0.0616,100.0587,185429408,13,9.255e-16,false,2.812e-01,0.9209,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,38.8117,0.0436,38.8553,196496592,13,8.496e-15,false,2.969e-01,0.9119,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,8.3853,0.0000,8.3853,240893200,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float64,1e-06,1e-16,universal,Auto,none,49.1318,0.1419,49.2737,102456848,13,5.305e-16,false,2.971e-01,0.9117,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,44.4363,0.1019,44.5382,102454896,13,6.112e-16,false,7.738e-03,0.9999,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,48.8809,0.0857,48.9665,102454896,13,5.961e-16,false,2.230e-01,0.9503,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,55.2597,0.0437,55.3034,102454896,13,4.201e-16,false,2.913e-01,0.9151,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,universal,QuickDer3,none,41.6412,0.0007,41.6419,154327664,13,1.144e-15,false,3.919e-01,0.8464,false,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,23.2619,0.0041,23.2660,12856896,3,1.227e-15,false,4.704e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/SVD,SVDSolver,95.1866,0.0480,95.2346,113669904,3,1.602e-15,false,6.356e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,39.6147,0.0440,39.6587,53162944,3,5.467e-16,false,2.510e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,21.9230,0.1080,22.0310,58921712,3,7.578e-16,false,6.060e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,17.2988,0.0009,17.2997,12692272,3,4.925e-16,false,5.502e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,3.2082,0.0000,3.2082,72195120,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float64,1e-06,1e-16,symmetric,SylverLining/ShiftInvert,ShiftInvertSolver,1105.6188,0.0000,1105.6188,2175070512,0,NaN,false,NaN,NaN,false,30 30 30,465,error: no nontrivial derivations at tol = 1.0e-6
+30,3,Float64,1e-06,1e-16,symmetric,Auto,none,52.5410,0.1782,52.7192,106847040,3,1.587e-15,false,4.287e-14,1.0000,true,30 30 30,465,ok
+30,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,7.5076,0.0831,7.5907,227677464,3,1.792e-16,false,8.066e-14,1.0000,true,30 30 30,465,ok
+35,3,Float32,1e-06,1e-08,universal,SylverLining/Gram,GramSolver,1445.0159,0.0000,1445.0159,176475856,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float32,1e-06,1e-08,universal,SylverLining/Lanczos,LanczosSolver,1191.2805,0.0000,1191.2805,550588528,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float32,1e-06,1e-08,universal,SylverLining/ShiftInvert,ShiftInvertSolver,13696.7452,0.0000,13696.7452,3627347888,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float32,1e-06,1e-08,universal,Auto,none,3.1892,0.3461,3.5353,64197088,13,2.323e-07,false,3.639e-01,0.8675,false,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,1.4225,0.2500,1.6725,38168144,13,2.233e-07,false,2.244e-01,0.9496,false,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,4.5547,0.0041,4.5588,38937936,14,1.314e-05,false,3.267e-01,0.8933,false,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,4.1758,0.0006,4.1764,38168144,13,3.150e-07,false,3.449e-01,0.8810,false,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,universal,QuickDer3,none,69.2667,0.0199,69.2865,141076064,22,6.054e-04,false,4.788e-01,0.7708,false,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/Auto,AutoSolver,150.8576,0.2047,151.0622,8627248,3,4.128e-05,false,5.310e-05,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/LU,LUSolver,289.7920,0.2500,290.0421,52921104,2,1.814e-06,false,1.240e-04,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/Gram,GramSolver,291.7151,0.0005,291.7156,56821120,3,1.256e-06,false,2.170e-05,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/Arpack,ArpackSolver,135.4478,0.2742,135.7221,8623680,3,1.300e-06,false,5.411e-05,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/Krylov,KrylovSolver,105.1905,0.2377,105.4282,15965728,3,2.285e-05,false,2.604e-03,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,44.7660,0.0000,44.7660,64534000,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float32,1e-06,1e-08,symmetric,Auto,none,4.8291,0.1415,4.9706,46885184,3,1.739e-05,false,1.520e-03,1.0000,true,35 35 35,630,ok
+35,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,12.3755,0.2378,12.6133,179213848,3,1.391e-07,false,2.807e-05,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,universal,SylverLining/Gram,GramSolver,659.6168,0.0000,659.6168,350624080,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float64,1e-06,1e-16,universal,SylverLining/Lanczos,LanczosSolver,258.7690,0.0000,258.7690,1060099776,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float64,1e-06,1e-16,universal,Auto,none,8.7173,0.2411,8.9584,121713232,1,3.161e-09,false,2.970e-01,0.9118,false,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,9.1172,0.3036,9.4208,84377648,3,9.840e-10,false,4.115e-02,0.9983,false,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,5.8304,0.2060,6.0364,80335968,2,1.824e-09,false,2.490e-01,0.9380,false,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,4.9075,0.3075,5.2150,85381872,5,1.939e-09,false,1.968e-01,0.9613,false,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,universal,QuickDer3,none,84.5971,0.3500,84.9471,260820896,13,1.985e-15,false,2.541e-01,0.9354,false,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,symmetric,SylverLining/Auto,AutoSolver,177.7962,0.2518,178.0479,18011888,3,2.355e-14,false,5.212e-14,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,symmetric,SylverLining/LU,LUSolver,386.7355,0.3279,387.0634,114291312,3,1.823e-15,false,4.217e-14,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,symmetric,SylverLining/Gram,GramSolver,1243.4710,0.0006,1243.4715,117510560,3,9.185e-16,false,2.961e-14,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,symmetric,SylverLining/Arpack,ArpackSolver,198.9902,0.3128,199.3030,15536480,3,1.270e-15,false,3.204e-12,1.0000,true,35 35 35,630,ok
+35,3,Float64,1e-06,1e-16,symmetric,SylverLining/Lanczos,LanczosSolver,60.9329,0.0000,60.9329,111552448,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float64,1e-06,1e-16,symmetric,Auto,none,5.1292,0.0000,5.1292,79246912,0,NaN,false,NaN,NaN,false,35 35 35,630,error: no nontrivial derivations at tol = 1.0e-6
+35,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,16.1743,0.0288,16.2031,356397160,3,2.053e-16,false,1.792e-14,1.0000,true,35 35 35,630,ok
+40,3,Float32,1e-06,1e-08,universal,Auto,none,5.7619,0.2457,6.0076,53110944,13,3.231e-07,false,2.455e-01,0.9397,false,40 40 40,820,ok
+40,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,4.4340,0.0333,4.4673,53108928,13,3.519e-07,false,2.219e-01,0.9507,false,40 40 40,820,ok
+40,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,8.4272,0.1770,8.6043,53108992,13,3.893e-07,false,7.057e-02,0.9950,false,40 40 40,820,ok
+40,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,7.7372,0.2348,7.9720,53108928,13,3.645e-07,false,1.445e-01,0.9791,false,40 40 40,820,ok
+40,3,Float32,1e-06,1e-08,symmetric,SylverLining/Lanczos,LanczosSolver,60.6951,0.0000,60.6951,83564016,0,NaN,false,NaN,NaN,false,40 40 40,820,error: no nontrivial derivations at tol = 1.0e-6
+40,3,Float32,1e-06,1e-08,symmetric,Auto,none,6.2580,0.0005,6.2585,53187248,3,2.878e-06,false,2.991e-05,1.0000,true,40 40 40,820,ok
+40,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,32.4198,0.1729,32.5927,508849208,3,1.072e-07,false,2.806e-05,1.0000,true,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,universal,Auto,none,16.5775,0.1258,16.7033,337242528,13,3.703e-08,false,2.063e-01,0.9575,false,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,18.4256,0.2012,18.6268,338963424,13,2.872e-08,false,1.084e-01,0.9883,false,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,18.8624,0.2557,19.1182,338963424,13,3.586e-08,false,1.681e-01,0.9718,false,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,16.8258,0.2169,17.0427,338963424,13,2.499e-08,false,1.691e-01,0.9714,false,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,symmetric,Auto,none,26.3988,0.0101,26.4089,346363792,3,1.530e-07,false,5.621e-06,1.0000,true,40 40 40,820,ok
+40,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,21.1703,0.2777,21.4480,642198520,3,2.103e-16,false,2.226e-14,1.0000,true,40 40 40,820,ok
+45,3,Float32,1e-06,1e-08,universal,Auto,none,10.1043,0.2282,10.3326,88571200,13,2.509e-07,false,2.183e-01,0.9523,false,45 45 45,1035,ok
+45,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,8.5943,0.2126,8.8069,88569248,13,3.662e-07,false,1.730e-01,0.9701,false,45 45 45,1035,ok
+45,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,8.8263,0.2866,9.1128,88569248,13,3.230e-07,false,1.183e-01,0.9860,false,45 45 45,1035,ok
+45,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,9.4084,0.0611,9.4694,88569248,13,2.099e-07,false,2.127e-01,0.9547,false,45 45 45,1035,ok
+45,3,Float32,1e-06,1e-08,symmetric,Auto,none,11.6138,0.3190,11.9327,93640144,3,6.727e-06,false,1.230e-04,1.0000,true,45 45 45,1035,ok
+45,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,47.4068,0.1912,47.5980,698862680,3,8.984e-08,false,6.127e-06,1.0000,true,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,universal,Auto,none,28.1653,0.2083,28.3736,514321536,13,6.240e-09,false,2.515e-02,0.9994,false,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,10.7403,0.1813,10.9215,112721568,1,4.262e-08,false,2.053e-02,0.9996,false,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,28.5183,0.1717,28.6900,504915168,13,6.141e-09,false,8.742e-02,0.9924,false,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,32.2253,0.2336,32.4589,504915168,13,3.770e-09,false,3.728e-02,0.9986,false,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,symmetric,Auto,none,30.6127,0.2285,30.8413,518598912,3,3.548e-07,false,5.081e-06,1.0000,true,45 45 45,1035,ok
+45,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,24.0014,0.2978,24.2992,958900552,3,1.318e-16,false,8.835e-14,1.0000,true,45 45 45,1035,ok
+50,3,Float32,1e-06,1e-08,universal,Auto,none,13.3084,0.0469,13.3553,134581008,11,4.060e-07,false,1.799e-01,0.9676,false,50 50 50,1275,ok
+50,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,13.6210,0.2800,13.9011,135448608,14,2.407e-07,false,1.525e-01,0.9768,false,50 50 50,1275,ok
+50,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,14.9541,0.1839,15.1380,135730176,14,4.179e-07,false,7.990e-02,0.9936,false,50 50 50,1275,ok
+50,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,13.6691,0.0486,13.7177,136179504,12,3.393e-07,false,2.067e-01,0.9573,false,50 50 50,1275,ok
+50,3,Float32,1e-06,1e-08,symmetric,Auto,none,37.9175,0.0000,37.9175,374319632,0,NaN,false,NaN,NaN,false,50 50 50,1275,error: no nontrivial derivations at tol = 1.0e-6
+50,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,51.0506,0.0377,51.0883,1126639384,3,9.077e-08,false,7.003e-05,1.0000,true,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,universal,Auto,none,33.8079,0.0123,33.8202,731626080,13,7.688e-11,false,5.084e-02,0.9974,false,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,35.1944,0.2491,35.4436,715715264,13,7.035e-11,false,8.924e-02,0.9920,false,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,12.1699,0.2902,12.4601,177685072,1,2.504e-10,false,1.101e-01,0.9879,false,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,32.9989,0.3160,33.3149,715715264,13,4.787e-11,false,7.191e-02,0.9948,false,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,symmetric,Auto,none,39.3786,0.0459,39.4245,726641040,3,2.904e-05,false,3.138e-04,1.0000,true,50 50 50,1275,ok
+50,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,35.0465,0.1448,35.1913,1505421512,3,2.913e-16,false,2.659e-14,1.0000,true,50 50 50,1275,ok
+55,3,Float32,1e-06,1e-08,universal,Auto,none,11.8319,0.2615,12.0934,125326288,13,2.792e-07,false,9.736e-02,0.9905,false,55 55 55,1540,ok
+55,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,1035.0778,0.0020,1035.0798,125324272,13,3.469e-07,false,1.336e-01,0.9822,false,55 55 55,1540,ok
+55,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,11.4306,0.2123,11.6429,125324272,13,2.641e-07,false,1.732e-01,0.9700,false,55 55 55,1540,ok
+55,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,12.0717,0.2124,12.2841,125324336,13,4.785e-07,false,1.571e-01,0.9753,false,55 55 55,1540,ok
+55,3,Float32,1e-06,1e-08,symmetric,Auto,none,11.9683,0.2553,12.2236,132287312,3,1.805e-06,false,4.855e-05,1.0000,true,55 55 55,1540,ok
+55,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,45.3462,0.1626,45.5088,1499804536,3,9.141e-08,false,3.853e-05,1.0000,true,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,universal,Auto,none,25.4740,0.2397,25.7137,899998304,13,1.696e-08,false,1.703e-01,0.9710,false,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,26.8173,0.0677,26.8850,899996352,13,3.151e-08,false,2.657e-02,0.9993,false,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,29.2492,0.2344,29.4836,850434752,13,2.961e-08,false,1.301e-02,0.9998,false,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,27.9952,0.3040,28.2992,850434752,13,2.425e-08,false,1.434e-01,0.9794,false,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,symmetric,Auto,none,26.5597,0.1796,26.7393,863841472,3,1.410e-07,false,1.259e-05,1.0000,true,55 55 55,1540,ok
+55,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,24.9909,0.3151,25.3061,2387876760,3,1.355e-16,false,5.322e-14,1.0000,true,55 55 55,1540,ok
+60,3,Float32,1e-06,1e-08,universal,Auto,none,9.0235,0.3029,9.3263,154571376,14,2.082e-06,false,1.420e-01,0.9798,false,60 60 60,1830,ok
+60,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,15.6827,0.1951,15.8778,154569360,14,5.906e-07,false,2.633e-01,0.9307,false,60 60 60,1830,ok
+60,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,14.3052,0.2301,14.5353,154569360,14,2.975e-06,false,1.077e-01,0.9884,false,60 60 60,1830,ok
+60,3,Float32,1e-06,1e-08,symmetric,Auto,none,9.6598,0.2224,9.8821,164117696,3,5.849e-06,false,4.920e-04,1.0000,true,60 60 60,1830,ok
+60,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,54.3517,0.1869,54.5387,2064320136,3,7.740e-08,false,6.596e-05,1.0000,true,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,universal,Auto,none,32.6871,0.1787,32.8658,1268680976,13,1.170e-08,false,4.041e-03,1.0000,false,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,38.2229,0.3466,38.5695,1216676208,13,1.280e-08,false,1.129e-01,0.9873,false,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,46.8778,0.2305,47.1083,1216676208,13,5.106e-09,false,2.996e-02,0.9991,false,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,45.9978,0.3879,46.3858,1216676208,13,7.861e-09,false,2.267e-02,0.9995,false,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,symmetric,Auto,none,48.5748,0.2121,48.7869,1233448112,3,9.278e-07,false,2.293e-05,1.0000,true,60 60 60,1830,ok
+60,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,60 60 60,1830,error: ArgumentError: SymmetricGram estimates 1145197440 bytes for d=60; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+65,3,Float32,1e-06,1e-08,universal,Auto,none,16.5410,0.4896,17.0306,161748928,13,3.352e-07,false,4.486e-02,0.9980,false,65 65 65,2145,ok
+65,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,20.4843,0.1939,20.6783,161746976,13,2.639e-07,false,7.827e-02,0.9939,false,65 65 65,2145,ok
+65,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,19.0484,0.1983,19.2467,161746976,13,2.882e-07,false,1.204e-01,0.9855,false,65 65 65,2145,ok
+65,3,Float32,1e-06,1e-08,symmetric,Auto,none,16.7552,0.5132,17.2684,174294816,3,1.994e-05,false,9.989e-01,0.0095,false,65 65 65,2145,ok
+65,3,Float32,1e-06,1e-08,symmetric,SymmetricGram,none,100.5673,0.4796,101.0468,2933182568,3,6.410e-08,false,9.987e-06,1.0000,true,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,universal,Auto,none,60.1376,0.2229,60.3606,1230449488,13,2.153e-09,false,6.756e-02,0.9954,false,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,60.8290,0.2978,61.1269,1231119280,13,1.324e-09,false,1.167e-01,0.9864,false,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,58.3679,0.3654,58.7333,1232380848,13,1.077e-09,false,4.223e-02,0.9982,false,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,universal,QuickDer/Gram,GramSolver,961.8031,0.2592,962.0624,1231004592,13,1.406e-09,false,4.594e-02,0.9979,false,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,symmetric,Auto,none,35.1873,0.2334,35.4207,1256454272,3,1.409e-06,false,1.087e-04,1.0000,true,65 65 65,2145,ok
+65,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,65 65 65,2145,error: ArgumentError: SymmetricGram estimates 1573381160 bytes for d=65; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+70,3,Float32,1e-06,1e-08,universal,Auto,none,18.2099,0.3201,18.5300,269906288,13,1.801e-07,false,1.042e-01,0.9891,false,70 70 70,2485,ok
+70,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,13.4824,0.0031,13.4855,269904336,13,2.744e-07,false,1.051e-01,0.9890,false,70 70 70,2485,ok
+70,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,24.1473,0.2521,24.3994,269904336,13,2.242e-07,false,1.709e-01,0.9708,false,70 70 70,2485,ok
+70,3,Float32,1e-06,1e-08,symmetric,Auto,none,14.2482,0.3050,14.5531,281114432,3,1.779e-06,false,2.291e-04,1.0000,true,70 70 70,2485,ok
+70,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,34.6201,0.2757,34.8958,1629480736,13,1.862e-08,false,5.612e-02,0.9969,false,70 70 70,2485,ok
+70,3,Float64,1e-06,1e-16,symmetric,Auto,none,43.3103,0.2574,43.5676,1651900672,3,1.264e-07,false,3.879e-06,1.0000,true,70 70 70,2485,ok
+70,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,70 70 70,2485,error: ArgumentError: SymmetricGram estimates 2111830280 bytes for d=70; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+75,3,Float32,1e-06,1e-08,universal,Auto,none,17.6379,0.0202,17.6581,275268320,13,3.801e-07,false,1.092e-01,0.9881,false,75 75 75,2850,ok
+75,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,14.5110,0.2470,14.7581,275266368,13,5.715e-07,false,1.937e-01,0.9625,false,75 75 75,2850,ok
+75,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,15.5657,0.2736,15.8393,275266368,13,3.979e-07,false,1.263e-01,0.9841,false,75 75 75,2850,ok
+75,3,Float32,1e-06,1e-08,symmetric,Auto,none,15.7328,0.3109,16.0438,288281664,3,3.548e-06,false,4.440e-05,1.0000,true,75 75 75,2850,ok
+75,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,49.5832,0.2830,49.8662,1749884704,13,8.251e-09,false,9.858e-02,0.9903,false,75 75 75,2850,ok
+75,3,Float64,1e-06,1e-16,symmetric,Auto,none,71.4143,0.4322,71.8465,1786956912,3,1.681e-07,false,3.550e-06,1.0000,true,75 75 75,2850,ok
+75,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,75 75 75,2850,error: ArgumentError: SymmetricGram estimates 2778040800 bytes for d=75; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+80,3,Float32,1e-06,1e-08,universal,Auto,none,29.8578,0.1283,29.9861,295826272,13,3.136e-07,false,1.331e-01,0.9823,false,80 80 80,3240,ok
+80,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,31.6524,0.2549,31.9073,295824320,13,3.227e-07,false,1.228e-01,0.9849,false,80 80 80,3240,ok
+80,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,29.2391,0.2385,29.4777,295824320,13,3.059e-07,false,8.688e-02,0.9925,false,80 80 80,3240,ok
+80,3,Float32,1e-06,1e-08,symmetric,Auto,none,32.0155,0.4643,32.4798,311184128,3,4.267e-06,false,1.774e-04,1.0000,true,80 80 80,3240,ok
+80,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,105.3965,0.3350,105.7314,2358676080,13,8.152e-09,false,8.498e-02,0.9928,false,80 80 80,3240,ok
+80,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,80 80 80,3240,error: ArgumentError: SymmetricGram estimates 3590798720 bytes for d=80; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+85,3,Float32,1e-06,1e-08,universal,Auto,none,31.0146,0.2519,31.2665,328936384,13,3.086e-07,false,1.336e-01,0.9821,false,85 85 85,3655,ok
+85,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,28.4164,0.4369,28.8534,324740192,13,3.236e-07,false,1.274e-01,0.9838,false,85 85 85,3655,ok
+85,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,25.2324,0.3128,25.5453,324740128,13,2.887e-07,false,8.993e-02,0.9919,false,85 85 85,3655,ok
+85,3,Float32,1e-06,1e-08,symmetric,Auto,none,29.6343,0.4224,30.0567,341986464,3,3.199e-06,false,9.178e-05,1.0000,true,85 85 85,3655,ok
+85,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,85 85 85,3655,error: ArgumentError: SymmetricGram estimates 4570180040 bytes for d=85; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+90,3,Float32,1e-06,1e-08,universal,Auto,none,25.7527,0.2479,26.0007,409714256,13,2.136e-07,false,2.283e-02,0.9995,false,90 90 90,4095,ok
+90,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,23.1693,0.3350,23.5043,409712304,13,3.425e-07,false,9.250e-02,0.9914,false,90 90 90,4095,ok
+90,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,28.3147,0.2322,28.5469,410531504,13,1.867e-07,false,4.840e-02,0.9977,false,90 90 90,4095,ok
+90,3,Float32,1e-06,1e-08,symmetric,Auto,none,23.9577,0.2807,24.2383,427808672,3,2.666e-06,false,3.661e-05,1.0000,true,90 90 90,4095,ok
+90,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,90 90 90,4095,error: ArgumentError: SymmetricGram estimates 5737550760 bytes for d=90; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+95,3,Float32,1e-06,1e-08,universal,Auto,none,25.3860,0.7610,26.1470,455514816,13,4.173e-07,false,1.324e-01,0.9825,false,95 95 95,4560,ok
+95,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,26.5911,1.7000,28.2911,455512864,13,5.342e-07,false,1.124e-01,0.9874,false,95 95 95,4560,ok
+95,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,26.8239,1.5013,28.3251,462361440,13,2.651e-07,false,6.192e-02,0.9962,false,95 95 95,4560,ok
+95,3,Float32,1e-06,1e-08,symmetric,Auto,none,29.9624,0.1365,30.0989,479423728,3,2.292e-06,false,4.409e-05,1.0000,true,95 95 95,4560,ok
+95,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,95 95 95,4560,error: ArgumentError: SymmetricGram estimates 7115566880 bytes for d=95; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+100,3,Float32,1e-06,1e-08,universal,Auto,none,20.9990,3.5202,24.5193,547584368,13,4.853e-07,false,1.464e-01,0.9786,false,100 100 100,5050,ok
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,25.6066,1008.7390,1034.3456,547582416,13,2.906e-07,false,1.404e-01,0.9803,false,100 100 100,5050,ok
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,30.0918,1.5193,31.6111,547582416,13,5.563e-07,false,1.358e-01,0.9815,false,100 100 100,5050,ok
+100,3,Float32,1e-06,1e-08,symmetric,Auto,none,25.8362,0.6036,26.4398,572042256,3,5.658e-06,false,4.293e-05,1.0000,true,100 100 100,5050,ok
+100,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,100 100 100,5050,error: ArgumentError: SymmetricGram estimates 8728174400 bytes for d=100; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+105,3,Float32,1e-06,1e-08,universal,Auto,none,34.8043,1.5528,36.3570,599905600,13,3.145e-07,false,4.163e-01,0.8267,false,105 105 105,5565,ok
+105,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,26.1100,0.6843,26.7942,600853008,13,2.834e-07,false,3.977e-01,0.8419,false,105 105 105,5565,ok
+105,3,Float32,1e-06,1e-08,symmetric,Auto,none,28.3009,0.3063,28.6072,625118128,3,3.728e-06,false,1.167e-04,1.0000,true,105 105 105,5565,ok
+105,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,105 105 105,5565,error: ArgumentError: SymmetricGram estimates 10600609320 bytes for d=105; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+110,3,Float32,1e-06,1e-08,universal,Auto,none,34.7542,2.2931,37.0473,725541168,13,2.201e-07,false,1.393e-01,0.9806,false,110 110 110,6105,ok
+110,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,37.2815,3.4035,40.6850,725539216,13,3.341e-07,false,1.125e-01,0.9873,false,110 110 110,6105,ok
+110,3,Float32,1e-06,1e-08,symmetric,Auto,none,37.0946,1.8747,38.9693,745558688,3,7.673e-06,false,4.267e-04,1.0000,true,110 110 110,6105,ok
+110,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,110 110 110,6105,error: ArgumentError: SymmetricGram estimates 12759397640 bytes for d=110; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+115,3,Float32,1e-06,1e-08,universal,Auto,none,60.9441,6.2783,67.2224,779164496,13,2.813e-07,false,9.205e-02,0.9915,false,115 115 115,6670,ok
+115,3,Float32,1e-06,1e-08,universal,QuickDer/Gram,GramSolver,60.3200,5.3633,65.6833,773084080,13,4.450e-07,false,7.940e-02,0.9937,false,115 115 115,6670,ok
+115,3,Float32,1e-06,1e-08,symmetric,Auto,none,64.5653,2.4005,66.9658,818134848,3,1.380e-06,false,1.134e-03,1.0000,true,115 115 115,6670,ok
+115,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,115 115 115,6670,error: ArgumentError: SymmetricGram estimates 15232355360 bytes for d=115; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+120,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,120 120 120,7260,error: ArgumentError: SymmetricGram estimates 18048588480 bytes for d=120; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+125,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,125 125 125,7875,error: ArgumentError: SymmetricGram estimates 21238493000 bytes for d=125; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+130,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,130 130 130,8515,error: ArgumentError: SymmetricGram estimates 24833754920 bytes for d=130; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+135,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,135 135 135,9180,error: ArgumentError: SymmetricGram estimates 28867350240 bytes for d=135; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+140,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,140 140 140,9870,error: ArgumentError: SymmetricGram estimates 33373544960 bytes for d=140; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+145,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,145 145 145,10585,error: ArgumentError: SymmetricGram estimates 38387895080 bytes for d=145; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+150,3,Float64,1e-06,1e-16,symmetric,SymmetricGram,none,0.0000,0.0000,0.0000,0,0,NaN,false,NaN,NaN,false,150 150 150,11325,error: ArgumentError: SymmetricGram estimates 43947246600 bytes for d=150; above max_bytes=1073741824; raise max_bytes explicitly or use :SylverLining
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,0.4133,0.0128,0.4260,554265840,13,4.853e-07,false,1.464e-01,0.9786,false,100 100 100,5050,ok
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,0.3950,0.0053,0.4003,554265840,13,2.906e-07,false,1.404e-01,0.9803,false,100 100 100,5050,ok
+100,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,2.7397,0.0093,2.7490,4449739456,13,7.719e-09,false,3.037e-02,0.9991,false,100 100 100,5050,ok
+100,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,2.7106,0.0080,2.7186,4449739456,13,3.895e-09,false,6.234e-03,1.0000,false,100 100 100,5050,ok
+125,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,0.8569,0.0084,0.8653,1073047072,13,5.162e-07,false,3.209e-02,0.9990,false,125 125 125,7875,ok
+125,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,0.8715,0.1086,0.9801,1083004880,13,4.420e-07,false,2.350e-01,0.9448,false,125 125 125,7875,ok
+125,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,7.1429,0.0139,7.1568,4832742800,13,2.734e-16,false,4.922e-02,0.9976,false,125 125 125,7875,ok
+125,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,4.7162,0.0142,4.7304,4044463344,13,1.003e-15,false,1.021e-01,0.9896,false,125 125 125,7875,ok
+150,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,1.8910,0.0181,1.9092,1675071296,13,2.397e-07,false,7.162e-02,0.9949,false,150 150 150,11325,ok
+150,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,1.8457,0.0142,1.8599,1669648192,13,3.095e-07,false,8.266e-02,0.9932,false,150 150 150,11325,ok
+150,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,7.6563,0.0243,7.6806,5716566400,13,2.912e-16,false,8.554e-02,0.9927,false,150 150 150,11325,ok
+150,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,7.5419,0.0216,7.5634,5732770336,13,3.480e-16,false,6.266e-02,0.9961,false,150 150 150,11325,ok
+175,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,2.9281,0.0195,2.9476,2419135120,13,2.414e-07,false,4.713e-02,0.9978,false,175 175 175,15400,ok
+175,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,2.9678,0.0197,2.9875,2404438672,13,2.954e-07,false,6.406e-02,0.9959,false,175 175 175,15400,ok
+175,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,10.4394,0.0326,10.4720,7622594816,13,3.279e-16,false,9.069e-02,0.9918,false,175 175 175,15400,ok
+175,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,10.9813,0.0345,11.0158,7883219744,13,2.771e-16,false,7.273e-02,0.9947,false,175 175 175,15400,ok
+200,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,5.5214,0.0318,5.5532,3638344560,13,4.620e-07,false,8.567e-02,0.9927,false,200 200 200,20100,ok
+200,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,5.3455,0.0750,5.4206,3655959792,13,2.789e-07,false,1.245e-02,0.9998,false,200 200 200,20100,ok
+200,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,16.9786,0.0500,17.0286,11279395952,13,8.099e-16,false,6.221e-02,0.9961,false,200 200 200,20100,ok
+200,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,15.2029,0.0954,15.2983,10788618784,13,6.547e-16,false,8.046e-02,0.9935,false,200 200 200,20100,ok
+225,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,8.5465,0.0459,8.5924,4850774080,13,6.572e-07,false,1.023e-01,0.9895,false,225 225 225,25425,ok
+225,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,8.2490,0.0995,8.3485,4789760064,13,4.831e-07,false,3.715e-02,0.9986,false,225 225 225,25425,ok
+225,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,27.6732,0.0947,27.7680,9961265360,13,1.512e-15,false,5.048e-03,1.0000,false,225 225 225,25425,ok
+225,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,38.5558,0.0737,38.6295,11029743328,13,2.980e-15,false,2.973e-02,0.9991,false,225 225 225,25425,ok
+250,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,13.4026,0.0541,13.4567,6943492000,13,2.516e-07,false,4.116e-02,0.9983,false,250 250 250,31375,ok
+250,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,13.1196,0.0551,13.1747,6928451488,13,5.087e-07,false,4.980e-02,0.9975,false,250 250 250,31375,ok
+250,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,21.6695,0.1361,21.8057,8275079024,13,8.048e-16,false,1.318e-02,0.9998,false,250 250 250,31375,ok
+250,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,20.1658,0.1138,20.2796,8507462608,13,1.396e-15,false,1.986e-03,1.0000,false,250 250 250,31375,ok
+275,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,19.0763,0.0781,19.1544,8830792176,13,3.950e-07,false,5.875e-02,0.9965,false,275 275 275,37950,ok
+275,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,19.0497,0.0781,19.1278,8806937072,13,2.781e-07,false,9.251e-03,0.9999,false,275 275 275,37950,ok
+275,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,48.7399,0.1677,48.9075,15421752384,13,4.333e-15,false,1.014e-02,0.9999,false,275 275 275,37950,ok
+275,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,45.1308,0.1954,45.3261,14529009184,13,1.212e-15,false,6.643e-02,0.9956,false,275 275 275,37950,ok
+300,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,26.3816,0.1148,26.4964,7336553872,14,1.036e-05,false,1.204e-01,0.9855,false,300 300 300,45150,ok
+300,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,22.4977,0.1043,22.6021,6122051808,14,8.699e-05,false,2.975e-01,0.9118,false,300 300 300,45150,ok
+300,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,85.2083,0.2023,85.4106,21962183840,13,4.409e-14,false,4.400e-03,1.0000,false,300 300 300,45150,ok
+300,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,75.0647,0.2011,75.2658,21196811392,13,1.426e-14,false,5.174e-03,1.0000,false,300 300 300,45150,ok
+325,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,13.6717,0.1174,13.7892,4974175616,13,2.653e-07,false,NaN,NaN,false,325 325 325,52975,ok
+325,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,12.6285,0.1279,12.7564,4679345104,13,5.234e-07,false,NaN,NaN,false,325 325 325,52975,ok
+325,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,51.4668,0.2435,51.7103,16394361088,13,7.659e-16,false,NaN,NaN,false,325 325 325,52975,ok
+325,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,50.2406,0.2671,50.5077,16597336512,13,8.462e-16,false,NaN,NaN,false,325 325 325,52975,ok
+350,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,41.6717,0.1660,41.8376,10786289856,13,1.474e-07,false,NaN,NaN,false,350 350 350,61425,ok
+350,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,14.7521,0.2101,14.9621,5814672752,13,6.245e-07,false,NaN,NaN,false,350 350 350,61425,ok
+350,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,37.0614,0.3096,37.3710,15479545456,13,7.376e-16,false,NaN,NaN,false,350 350 350,61425,ok
+350,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,39.3247,0.3197,39.6444,15791293072,13,2.935e-16,false,NaN,NaN,false,350 350 350,61425,ok
+375,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,63.6791,0.2131,63.8922,13407287296,13,7.838e-08,false,NaN,NaN,false,375 375 375,70500,ok
+375,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,62.3965,0.2459,62.6425,13229986336,13,1.043e-07,false,NaN,NaN,false,375 375 375,70500,ok
+375,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,92.8142,0.3863,93.2005,25577974208,13,6.076e-16,false,NaN,NaN,false,375 375 375,70500,ok
+375,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,92.9470,0.3861,93.3331,25885679808,13,3.824e-16,false,NaN,NaN,false,375 375 375,70500,ok
+400,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,24.2642,0.2647,24.5289,8393806352,13,4.291e-07,false,NaN,NaN,false,400 400 400,80200,ok
+400,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,26.4138,0.2698,26.6835,8839221488,13,2.121e-07,false,NaN,NaN,false,400 400 400,80200,ok
+400,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,99.4974,0.4620,99.9594,29238452832,13,8.675e-16,false,NaN,NaN,false,400 400 400,80200,ok
+400,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,103.4372,0.4525,103.8898,30081563808,13,1.244e-15,false,NaN,NaN,false,400 400 400,80200,ok
+425,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,108.7908,0.3217,109.1125,21481693456,11,1.446e-06,false,NaN,NaN,false,425 425 425,90525,ok
+425,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,40.2189,0.3208,40.5397,11371748432,13,3.188e-06,false,NaN,NaN,false,425 425 425,90525,ok
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,14.0427,1.7404,15.7831,547630320,13,4.853e-07,false,1.464e-01,0.9786,false,100 100 100,5050,ok
+100,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,12.9602,1.7706,14.7308,547630320,13,2.906e-07,false,1.404e-01,0.9803,false,100 100 100,5050,ok
+100,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,30.4368,1.7666,32.2034,4465976000,13,7.719e-09,false,3.037e-02,0.9991,false,100 100 100,5050,ok
+100,3,Float64,1e-06,1e-16,universal,QuickDer/Arpack,ArpackSolver,28.1282,1.8935,30.0217,4458324672,13,3.895e-09,false,6.234e-03,1.0000,false,100 100 100,5050,ok
+125,3,Float32,1e-06,1e-08,universal,QuickDer/Auto,AutoSolver,17.2263,5.8300,23.0563,992405024,13,5.162e-07,false,3.209e-02,0.9990,false,125 125 125,7875,ok
+125,3,Float32,1e-06,1e-08,universal,QuickDer/Arpack,ArpackSolver,19.8275,3.4172,23.2447,1005541328,13,4.420e-07,false,2.350e-01,0.9448,false,125 125 125,7875,ok
+425,3,Float64,1e-06,1e-16,universal,QuickDer/Auto,AutoSolver,506.5170,0.5736,507.0907,35791704896,13,3.094e-15,false,NaN,NaN,false,425 425 425,90525,ok
