@@ -102,6 +102,19 @@ using Dleto
    - `ITensors` - for tensor backedn
    - `PlotlyJS` - for visualization
 
+### Notebook Output Hygiene
+
+This repository enforces clean Jupyter notebooks (without computed outputs) in CI.
+To apply the same rule locally before each commit, install and enable pre-commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+After this setup, notebook outputs are stripped automatically from staged `.ipynb` files.
+
 
 ---
 

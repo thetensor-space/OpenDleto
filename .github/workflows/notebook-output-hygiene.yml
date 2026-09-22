@@ -1,0 +1,61 @@
+name: Notebook Output Hygiene
+
+on:
+  push:
+    paths:
+      - "**/*.ipynb"
+      - ".github/workflows/notebook-output-hygiene.yml"
+  pull_request:
+    paths:
+      - "**/*.ipynb"
+      - ".github/workflows/notebook-output-hygiene.yml"
+
+jobs:
+  check-notebooks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install nbstripout
+        run: pip install nbstripout
+
+      - name: Strip outputs from tracked notebooks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          found=0
+          while IFS= read -r nb; do
+            found=1
+            nbstripout "$nb"
+          done < <(git ls-files "*.ipynb")
+
+          if [[ "$found" -eq 0 ]]; then
+            echo "No tracked notebooks found."
+            exit 0
+          fi
+
+      - name: Fail if notebook outputs were committed
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- "*.ipynb"; then
+            echo "Notebook outputs are clean."
+            exit 0
+          fi
+
+          echo "Notebook outputs or transient metadata were detected in committed notebooks."
+          echo "Run one of the following locally before pushing:"
+          echo "  pre-commit run --all-files"
+          echo "  pip install nbstripout && nbstripout <notebook.ipynb>"
+          echo
+          git --no-pager diff --stat -- "*.ipynb"
+          exit 1
