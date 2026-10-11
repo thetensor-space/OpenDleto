@@ -210,6 +210,14 @@ function realCanonicalForm( M ::AbstractMatrix; tol::Float64=1e-10):: NamedTuple
     if isa(M, LinearAlgebra.Symmetric)              # no need to do anything if the matrix is symmetric
         return (; D= LinearAlgebra.Diagonal(evalues), T=evec) 
     end 
+    if eltype(M) <: Complex
+        # A complex matrix has no "real" canonical form: its eigendecomposition
+        # is already the canonical form.  The real-part projection below is
+        # only meaningful for real matrices with conjugate eigenvalue pairs,
+        # and on complex input it silently returned a transform that did not
+        # conjugate M at all (found on complex k-space / exponential data).
+        return (; D = LinearAlgebra.Diagonal(evalues), T = evec)
+    end
     found_complex=false
     n  = real.(evec)
     nn = real.(evec)

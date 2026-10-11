@@ -17,6 +17,16 @@ using ITensors
             end
         end
     end
+    @testset "complex input is conjugated by T" begin
+        # Regression: the real-part projection used for conjugate pairs of a
+        # real matrix returned a non-conjugating T on complex input.
+        for n in (2, 5, 9), _ in 1:10
+            M = randn(ComplexF64, n, n)
+            rcf = Dleto.realCanonicalForm(M)
+            @test isapprox(M * Matrix(rcf.T), Matrix(rcf.T) * Matrix(rcf.D))
+            @test isapprox(Matrix(rcf.D), LinearAlgebra.Diagonal(LinearAlgebra.diag(Matrix(rcf.D))))
+        end
+    end
 end
 
 # # Do some very basic tensor contraction yoga to confirm no confusing of frames
