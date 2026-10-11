@@ -76,10 +76,28 @@ function nondeg(Γ::ITensor,
                 Es[i] = ITensor(Matrix{Float64}(I, in_dim, in_dim), a, e)
                 # MDK we should trow an error since we are given practially the zero tensor.
             else
-                # V is an ITensor with indices for the input space
-                # Convert V to array and extract the nondegenerate columns
+                # V carries (link, a) with Γ = U * S * V as a bilinear contraction,
+                # i.e. as matrices Γ = U S Wᴴ with W = Array(V, a, link) the
+                # orthonormal basis of the column space of the a-unfolding.  The
+                # reduction is the bilinear contraction Δ = Γ * E, so to obtain
+                # Δ = Wᴴ Γ (the well-conditioned coordinates in that basis, with
+                # Γ = W Δ, i.e. Γ = Δ * dag(E)) the basis must enter conjugated:
+                # E = conj(W) = Array(dag(V), a, link).  For real input dag is the
+                # identity.  Using W itself would give Δ = Wᵀ Γ, a bilinear Gram
+                # product that for complex data (e.g. sums of exponentials) is
+                # nearly singular: the core's factor matrices then have condition
+                # numbers in the hundreds and its derivation spectrum loses its
+                # gap (1e-6 instead of 1e-1), which destroyed every noisy
+                # harmonic-retrieval test.
+                #
+                # This used to take `Array(V, link, a)[:, nondeg_idx]`, i.e. the
+                # first r *positions* along `a`: the right shape whenever the link
+                # dimension equals dim(a), so it never errored, but it spanned only
+                # about 60% of the column space.  Δ stayed a faithful compression of
+                # the right dimensions (an injective map on the range), which is why
+                # nothing downstream noticed; the basis itself was meaningless.
                 r = inds(V, tags="Link,v" )
-                V_arr = Array(V, r,a)  # a is original index, second is SVD index
+                V_arr = Array(dag(V), a, r)      # in_dim × link: columns are conj(singular vectors)
                 nondeg_basis = V_arr[:, nondeg_idx]  # Shape: in_dim × length(nondeg_idx)
                 # Create index for the nondegenerate subspace
                 a_nondeg = __new_index_for_nondegenerate(a,length(nondeg_idx))
