@@ -1,0 +1,34 @@
+true frequencies (cycles/sample): x [0.1, 0.12000000000000001, 0.3, 0.32, 0.45] y [0.21, 0.22999999999999998, 0.07, 0.39, 0.395] z [0.15, 0.33, 0.16, 0.05, 0.25]; damping 0.02; n = 64; FFT resolution 0.015625
+FFT along x (noise-free, dominant mode): 4 peaks at 0.094 0.125 0.297 0.453  (truth has 5 distinct, clustered pairs unresolved)
+FFT along y (noise-free, dominant mode): 3 peaks at 0.203 0.234 0.391  (truth has 5 distinct, clustered pairs unresolved)
+FFT along z (noise-free, dominant mode): 3 peaks at 0.156 0.250 0.328  (truth has 5 distinct, clustered pairs unresolved)
+SNR inf dB, nondeg 1e-06, nd -1, tol 1e-06 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR inf dB, nondeg 1e-06, nd 0, tol 1e-06 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR inf dB, nondeg 1e-06, nd 0, tol 1e-06 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 50 dB, nondeg 1e-06, nd -1, tol 1e-06 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 50 dB, nondeg 9e-03, nd 0, tol 3e-02 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 50 dB, nondeg 3e-03, nd 0, tol 3e-02 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 40 dB, nondeg 1e-06, nd -1, tol 1e-06 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 40 dB, nondeg 3e-02, nd 0, tol 1e-01 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.1e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 40 dB, nondeg 1e-02, nd 0, tol 1e-01 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 30 dB, nondeg 1e-06, nd -1, tol 1e-06 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 30 dB, nondeg 9e-02, nd 0, tol 3e-01 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 30 dB, nondeg 3e-02, nd 0, tol 3e-01 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0000  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 20 dB, nondeg 1e-06, nd -1, tol 1e-06 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 20 dB, nondeg 3e-01, nd 0, tol 1e+00 nondeg dims [5, 4, 4] | derivations found 8 | mass of top-5 entries of Σ 0.963, permutation pattern false | cond 1.8e+00 1.5e+00 1.3e+00
+   max frequency error (cycles/sample): x 0.0147  y 0.0031  z 0.0112   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 20 dB, nondeg 1e-01, nd 0, tol 1e+00 nondeg dims [5, 5, 5] | derivations found 10 | mass of top-5 entries of Σ 1.000, permutation pattern true | cond 1.5e+00 4.0e+00 2.1e+00
+   max frequency error (cycles/sample): x 0.0000  y 0.0001  z 0.0000   (cluster spacing 0.02, FFT bin 0.0156)
+SNR 10 dB, nondeg 1e-06, nd -1, tol 1e-06 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 10 dB, nondeg 9e-01, nd 0, tol 3e+00 FAILED: AutoSolver: Matrix(L) would need 2.2GB for a 12288x12288 map, and no matrix-free solver is registered. Load IterativeSolvers (for :CGSolver), Arpack or KrylovKi
+SNR 10 dB, nondeg 3e-01, nd 0, tol 3e+00 nondeg dims [4, 4, 4] | derivations found 8 | mass of top-5 entries of Σ 0.682, permutation pattern false | cond 3.8e+00 7.6e+00 2.8e+00
+   max frequency error (cycles/sample): x 0.1987  y 0.1984  z 0.1069   (cluster spacing 0.02, FFT bin 0.0156)

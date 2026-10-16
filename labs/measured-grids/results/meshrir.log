@@ -1,0 +1,411 @@
+MeshRIR pilot, 2026-10-11T21:14:20.236, Julia 1.12.6, Dleto at git 3e27c3c
+microphones: 3969  source (m): [2.0, 1.5, 0.0]
+grid levels: (21, 21, 9)  x (-0.5, 0.5) y (-0.5, 0.5) z (-0.2, 0.2)
+every grid point measured exactly once; index map saved
+R[x,y,z,t] size (21, 21, 9, 32768) (496.1 MB)
+arrival samples: min 8437 median 8538 max 8632 (177.88 ms)
+snapshot rule: t0 + (-24, 0, 24, 96, 480, 4800) samples
+
+==== meshrir-t8514-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=8.066  mean/std -0.0008172 / 0.1281
+derivation operator: (963, 963) unknowns, built+decomposed in 4.36s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 2.9e-04 3.1e-04 3.2e-04 3.3e-04 3.3e-04 3.4e-04 3.4e-04 3.4e-04 3.4e-04 3.5e-04
+largest 3: 8.6e-01 8.6e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 1.4e-02 1.8e-03
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.1e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 1.0e-08 1.1e-08 1.7e-01 1.8e-01 1.9e-01 1.9e-01 1.9e-01 1.9e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 1.1e-08 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=2.93e-04): eigen 11 distinct of 21 (imag/|λ| max 3.8e-01); 14 distinct of 21 (imag/|λ| max 1.0e+00); 7 distinct of 9 (imag/|λ| max 7.7e-01) | cond 1.2e+02 2.4e+02 4.3e+01 | reconstruction relerr 5.7e-15
+   coefficients: at k=177  phys 0.419  learned 5.022  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 4.654  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=3.14e-04): eigen 10 distinct of 21 (imag/|λ| max 4.8e-01); 14 distinct of 21 (imag/|λ| max 2.0e-01); 6 distinct of 9 (imag/|λ| max 9.4e-01) | cond 7.5e+01 5.3e+02 2.0e+01 | reconstruction relerr 4.1e-15
+   coefficients: at k=177  phys 0.419  learned 3.872  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 3.208  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=3.19e-04): eigen 10 distinct of 21 (imag/|λ| max 3.6e-01); 12 distinct of 21 (imag/|λ| max 3.7e-01); 6 distinct of 9 (imag/|λ| max 2.2e-01) | cond 6.2e+01 5.8e+02 3.4e+01 | reconstruction relerr 2.7e-15
+   coefficients: at k=177  phys 0.419  learned 2.757  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 2.179  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 3.2e+02 5.1e+02 8.3e+01 | relerr 1.8e-14 | at k=177 phys 0.419 learned 18.600 dct 0.555 hosvd 0.184
+perturbed by 1% of std: smallest 8 = 0.0e+00 1.5e-09 1.3e-03 1.3e-03 1.4e-03 1.4e-03 1.4e-03 1.4e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 0.0e+00 6.4e-03 6.5e-03 6.5e-03 6.6e-03 6.7e-03 6.8e-03
+
+==== meshrir-t8514-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=8.066  mean/std -0.0008172 / 0.1281
+derivation operator: (507, 507) unknowns, built+decomposed in 0.34s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 2.9e-09 3.1e-04 3.4e-04 3.5e-04 3.5e-04 3.6e-04 3.8e-04 3.8e-04 4.1e-04 4.5e-04 4.6e-04
+largest 3: 6.4e-01 7.1e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 3.4e-01 3.4e-01
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.1e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.1e+00 1.1e+00
+control (values shuffled) smallest 8: 0.0e+00 1.4e-08 2.0e-01 2.1e-01 2.2e-01 2.2e-01 2.3e-01 2.3e-01
+control (iid Gaussian)   smallest 8: 1.1e-08 1.6e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=3.15e-04): eigen 3 distinct of 21 (imag/|λ| max 0.0e+00); 8 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.4e-16
+   coefficients: at k=177  phys 0.419  learned 0.150  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 0.036  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=16, max angle 25.9°, mean 1.6° | axis 2: r=14, max angle 0.2°, mean 0.0° | axis 3: r=4, max angle 38.7°, mean 10.4°
+direction 2 (σ=3.43e-04): eigen 5 distinct of 21 (imag/|λ| max 0.0e+00); 7 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.1e-16
+   coefficients: at k=177  phys 0.419  learned 0.150  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 0.033  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=16, max angle 22.0°, mean 1.4° | axis 2: r=14, max angle 0.1°, mean 0.0° | axis 3: r=4, max angle 16.1°, mean 5.1°
+direction 3 (σ=3.50e-04): eigen 5 distinct of 21 (imag/|λ| max 0.0e+00); 7 distinct of 21 (imag/|λ| max 0.0e+00); 8 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.9e-16
+   coefficients: at k=177  phys 0.419  learned 0.220  dct 0.555  hosvd 0.184 | at k=706  phys 0.074  learned 0.048  dct 0.272  hosvd 0.039
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=16, max angle 46.7°, mean 2.9° | axis 2: r=14, max angle 1.1°, mean 0.1° | axis 3: r=4, max angle 22.6°, mean 6.5°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 5.2e-16 | at k=177 phys 0.419 learned 0.155 dct 0.555 hosvd 0.184
+perturbed by 1% of std: smallest 8 = 0.0e+00 0.0e+00 1.4e-03 1.4e-03 1.4e-03 1.5e-03 1.5e-03 1.5e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 4.5e-09 6.1e-03 6.7e-03 7.1e-03 7.2e-03 7.2e-03 7.5e-03
+
+==== meshrir-t8538-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=9.504  mean/std 0.001065 / 0.1509
+derivation operator: (963, 963) unknowns, built+decomposed in 0.27s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 3.8e-04 3.8e-04 3.8e-04 3.8e-04 3.8e-04 3.8e-04 3.9e-04 3.9e-04 3.9e-04 3.9e-04
+largest 3: 9.0e-01 9.1e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 3.4e-07 5.5e-05
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 1.1e-08 1.3e-08 2.0e-01 2.0e-01 2.1e-01 2.1e-01 2.1e-01 2.1e-01
+control (iid Gaussian)   smallest 8: 8.2e-09 1.1e-08 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=3.75e-04): eigen 14 distinct of 21 (imag/|λ| max 9.9e-01); 12 distinct of 21 (imag/|λ| max 1.0e+00); 7 distinct of 9 (imag/|λ| max 4.3e-01) | cond 5.7e+01 3.0e+03 1.2e+02 | reconstruction relerr 1.6e-14
+   coefficients: at k=177  phys 0.520  learned 11.464  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 20.450  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=3.79e-04): eigen 12 distinct of 21 (imag/|λ| max 7.7e-01); 13 distinct of 21 (imag/|λ| max 9.9e-01); 7 distinct of 9 (imag/|λ| max 6.8e-01) | cond 4.9e+01 3.1e+03 5.1e+01 | reconstruction relerr 1.3e-14
+   coefficients: at k=177  phys 0.520  learned 9.783  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 15.438  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=3.80e-04): eigen 14 distinct of 21 (imag/|λ| max 6.8e-01); 12 distinct of 21 (imag/|λ| max 2.3e-01); 7 distinct of 9 (imag/|λ| max 8.0e-01) | cond 3.5e+01 2.3e+03 1.8e+01 | reconstruction relerr 4.0e-15
+   coefficients: at k=177  phys 0.520  learned 3.905  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 3.907  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 9.5e+01 2.2e+03 1.7e+02 | relerr 1.7e-14 | at k=177 phys 0.520 learned 15.278 dct 0.506 hosvd 0.220
+perturbed by 1% of std: smallest 8 = 0.0e+00 0.0e+00 1.7e-03 1.8e-03 1.8e-03 1.8e-03 1.8e-03 1.8e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 2.3e-09 5.6e-03 6.5e-03 7.0e-03 7.4e-03 8.3e-03 8.3e-03
+
+==== meshrir-t8538-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=9.504  mean/std 0.001065 / 0.1509
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 2.6e-09 3.3e-04 3.5e-04 4.8e-04 1.7e-03 1.7e-03 1.7e-03 7.0e-03 8.2e-03 1.0e-02 1.1e-02
+largest 3: 6.4e-01 7.2e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 6.7e-01 6.7e-01
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.4e+00 3.5e+00 1.0e+00 1.0e+00 4.1e+00 1.2e+00 1.2e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 2.2e-01 2.4e-01 2.4e-01 2.5e-01 2.5e-01 2.6e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 8.9e-09 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=3.35e-04): eigen 2 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.6e-16
+   coefficients: at k=177  phys 0.520  learned 0.229  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 0.085  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=19, max angle 28.0°, mean 2.8° | axis 2: r=17, max angle 29.5°, mean 1.7° | axis 3: r=3, max angle 70.4°, mean 25.3°
+direction 2 (σ=3.46e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 4.6e-16
+   coefficients: at k=177  phys 0.520  learned 0.177  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 0.055  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=19, max angle 83.9°, mean 8.3° | axis 2: r=17, max angle 15.6°, mean 0.9° | axis 3: r=3, max angle 7.7°, mean 2.6°
+direction 3 (σ=4.75e-04): eigen 2 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.6e-16
+   coefficients: at k=177  phys 0.520  learned 0.285  dct 0.506  hosvd 0.220 | at k=706  phys 0.138  learned 0.082  dct 0.234  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=19, max angle 74.0°, mean 5.1° | axis 2: r=17, max angle 26.1°, mean 1.5° | axis 3: r=3, max angle 11.0°, mean 3.9°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 4.5e-16 | at k=177 phys 0.520 learned 0.174 dct 0.506 hosvd 0.220
+perturbed by 1% of std: smallest 8 = 0.0e+00 2.2e-09 1.5e-03 1.6e-03 2.2e-03 2.3e-03 2.7e-03 2.8e-03
+perturbed by 5% of std: smallest 8 = 2.6e-09 6.3e-09 7.2e-03 7.7e-03 8.0e-03 1.0e-02 1.1e-02 1.1e-02
+
+==== meshrir-t8562-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=10.49  mean/std 0.01037 / 0.1661
+derivation operator: (963, 963) unknowns, built+decomposed in 0.27s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 5.0e-09 2.3e-03 2.9e-03 3.9e-03 4.8e-03 5.2e-03 5.8e-03 6.2e-03 7.4e-03 7.7e-03 7.8e-03
+largest 3: 9.1e-01 9.1e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 1.5e-04 1.3e-05
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.2e+00 1.3e+00 1.2e+00 1.1e+00 1.1e+00 1.1e+00 1.2e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 2.0e-01 2.0e-01 2.0e-01 2.1e-01 2.1e-01 2.1e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 4.8e-09 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=2.32e-03): eigen 13 distinct of 21 (imag/|λ| max 7.9e-01); 13 distinct of 21 (imag/|λ| max 9.1e-01); 7 distinct of 9 (imag/|λ| max 2.3e-01) | cond 2.9e+01 5.3e+01 4.9e+02 | reconstruction relerr 3.2e-14
+   coefficients: at k=177  phys 0.537  learned 11.104  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 17.061  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=2.89e-03): eigen 14 distinct of 21 (imag/|λ| max 6.3e-01); 12 distinct of 21 (imag/|λ| max 8.0e-01); 6 distinct of 9 (imag/|λ| max 7.7e-01) | cond 9.6e+01 2.7e+01 8.4e+02 | reconstruction relerr 1.5e-13
+   coefficients: at k=177  phys 0.537  learned 50.884  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 35.890  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=3.86e-03): eigen 12 distinct of 21 (imag/|λ| max 8.7e-01); 13 distinct of 21 (imag/|λ| max 1.0e+00); 6 distinct of 9 (imag/|λ| max 9.8e-01) | cond 3.7e+01 5.3e+01 2.4e+02 | reconstruction relerr 1.6e-14
+   coefficients: at k=177  phys 0.537  learned 3.222  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 6.598  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 6.3e+01 2.5e+01 7.9e+02 | relerr 7.2e-14 | at k=177 phys 0.537 learned 13.984 dct 0.415 hosvd 0.153
+perturbed by 1% of std: smallest 8 = 0.0e+00 1.8e-09 2.5e-03 3.0e-03 3.9e-03 5.0e-03 5.5e-03 5.9e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 4.3e-09 4.5e-03 5.2e-03 6.1e-03 6.7e-03 8.6e-03 9.2e-03
+
+==== meshrir-t8562-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=10.49  mean/std 0.01037 / 0.1661
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 6.6e-10 7.5e-03 7.7e-03 8.6e-03 1.1e-02 1.1e-02 1.2e-02 1.3e-02 1.3e-02 1.4e-02 1.5e-02
+largest 3: 6.5e-01 6.9e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 6.6e-01 6.7e-01
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.1e+00 1.2e+00 1.1e+00 1.0e+00 1.1e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 2.5e-09 2.3e-01 2.3e-01 2.4e-01 2.4e-01 2.4e-01 2.5e-01
+control (iid Gaussian)   smallest 8: 6.1e-09 1.8e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=7.49e-03): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 20 distinct of 21 (imag/|λ| max 0.0e+00); 7 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.7e-16
+   coefficients: at k=177  phys 0.537  learned 0.191  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 0.064  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 87.7°, mean 8.8° | axis 2: r=16, max angle 87.9°, mean 7.6° | axis 3: r=2, max angle 1.3°, mean 0.8°
+direction 2 (σ=7.66e-03): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 7 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.8e-16
+   coefficients: at k=177  phys 0.537  learned 0.172  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 0.064  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 79.9°, mean 9.0° | axis 2: r=16, max angle 86.0°, mean 9.5° | axis 3: r=2, max angle 6.0°, mean 4.3°
+direction 3 (σ=8.64e-03): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 6 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 4.8e-16
+   coefficients: at k=177  phys 0.537  learned 0.189  dct 0.415  hosvd 0.153 | at k=706  phys 0.166  learned 0.067  dct 0.192  hosvd 0.055
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 85.1°, mean 10.5° | axis 2: r=16, max angle 39.5°, mean 4.2° | axis 3: r=2, max angle 17.7°, mean 9.4°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 5.8e-16 | at k=177 phys 0.537 learned 0.181 dct 0.415 hosvd 0.153
+perturbed by 1% of std: smallest 8 = 1.2e-09 2.8e-09 8.1e-03 8.4e-03 9.2e-03 1.1e-02 1.2e-02 1.2e-02
+perturbed by 5% of std: smallest 8 = 0.0e+00 0.0e+00 1.6e-02 1.6e-02 1.6e-02 1.7e-02 1.8e-02 1.9e-02
+
+==== meshrir-t8634-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=5.267  mean/std 0.01182 / 0.08278
+derivation operator: (963, 963) unknowns, built+decomposed in 0.26s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 1.9e-02 2.1e-02 2.3e-02 2.3e-02 2.4e-02 2.4e-02 2.5e-02 2.6e-02 2.6e-02 2.7e-02
+largest 3: 7.7e-01 7.8e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 2.5e-04 3.2e-03
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.1e+00 1.1e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 7.9e-09 1.4e-08 1.6e-01 1.6e-01 1.7e-01 1.7e-01 1.7e-01 1.7e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 8.5e-09 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=1.89e-02): eigen 13 distinct of 21 (imag/|λ| max 9.4e-01); 12 distinct of 21 (imag/|λ| max 7.4e-01); 7 distinct of 9 (imag/|λ| max 4.5e-01) | cond 4.2e+01 1.3e+02 2.2e+02 | reconstruction relerr 4.7e-14
+   coefficients: at k=177  phys 0.607  learned 58.160  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 93.651  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=2.14e-02): eigen 13 distinct of 21 (imag/|λ| max 2.7e-01); 15 distinct of 21 (imag/|λ| max 2.1e-01); 6 distinct of 9 (imag/|λ| max 5.5e-01) | cond 6.0e+01 1.2e+02 2.2e+01 | reconstruction relerr 7.2e-15
+   coefficients: at k=177  phys 0.607  learned 6.640  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 8.988  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=2.28e-02): eigen 13 distinct of 21 (imag/|λ| max 5.3e-01); 13 distinct of 21 (imag/|λ| max 4.0e-01); 6 distinct of 9 (imag/|λ| max 9.3e-01) | cond 5.8e+01 6.2e+01 5.9e+01 | reconstruction relerr 1.1e-14
+   coefficients: at k=177  phys 0.607  learned 11.036  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 13.882  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 3.4e+01 2.0e+02 6.5e+01 | relerr 3.2e-14 | at k=177 phys 0.607 learned 18.246 dct 0.584 hosvd 0.444
+perturbed by 1% of std: smallest 8 = 3.1e-09 5.1e-09 1.9e-02 2.1e-02 2.3e-02 2.3e-02 2.4e-02 2.4e-02
+perturbed by 5% of std: smallest 8 = 0.0e+00 0.0e+00 2.0e-02 2.2e-02 2.3e-02 2.4e-02 2.5e-02 2.5e-02
+
+==== meshrir-t8634-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=5.267  mean/std 0.01182 / 0.08278
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 1.7e-09 4.7e-09 4.0e-02 4.3e-02 4.6e-02 4.7e-02 4.8e-02 5.1e-02 5.2e-02 5.3e-02 5.4e-02 5.5e-02
+largest 3: 6.2e-01 6.6e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 4.2e-01 6.7e-03
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.1e+00 1.1e+00 1.0e+00 1.0e+00 1.1e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 9.7e-09 2.1e-01 2.1e-01 2.1e-01 2.2e-01 2.2e-01 2.2e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 1.4e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=4.02e-02): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 8 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.9e-16
+   coefficients: at k=177  phys 0.607  learned 0.465  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 0.257  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 30.0°, mean 1.5° | axis 2: r=20, max angle 88.4°, mean 4.4° | axis 3: r=7, max angle 22.6°, mean 3.4°
+direction 2 (σ=4.29e-02): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.4e-16
+   coefficients: at k=177  phys 0.607  learned 0.420  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 0.231  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 47.7°, mean 2.4° | axis 2: r=20, max angle 19.3°, mean 1.0° | axis 3: r=7, max angle 43.2°, mean 7.5°
+direction 3 (σ=4.55e-02): eigen 20 distinct of 21 (imag/|λ| max 0.0e+00); 20 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.9e-16
+   coefficients: at k=177  phys 0.607  learned 0.424  dct 0.584  hosvd 0.444 | at k=706  phys 0.395  learned 0.233  dct 0.347  hosvd 0.242
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 40.1°, mean 2.0° | axis 2: r=20, max angle 69.4°, mean 3.5° | axis 3: r=7, max angle 15.3°, mean 2.5°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 5.7e-16 | at k=177 phys 0.607 learned 0.433 dct 0.584 hosvd 0.444
+perturbed by 1% of std: smallest 8 = 0.0e+00 2.2e-09 4.0e-02 4.3e-02 4.6e-02 4.7e-02 4.8e-02 5.1e-02
+perturbed by 5% of std: smallest 8 = 0.0e+00 4.2e-09 4.2e-02 4.4e-02 4.7e-02 4.8e-02 4.9e-02 5.2e-02
+
+==== meshrir-t9018-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=10.42  mean/std -0.03009 / 0.1627
+derivation operator: (963, 963) unknowns, built+decomposed in 0.31s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 1.0e-01 1.0e-01 1.0e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01
+largest 3: 8.6e-01 8.8e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 4.1e-02 1.1e-02
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 2.1e-01 2.2e-01 2.2e-01 2.2e-01 2.2e-01 2.3e-01
+control (iid Gaussian)   smallest 8: 6.1e-09 9.7e-09 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=1.01e-01): eigen 14 distinct of 21 (imag/|λ| max 8.6e-02); 14 distinct of 21 (imag/|λ| max 9.6e-02); 5 distinct of 9 (imag/|λ| max 3.9e-01) | cond 1.9e+01 2.7e+01 6.2e+00 | reconstruction relerr 2.2e-15
+   coefficients: at k=177  phys 0.758  learned 2.707  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 2.980  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=1.04e-01): eigen 14 distinct of 21 (imag/|λ| max 2.9e-01); 13 distinct of 21 (imag/|λ| max 2.6e-01); 5 distinct of 9 (imag/|λ| max 8.5e-01) | cond 3.0e+01 4.8e+01 1.0e+01 | reconstruction relerr 4.2e-15
+   coefficients: at k=177  phys 0.758  learned 5.145  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 6.780  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=1.05e-01): eigen 12 distinct of 21 (imag/|λ| max 2.7e-01); 14 distinct of 21 (imag/|λ| max 1.8e-01); 6 distinct of 9 (imag/|λ| max 4.6e-01) | cond 5.2e+01 5.7e+01 1.1e+01 | reconstruction relerr 5.9e-15
+   coefficients: at k=177  phys 0.758  learned 5.414  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 7.997  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 3.2e+01 7.8e+01 7.0e+00 | relerr 4.4e-15 | at k=177 phys 0.758 learned 4.274 dct 0.708 hosvd 0.640
+perturbed by 1% of std: smallest 8 = 5.4e-09 9.8e-09 1.0e-01 1.0e-01 1.0e-01 1.1e-01 1.1e-01 1.1e-01
+perturbed by 5% of std: smallest 8 = 0.0e+00 6.2e-09 1.0e-01 1.0e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01
+
+==== meshrir-t9018-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=10.42  mean/std -0.03009 / 0.1627
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 1.5e-08 1.2e-01 1.3e-01 1.3e-01 1.3e-01 1.4e-01 1.4e-01 1.4e-01 1.5e-01 1.5e-01 1.5e-01
+largest 3: 7.9e-01 8.1e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 1.3e-02 2.2e-02
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.1e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 6.8e-09 2.4e-01 2.5e-01 2.5e-01 2.5e-01 2.5e-01 2.6e-01
+control (iid Gaussian)   smallest 8: 1.9e-09 1.5e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=1.21e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.0e-16
+   coefficients: at k=177  phys 0.758  learned 0.686  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 0.425  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 27.7°, mean 1.4° | axis 2: r=20, max angle 73.2°, mean 3.7° | axis 3: r=9, max angle 0.0°, mean 0.0°
+direction 2 (σ=1.29e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.8e-16
+   coefficients: at k=177  phys 0.758  learned 0.669  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 0.417  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 19.3°, mean 1.0° | axis 2: r=20, max angle 81.3°, mean 4.1° | axis 3: r=9, max angle 0.0°, mean 0.0°
+direction 3 (σ=1.33e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.9e-16
+   coefficients: at k=177  phys 0.758  learned 0.712  dct 0.708  hosvd 0.640 | at k=706  phys 0.468  learned 0.441  dct 0.449  hosvd 0.423
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=20, max angle 62.9°, mean 3.1° | axis 2: r=20, max angle 16.4°, mean 0.8° | axis 3: r=9, max angle 0.0°, mean 0.0°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 6.4e-16 | at k=177 phys 0.758 learned 0.671 dct 0.708 hosvd 0.640
+perturbed by 1% of std: smallest 8 = 0.0e+00 3.6e-09 1.2e-01 1.3e-01 1.3e-01 1.3e-01 1.4e-01 1.4e-01
+perturbed by 5% of std: smallest 8 = 0.0e+00 8.4e-10 1.2e-01 1.3e-01 1.3e-01 1.4e-01 1.4e-01 1.4e-01
+
+==== meshrir-t13338-univ  [UniversalOp]  size (21, 21, 9)  ‖T‖=17.92  mean/std -0.004958 / 0.2844
+derivation operator: (963, 963) unknowns, built+decomposed in 0.27s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 6.5e-09 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01
+largest 3: 9.1e-01 9.2e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 1.7e-05 2.0e-04
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+control (iid Gaussian)   smallest 8: 1.3e-08 1.4e-08 2.2e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01 2.3e-01
+direction 1 (σ=1.06e-01): eigen 12 distinct of 21 (imag/|λ| max 8.5e-01); 13 distinct of 21 (imag/|λ| max 6.4e-01); 6 distinct of 9 (imag/|λ| max 8.3e-01) | cond 4.2e+01 3.7e+01 3.5e+01 | reconstruction relerr 1.3e-14
+   coefficients: at k=177  phys 0.864  learned 31.011  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 20.038  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 2 (σ=1.08e-01): eigen 13 distinct of 21 (imag/|λ| max 5.8e-01); 12 distinct of 21 (imag/|λ| max 3.1e-01); 6 distinct of 9 (imag/|λ| max 5.4e-01) | cond 2.0e+01 4.2e+01 2.2e+01 | reconstruction relerr 5.8e-15
+   coefficients: at k=177  phys 0.864  learned 7.184  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 7.453  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+direction 3 (σ=1.09e-01): eigen 14 distinct of 21 (imag/|λ| max 6.9e-01); 12 distinct of 21 (imag/|λ| max 5.8e-01); 6 distinct of 9 (imag/|λ| max 2.9e-01) | cond 2.3e+01 2.0e+01 2.4e+01 | reconstruction relerr 3.7e-15
+   coefficients: at k=177  phys 0.864  learned 4.786  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 6.990  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+random combination of directions 1-3: cond 5.0e+01 3.0e+01 2.7e+01 | relerr 1.0e-14 | at k=177 phys 0.864 learned 12.722 dct 0.734 hosvd 0.662
+perturbed by 1% of std: smallest 8 = 0.0e+00 5.5e-09 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01
+perturbed by 5% of std: smallest 8 = 2.4e-09 9.3e-09 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01 1.1e-01
+
+==== meshrir-t13338-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=17.92  mean/std -0.004958 / 0.2844
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 6.0e-09 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01
+largest 3: 7.3e-01 8.0e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 2.0e-03 3.3e-03
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 1.7e-08 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01 3.0e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 1.4e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=1.35e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.5e-16
+   coefficients: at k=177  phys 0.864  learned 0.713  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 0.478  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0°
+direction 2 (σ=1.37e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.5e-16
+   coefficients: at k=177  phys 0.864  learned 0.686  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 0.451  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0°
+direction 3 (σ=1.38e-01): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.8e-16
+   coefficients: at k=177  phys 0.864  learned 0.712  dct 0.734  hosvd 0.662 | at k=706  phys 0.630  learned 0.477  dct 0.479  hosvd 0.454
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 5.8e-16 | at k=177 phys 0.864 learned 0.714 dct 0.734 hosvd 0.662
+perturbed by 1% of std: smallest 8 = 2.7e-09 5.6e-09 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01
+perturbed by 5% of std: smallest 8 = 4.5e-09 1.1e-08 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01 1.4e-01
+
+==== meshrir-t8537-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=11.24  mean/std 0.007927 / 0.1783
+derivation operator: (507, 507) unknowns, built+decomposed in 0.12s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 5.7e-09 2.8e-04 2.9e-04 3.9e-04 7.5e-04 7.9e-04 8.0e-04 6.8e-03 7.2e-03 8.0e-03 8.4e-03
+largest 3: 6.5e-01 6.9e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 6.7e-01 6.7e-01
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.4e+00 1.9e+00 1.1e+00 1.0e+00 8.5e+00 1.1e+00 1.1e+00
+control (values shuffled) smallest 8: 7.9e-09 9.8e-09 2.0e-01 2.2e-01 2.3e-01 2.4e-01 2.4e-01 2.5e-01
+control (iid Gaussian)   smallest 8: 1.3e-08 1.7e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=2.75e-04): eigen 2 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.2e-16
+   coefficients: at k=177  phys 0.527  learned 0.166  dct 0.425  hosvd 0.158 | at k=706  phys 0.118  learned 0.054  dct 0.201  hosvd 0.052
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 64.8°, mean 6.2° | axis 2: r=16, max angle 52.2°, mean 3.4° | axis 3: r=3, max angle 27.9°, mean 10.6°
+direction 2 (σ=2.87e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 4.6e-16
+   coefficients: at k=177  phys 0.527  learned 0.140  dct 0.425  hosvd 0.158 | at k=706  phys 0.118  learned 0.043  dct 0.201  hosvd 0.052
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 50.0°, mean 6.0° | axis 2: r=16, max angle 44.7°, mean 2.8° | axis 3: r=3, max angle 15.5°, mean 5.2°
+direction 3 (σ=3.91e-04): eigen 2 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 21 (imag/|λ| max 0.0e+00); 7 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.9e-16
+   coefficients: at k=177  phys 0.527  learned 0.210  dct 0.425  hosvd 0.158 | at k=706  phys 0.118  learned 0.068  dct 0.201  hosvd 0.052
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=17, max angle 79.7°, mean 10.0° | axis 2: r=16, max angle 76.8°, mean 5.1° | axis 3: r=3, max angle 35.8°, mean 12.2°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 6.1e-16 | at k=177 phys 0.527 learned 0.164 dct 0.425 hosvd 0.158
+perturbed by 1% of std: smallest 8 = 0.0e+00 0.0e+00 1.5e-03 1.6e-03 1.7e-03 2.1e-03 2.2e-03 2.3e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 0.0e+00 6.9e-03 7.4e-03 7.6e-03 9.9e-03 1.0e-02 1.0e-02
+
+==== meshrir-t8539-sym  [SymmetricOp]  size (21, 21, 9)  ‖T‖=9.56  mean/std -0.006092 / 0.1516
+derivation operator: (507, 507) unknowns, built+decomposed in 0.13s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 3.4e-04 3.5e-04 4.8e-04 1.8e-03 1.8e-03 1.8e-03 7.5e-03 8.9e-03 9.2e-03 9.7e-03
+largest 3: 6.5e-01 7.1e-01 1.0e+00
+scalar score of the 4 smallest directions (1 = pure scalar tuple; the first 2 must be trivial): 1.0e+00 1.0e+00 6.7e-01 6.7e-01
+successive ratios σ[i+1]/σ[i] for i=3..10: 1.0e+00 1.4e+00 3.7e+00 1.0e+00 1.0e+00 4.2e+00 1.2e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 1.5e-08 2.0e-01 2.3e-01 2.4e-01 2.4e-01 2.5e-01 2.6e-01
+control (iid Gaussian)   smallest 8: 1.4e-08 1.8e-08 2.8e-01 2.9e-01 2.9e-01 2.9e-01 3.0e-01 3.0e-01
+direction 1 (σ=3.38e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.4e-16
+   coefficients: at k=177  phys 0.529  learned 0.256  dct 0.515  hosvd 0.211 | at k=706  phys 0.135  learned 0.072  dct 0.258  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=18, max angle 77.4°, mean 7.8° | axis 2: r=17, max angle 41.8°, mean 2.5° | axis 3: r=3, max angle 9.8°, mean 3.4°
+direction 2 (σ=3.53e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 4 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.4e-16
+   coefficients: at k=177  phys 0.529  learned 0.172  dct 0.515  hosvd 0.211 | at k=706  phys 0.135  learned 0.055  dct 0.258  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=18, max angle 87.1°, mean 8.3° | axis 2: r=17, max angle 77.9°, mean 4.6° | axis 3: r=3, max angle 9.7°, mean 3.3°
+direction 3 (σ=4.84e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.1e-16
+   coefficients: at k=177  phys 0.529  learned 0.278  dct 0.515  hosvd 0.211 | at k=706  phys 0.135  learned 0.088  dct 0.258  hosvd 0.068
+   representation size: learned basis entries 963 (+k), tensor entries 3969
+   learned vs HOSVD subspaces: axis 1: r=18, max angle 89.9°, mean 10.6° | axis 2: r=17, max angle 40.6°, mean 2.4° | axis 3: r=3, max angle 30.5°, mean 10.9°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 | relerr 4.9e-16 | at k=177 phys 0.529 learned 0.210 dct 0.515 hosvd 0.211
+perturbed by 1% of std: smallest 8 = 0.0e+00 0.0e+00 1.5e-03 1.6e-03 2.2e-03 2.5e-03 2.9e-03 2.9e-03
+perturbed by 5% of std: smallest 8 = 0.0e+00 3.6e-09 7.1e-03 7.6e-03 7.9e-03 1.0e-02 1.1e-02 1.1e-02
+
+==== meshrir-win-direct-univ  [UniversalOp]  size (21, 21, 9, 16)  ‖T‖=38.41  mean/std -0.001833 / 0.1524
+derivation operator: (1219, 1219) unknowns, built+decomposed in 4.40s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 8.5e-10 6.8e-09 4.3e-04 4.3e-04 4.4e-04 4.4e-04 4.4e-04 4.4e-04 4.4e-04 4.4e-04 4.4e-04
+largest 3: 8.9e-01 8.9e-01 1.0e+00
+scalar score of the 5 smallest directions (1 = pure scalar tuple; the first 3 must be trivial): 1.0e+00 1.0e+00 1.0e+00 1.5e-02 8.5e-03
+successive ratios σ[i+1]/σ[i] for i=4..11: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 8.5e-09 1.3e-08 3.6e-01 3.6e-01 3.6e-01 3.6e-01 3.6e-01
+control (iid Gaussian)   smallest 8: 1.1e-08 1.2e-08 1.4e-08 3.7e-01 3.7e-01 3.7e-01 3.7e-01 3.7e-01
+direction 1 (σ=4.29e-04): eigen 14 distinct of 21 (imag/|λ| max 5.4e-02); 15 distinct of 21 (imag/|λ| max 6.8e-02); 7 distinct of 9 (imag/|λ| max 8.9e-02); 10 distinct of 16 (imag/|λ| max 5.1e-01) | cond 2.3e+01 3.2e+04 4.0e+02 2.9e+01 | reconstruction relerr 2.5e-14
+   coefficients: at k=2523  phys 0.564  learned 6.976  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 12.262  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+direction 2 (σ=4.34e-04): eigen 15 distinct of 21 (imag/|λ| max 8.8e-02); 17 distinct of 21 (imag/|λ| max 1.0e-02); 5 distinct of 9 (imag/|λ| max 5.7e-01); 10 distinct of 16 (imag/|λ| max 9.2e-01) | cond 7.6e+01 7.6e+03 3.3e+01 9.0e+01 | reconstruction relerr 1.7e-14
+   coefficients: at k=2523  phys 0.564  learned 14.869  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 13.859  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+direction 3 (σ=4.36e-04): eigen 15 distinct of 21 (imag/|λ| max 1.9e-01); 15 distinct of 21 (imag/|λ| max 7.1e-03); 6 distinct of 9 (imag/|λ| max 6.3e-01); 11 distinct of 16 (imag/|λ| max 6.6e-01) | cond 4.5e+01 2.4e+03 2.1e+01 3.1e+01 | reconstruction relerr 7.8e-15
+   coefficients: at k=2523  phys 0.564  learned 6.365  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 5.875  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+random combination of directions 1-3: cond 2.9e+01 5.6e+03 5.3e+01 9.1e+01 | relerr 1.7e-14 | at k=2523 phys 0.564 learned 8.446 dct 0.388 hosvd 0.303
+perturbed by 1% of std: smallest 8 = 0.0e+00 1.6e-09 2.5e-09 2.1e-03 2.1e-03 2.1e-03 2.1e-03 2.1e-03
+
+==== meshrir-win-direct-sym  [SymmetricOp]  size (21, 21, 9, 16)  ‖T‖=38.41  mean/std -0.001833 / 0.1524
+derivation operator: (643, 643) unknowns, built+decomposed in 1.02s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 3.4e-09 5.5e-09 3.4e-04 8.1e-04 8.7e-04 7.1e-03 7.8e-03 9.1e-03 9.4e-03 1.0e-02 1.0e-02
+largest 3: 6.4e-01 6.9e-01 1.0e+00
+scalar score of the 5 smallest directions (1 = pure scalar tuple; the first 3 must be trivial): 1.0e+00 1.0e+00 1.0e+00 7.5e-01 7.5e-01
+successive ratios σ[i+1]/σ[i] for i=4..11: 2.4e+00 1.1e+00 8.2e+00 1.1e+00 1.2e+00 1.0e+00 1.1e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 1.1e-08 3.8e-01 3.8e-01 3.8e-01 3.8e-01 3.9e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 0.0e+00 0.0e+00 4.0e-01 4.0e-01 4.0e-01 4.0e-01 4.0e-01
+direction 1 (σ=3.41e-04): eigen 1 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 5 distinct of 9 (imag/|λ| max 0.0e+00); 1 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 6.9e-16
+   coefficients: at k=2523  phys 0.564  learned 0.201  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 0.055  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=18, max angle 0.4°, mean 0.0° | axis 3: r=3, max angle 36.1°, mean 12.2° | axis 4: r=13, max angle 26.3°, mean 2.4°
+direction 2 (σ=8.10e-04): eigen 3 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 9 (imag/|λ| max 0.0e+00); 3 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.2e-16
+   coefficients: at k=2523  phys 0.564  learned 0.152  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 0.047  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=18, max angle 2.4°, mean 0.1° | axis 3: r=3, max angle 69.6°, mean 23.9° | axis 4: r=13, max angle 76.1°, mean 7.6°
+direction 3 (σ=8.67e-04): eigen 7 distinct of 21 (imag/|λ| max 0.0e+00); 3 distinct of 21 (imag/|λ| max 0.0e+00); 6 distinct of 9 (imag/|λ| max 0.0e+00); 3 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 5.7e-16
+   coefficients: at k=2523  phys 0.564  learned 0.160  dct 0.388  hosvd 0.303 | at k=10054  phys 0.145  learned 0.044  dct 0.190  hosvd 0.084
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=18, max angle 2.5°, mean 0.1° | axis 3: r=3, max angle 31.9°, mean 11.1° | axis 4: r=13, max angle 77.3°, mean 8.1°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | relerr 6.1e-16 | at k=2523 phys 0.564 learned 0.149 dct 0.388 hosvd 0.303
+perturbed by 1% of std: smallest 8 = 0.0e+00 0.0e+00 1.8e-09 1.6e-03 1.8e-03 2.3e-03 7.6e-03 8.3e-03
+
+==== meshrir-win-late-univ  [UniversalOp]  size (21, 21, 9, 16)  ‖T‖=48.25  mean/std -0.00802 / 0.1913
+derivation operator: (1219, 1219) unknowns, built+decomposed in 1.92s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 6.3e-09 1.0e-02 1.0e-02 1.0e-02 1.0e-02 1.1e-02 1.1e-02 1.1e-02 1.1e-02 1.1e-02
+largest 3: 8.7e-01 8.8e-01 1.0e+00
+scalar score of the 5 smallest directions (1 = pure scalar tuple; the first 3 must be trivial): 1.0e+00 1.0e+00 1.0e+00 1.1e-03 1.7e-04
+successive ratios σ[i+1]/σ[i] for i=4..11: 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00 1.0e+00
+control (values shuffled) smallest 8: 0.0e+00 0.0e+00 3.8e-09 3.7e-01 3.7e-01 3.7e-01 3.7e-01 3.7e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 0.0e+00 1.5e-08 3.7e-01 3.7e-01 3.7e-01 3.7e-01 3.7e-01
+direction 1 (σ=1.04e-02): eigen 13 distinct of 21 (imag/|λ| max 9.5e-01); 13 distinct of 21 (imag/|λ| max 8.5e-01); 5 distinct of 9 (imag/|λ| max 9.1e-01); 11 distinct of 16 (imag/|λ| max 1.3e-01) | cond 2.2e+02 2.4e+01 1.4e+01 4.1e+03 | reconstruction relerr 1.6e-12
+   coefficients: at k=2523  phys 0.872  learned 35.640  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 143.859  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+direction 2 (σ=1.04e-02): eigen 12 distinct of 21 (imag/|λ| max 6.4e-01); 14 distinct of 21 (imag/|λ| max 8.8e-01); 6 distinct of 9 (imag/|λ| max 9.5e-01); 10 distinct of 16 (imag/|λ| max 1.5e-01) | cond 6.0e+01 2.5e+01 4.5e+01 1.6e+03 | reconstruction relerr 2.6e-13
+   coefficients: at k=2523  phys 0.872  learned 32.797  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 58.403  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+direction 3 (σ=1.04e-02): eigen 13 distinct of 21 (imag/|λ| max 7.0e-01); 12 distinct of 21 (imag/|λ| max 5.0e-01); 6 distinct of 9 (imag/|λ| max 6.6e-01); 10 distinct of 16 (imag/|λ| max 5.8e-02) | cond 5.2e+01 3.0e+01 1.2e+01 8.5e+02 | reconstruction relerr 2.0e-13
+   coefficients: at k=2523  phys 0.872  learned 24.233  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 31.304  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+random combination of directions 1-3: cond 5.1e+01 1.0e+02 1.5e+01 3.0e+03 | relerr 4.7e-13 | at k=2523 phys 0.872 learned 83.118 dct 0.618 hosvd 0.626
+perturbed by 1% of std: smallest 8 = 2.1e-09 5.7e-09 6.1e-09 1.1e-02 1.1e-02 1.1e-02 1.1e-02 1.1e-02
+
+==== meshrir-win-late-sym  [SymmetricOp]  size (21, 21, 9, 16)  ‖T‖=48.25  mean/std -0.00802 / 0.1913
+derivation operator: (643, 643) unknowns, built+decomposed in 1.09s; memory 0.0 MB
+smallest 12 relative singular values: 0.0e+00 0.0e+00 3.5e-09 1.2e-02 1.6e-02 2.1e-02 2.3e-02 2.6e-02 3.3e-02 3.4e-02 3.6e-02 3.9e-02
+largest 3: 6.9e-01 7.5e-01 1.0e+00
+scalar score of the 5 smallest directions (1 = pure scalar tuple; the first 3 must be trivial): 1.0e+00 1.0e+00 1.0e+00 7.5e-01 5.7e-01
+successive ratios σ[i+1]/σ[i] for i=4..11: 1.4e+00 1.3e+00 1.1e+00 1.1e+00 1.3e+00 1.0e+00 1.1e+00 1.1e+00
+control (values shuffled) smallest 8: 0.0e+00 9.0e-09 2.2e-08 4.0e-01 4.0e-01 4.0e-01 4.0e-01 4.0e-01
+control (iid Gaussian)   smallest 8: 0.0e+00 0.0e+00 0.0e+00 4.0e-01 4.0e-01 4.0e-01 4.0e-01 4.0e-01
+direction 1 (σ=1.15e-02): eigen 6 distinct of 21 (imag/|λ| max 0.0e+00); 6 distinct of 21 (imag/|λ| max 0.0e+00); 2 distinct of 9 (imag/|λ| max 0.0e+00); 5 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 8.5e-16
+   coefficients: at k=2523  phys 0.872  learned 0.729  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 0.435  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0° | axis 4: r=11, max angle 46.8°, mean 7.5°
+direction 2 (σ=1.57e-02): eigen 21 distinct of 21 (imag/|λ| max 0.0e+00); 21 distinct of 21 (imag/|λ| max 0.0e+00); 9 distinct of 9 (imag/|λ| max 0.0e+00); 7 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 8.6e-16
+   coefficients: at k=2523  phys 0.872  learned 0.730  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 0.435  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0° | axis 4: r=11, max angle 45.6°, mean 5.2°
+direction 3 (σ=2.05e-02): eigen 15 distinct of 21 (imag/|λ| max 0.0e+00); 15 distinct of 21 (imag/|λ| max 0.0e+00); 8 distinct of 9 (imag/|λ| max 0.0e+00); 6 distinct of 16 (imag/|λ| max 0.0e+00) | cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | reconstruction relerr 8.5e-16
+   coefficients: at k=2523  phys 0.872  learned 0.721  dct 0.618  hosvd 0.626 | at k=10054  phys 0.652  learned 0.424  dct 0.349  hosvd 0.360
+   representation size: learned basis entries 1219 (+k), tensor entries 63504
+   learned vs HOSVD subspaces: axis 1: r=21, max angle 0.0°, mean 0.0° | axis 2: r=21, max angle 0.0°, mean 0.0° | axis 3: r=9, max angle 0.0°, mean 0.0° | axis 4: r=11, max angle 10.2°, mean 1.6°
+random combination of directions 1-3: cond 1.0e+00 1.0e+00 1.0e+00 1.0e+00 | relerr 7.9e-16 | at k=2523 phys 0.872 learned 0.709 dct 0.618 hosvd 0.626
+perturbed by 1% of std: smallest 8 = 0.0e+00 4.7e-09 7.9e-09 1.2e-02 1.6e-02 2.1e-02 2.4e-02 2.6e-02

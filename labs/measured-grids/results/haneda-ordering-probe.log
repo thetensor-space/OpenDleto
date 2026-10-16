@@ -1,0 +1,7 @@
+t=309                              y-slices <5%: 20 | largest jump x1.1 at index 3 | 10 directions after it: diag share x 0.26 y 0.59 z 0.99 ; |Spearman(diag, position)| x 0.24 y 0.21 z 0.31
+t=345                              y-slices <5%: 13 | largest jump x1.4 at index 5 | 10 directions after it: diag share x 0.38 y 0.33 z 0.97 ; |Spearman(diag, position)| x 0.44 y 0.27 z 0.27
+t=381                              y-slices <5%: 10 | largest jump x3.0 at index 23 | 10 directions after it: diag share x 0.96 y 0.80 z 0.23 ; |Spearman(diag, position)| x 0.99 y 0.47 z 0.28
+t=381 + 1% noise                   y-slices <5%: 10 | largest jump x2.6 at index 23 | 10 directions after it: diag share x 0.96 y 0.74 z 0.23 ; |Spearman(diag, position)| x 0.99 y 0.47 z 0.28
+t=381 values shuffled (control)    y-slices <5%:  0 | largest jump x1.1 at index 4 | 10 directions after it: diag share x 0.88 y 0.83 z 0.90 ; |Spearman(diag, position)| x 0.15 y 0.19 z 0.20
+t=417                              y-slices <5%: 13 | largest jump x1.1 at index 3 | 10 directions after it: diag share x 0.72 y 0.63 z 0.31 ; |Spearman(diag, position)| x 0.83 y 0.40 z 0.34
+t=453                              y-slices <5%: 19 | largest jump x1.1 at index 3 | 10 directions after it: diag share x 0.49 y 0.68 z 0.42 ; |Spearman(diag, position)| x 0.35 y 0.34 z 0.27

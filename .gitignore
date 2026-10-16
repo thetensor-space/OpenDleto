@@ -34,3 +34,6 @@ Manifest.toml
 *.dat100
 *.pvd
 *.vtu
+
+# Downloaded lab datasets (large; fetched by the notebooks on demand)
+labs/data/

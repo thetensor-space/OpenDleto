@@ -1,0 +1,77 @@
+sub-band record (15N, 13C', 1H) = (40, 32, 18); FFT bins: 15N 0.86 ppm, 13C' 0.62 ppm at 32 increments
+reference peaks (15N, 13C', 1H ppm from carriers): [(2.59, 1.55, 3.133), (-4.75, 3.11, 3.113), (2.16, -2.18, 3.035), (0.43, -1.24, 3.113), (2.59, -1.55, 3.133), (3.89, 0.0, 3.192)]
+
+13C' increments 32 (bin 0.62 ppm), M = 5: nondeg [7, 8, 6] | strata nonzeros (>10% of max) 9 of 336 vs record 12041 of 23040
+   component: 15N   2.59  13C'   1.47  1H  3.128 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.09 ppm (-13 Hz)
+   component: 15N   1.86  13C'  -1.69  1H  3.113 ppm | nearest reference 15N   2.59 13C'  -1.55 1H  3.133 | Δ13C' -0.13 ppm (-20 Hz)
+   component: 15N   1.86  13C'  -0.75  1H  3.134 ppm | nearest reference 15N   2.59 13C'  -1.55 1H  3.133 | Δ13C' +0.81 ppm (122 Hz)
+   component: 15N  -1.14  13C'   1.13  1H  3.118 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +2.37 ppm (357 Hz)
+   component: 15N  -3.66  13C'   1.50  1H  3.118 ppm | nearest reference 15N  -4.75 13C'   3.11 1H  3.113 | Δ13C' -1.60 ppm (-242 Hz)
+
+13C' increments 32 (bin 0.62 ppm), M = 6: nondeg [7, 8, 6] | strata nonzeros (>10% of max) 3 of 336 vs record 12041 of 23040
+   component: 15N   2.58  13C'   1.47  1H  3.128 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.09 ppm (-13 Hz)
+   component: 15N   1.12  13C'  -1.55  1H  3.155 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' -0.31 ppm (-47 Hz)
+   component: 15N  -2.84  13C'  -0.24  1H  3.200 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.00 ppm (151 Hz)
+   component: 15N  -2.84  13C'  -0.24  1H  3.155 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.00 ppm (151 Hz)
+   component: 15N  -0.67  13C'  -0.24  1H  3.155 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.00 ppm (151 Hz)
+   component: 15N   2.58  13C'  -1.55  1H  3.155 ppm | nearest reference 15N   2.59 13C'  -1.55 1H  3.133 | Δ13C' +0.00 ppm (0 Hz)
+
+13C' increments 32 (bin 0.62 ppm), M = 8: nondeg [7, 8, 6] | strata nonzeros (>10% of max) 3 of 336 vs record 12041 of 23040
+   component: 15N   2.59  13C'   1.48  1H  3.128 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.07 ppm (-11 Hz)
+   component: 15N  -0.06  13C'   0.46  1H  3.166 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.70 ppm (257 Hz)
+   component: 15N  -0.06  13C'   0.46  1H  3.020 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.70 ppm (257 Hz)
+   component: 15N  -0.06  13C'   0.46  1H  3.084 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.70 ppm (257 Hz)
+   component: 15N  -3.08  13C'   0.46  1H  3.166 ppm | nearest reference 15N  -4.75 13C'   3.11 1H  3.113 | Δ13C' -2.65 ppm (-399 Hz)
+   component: 15N  -0.76  13C'   2.10  1H  3.166 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +0.55 ppm (82 Hz)
+   component: 15N  -0.76  13C'   2.23  1H  3.166 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +0.67 ppm (102 Hz)
+   component: 15N  -3.08  13C'   0.46  1H  3.084 ppm | nearest reference 15N  -4.75 13C'   3.11 1H  3.113 | Δ13C' -2.65 ppm (-399 Hz)
+
+13C' increments 16 (bin 1.24 ppm), M = 5: nondeg [8, 6, 6] | strata nonzeros (>10% of max) 11 of 288 vs record 6128 of 11520
+   component: 15N   2.58  13C'   1.46  1H  3.125 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.09 ppm (-14 Hz)
+   component: 15N   0.21  13C'  -0.04  1H  3.179 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.20 ppm (181 Hz)
+   component: 15N   1.83  13C'  -1.27  1H  3.179 ppm | nearest reference 15N   2.59 13C'  -1.55 1H  3.133 | Δ13C' +0.28 ppm (43 Hz)
+   component: 15N   1.83  13C'   2.78  1H  3.014 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +1.22 ppm (185 Hz)
+   component: 15N   1.83  13C'   2.78  1H  3.120 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +1.22 ppm (185 Hz)
+
+13C' increments 16 (bin 1.24 ppm), M = 6: nondeg [8, 6, 6] | strata nonzeros (>10% of max) 32 of 288 vs record 6128 of 11520
+   component: 15N   2.54  13C'   1.49  1H  3.125 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.06 ppm (-10 Hz)
+   component: 15N   1.83  13C'   0.81  1H  3.177 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.75 ppm (-113 Hz)
+   component: 15N  -3.73  13C'   0.81  1H  3.177 ppm | nearest reference 15N  -4.75 13C'   3.11 1H  3.113 | Δ13C' -2.30 ppm (-347 Hz)
+   component: 15N   2.54  13C'   0.81  1H  3.177 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.75 ppm (-113 Hz)
+   component: 15N  -2.06  13C'   0.81  1H  3.177 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +2.05 ppm (309 Hz)
+   component: 15N   0.81  13C'   0.81  1H  3.177 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.75 ppm (-113 Hz)
+
+13C' increments 16 (bin 1.24 ppm), M = 8: nondeg [8, 6, 6] | strata nonzeros (>10% of max) 23 of 288 vs record 6128 of 11520
+   component: 15N   2.55  13C'   1.49  1H  3.127 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.07 ppm (-10 Hz)
+   component: 15N   1.70  13C'   1.47  1H  3.006 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.08 ppm (-12 Hz)
+   component: 15N   1.70  13C'   1.47  1H  3.163 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.08 ppm (-12 Hz)
+   component: 15N   1.70  13C'   0.59  1H  3.006 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.96 ppm (-145 Hz)
+   component: 15N   1.70  13C'   2.23  1H  3.041 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +0.68 ppm (102 Hz)
+   component: 15N  -2.60  13C'   2.23  1H  3.117 ppm | nearest reference 15N  -4.75 13C'   3.11 1H  3.113 | Δ13C' -0.88 ppm (-132 Hz)
+   component: 15N   1.70  13C'   2.23  1H  3.006 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +0.68 ppm (102 Hz)
+   component: 15N   1.70  13C'   0.59  1H  3.163 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.96 ppm (-145 Hz)
+
+13C' increments  8 (bin 2.49 ppm), M = 5: nondeg [7, 6, 4] | strata nonzeros (>10% of max) 18 of 168 vs record 3087 of 5760
+   component: 15N   2.50  13C'   1.47  1H  3.127 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.09 ppm (-13 Hz)
+   component: 15N   1.89  13C'   1.47  1H  3.127 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.09 ppm (-13 Hz)
+   component: 15N   0.32  13C'  -0.59  1H  3.123 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +0.65 ppm (98 Hz)
+   component: 15N   0.32  13C'  -0.59  1H  3.127 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +0.65 ppm (98 Hz)
+   component: 15N   0.87  13C'   2.71  1H  3.046 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' +1.15 ppm (174 Hz)
+
+13C' increments  8 (bin 2.49 ppm), M = 6: nondeg [7, 6, 4] | strata nonzeros (>10% of max) 98 of 168 vs record 3087 of 5760
+   component: 15N   2.51  13C'   1.24  1H  3.133 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.31 ppm (-47 Hz)
+   component: 15N   1.56  13C'   1.05  1H  3.067 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.51 ppm (-76 Hz)
+   component: 15N   0.29  13C'   1.24  1H  3.133 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.31 ppm (-47 Hz)
+   component: 15N  -1.48  13C'   1.05  1H  3.067 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +2.29 ppm (346 Hz)
+   component: 15N   2.51  13C'   1.24  1H  3.118 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.31 ppm (-47 Hz)
+   component: 15N   0.94  13C'   1.05  1H  3.067 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.51 ppm (-76 Hz)
+
+13C' increments  8 (bin 2.49 ppm), M = 8: nondeg [7, 6, 4] | strata nonzeros (>10% of max) 57 of 168 vs record 3087 of 5760
+   component: 15N   2.46  13C'   1.55  1H  3.129 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.01 ppm (-1 Hz)
+   component: 15N   2.46  13C'  -0.14  1H  3.129 ppm | nearest reference 15N   3.89 13C'   0.00 1H  3.192 | Δ13C' -0.14 ppm (-21 Hz)
+   component: 15N   0.88  13C'  -2.31  1H  3.060 ppm | nearest reference 15N   2.16 13C'  -2.18 1H  3.035 | Δ13C' -0.13 ppm (-20 Hz)
+   component: 15N   2.46  13C'  -2.31  1H  3.060 ppm | nearest reference 15N   2.16 13C'  -2.18 1H  3.035 | Δ13C' -0.13 ppm (-20 Hz)
+   component: 15N  -1.71  13C'  -0.14  1H  3.115 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' +1.10 ppm (166 Hz)
+   component: 15N   2.46  13C'   1.55  1H  3.135 ppm | nearest reference 15N   2.59 13C'   1.55 1H  3.133 | Δ13C' -0.01 ppm (-1 Hz)
+   component: 15N  -2.64  13C'  -2.31  1H  3.115 ppm | nearest reference 15N   0.43 13C'  -1.24 1H  3.113 | Δ13C' -1.06 ppm (-160 Hz)
+   component: 15N   2.46  13C'  -0.94  1H  3.135 ppm | nearest reference 15N   2.59 13C'  -1.55 1H  3.133 | Δ13C' +0.61 ppm (92 Hz)

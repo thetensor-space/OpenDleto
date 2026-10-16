@@ -1,0 +1,157 @@
+CODEX TASK: DISCOVER STRATIFICATION IN PHYSICALLY MEASURED 3D GRIDS
+Prepared for James B. Wilson, 11 October 2026
+
+GOAL
+
+Use genuinely measured volumetric data to investigate whether Diletto/chiseling discovers useful linear combinations along the three spatial axes and exposes a robust stratification. This supports the talk "Patterns in Data and the Algebra That Finds It".
+
+The earlier deliberately structured synthetic examples are implementation checks only. Recovering a planted stratification, a known Fourier shell, or the intended uniform field of an engineered magnet is not a new discovery.
+
+The research question is: What additional structure, if any, does the method reveal in real measurements that was neither supplied to the algorithm nor imposed while constructing the input?
+
+Implement and run a reproducible pilot. A properly diagnosed negative result is an acceptable research outcome. Do not stop after writing a proposed plan.
+
+NON-NEGOTIABLE INPUT AND METHOD REQUIREMENTS
+
+- Three independent spatial coordinates must index actual physical sampling positions. A scanning probe or robot moving through a repeatable field qualifies.
+- Do not substitute simulated data, planted tensors, tomographic/MRI reconstructions, planar arrays stacked with time, or interpolated/synthesized volumes.
+- Preserve the measured Cartesian coordinates when forming the input tensor. Reordering recorded positions into the correct array is permissible; inventing unmeasured positions is not.
+- Learn the axis transformations from the measured values. Do not supply Fourier modes, Fourier bins, a Laplacian matrix, a known eigenbasis, a target shell, or other preselected coordinates to the discovery procedure.
+- In particular, do not silently convert audio to temporal-frequency bins and call that compliant with the requirement. Start from time-domain measurements. Fourier is a subsequent comparator.
+- Retain all three spatial axes. Any temporal or vector-component axis is additional, not a replacement for a spatial axis.
+- Treat all claims of numerical success, physical interpretation, and scientific novelty separately.
+
+VERIFIED DATA SOURCES
+
+1. Small physical-field pilot: 3DFM magnetic-field scan
+
+Acquisition project:
+https://github.com/mri4all/field_mapper_3DFM
+
+Exact source file:
+https://raw.githubusercontent.com/mri4all/field_mapper_3DFM/main/measurements/10cmcube_11steps_per_axis_measurement.csv
+
+Verified SHA-256:
+a39160b59f6516e1931ce5125886fa8e25f8c718350b2719a1c810d924e53f3f
+
+The project documents a magnetic probe moved by perpendicular CNC stages. Its application is magnetic-field metrology for MRI hardware; these measurements are not MRI image voxels.
+
+Direct CSV inspection on 11 October found 92,563 bytes and 1,333 data rows. Cumulative sums of dx, dy, dz give positions. Rows 1 through 1331, with zero-based indexing, form the complete 11 x 11 x 11 product of coordinate levels -50,-40,...,50 mm. Rows 0 and 1332 are additional center checks. Field columns are Bx, By, Bz and the derived magnitude Bmod.
+
+Use the three measured components as separate scalar tensors initially. Keep Bmod separate because it is a nonlinear derived quantity. Retain the center checks to assess drift. Do not combine companion scans until their units are audited; a scale inconsistency was observed between ordinary and inverted files. Record instrument units if absolute field units cannot be established.
+
+2. Main sound-field pilot: MeshRIR S1-M3969
+
+Acquisition documentation:
+https://www.sh01.org/MeshRIR/
+
+Version-pinned dataset, v1.2:
+https://zenodo.org/records/10852693
+https://doi.org/10.5281/zenodo.10852693
+
+Download only S1-M3969_npy.zip, listed as 995.8 MB.
+Published MD5: 2cb598eb44bb9905560c545db7af3432
+
+The measurement geometry is 21 x 21 x 9 actual positions, spaced 5 cm, covering 1.0 x 1.0 x 0.4 m. An omnidirectional microphone moved by a Cartesian robot measures responses from one source. Stored responses have 32,768 samples at 48 kHz. The dataset is CC BY 4.0; preserve attribution.
+
+Official source and loader:
+https://github.com/sh01k/MeshRIR
+https://github.com/sh01k/MeshRIR/blob/main/irutilities.py
+
+loadIR reads source x measured-position x time data. sortIR3 reindexes measured positions into a cuboid. Inspect these functions before using them. Load the complete volume, not the example's planar selection, filtering, interpolated fields or synthesized plane-wave outputs. Use the recorded position files to validate indexing.
+
+Do not accidentally select S32-M441: that dataset has a planar receiver grid despite its multiple source positions.
+
+These are extracted room impulse responses, not untouched microphone-voltage recordings. Record the documented temporal acquisition processing; it does not by itself establish a spatial stratification.
+
+3. Denser independent follow-up: Haneda-Ren Part 0, raw measurements
+
+Version-pinned release:
+https://zenodo.org/records/19656813
+https://doi.org/10.5281/zenodo.19656813
+
+Documentation:
+https://yh-audio.github.io/meshgrid-ir.html
+
+Raw_A_ir_48k_sp1.h5 through Raw_A_ir_48k_sp4.h5 provide four source positions, each on a measured 48 x 51 x 26 grid at 2 cm spacing. Each response contains 4,800 time samples at 48 kHz. Zenodo lists 1.2 GB per file, 4.9 GB total. Start with one file.
+
+This release retains microphone-frame reflections. The previously discussed Part I, https://zenodo.org/records/17051811, suppresses those reflections and resamples the responses. Keep versions distinct. If both are later compared, do not attribute processing artifacts to discovery.
+
+Inspect /rir, /grid and root metadata. MATLAB-generated HDF5 dimensions can appear transposed in Python. Establish axis order from the coordinates and metadata, not by guessing a reshape convention. Obtain the release's example_read_visualization_Raw.m when needed. Record the exact license metadata before redistributing data; the web text inspected for this brief did not expose its value.
+
+IMPLEMENTATION CONTEXT
+
+Canonical method repository:
+https://github.com/thetensor-space/OpenDleto
+
+Relevant laboratory notebooks:
+https://github.com/thetensor-space/OpenDleto/blob/main/labs/SphereLab.ipynb
+https://github.com/thetensor-space/OpenDleto/blob/main/labs/Chiseling101.ipynb
+
+Use the user's existing implementation when available. Read local AGENTS.md and project instructions. The public repository is OpenDleto; its Julia package is Dleto. Do not invent API names based on the conversational spelling "Diletto".
+
+Python was accepted for the earlier experiment when Julia was unavailable. A focused Python implementation is acceptable, grounded in the actual algorithm and checked against the existing synthetic example. Preserve existing work and record the source-code version. Synthetic data must remain clearly separated from measured-data findings.
+
+EXPERIMENT
+
+A. Verify and construct the measured tensors.
+
+For the magnetic scan, verify the cumulative movement coordinates, complete Cartesian coverage, duplicate center checks and finite field values. Form one tensor per field component.
+
+For audio, first preserve R[source,x,y,z,time] using recorded physical positions. Form several genuinely three-spatial-mode tensors from recorded time samples. Choose samples by a documented rule independent of whether chiseling gives an attractive result; include active early and later portions and retain the selection record. Use a manageable measured subgrid if necessary and describe exactly which physical positions it retains.
+
+Do not expect a broadband time snapshot to obey a single-frequency spherical-shell relation. If this limits a three-mode experiment, explicitly investigate an additional raw-time mode or time-valued tensor as a separate formulation. Keep its operator family, cost and conclusions distinct. Do not solve that issue by silently supplying a temporal Fourier basis.
+
+Use only transparent, invertible/global normalizations initially. For the magnetic field, an explicitly reported global constant removal may be compared with the untouched field, since the dominant component is nearly constant. Never present that known component as newly discovered. Do not fit and subtract a presumed harmonic or polynomial model before the main test.
+
+B. Discover transformations.
+
+Seek modewise invertible transformations A, B, C so that
+
+S[a,b,c] = sum_(i,j,k) A[a,i] B[b,j] C[c,k] T[i,j,k].
+
+These are new linear combinations of the axis coordinates. They need not correspond to moving a sensor or rotating the physical room. Save the transforms and their inverses or stable factorizations.
+
+Use the chisel family justified by the existing code/paper. Start with a documented linear chisel and analyze its approximate operator nullspace. Quotient out the unavoidable scalar operators before interpreting nontrivial directions. For a three-mode scalar tensor with all-plus linear relation, the scalar triples have coefficients summing to zero and form a two-dimensional trivial space.
+
+Report singular spectra, normalization, relative residuals and the criterion for choosing approximate null directions. Do not simply label the smallest singular vector a discovery. Use matrix-free operations or measured subgrids before constructing an unmanageable dense design matrix.
+
+Extract invariant subspaces/bases following the actual algorithm. Account for repeated eigenvalues, arbitrary within-subspace changes, nonnormality and conditioning. Identify whether the output is blocks, strata, support near a relation, or no robust structure. Do not force the output to look spherical or diagonal.
+
+C. Test whether the structure carries information.
+
+- Reconstruct the original measured tensor from the transformed representation and report relative error in the original coordinates.
+- Report coefficient count versus reconstruction error and total representation size, including learned basis entries. A dense learned basis is not free.
+- Report transform condition numbers. Apparent sparsity caused by extreme rescaling or numerical instability is not evidence.
+- Compare against the unchanged physical coordinates and, after freezing the learned result, a standard Fourier baseline on the same data. Do not tune discovery using the Fourier result.
+- Check sensitivity to tolerances, nearby time samples, modest data perturbations and relevant separate field components.
+- Use independent source conditions in Haneda data for follow-up where a learned common structure is meaningful. If a basis is retrained for each sample, say so.
+- Use meaningful unstructured controls, if needed, that destroy the alleged relation. Independent axis permutations alone preserve tensor structure and are not such a control.
+- Separate a known smooth/constant field, known propagation effects, or a known Fourier shell from additional structure.
+- If a promising additional pattern survives, make a targeted comparison with the original data papers and literature before describing it as scientifically new.
+
+D. Report a precise outcome.
+
+Acceptable conclusions include:
+1. Robust nontrivial stratification discovered from measurements, with its quantitative benefit and interpretation.
+2. Unsupervised recovery of an already-known physical structure, useful as a method demonstration but not a new physical discovery.
+3. A numerical pattern that fails validation.
+4. No robust nontrivial stratification for the tested data and operator family.
+
+A negative result for a particular chisel or data slice is not a theorem that the full measurements have no useful structure.
+
+DELIVERABLES
+
+- Reproducible loader, experiment code and commands, plus pinned dependencies and code versions.
+- Data provenance, original URLs, version/checksum information, acquisition versus analysis processing, and exact coordinate/index maps.
+- Saved transforms, operator diagnostics, reconstruction errors, coefficient/storage curves and timing/memory measurements.
+- A concise report distinguishing established observations, possible explanations and unresolved questions.
+- Figures suitable for a general scientific talk: measured volume, discovered coordinate representation, and reconstruction/validation. Label physical coordinates and learned coordinates differently and state any thresholding.
+- A short speaker explanation that says what the method found, or honestly states what it did not find.
+
+Start with the small magnetic-field cube to validate the real-data path, then run MeshRIR S1-M3969. Escalate to Haneda Part 0 when the method and diagnostics justify the larger computation. Keep the original goal in view: empirically discover unsupplied structure rather than manufacture an example that already contains the answer.
+
+HANDOFF STATUS
+
+This file is a complete execution brief. The measurements and source metadata have been checked to the extent described above; the discovery experiments have not been run by this handoff. No separate Codex task was launched from the originating chat.
+

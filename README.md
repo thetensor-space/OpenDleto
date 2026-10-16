@@ -16,6 +16,10 @@ You can open Jupyter notebooks in your browser without installing anything simpl
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2FWhatWeEatInAmerica.ipynb) The notebook [WhatWeEat](labs/WhatWeEatInAmerica.ipynb) shows how `OpenDleto` can be deployed on real data sets&mdash;in this case, nutrition data from a study called "What We Eat In America"&mdash;to extract 
  substantive information. 
 
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FWavefrontLab.ipynb) The [Wavefront Lab](labs/WavefrontLab.ipynb) applies the Sphere Lab's ideas to measured data: the Haneda&ndash;Ren *3D Meshgrid Room Impulse Response Dataset*, a sound pulse recorded on a 48&times;51&times;26 grid of microphones. Dleto's surface law locates the loudspeaker and the wavefront from the tensor alone, and stratification with a diagonal chisel recovers the shuffled order of the microphones. The 1 GB data file is downloaded by the notebook on first run.
+
+ - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FClusteredFrequencyLab.ipynb) The [Clustered Frequency Lab](labs/ClusteredFrequencyLab.ipynb) shows Dleto recovering a non-uniform spectral basis that the FFT cannot resolve from a short record: first on a synthetic sum of exponentials, then on measured NMR data (an HSQC of AMP and a 3D HNCO of a protein from the BMRB), with 3D pictures of the tensor before and after stratification.
+
 ## Contents
 
 <!--- [Contents](#contents)-->

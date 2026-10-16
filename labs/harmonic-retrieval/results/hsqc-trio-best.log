@@ -1,0 +1,17 @@
+sub-band FID (128, 8)  sw1 20833.333333333343 Hz  sw2 100.16025641025634 Hz;  reference peaks (F1, F2 Hz): [(-1546.0, 373.0), (-1465.0, 326.0), (-2686.0, 346.0)]
+axis t1 singular values: 1.000 0.486 0.271 0.111 0.066 0.057 0.049 0.034
+axis j singular values: 1.000 0.755 0.368 0.307 0.151
+axis k singular values: 1.000 0.753 0.371 0.320
+N1=128 M=3: nondeg dims [5, 5, 4], strata nonzeros (>10% of max) 44 of 100 (original 2103 of 2560), top-3 mass 0.489
+   component at Σ(1, 4, 2): F1 -1761.5 Hz, F2   390.3 Hz (j-axis check   354.1), damping (t1 0.021, t2 0.339) | nearest reference (-1546.2,   373.1): ΔF1 -215.3 ΔF2   17.2 Hz
+   component at Σ(2, 3, 4): F1 -1561.7 Hz, F2   369.0 Hz (j-axis check   358.5), damping (t1 0.018, t2 0.429) | nearest reference (-1546.2,   373.1): ΔF1  -15.4 ΔF2   -4.0 Hz
+   component at Σ(3, 5, 1): F1 -1510.7 Hz, F2   344.0 Hz (j-axis check   344.7), damping (t1 0.007, t2 0.384) | nearest reference (-2685.5,   345.9): ΔF1 1174.8 ΔF2   -1.9 Hz
+N1=64 M=3: nondeg dims [5, 5, 4], strata nonzeros (>10% of max) 52 of 100 (original 1048 of 1280), top-3 mass 0.404
+   component at Σ(5, 2, 1): F1 -1516.2 Hz, F2   322.5 Hz (j-axis check   324.8), damping (t1 0.041, t2 0.589) | nearest reference (-1464.8,   325.6): ΔF1  -51.4 ΔF2   -3.1 Hz
+   component at Σ(4, 2, 3): F1 -1486.1 Hz, F2   346.2 Hz (j-axis check   324.8), damping (t1 0.027, t2 0.444) | nearest reference (-2685.5,   345.9): ΔF1 1199.4 ΔF2    0.3 Hz
+   component at Σ(4, 1, 3): F1 -1486.1 Hz, F2   346.2 Hz (j-axis check   341.9), damping (t1 0.027, t2 0.444) | nearest reference (-2685.5,   345.9): ΔF1 1199.4 ΔF2    0.3 Hz
+N1=32 M=3: nondeg dims [4, 5, 4], strata nonzeros (>10% of max) 37 of 80 (original 498 of 640), top-3 mass 0.523
+   component at Σ(2, 2, 3): F1 -1537.5 Hz, F2   334.0 Hz (j-axis check   336.1), damping (t1 -0.002, t2 0.516) | nearest reference (-1464.8,   325.6): ΔF1  -72.7 ΔF2    8.4 Hz
+   component at Σ(2, 1, 4): F1 -1537.5 Hz, F2   314.2 Hz (j-axis check   347.7), damping (t1 -0.002, t2 0.634) | nearest reference (-1464.8,   325.6): ΔF1  -72.7 ΔF2  -11.4 Hz
+   component at Σ(2, 3, 2): F1 -1537.5 Hz, F2   342.8 Hz (j-axis check   389.0), damping (t1 -0.002, t2 0.285) | nearest reference (-2685.5,   345.9): ΔF1 1148.0 ΔF2   -3.1 Hz
+FFT resolution of the short records: F1 [163.0, 326.0, 651.0] Hz; F2 13.0 Hz
