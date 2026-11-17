@@ -1072,7 +1072,8 @@ methods rather than discriminating them, and the discriminating axis for `strati
 
 The user's target is video: 640 x 480 x F x 3 at 30 fps, F up to 1800 (one minute), and by
 decision it will run in **Float16** -- 3.3 GB for the minute instead of 6.6 GB. Measured on
-that shape today (Float32, whitened matrix-free QuickDer, 5 CPU threads, `labs/MovieRuntime.ipynb`):
+that shape today (Float32, whitened matrix-free QuickDer, 5 CPU threads,
+`bench/reports/2026-09-04/whitened/whitened.csv`):
 1 s / 3 s / 10 s of video take 21.6 / 28.3 / 44.7 s, all nullity 3/3 certified; the affine fit
 projects the minute at ~171 s of which ~20 s is the eigensolve (set by 640 x 480, flat in F)
 and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the tensor
@@ -1080,7 +1081,8 @@ and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the ten
 the same F -- so the minute would need ~92 GB today.
 
 Measured again after the lean kernels landed (same harness, 5 threads, the machine shared with two
-other agents so wall times are noisy; `labs/MovieRuntime.ipynb` has the plots):
+other agents so wall times are noisy; raw measurements are in
+`bench/reports/2026-09-04/whitened/whitened.csv`):
 
 | 640 x 480 x F x 3 | F = 30 (1 s) | F = 90 (3 s) | F = 300 (10 s) |
 |---|---|---|---|

@@ -132,7 +132,8 @@ entered with that tag, grouped, with the user-visible effect.
   `FLOOR_EPS` raised 5 → 8 for the Float32 frontier. `TestPrecision.jl` parametrised over
   the three types. (`c9185ea`, `0bede3e`, `a10c405`)
 - Movie regime measured on `640×480×F×3`; direction set: the movie runs in Float16, memory
-  first, then GPU. `labs/MovieRuntime.{jl,ipynb}`. (`6a70742`, `07df754`)
+  first, then GPU. Raw runs: `bench/reports/2026-09-04/whitened/whitened.csv`.
+  (`6a70742`, `07df754`)
 - `d = 500` dense-vs-sparse, CPU-vs-GPU matrix. (`c01375d`, `da24cc4`)
 - Docs: `design/Precision-Policy.md`, `design/Prior-Art-Large-d.md`,
   `design/Deployment-Plan.md`; whitened-restriction report.
