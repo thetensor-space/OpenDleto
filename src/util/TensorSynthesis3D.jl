@@ -39,7 +39,7 @@ function randSurfaceTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    ):: ITensor
+    )
     return randTensorChisel([xes,yes,zes],cutoff,UniversalChisel(3))
 end;
 
@@ -55,8 +55,8 @@ function randFaceCurveTensor(
         yes::Vector, 
         zes::Vector,
         cutoff::Number
-    )::ITensor
-    return randTensor([xes,yes,zes],cutoff,AdjointChisel(3,1,2))
+    )
+    return randTensorChisel([xes,yes,zes],cutoff,AdjointChisel(3,1,2))
 end;
 
 #-------------------------------
@@ -71,20 +71,20 @@ function randCurveTensor(
         yes::Vector, 
         zes::Vector, 
         cutoff::Number
-    )::ITensor
-    return randTensor([xes,yes,zes],cutoff,CentroidChisel(3))
+    )
+    return randTensorChisel([xes,yes,zes],cutoff,CentroidChisel(3))
 end
 
 #-------------------------------
 # test if a tensor is supported on a surface
 """
-testSurfaceTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
+distSurfaceTensor(t::ITensor, xes::Vector, yes::Vector, zes::Vector)::Number
 
 Measure how far a tensor is from being supported on a surface with equation x_i + y_j + z_k =0 
 The result is a number between 0 and 1 with (almost) 0 bing that the tensor is supported on the surface 
 The normalization is not perfect -- it is a good idea to call this on random tensor for a comparision
 """
-normSurfaceTensor(
+distSurfaceTensor(
         t::ITensor, 
         xes::Vector, 
         yes::Vector, 

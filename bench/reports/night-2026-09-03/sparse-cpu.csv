@@ -1,0 +1,4 @@
+# 5-thread timings (bench/jl now pins 5 Julia + 5 OpenBLAS threads, 10G heap hint, 16 GB RSS kill); may be noisy if another agent held a bench/jl slot concurrently
+valence,d,seconds,bytes,maxrss_GB,nullity,oracle_nullity,residual,branch,r,status
+4,60,3.000944,5601290576,2.099258,13,13,2.892291e-12,dense,"[8, 8, 8, 8]","ok"
+4,100,5.987006,27539623440,8.284256,13,13,3.599396e-16,dense,"[9, 9, 9, 9]","ok"

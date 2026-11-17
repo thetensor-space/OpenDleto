@@ -1,0 +1,5 @@
+case,T,forced,ncols,seconds,apply_count,nullity,oracle,certified,lsq_err,zlaw_resid,status
+sphere v3 d=200,Float32,default(dense),15600,14.884989976882935,0,3,3,true,0.00028408543695349195,9.633145054976922e-6,ok
+sphere v3 d=200,Float32,forced-free,15600,39.173527002334595,57296,2,3,false,0.002551239120751285,0.0002976438554469496,ok
+video F=60,Float32,default(dense),2919,0.2957909107208252,0,3,3,true,NaN,2.596265176180168e-6,ok
+video F=60,Float32,forced-free,2919,4.290325880050659,19482,3,3,true,NaN,4.582472320180386e-5,ok

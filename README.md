@@ -5,6 +5,8 @@ Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about th
 In addition to giving access to the Julia source code for our implemetation, `OpenDleto` provides several Jupyter notebooks that showcase chiseling tools.
 You can open Jupyter notebooks in your browser without installing anything simply by clicking on the **launch binder** buttons below. These notebooks allow you to explore the functionality of `OpenDleto` immediately with just a recent installation of Julia.
 
+> Attribution notice: The optional fast-der solve-and-lift strategy integrated in this repository is based on companion work by Chris Liu, Joshua Maglione, and James B. Wilson.
+
 
  - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FChiseling101.ipynb) The notebook [Chiseling101](labs/Chiseling101.ipynb) walks you through the basic functionality of the `OpenDleto` package. It shows how to set parameters to remove redunduncies, recover block decompositions, and detect continuous structures in tensor data.
 
@@ -57,6 +59,20 @@ First clone or download this repository and then run:
 using Pkg
 Pkg.develop(path="/path/to/OpenDleto")
 using Dleto
+```
+
+### Optional TensorSpace Soft Operators
+
+Core Dleto keeps `*`/`+` off foreign tensor types to avoid global method piracy.
+If you want the old ergonomic style, opt into the soft wrapper namespace:
+
+```julia
+using Dleto
+using Dleto.TensorSpace: ts
+
+rn = randomize_tensor(Γ)
+Γ_rand = ts(Γ) * rn.Xs      # soft wrapper for act(Γ, rn.Xs)
+Σ = ts(Γ) + Δ               # soft wrapper for Γ ⊕ Δ
 ```
 
 ### Option 2: Direct from GitHub

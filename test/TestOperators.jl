@@ -96,6 +96,18 @@ function testMembership(dim::Integer, num::Integer)
         @assert isapprox(D, embed(ScalarOp(), dim, coordinates(ScalarOp(), D))) 
         D = zeros(dim,dim)
         @assert isapprox(D, embed(EmptyOp(), dim, coordinates(EmptyOp(), D))) 
+
+        # Negative membership: a matrix that is NOT the empty operator must be
+        # rejected.  The first-column case is the regression -- `M[1:dim]` is
+        # linear indexing, so a zero first column used to pass as empty.
+        if dim >= 2
+            D = rand(dim,dim)
+            @assert coordinates(EmptyOp(), D) === nothing "EmptyOp accepted a nonzero matrix"
+            D = rand(dim,dim); D[:, 1] .= 0.0
+            @assert coordinates(EmptyOp(), D) === nothing "EmptyOp accepted a matrix with only its first column zero"
+            D = zeros(dim,dim); D[dim, dim] = 1.0
+            @assert coordinates(EmptyOp(), D) === nothing "EmptyOp accepted a matrix with one nonzero entry"
+        end
     end
     return true;
 end
@@ -109,7 +121,7 @@ end
         end
         @testset "Dimension $dim Transpose" begin
             for Ω in LΩs
-                @test testInverse(Ω, dim, 100)
+                @test testTranspose(Ω, dim, 100)
             end 
         end
         @testset "Dimension $dim Dualize" begin

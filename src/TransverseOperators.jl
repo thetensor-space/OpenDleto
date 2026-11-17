@@ -25,6 +25,7 @@
 #-----------------------------------------------------------------------------
 
 import LinearMaps
+import LinearAlgebra
 
 """
     Abstract Global Operators
@@ -44,7 +45,7 @@ import LinearMaps
     -- unsafe_embedMatrices/unsafe_embedITensors: as above but does not do any checking
     -- transposeEmbed: linear dual(transpose) of the emnedding, turns list of matrices into a vector
 
-    several function like globalDim, axisDims, valancy: which provide data for the sizes of matrices
+    several function like globalDim, axisDims, valence: which provide data for the sizes of matrices
         
     most safe functions are auto-generated from the unsafe one by adding trivial checks
     
@@ -58,11 +59,11 @@ abstract type TransverseOps end
     Return the native encoding of an operator in the transverse set,
     or `nothing` if it is not a member.
 """
-function coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Union{AbstractVector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-function coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Union{Vector{<:Number}, Nothing} 
-    val = valency(GΩ)
+function coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Union{AbstractVector{<:Number}, Nothing} 
+    val = valence(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
@@ -75,15 +76,15 @@ function coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Union{Vector{
     return coordinates(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
-function unsafe_coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: Vector{<: Number} 
+function unsafe_coordinates(GΩ::TransverseOps, Mats::Vector{<: AbstractMatrix} ) :: AbstractVector{<: Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-unsafe_coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: Vector{<: Number} = 
+unsafe_coordinates(GΩ::TransverseOps, ITs::Vector{ITensor} ) :: AbstractVector{<: Number} = 
     unsafe_coordinates(GΩ, ITs.|> __asMatrix);
 # this is the inverse of the embed map
 
-function transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number}
-    val = valency(GΩ)
+function transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: AbstractVector{<:Number}
+    val = valence(GΩ)
     @assert length(Mats) == val "Incompatable Data"
     localdims= axisDims(GΩ) 
     @assert all([ size(Mats[i])[1] == localdims[i]  for i =1:val ])  "Incompatable Data"
@@ -91,8 +92,8 @@ function transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: V
     return unsafe_transposeEmbed(GΩ, Mats)  
 end;
 
-function transposeEmbed(GΩ::TransverseOps, ITs::Vector{ITensor}) :: Vector{<:Number}
-    val = valency(GΩ)
+function transposeEmbed(GΩ::TransverseOps, ITs::Vector{ITensor}) :: AbstractVector{<:Number}
+    val = valence(GΩ)
     @assert length(ITs) == val "Incompatable Data"
     fr = frames(GΩ)
     frT = framesTemporary(GΩ) 
@@ -105,41 +106,41 @@ function transposeEmbed(GΩ::TransverseOps, ITs::Vector{ITensor}) :: Vector{<:Nu
     return unsafe_transposeEmbed(GΩ, [ inds(ITs[i])[1] == fr[i] ? __asMatrix(ITs[i]) : __asMatrixTranspose(ITs[i]) for i =1:val] );
 end;
 
-function unsafe_transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: Vector{<:Number} 
+function unsafe_transposeEmbed(GΩ::TransverseOps, Mats::Vector{<:AbstractMatrix}) :: AbstractVector{<:Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-unsafe_transposeEmbed(GΩ::TransverseOps, ITs::Vector{<:ITensor}) :: Vector{<:Number} =
+unsafe_transposeEmbed(GΩ::TransverseOps, ITs::Vector{<:ITensor}) :: AbstractVector{<:Number} =
     unsafe_transposeEmbed(GΩ, ITs.|> __asMatrix);
 # this is the transpose of the embed map
 
 """
     Convert the native encoding of an operator into matrices.
 """
-function embedMatrices(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}  
+function embedMatrices(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{<:AbstractMatrix}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
     unsafe_embedMatrices(GΩ,data)
 end;
 
-function unsafe_embedMatrices(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:AbstractMatrix}
+function unsafe_embedMatrices(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{<:AbstractMatrix}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function embedITensors(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
+function embedITensors(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{ITensor}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
     unsafe_embedITensors(GΩ,data)
 end;
 
-function unsafe_embedITensors(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
+function unsafe_embedITensors(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{<:ITensor}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function embedITensorsSwaped(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{ITensor}  
+function embedITensorsSwapped(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{ITensor}  
     @assert length(data) == globalDim(GΩ) "Incompatable Data"
     unsafe_embedITensorsSwapped(GΩ,data)
 end;
 
-function unsafe_embedITensorsSwapped(GΩ::TransverseOps, data::Vector{<:Number} ) ::Vector{<:ITensor}
+function unsafe_embedITensorsSwapped(GΩ::TransverseOps, data::AbstractVector{<:Number} ) ::Vector{<:ITensor}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
@@ -155,9 +156,12 @@ function axisDims(GΩ::TransverseOps)::Vector{<:Integer}
 end;
 
 
-function valency(GΩ::TransverseOps)::Integer 
+function valence(GΩ::TransverseOps)::Integer 
     @assert false "Calling Placeholder Abstract Function"
 end;
+
+# Backward compatibility alias; prefer `valence` in user-facing code.
+valency(GΩ::TransverseOps)::Integer = valence(GΩ)
 
 function frames(GΩ::TransverseOps)::Vector   #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
@@ -167,7 +171,8 @@ function framesTemporary(GΩ::TransverseOps)::Vector  #should be Vector{Index}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool})::Tuple{TransverseOps, LinearMaps.LinearMap} 
+function reduceByEngaged(GΩ::TransverseOps, engaged::Vector{Bool},
+                         ::Type{T}=Float64)::Tuple{TransverseOps, LinearMaps.LinearMap} where {T}
     @assert false "Calling Placeholder Abstract Function"
 end;
 
@@ -204,3 +209,34 @@ end;
 function __globalOpsMakeTempIndex(I::Index)::Index
     return Index(ITensors.dim(I),"Site:Der,$I")
 end;
+
+"""
+    is_orthogonal(X; atol=sqrt(eps(Float64)), rtol=sqrt(eps(Float64)))
+
+Return `true` when `X` is numerically orthogonal.
+For matrices, checks `X' * X \approx I`.
+For rank-2 ITensors, checks the same condition on the matrix data.
+"""
+function is_orthogonal(X::AbstractMatrix; atol::Real=sqrt(eps(Float64)), rtol::Real=sqrt(eps(Float64)))::Bool
+    n, m = size(X)
+    n == m || return false
+    return isapprox(X' * X, Matrix{eltype(X)}(LinearAlgebra.I, n, n); atol=atol, rtol=rtol)
+end
+
+function is_orthogonal(X::ITensor; atol::Real=sqrt(eps(Float64)), rtol::Real=sqrt(eps(Float64)))::Bool
+    fr = inds(X)
+    length(fr) == 2 || return false
+    ITensors.dim(fr[1]) == ITensors.dim(fr[2]) || return false
+    M = Array(X, fr...)
+    return is_orthogonal(M; atol=atol, rtol=rtol)
+end
+
+is_orthogonal(Xs::Vector{<:ITensor}; atol::Real=sqrt(eps(Float64)), rtol::Real=sqrt(eps(Float64)))::Bool =
+    all(X -> is_orthogonal(X; atol=atol, rtol=rtol), Xs)
+
+# Ergonomic constructors: infer the frame directly from a tensor.
+UniversalOps(Γ::ITensor) = IndTransverseOps(collect(inds(Γ)), UniversalOp())
+DiagonalOps(Γ::ITensor) = IndTransverseOps(collect(inds(Γ)), DiagonalOp())
+SymmetricOps(Γ::ITensor) = IndTransverseOps(collect(inds(Γ)), SymmetricOp())
+AntiSymmetricOps(Γ::ITensor) = IndTransverseOps(collect(inds(Γ)), AntiSymmetricOp())
+ScalarOps(Γ::ITensor) = IndTransverseOps(collect(inds(Γ)), ScalarOp())

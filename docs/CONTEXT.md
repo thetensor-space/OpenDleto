@@ -1,0 +1,1251 @@
+# OpenDleto — working context for AI chats
+
+Purpose: hand this file to a new chat so it starts with the context of prior sessions.
+Keep it updated as work progresses. Last updated 2026-09-08 (session 5: the beta code
+review, `docs/beta/`; session 4: the whitened restriction, then the memory wall; session 3:
+valence-n stratification -- see the sections of those names).
+
+## Session 5 (2026-09-08): code review of `beta`, written to `docs/beta/`
+
+Branch `feature/every-breath-you-take/2026-09-08`, cut from `beta` (`2d87dc3`,
+`v1.5-beta-2026-09-04`).  Documents only; no source changed.  The user asked for a code review
+of everything on beta, its design choices, a change log, and (mid-session) a "new features"
+preview and a "coming features" list.  Everything is under `docs/beta/`; start at its
+`README.md`.
+
+How it was done: five parallel read-only reviewers, one per slice (QuickDer + AutoDer +
+DerivationReport; NullSolvers + Precision + the three solver extensions; SylverLining +
+FastDer3Valent + QuickSylver + the Metal kernel; the core type system, exports and
+`Project.toml`; repository hygiene, bench/, labs/, docs/), their reports kept verbatim in
+`docs/beta/review/`, consolidated by hand into `docs/beta/REVIEW.md`.  The suite was run once
+on the beta worktree (`JL_PROJECT=.../OpenDleto-beta bench/jl test/runtests.jl`): 51 testsets,
+14,279 passes, 0 failures, Arpack present because `bench/jl` stacks `@dleto-bench`.
+
+Headlines, so the next session does not have to re-derive them:
+
+* **Verdict: mergeable for a beta channel; no wrong certified answer found on the default
+  path.**  Four bugs on non-default paths (`coordinates(::EmptyOp)` reads only the first
+  column; QuickSylver's verification is absolute and so scale-dependent; `GramSolver` and
+  `LSMRSolver` are unseeded yet say `wants_seed = false`, so seeded `den` is not reproducible;
+  `testTranspose` never runs).  Twelve correctness risks, the important three: `:Auto`
+  swallows every exception including OOM and falls back to a strictly larger computation;
+  `backend = :metal` computes a Float64 tensor in fp32 while the precision policy sees Float64;
+  `den` drops the verdict and reads a failed solve as an empty densor.
+* **The recurring pattern**: a good idea implemented in one place and not carried through --
+  the precision policy (un-floored literals remain in the extensions, `ShiftInvertSolver`,
+  `engaged`, `realCanonicalForm`, `nondeg`), the verdict (`den` ignores it; `store_eltype`
+  defaults to the compute type), seeding (two solvers missed), the `derTrOpsReduced` seam
+  (four dialects of `tol` type, `nd` meaning, `return_diagnostics`, coordinate eltype), the
+  registry (methods still an `if/elseif`; `AutoSolver`'s preference list is a literal).
+* **Design verdicts** (`docs/beta/DESIGN-CHOICES.md`): keep the sketch restriction, whitening,
+  the verdict-as-value, the registry, `den` as a `LinearMap`, the device hooks; keep-but-finish
+  the seam, the precision policy, `:Auto`; revisit the global `Ref` tunables (policy belongs on
+  `QuickDerMethod`, outputs in `DerivationReport`), shared numerics living in
+  `FastDer3Valent.jl`, the include-order cycle (`NullSolvers.jl` calls `_qdn_stage!`), the
+  dependency arrangement (notebook/plotting stack as hard deps; KrylovKit/IterativeSolvers as
+  both deps and extension triggers; no `julia` compat; version 0.1.0).
+* **Hygiene blockers for a public release**: `labs/WWEIA2.ipynb` is 3,413 identical copies of
+  one markdown cell (5 MB); `labs/FastDerSphereComparison.ipynb` carries 8.2 MB of output over
+  7 KB of source; 15 orphan `bench/**/*.log` files with machine paths; **`bench/jl` defaults
+  `PROJECT` to the primary worktree, so running it inside the beta checkout tests `main`**
+  unless `JL_PROJECT` is set; README and `Installing-Dleto.md` contradict each other;
+  `.claude/settings.json` whitelists bare `julia`.
+* The ordered work list is `docs/beta/REVIEW.md` §10; the roadmap is
+  `docs/beta/COMING-FEATURES.md`.
+
+Not done in the review pass: no merge to `beta` (approval gate), nothing pushed.  This
+CONTEXT file's own structure problems (no TOC, the 09-04 material in three places, the
+superseded movie-cost numbers still live above their correction) are recorded in the review
+and left for the next housekeeping pass.
+
+### Session 5, part 2: the review's bugs and correctness risks, fixed
+
+Branch `fix-you/beta-bugs-b1-b4`, cut from the review branch.  The user asked, item by item,
+for B1-B4 and C1-C12 of `docs/beta/REVIEW.md`; all sixteen landed with a regression test each
+(the status table at the top of REVIEW.md says what was done for each).  Decisions taken on
+the way that the next session should know:
+
+* **`QuickDerDeclined`** is the one exception `:Auto` catches (exported).  Validation errors
+  (wrong `Ω`, chisel width, a device that is not there) stay plain `error`s and propagate:
+  they describe the call, and a fallback would answer a different question.  The fallback is
+  logged at `@warn`, not `@info`.
+* **`store_eltype` is required for Float32 maps** (`promotes_to(Float32)` is true because
+  Float16 promotes to it).  Float64 maps still default.  Every in-tree caller passes it; a
+  bench script with a Float32 map and no `store_eltype` will now error and must say what the
+  data was.
+* **`act(Γ, Xs)`** replaces `Γ * Xs` (type piracy on `ITensor × Vector`).  Γ-first only; the
+  swapped forms, the scalar chain and `ITensor + Array` had no users anywhere and were
+  deleted rather than renamed.  `labs/SphereLab.ipynb` updated (four cells).
+* **`den` defaults to a basis** (`nd = -1`) and raises on an empty answer from an
+  unconverged solve; `denLM` follows the data's element type (chisel converted to it).
+* **`:metal` computes in Float32 whatever it is handed**, and the precision policy now knows
+  (`Tc = Float32` when `backend === :metal`).  Direct `sylvesterLM(...; backend = :metal)`
+  on a Float64 tensor is unchanged.
+* `ArpackDenseSolver` is gone (shift-invert about zero on a singular matrix); small dense
+  maps go to `SVDSolver`.
+* `realCanonicalForm` classifies by `imag(λ)` with a partner check; RISK3 of the September
+  review is closed.
+
+Test-suite result on the fix branch: 52 testsets, 14,374 passes, 0 failures, 0 errors (Julia 1.12 via `bench/jl`, Arpack present); the review's baseline was 51 testsets and 14,279 passes.
+
+## Session 5, part 3 (2026-09-08): the stratify speed/accuracy campaign
+
+Goal set by the user: make `stratify` as fast and accurate as possible across Float16/32/64
+and sizes, with the work done by lower-model agents in parallel and the machine shared with
+Codex through `.coop`.  Integration branch for the day:
+`feature/dont-stop-believin/2026-09-08` (off `beta` = `v1.6-beta-2026-09-08`).  Compute:
+one aggregate reservation in `STATE/compute.yaml` (20 GB, 12 threads, `bench`, yieldable);
+every Julia run capped at 6 GB RSS through `bench/jl` with `JL_SLOTS=3 JL_THREADS=4`; the
+memwatch reporter running; Codex asked (queue message 16:28 UTC) for the shapes, precisions
+and time budgets that matter to the video pipeline.
+
+Five agents, one lever each, each on its own worktree and branch, each required to measure
+before touching code, keep answers bit-close, leave the suite green, and write a dated report
+under `bench/reports/2026-09-08/<topic>/`:
+
+| branch | lever | what "done" looks like |
+|---|---|---|
+| `everybody-wants-to-rule-the-world/stratify-matrix` | `bench/StratifyMatrix.jl`: the grid (sphere v3 d 30..150, v4 d 20..60, video 120x90xFx3; F16/32/64) as the judge; `stratify`'s own overhead; tuning `QDN_DENSE_BUDGET_BYTES`, `QDN_GRAM_MIN_COLS`, `AUTODER_MIN_ENTRIES`, per-eltype solver order | baseline vs tuned table; defaults changed only with evidence |
+| `higher-ground/lift-shared-prefix` | the lift's redundant full-tensor passes (A-F6/F7: `_qdn_pair_tensor` shares no prefix; the RHS recomputes per chisel row) and the progress wrapper defeating `_gram_dense`'s no-copy path (M11) | lift-stage time before/after, bit-closeness |
+| `under-pressure/restricted-solve` | the restricted eigensolve (~90 % of the movie cost): ARPACK `ncv`/`nv0`, solver comparison on the same whitened map, Float32-syrk Gram + Float64 Ritz to widen the dense route, randomized range finder for the complement | seconds and applies per cell, unchanged nullity/certificate |
+| `true-colors/precision-accuracy` | the 1-in-8 lost eigenvalue copy over a six-seed grid; restriction slack vs confirmation pass; Float16 false certificates; the Float32 cut on non-universal Ω | failure counts before/after per type, one pinned regression cell |
+| `everything-in-its-right-place/one-copy` | the tensor lives once: ITensor boundary without a copy, mixed-eltype `_qdn_ttm` so Float16 storage is never promoted whole, `stratify` copies | peak RSS / tensor before/after; Float16 peaks at ~half of Float32 |
+
+Merging is by review here, then to beta as a tagged step with a Codex message, as before.
+
+**Outcome (same day).**  All five landed; integration branch green at 57 testsets, 14,392
+passes; shipped as `v1.7-beta-2026-09-08`.  What each measured:
+
+* stratify-matrix: `bench/StratifyMatrix.jl` is the judge from now on.  The only knob the
+  grid exercises is `QDN_GRAM_MIN_COLS`, validated exactly at its crossover (SVD wins 4-40x
+  below 1000 columns, Gram 1.4-32x above).  `QDN_DENSE_BUDGET_BYTES` never binds on the grid
+  (forcing matrix-free lost 2.6-14.5x everywhere); `AUTODER_MIN_ENTRIES` and the per-eltype
+  solver order are never reached.  `realCanonicalForm` skips `eigen` when the derivation is
+  already scalar (off-diagonals at rounding): stratify's own overhead on the video shape
+  22.5% -> 3.0% of the call, identical answers on all 27 cells.
+* restricted-solve: on the matrix-free branch no ARPACK `ncv`/`nv0`/`tol`/`min_above` beats
+  the defaults (larger `ncv` is worse everywhere; a fixed small one breaks escalation); the
+  randomized range finder and LSMR lose 3-900x; the Kronecker preconditioner has nothing left
+  to do after whitening.  The win is the DENSE route: `GramSolver(gram_eltype = Float32)` --
+  Float32 `syrk`, Float64 Rayleigh-Ritz -- 1.50x at d = 100 and 1.83x at d = 150 with
+  identical nullity/certified/subspace; default via `QDN_GRAM_MIXED_PRECISION[] = true`.
+  `QuickDerMethod.solver_kwargs` forwards options to the matrix-free solve.
+* precision-accuracy: the Float32 lost-derivation failures (5 of 96 sphere cells, one seed in
+  eight) were not in the restricted solve but in `_fastder_restrict_to_ops`: a genuine
+  direction's residual off Ω lands 15-122x `qd_tolerance` on some seeds, past the 32x
+  ceiling.  No ceiling or gap ratio fixes it; a wider restriction does.  The cut now reports
+  `ambiguous` (anything in `(atol, 4*ceiling]` just past the kept count) and
+  `derTrOpsReduced`'s existing 1.5x retry fires on it; the retry keeps the BEST attempt (a
+  wider random sketch can return fewer -- the 5^4 Float16 sphere went 4 -> 3 before that
+  rule).  After: 0 of 96, zero false certificates anywhere, no constant moved.  Still open:
+  18 Float16 cells where the dense/saturated route smears the null-cluster gap and
+  `gap_verdict` picks the wrong one (needs a Z-law-informed acceptance test or a Float16
+  policy call), and one `LAPACKException` in `SVDSolver` (Float32, one seed).
+* lift-shared-prefix: shared-prefix pair tensors and the hoisted RHS are bit-identical and
+  worth 1.1-1.2x on the lift stage at valence 4 (nothing at valence 3, by construction); the
+  lift is 2-12% of the call, so wall time does not move.  `progress = true` no longer turns
+  the dense restricted matrix into a `FunctionMap` and re-derives it column by column
+  (983x on a 2000^2 map; 1-3 GB at d = 200..300).
+* one-copy: `Ts` (stored) vs `Tc` (compute) threaded through the QuickDer kernel; a Float16
+  host tensor is contracted through a mixed-eltype `_qdn_ttm` one 64 MB block at a time
+  instead of being promoted whole (kernel: 83 MB / 20 MB against a 477 MB Float32 copy at
+  d = 500).  End-to-end peak RSS at affordable sizes is dominated by the ~0.7 GB process
+  floor and solver churn, so the Float16-vs-Float32 ratio reads 0.97-1.19x there, not 0.5;
+  the saving shows at movie length.  SylverLining's own promotion copy and the GPU path are
+  unchanged (follow-ons).
+
+Projection at a one-minute cap on this machine, from the measured points (5 threads):
+valence 3 sphere d ~ 250-280, valence 4 d ~ 165-175, video 640x480xFx3 Float32 F ~ 800
+(fit 18 s + 0.053 s/frame; ~12 GB).  The eigensolve is the wall in every row.  Native core:
+still no stage measured 2x off its floor -- the dense route is at the BLAS floor, the
+matrix-free route is ARPACK -- so the gate in Native-Core-Plan stays shut; cold start
+(PrecompileTools / juliac) is the real latency item.
+
+Process lesson recorded in memory: long runs go to the background and the agent ends its
+turn; five polling Sonnet agents exhausted the session limit in ~1.5 h and were killed with
+nothing committed.  Resumed with that rule, all five finished.
+
+## Session 4 (2026-09-04): the whitened restriction, QuickDer-W
+
+Branch `feature/under-pressure/2026-09-04` (work done on a worktree branch off it).
+Design note: `docs/design/QuickDer-valence-n.md` section 2a.  Numbers:
+`bench/reports/2026-09-04/whitened/`.
+
+The wall session 3 stopped at was the matrix-free restricted branch: above d ~ 200 at
+valence 3 the dense/Gram route does not fit and the matrix-free branch "converged
+slowly", with ARPACK hitting its iteration cap on structured tensors.  It turns out the
+branch was not slow, it was **not converging at all** -- forced matrix-free on the
+scrambled sphere, ARPACK exhausts its cap and returns nullity 0 at every d from 30 up.
+The cause is sketch-induced and removable exactly.
+
+The structure.  The axis-`a` column block of the restricted system is `I_{r_a} ⊗ M_a`
+up to the row permutation `_qdn_row_perm` bookkeeps, where `M_a` is the transposed
+mode-`a` unfolding of the cross sketch.  So the DIAGONAL blocks of the restricted Gram
+are `c_a·(I ⊗ M_aᵗ M_a)` with `c_a = Σ_ρ P[ρ,a]²` -- all of the sketch's conditioning
+lives in `d_a x d_a` Grams -- while the off-diagonal blocks, which are what encodes the
+derivation condition, survive any per-axis change of variables.  Verified to 5e-16 at
+valence 3 and 4 for universal, centroid and adjoint chisels.
+
+The fix (`whiten = true`, now the DEFAULT, and `:Auto` inherits it): thin QR
+`M_a = Q_a R_a`, solve for `Ỹ_a = R_a Y_a`.  Every diagonal Gram block becomes exactly
+`c_a·I`, the spectrum lands in `[0, Σ_a c_a]`, the null space is untouched, and the cost
+is `n` QRs of `(∏_{b≠a} r_b) x d_a` -- 0.01 s of an 18 s solve at d = 200.
+
+Measured (forced matrix-free so both settings meet the same solver at the same size;
+ARPACK, Float64, 5 threads; every whitened result Z-law verified):
+
+| case | plain applies / verdict | whitened applies / verdict |
+|---|---|---|
+| sphere v3 d = 30  | 53632 / ARPACK cap, nullity 0  | 23732 / nullity 3, 2.8e-13 |
+| sphere v3 d = 40  | 55196 / ARPACK cap, nullity 0  | 30796 / nullity 3, 1.2e-12 |
+| sphere v3 d = 100 | 66900 / ARPACK cap, nullity 0  | 34636 / nullity 3, 7.8e-11 |
+| sphere v3 d = 150 | 177142 / ARPACK cap, nullity 0 | 39544 / nullity 3, 1.7e-12 |
+| sphere v3 d = 200 | 65182 / ARPACK cap, nullity 0  | 38262 / nullity 3, 3.3e-10 |
+| randn 150^3 | 14618 / nullity 2, ok | 10156 / nullity 2, ok (1.44x) |
+| randn 250^3 | 22974 / nullity 2, ok | 15712 / nullity 2, ok (1.46x) |
+| sphere v4 d = 60  | 61994 / ARPACK cap, nullity 0 | 12808 / nullity 4, 1.1e-13 (4.8x) |
+| sphere v4 d = 80  | 64584 / ARPACK cap, nullity 0 | 19718 / nullity 4, 2.4e-13 (3.3x) |
+| sphere v4 d = 100 | 65858 / ARPACK cap, nullity 0 | 13188 / nullity 4, 3.7e-13 (5.0x) |
+| video 200x200x100x3 Float32 | 56980 / ARPACK cap, nullity 0 | 11182 / nullity 3, 1.7e-5 (5.1x) |
+| degenerate 40^3, mode-1 rank 38 | 59640 / nullity **26** of 82 | 4024 / nullity **82**, 8.4e-16 (14.8x) |
+
+**FRONTIER MOVED.**  Whitened, matrix-free, ARPACK, Float64, scrambled sphere:
+valence 3 d = 200 in 18.4 s (2.1 GB peak, no restricted matrix at all -- session 3's
+dense Gram route needed 22 s, an 8 GB peak and a 2.2 GB matrix), **d = 300 in 105 s**
+(3.8 GB) and **d = 500 in 136 s** (11.4 GB, residual 3.2e-13).  Valence 4 reaches
+d = 100 in 7.2 s (11.7 GB).  The user's goal for this size was "500..1000 within an
+hour"; d = 500 is 2.3 minutes.  What now stands between here and d = 1000 is MEMORY in
+the harness and the sketch pass -- `build_sphere` holds three copies of the tensor and
+`_qdn_pair_tensor` `permutedims` the full tensor once per lift axis, so d = 1000 needs
+~22 GB against a 12 GB kill line -- and no longer convergence in the solver.
+
+The generic-tensor row is the control and it agrees with the analysis: a random tensor's
+mode unfoldings are already well conditioned (`cond(M_a) ≈ 3` against 20..150 on the
+sphere), so there is nothing for the whitening to remove and it is worth 1.4x.
+
+LOBPCG (`:CGSolver`) does NOT win on the whitened operator, despite the spectrum now
+being in `[0, n]`: unpreconditioned it returns the WRONG nullity, silently (nullity 2 of
+3 at d = 30 unwhitened, 0 of 3 at d = 100 and 200 both ways) and takes 2-4x more applies
+than ARPACK when it does answer.  ARPACK-first stays the right default on this branch.
+Whitening helps it too (168034 -> 53124 applies at d = 30, and it becomes correct there),
+so the gain is a property of the operator, not of ARPACK.
+
+Degenerate modes, and a correctness fix.  When a mode unfolding is rank deficient (smooth
+video, separable tensors: `cond(M_a) ~ 3e16` measured on a smooth 20x20x10x3 box) the QR
+has no inverse, so the whitening takes an SVD and truncates to the range at the standard
+`min(size)·eps` cut.  The dropped directions are the trivial derivations `X_a ×_a Γ = 0`;
+they are checked against Γ itself and written down exactly rather than left in the solve
+as a numerically-zero eigenvalue cluster.  That also FIXES an undercount: the unwhitened
+branch only ever sees them as `Y_a` with columns in `ker(M_a)`, and its rank-deficient
+lift returns a minimum-norm `Z_a` with no kernel component, so on a 12^3 tensor with a
+mode-1 rank of 10 the true derivation space is 26-dimensional and the old path reported
+an arbitrary, `W`-dependent 16 of it.  Degenerate modes are meant to be removed upstream
+by `nondeg`; this is the safety net.
+
+Out of budget on this machine, established by `bench/WhitenedRestriction.jl estimate`
+before anything was allocated (`build_sphere` holds three copies of the tensor):
+valence-4 spheres at d = 150 (11.3 GB) and d = 200 (35.8 GB) in Float64, d = 200 in
+Float32 (17.9 GB), and valence-3 d = 1000 (22.4 GB) -- against a 12 GB per-process kill
+line.  Valence 3 reaches d = 500 and valence 4 d = 100 in Float64.
+
+New knob for the next session: `Dleto.QDN_APPLY_COUNT[] = 0` before a call counts the
+matrix-free applies the restricted solve took (forward + adjoint), so iteration count is
+readable directly instead of inferred from wall time.
+
+### Session 4, part 2 (afternoon): the memory wall, and three honesty fixes
+
+Branch `we-gotta-hold-on-to-what-weve-got/qdn-memory-frontier` off
+`feature/under-pressure/2026-09-04`.  Numbers: `bench/reports/2026-09-04/whitened/`
+(README sections "Memory: where the frontier's bytes actually were" and
+"Honesty"), profiler `bench/MemoryProfile.jl`.
+
+**The memory wall was the harness, not the solver, and not where reading the
+code said.**  Measured at d = 500 valence 3 (one copy 0.93 GB): the build peaks
+at 10.3 GB of the run's 12.1, and the whole of QuickDer adds 1 GB on top.  Six
+copies live at the worst moment for a pipeline that needs one, and the biggest
+single term is `nondeg` -- a full `d^{n-1} x d` SVD per axis, which forms the
+unfolding AND its left factor: 25 GB of churn, 4.7 GB of peak.
+`_qdn_pair_tensor`'s per-axis transpose, the other named suspect, is 80 MB at
+d = 500; it is fatal only at d = 1000, where the same transpose is 8 GB.
+
+Fixed: `_qdn_ttm` never permutes its input (axis 1 and axis `N` are reshapes,
+so single GEMMs; a middle axis runs `back` GEMMs on contiguous slices), plus
+`_qdn_ttm!` (two buffers) and `_qdn_ttm_square!` (ONE buffer -- a block of
+slices into 64 MB and copy back, which every square mode product can use).
+`build_sphere` takes a lean path above `SPHERE_LEAN_BYTES` (256 MB per copy):
+plain arrays, one tensor-sized buffer, `nondeg`'s axis bases by tall-skinny QR
+(`_tsqr_axis_basis`: `R` is `d x d`, one 64 MB block, full precision, a third
+of `gesdd`'s flops), `itensor` rather than `ITensor` at the boundary, and the
+original sphere dropped unless `keep_S` asks.  The lean input is the same family
+up to a per-axis orthogonal change of basis, not the same array; `-lean` marks
+those CSV rows.
+
+Also memory: the trivial derivations of a rank-deficient mode are published
+FACTORED (`QDN_TRIVIAL_FACTORED`, one `(; axis, K)` per axis, meaning
+`X_axis = K v e_q'`) and written out as operator tuples only up to
+`QDN_TRIVIAL_MAX_BYTES` (256 MB), warning and naming the field when that
+truncates.  At d = 500 with one degenerate mode the write-out was 3 GB of zeros
+to describe a 2 MB matrix.  The degenerate 40^3 case still reports its full 82
+at 8.4e-16.
+
+**FRONTIER MOVED AGAIN.**  Whitened, matrix-free, ARPACK, Float64, scrambled
+sphere: **valence 3 d = 1000 in 552 s at a 13.70 GB peak**, nullity 3, Z-law
+residual 7.19e-13 (r = [57,56,56], 178752 x 168000 restricted system, 56388
+applies) -- the goal for this size was "500..1000 within an hour" -- and
+**valence 4 d = 150 in 31 s at 7.29 GB and d = 200 in 181 s at 17.35 GB**
+(nullity 4, residuals 1.63e-13 and 1.33e-11), against the morning's d = 500 and
+d = 100 ceilings -- the morning's own estimate table put valence 4 d = 200 at
+35.8 GB and "over budget, not attempted".  At valence 4 the solve is now 9.6 s
+of d = 200's 181 s, so the remaining cost is the build and the Z-law check, not
+the solver.  d = 200 reproduces the morning's
+row to the digit (38262 applies, 3.249e-10), which is the regression check on
+every change here: the mode-product rewrite, the in-place kernels, the
+preallocated apply and the rewritten Z-law check are numerically identical, not
+merely close.  On the user's own video shape, 640x480x300x3 Float32 was killed
+at 13.1 GB this morning and now peaks at 4.06 GB in 43.9 s.
+
+Honesty, three items:
+
+* A non-converging iterative solve reported an empty null space rather than a
+  failure.  The solvers that know now say so (`ArpackSolver` from `nconv`,
+  `CGSolver` from LOBPCG's flag, `KrylovSolver` from `info.converged`) and
+  `NullVerdict` carries it as `status` -- `:ok` / `:unconverged` / `:capped`,
+  kept separate from `certified`, which is a statement about the spectrum
+  alone.  `_qdn_solve_and_lift` declines a non-`:ok` solve that returned
+  nothing, so `:Auto` falls back to SylverLining.  Block Lanczos on the
+  whitened restricted map at d = 300 and 500 is the measured case: it converges
+  nothing, stalls at 1.1e-9 relative, and its spectrum reads `nullity 0,
+  certified`.
+* The d = 300 apply anomaly (76810 applies against d = 500's 51116) is NOT the
+  `nv` escalation.  The restricted system there has a 13-dimensional numerical
+  near-null space against 3 true derivations; the escalation chases it
+  correctly and the lift filter cuts 13 to 3.  A gentler escalation step is
+  measurably worse (four solves, 99170 applies, against three and 76810), so
+  doubling stays; the lever is the restriction size or the null threshold.
+* The lift consistency filter now cuts on a GAP in the residual spectrum
+  (floor `sqrt(eps(T))`, which is where a lift residual bottoms out, ceiling
+  `32*sqrt(eps)`) instead of at a hard cutoff AT that floor.  But the Float32
+  undercount it was written for is not there: at d = 48 Float32 the filter
+  passes all 13 of its 13 directions under both rules and
+  `_fastder_restrict_to_ops` then returns 2.  **And ARPACK's start vector comes
+  from a seed saved inside the library across calls**, so repeated calls in one
+  process on identical input give different restricted null spaces -- the same
+  setting three times gives 2, 3, 3 at d = 48 Float32.  Measure any Float32
+  matrix-free result one data point per PROCESS, or with a deterministic
+  solver.
+
+Two more memory items, both found by the same profiler and both large:
+`_qdn_restricted_map` now allocates its scratch ONCE rather than ~13 MB per
+apply-pair (a 100k-apply solve was throwing away ~700 GB, and RSS tracked the
+GC's heap target instead of the live set), and the BENCHMARK's own Z-law check
+`der_residual` was the biggest single item on video shapes -- it went through
+`applyDerivation`, so ITensor contraction materialised a full `d^n` intermediate
+per axis AND promoted a Float32 tensor to Float64 because the chisel is
+Float64.  That is why peak RSS grew ~15 GB per GB of tensor there and why
+Float32 and Float64 peaked the SAME.  It now accumulates
+`Σ_a P[ρ,a]·(Γ ×_a D_a)` in 256 MB blocks along the longest axis, in the
+tensor's own type, and reproduces the old value exactly (degenerate 40^3:
+8.40e-16 both ways).  `_qdn_ttm!` gained `mul!`'s `α`/`β` to make that
+possible.
+
+Next levers, in the order the measurements suggest: (1)
+`_fastder_restrict_to_ops` is the Float32 cliff -- at d = 48 Float32 it takes
+13 lifted derivations to 2; (2) the restriction sizes at d = 300 (6.8%
+overdetermined) are what make its restricted near-null space 13-dimensional and
+so what makes its apply count non-monotone; (3) `bench/jl`'s RSS watchdog needs
+`JL_HEAP` set well below the limit on these runs -- RSS ran ~1.5x the heap
+target above the live set on every large run.
+
+### Session 4, part 4 (evening): the diagnostics API, and a Float16 false certificate
+
+Worktree branch off `feature/under-pressure/2026-09-04`.  Three commits.  Driven by
+bug reports and requests from the downstream video consumer (DletoVideo), which calls
+`derTrOpsReduced(method, Ω, chisel, Γ; tol)` directly and chooses combinations of the
+returned `ders` itself.
+
+**The storage type did not reach QuickDer's verdict, and Float16 certified what it
+could not see.**  `derTrOpsReduced(::QuickDerMethod, ...)` promotes a Float16 tensor to
+Float32 before the kernel touches it, so `eltype` inside `_qdn_solve_and_lift` is the
+ARITHMETIC's type; its two `solve_nullspace` calls omitted `store_eltype` and took the
+default `real(eltype(L))` = Float32.  `data_floor(Float32)` = 1.2e-7 never binds, so the
+restricted verdict certified a cut whose first value above it sat *inside* the rounding
+of the input -- exactly the failure `data_floor` was added to prevent.  Consumer's
+repro, a 40x40x40 Float16 luma block: `above = [4.21e-4, 1.22e-3]` against
+`eps(Float16) = 9.8e-4`, `certified = true`.  Reproduced on a near-degenerate ramp at
+d = 24 (smooth ramp + 3e-5 texture, first value above the cut 7.2e-4 in Float16 and
+1.8e-4 in Float32): before, `certified = true, undecidable = 0`; after,
+`certified = false, undecidable = 1`, with the Float32 run on the same data unchanged
+(nullity 2, certified) -- the floor binds only in the mixed case, as designed.
+`store` is now an explicit POSITIONAL argument of `_qdn_solve_and_lift`, because the
+wrong answer to that question is silent.  SylverLining already passed it; `den` has no
+promotion and needs none.
+
+*The video result survives the fix.*  `bench/WhitenedRestriction.jl video 640 480 30 1
+AutoSolver Float16` (randn 640x480x30x3, forced matrix-free, whitened) still reports
+nullity 3 of 3, residual 7.2e-7, 21082 applies in 23.8 s, and NO undecidable value --
+correctly, because a generic tensor's first nonzero eigenvalue is ~1e-2 relative,
+four decades above `eps(Float16)`.  The fix bites only where the data really cannot
+decide.
+
+**`DerivationReport`: the verdict as a value.**  `derTrOpsReduced(...;
+return_diagnostics = true)` appends a fourth element -- an immutable struct carrying the
+deciding solve's `NullVerdict` whole, the summary (certified, rule, gap, threshold, both
+floors, undecidable, near_null, the spectrum, the values the cut kept, the first one
+above it), the storage and compute element types, `dim ker P` as the scalar baseline,
+the restriction sizes / restricted shape / solver / device / seed / whitened flag, the
+lift residual of each accepted direction and the Z-law residual (`Dleto.der_residual`) of
+each returned one.  The default is `false` and the three-tuple is unchanged, so nothing
+downstream moves.  QuickDer, SylverLining and AutoDer take the same keyword and fill the
+same struct (missing = `nothing`; AutoDer reports the route that actually answered).
+Consumers had been reading all of this out of `@warn` text, which `maxlog = 1` silences
+on the second block of a thousand.
+
+Two mechanical consequences worth knowing: `DerivationReport` is included AFTER
+NullSolvers.jl (it has a `NullVerdict` field, and field types are evaluated at
+definition time), so the three `derTrOpsReduced` methods lost their return-type
+annotations and `_qdn_fixed_verdict`'s first argument is unannotated.  And
+`_qdn_solve_and_lift` now returns `(mats, info)` instead of publishing through a `Ref`:
+it is internal with one caller, and a returned value cannot go stale after an error.
+
+**`nd > 0` is a policy, not a cap (`policy = :fixed_nd`).**  QuickDer forced `nd = -1`
+on the restricted solve and truncated afterwards, so a caller could never reach the
+near-null directions -- and on real video blocks that is where the science is: every
+block tested has only the scalar derivations (2 at valence 3, 3 at valence 4) with the
+first non-scalar singular values at 0.04-0.08.  Now `nd > 0` asks for the `nd` smallest
+by singular value: the solve is made with NO ceiling (`gap_verdict`'s own `nd` caps a
+fixed count at the number of values *below* the ceiling, so it never could reach past
+it), the lift's consistency filter reports instead of filtering, the Z-law check is
+skipped (a near-derivation fails it by construction) and the residuals are measured
+per direction instead.  `certified` is false unless the automatic verdict -- recomputed
+on the same spectrum by `_qdn_fixed_verdict`, a pure function of the values, not a
+second solve -- certified a cut at exactly `nd`.
+
+Measured, random valence-4 tensor (true nullity 3, `UniversalOp`), `nd = 5`: five back,
+the first three matching the automatic answer to every principal angle, `selected =
+[2.4e-16, 2.7e-16, 4.5e-16, 0.301, 0.313]`, `next_value = 0.319`, Z-law residuals
+`[6e-16, 5e-16, 6e-16, 0.562, 0.529]`, lift residuals `[8e-16, 8e-16, 7e-16, 0.770,
+0.705]`.
+
+TWO BOUNDARIES ON `nd`, both warned about at the call.  `nd` at or below the restricted
+nullity names an arbitrary subspace of a null cluster (which has no preferred basis
+inside itself) and drops exact derivations.  And the count is exact only when `Ω`
+constrains nothing: `_fastder_restrict_to_ops` is a null space of the residual off `Ω`,
+so it MIXES the directions handed to it and its dimension is a property of the space --
+the scrambled sphere's 13 universal derivations are 3 symmetric ones, and no
+5-dimensional truncation of the 13 has a well-defined image (measured: `nd = 5` on the
+sphere returns 0).  For the near-null use case (`UniversalOp`, `nd` above the scalars)
+neither boundary is in play, and that is the case the policy exists for.
+
+### Session 4, part 3 (evening): determinism, and what it exposed
+
+Branch `worktree-agent-a88f0bc3af49e35e6` off `feature/under-pressure/2026-09-04`.
+Four commits, 13,770 tests green over 45 testsets.
+
+**The Float32 undercount was in `_fastder_tall_nullspace`, and it was a hard
+cutoff at the noise level.**  That function kept exactly the singular values
+`<= atol`, and `atol` is `qd_tolerance(T)` = `sqrt(eps(Float32))` = 3.45e-4 --
+which is also the accuracy of the Float32 lift whose residual that matrix is.
+Traced at d = 48: 13 lifted derivations in, spectrum
+`1.709 ... 0.244 | 4.486e-4 2.011e-4 1.157e-4`, the three genuine directions
+separated from the rest by 544x with the largest of them at 1.30 `atol` --
+so 2 out of a true 3.  Same shape at d = 64/100/140 (gaps 1054x / 4056x /
+457x, within-cluster ratios under 4x).  The cut is now a GAP with `atol` as
+the FLOOR and `FASTDER_RESTRICT_CEILING = 32` times it as the ceiling -- the
+constant and the reasoning `QDN_LIFT_CEILING` already uses -- falling back to
+the old absolute count when no jump clears `GAP_RATIO`, so it can only refine.
+Float32 is 3/3 at d = 48, 64, 100 and 140; Float64 is untouched (its cluster
+is nine decades under `atol`).
+
+**Every iterative null solve is now seeded, and that changed the ground
+under the benchmark numbers.**  ARPACK keeps its start vector's seed inside
+the Fortran library across calls, KrylovKit's block came from the default RNG,
+LOBPCG drew its own `X0`; `solve_nullspace(...; seed)` fixes all three
+(`wants_seed` says who takes it) and `QuickDerMethod`'s seed travels to the
+restricted solve.  `opnorm_estimate` was the second unseeded start and not a
+harmless one -- it is the scale the whole verdict is relative to, so two
+identical seeded ARPACK calls still disagreed by 8.4e-4 on the relative
+spectrum until it took an `rng` too.
+
+What determinism exposed, and it is the honest headline: **the restricted
+solve loses a copy of its multiple eigenvalue on roughly one (d, T) case in
+eight, and which one is a coin flip set by the start vector.**  Over the grid
+{48, 64, 100, 140} x {Float32, Float64} at seed 20260904, `seed` gives 7 of 8
+(Float64 d = 48 returns restricted nullity 12 of 13) and `seed + 1` gives 7 of
+8 (Float32 d = 64 does).  Per-seed at a fixed size it is 5 or 6 of 6.  Before,
+this variability was averaged over by the library's saved state and read as
+"Float64 is 3/3 throughout".  It is not a threshold bug in the restrict step --
+`below == keep` in every one of those traces -- it is ARPACK returning an
+unconverged Ritz value where a null one belongs, or the Float32 restricted
+threshold cutting a 13-value near-null cluster that straddles
+`precision_floor(Float32)`.  That is lever (2) from the afternoon's list (the
+restriction size or the null threshold), and it is now measurable one case per
+process instead of one per mood.
+
+*Note the coupling that was left in place*: `seed` is passed to the solver
+verbatim, so ARPACK's start vector is `randn(MersenneTwister(seed), n)` --
+drawn from the same stream at the same position as the sketch's first random
+axis, i.e. built out of the numbers that formed the restriction.  An offset
+would decouple them; it measured no better (7 of 8 either way), so the simple
+form stayed and the observation is recorded here rather than acted on.
+
+**A non-ok `status` no longer certifies.**  `certified` was computed
+independently of `status`, so the d = 300 block-Lanczos case -- 16 Ritz values
+stalled at 1.1e-9 with a textbook gap between them -- read `nullity 0,
+certified`.  Unconverged Ritz values sit ABOVE their true eigenvalues, so the
+spectrum a failed solve returns is not the operator's.  `status` and
+`undecidable`/`data_floor` are documented as two INDEPENDENT reasons a
+spectrum is not evidence (the solver, and the data), neither implying the
+other, either withholding the certificate, and neither moving a number.  One
+existing assertion changed meaning and is annotated in place.
+
+**The same failure class, found by the GPU agent, in a process without
+ARPACK.**  ARPACK is a weakdep and is not in the manifest, so a plain
+`runtests.jl` meets KrylovKit while a `bench/jl` run that stacked an
+environment carrying Arpack meets ARPACK -- two code paths, one testset.  On
+the KrylovKit path at d = 12 unwhitened, seed 4242: block Lanczos broke down
+(`DomainError with -3.09e-19`), the single-vector Arnoldi fallback returned
+restricted nullity 7 of 13 with every value converged, and QuickDer reported
+ZERO derivations of a true three, silently and green.  Fixed at both ends: the
+Arnoldi fallback never claims convergence (`info.converged` counts residual
+tests, not COPIES of a repeated eigenvalue, and a null space is a repeated
+eigenvalue), and `_qdn_empty_result` refuses to return an empty derivation
+space from a non-`:ok` solve -- an undercounted restricted null space is not
+empty, it lifts to derivations that miss `Ω` entirely, and the answer collapses
+only after `_fastder_restrict_to_ops`.  `:Auto` now falls back to SylverLining
+and returns the full 3.  The testset pins `solver = :KrylovSolver` so it means
+the same thing with and without ARPACK.
+
+**`Dleto.der_residual` is now in `src/`.**  The Z-law check is what a consumer
+runs on an answer (DletoVideo included), not a benchmark detail.
+`der_residual(Γ, D, chisel; block_bytes = 2^28)`, with an array form and a
+per-chisel-row `der_residual_squares` underneath; `_qdn_verify`'s `:full`
+branch and every bench script call it.  Bit-identical (`===`) to the bench
+function it replaces on the degenerate 40^3 Float64 case and on a video-shaped
+20x20x10x3 Float32 one, after one change: the two block buffers are allocated
+ONCE rather than per block, so the bytes are bounded by `block_bytes` and do
+not grow with the tensor.  Measured on 60x60x40x3 Float32: 0.36 MB against
+62.5 MB through `applyDerivation`, and a Float32 run allocates half what the
+same shape does in Float64 -- nothing is promoted, and the answer comes back
+Float32.
+
+## End of 2026-09-04: where things stand and what is next
+
+Beta went v1.1 -> v1.5 in one day, every push verified `origin/beta == tag` (after v1.2 and v1.3
+first landed on a stray `beta-read-only` branch the downstream created in the beta worktree --
+see the coordination memory; the push step now asserts the worktree branch and the remote head).
+`beta` = `2d87dc3` = `v1.5-beta-2026-09-04`, 14,277 tests green over 53 testsets.
+
+Open items, in the order to take them tomorrow:
+1. **Residuals by default when `nd > 0`** -- a positive `nd` without `return_diagnostics` returns
+   unverified near-derivations today (documented, warned). Small.
+2. **The restricted eigensolve is the video lever** (mis-attributed as flat earlier in the day;
+   the GPU agent's per-stage map corrected it). In order: measure honestly now that solves are
+   seeded; shift-invert / polynomial filter on the whitened operator (spectrum in [0, n],
+   identity diagonal blocks); stop the frame-axis restriction growing with movie length. Also
+   the 1-in-8 lost copy of a multiple eigenvalue in the restricted solve (seed-dependent).
+3. **Float16 storage on the device** -- mixed-eltype `_qdn_ttm` so the 6.6 GB Float32 host copy
+   disappears; the Float16 payoff is memory, not speed (half GEMM ~1x single on MPS).
+4. `Dleto.gpu_warmup(dims, T)` -- Metal specialization costs ~14 s cold on the movie shape.
+5. Downstream questions still open: real clone vs reading the beta worktree; fixed-`nd` vs a
+   singular-value threshold for the approximate policy; whether `DerivationReport` is complete.
+
+One-minute 640x480 movie, best prediction from the measurements (no run): ~2-3.5 min, central
+~2.5 min, ~19-26 GB in Float32 on the CPU path; the eigensolve is the whole uncertainty; the
+exact answer on real video is the scalar family (nullity 3) and the science is in the
+near-derivations, now reachable with `:fixed_nd` + `return_diagnostics`.
+
+## Session 3 (2026-09-03, overnight): stratification for valence >= 4, fast
+
+Branch `aint-no-mountain-high-enough/valence-n-stratify`.  Coordination board with every
+agent's findings: `bench/reports/night-2026-09-03/BOARD.md`.  Goals set by the user: 4-D
+sphere as the test input; two regimes (sparse tensors where contraction is cheap; dense
+video-like tensors H x W x T x 3); dims 10..100 under a minute now, 500..1000 within an hour
+later; find the right auto-selection of solvers / QuickDer options; verify every derivation by
+the Z-law.  Compute budget: Julia only through `bench/jl` (2 procs x 2 threads, 4G heap hint,
+5 GB RSS kill) because another job shares the machine.
+
+Work items and where they live:
+
+| item | files | status |
+|---|---|---|
+| Sphere harness for any valence (`build_sphere(d; valence)`, `reconstruction` for n axes, `bench/HypersphereBaseline.jl`) | `bench/SphereHarness.jl` | done; valence-4 nullity is 4 at every d, recovery 1e-13 |
+| QuickDer for any valence: sketch-restrict / solve / lift / verify | design `docs/design/QuickDer-valence-n.md`; code `src/solvers/QuickDerN.jl`; `:QuickDer` -> new, `:QuickDer3`/`:FastDer3Valent` -> old | done; 65x faster than SylverLining at 30^3, 152x at 16^4 |
+| `sylvesterLM` over plain arrays, zero-alloc apply, sparse branch | `src/SylverLining/SylverLining.jl` (`backend=:auto/:array/:itensor`) | done; bit-identical, 400 B/apply, 2-5x on sparse |
+| Oracle tests at valence 3/4/5 | `test/TestQuickDerN.jl`, `test/TestAutoDer.jl` | done |
+| Contraction backend research | `bench/reports/night-2026-09-03/contraction-options.md` | done |
+| Auto-selection: `:Auto` = QuickDer when applicable, SylverLining otherwise/on failure; `stratify` default | `src/solvers/AutoDer.jl` | done; thresholds pending the scaling sweeps |
+| Scaling sweeps (valence 4 dense/sparse/video; valence 3 to d = 250) and restricted-map solver choice | `bench/QuickDerScaling.jl`, `bench/QuickDerLargeD.jl`, `bench/Frontier.jl`, CSVs in `bench/reports/night-2026-09-03/` | done; Arpack-first on the matrix-free branch |
+| `:GramSolver` for the dense restricted solve (Gram + Cholesky-shifted, oversampled subspace iteration + Rayleigh-Ritz on the unsquared matrix) | `src/solvers/NullSolvers.jl` | done; 3 s vs 52 s SVD at d = 100 |
+| Apple-GPU backend (Metal.jl weakdep): `backend=:metal` for `sylvesterLM`, `device=:gpu` for QuickDer | `ext/DletoMetalExt.jl`, `ext/DletoMetalSylver.jl`, `ext/DletoMetalQuickDer.jl` | done (2026-09-04 morning) |
+| Native-core (Rust/C++) study | `docs/design/Native-Core-Plan.md` | done: do not port now |
+
+Frontier reached (5 CPU threads, Float64, `:Auto`): valence-4 scrambled sphere stratified at
+d = 100 in 11 s (d = 50 in 0.4 s, d = 80 in 1.4 s); valence-3 sphere d = 100 in 1.8 s, d = 150 in
+11 s, d = 200 in 22 s (8 GB peak; the dense Gram route, `QDN_DENSE_BUDGET_BYTES` = 2.5 GB);
+video-shaped 100x100x100x3 derivations in 3.2 s; sparse raw valence-4 sphere d = 100 (nullity 13)
+in 6 s.  Every result verified by the Z-law.  Beyond d ~ 200 at valence 3 the matrix-free
+restricted branch must converge on its own, and on structured tensors Arpack hits its iteration
+cap there -- preconditioning that branch is the next lever toward 500..1000.
+
+Integration branch `beta` = `main` + every active September branch, 13,103 tests passing; `main`
+itself is untouched until the user says push.  `beta` lives in its own worktree and the primary
+worktree carries the active daily branch.  `beta` is an approval gate, not a working branch --
+see "How work reaches beta" below.
+
+GPU (M4 Max, 40 cores; Metal is Float32-only so GPU runs are exploratory, Float64 CPU certifies):
+- `sylvesterLM(...; backend=:metal)` applies the derivation operator 6-17x faster than 5 CPU
+  threads on dense tensors on a quiet machine (100^3x3: 26 -> 4.6 ms; 400^3: 889 -> 53 ms;
+  300^3x3: 1178 -> 169 ms); end-to-end Float32 Arpack derivations 100^3x3 372 s -> 100 s,
+  200x200x100x3 1426 s -> 246 s (2000-11000 applies).  `permutedims!` on the device, not the
+  GEMM, is the bottleneck.  On generic tensors QuickDer answers the same question in ~3 s, so the
+  GPU operator is the accelerated FALLBACK for tensors that fail QuickDer's genericity check.
+- QuickDer `device=:gpu` is a hybrid -- Gram and M*X on the device (11.6x), Cholesky/qr/svd on the
+  host because Metal's MPS Cholesky is 4.5x slower than the CPU's -- 2.6x end to end at d = 200.
+  QuickDer's work is small by design, so the GPU pays less there.
+- Extension pitfall: an extension may only ADD methods; redefining a core method (even a
+  zero-argument hook) is method overwriting and silently blocks the extension's precompilation on
+  Julia 1.12.  The GPU hooks are therefore `Ref`s set in `__init__`.
+
+Native core (`docs/design/Native-Core-Plan.md`): measured at d = 100 the dense branch spends its
+time in `syrk` and Cholesky at the hardware rate, so a Rust/C++ kernel calling the same BLAS gains
+nothing; the walls beyond d ~ 130 are iteration counts.  Native kernels only behind a measured 2x
+gate, as a `Dleto_jll` weakdep extension so a `git clone` never breaks.
+
+Robustness fixes from the sweeps: `solve_nullspace` confirms an iterative solver's nullity with a
+doubled request before trusting it (Krylov methods returned 4..11 of a 13-fold zero eigenvalue);
+`GramSolver` oversamples its subspace (a true derivation dropped out at valence 4, d = 50);
+`nullspace()` on a tall residual matrix took the full SVD (7 GB `U`).  Eigensolver run-time
+outliers (Arpack 127-346 s on cases that otherwise take seconds) remain unexplained.
+
+Bugs fixed along the way: `dense_is_cheap` densified a 160000x840 map because a small side
+short-circuited the byte budget (now bytes decide); `SVDSolver` used the thin SVD and so lost the
+null space of wide maps; `TransverseOpsSymmetries(fr, localOp)` referenced an undefined variable;
+extension solvers (KrylovKit, IterativeSolvers) now register on `using Dleto` because Dleto imports
+them.  Arpack is a weak dependency: `bench/jl` stacks the shared env `@dleto-bench` that carries it.
+
+Key design decision (QuickDer-n): restrict by *sketching* each output axis with a random
+orthogonal `W_a` (d_a x r_a) rather than by a corner slice.  The corner is a special case
+(`W_a = I[:, 1:r_a]`) and is what breaks on structured tensors -- the unscrambled sphere's
+corner is all zeros.  The restricted system is `sum_a P[rho,a] (S_a x_a Y_a) = 0` with cross
+sketches `S_a = Gamma x_{b != a} W_b` and unknowns `Y_a = M_a W_a`; it has `prod r` equations and
+`sum d_a r_a` unknowns, so at d = 1000 valence 3 it is ~6000x cheaper per apply than the full
+operator and is handed to `solve_nullspace` (dense SVD when small, LSMR/Arpack when not).
+The lift is one least-squares solve per axis with a shared QR; a linear consistency filter
+removes restricted solutions that are not restrictions of true derivations, and the Z-law on
+random output slices verifies the result.
+
+## What this package is
+
+OpenDleto is the Julia implementation of the *chiseling* algorithms for detecting sparsity
+patterns in tensor data. It is the Julia sibling of the Magma packages at
+<https://github.com/thetensor-space>.
+
+Governing papers (in the authors' hands, not all public):
+
+| Paper | Role |
+|---|---|
+| `null_patterns.pdf` | Defines what this software does: chisels `C`, sparsity patterns `Delta(C, delta)`, `Der(C, Gamma)`, Algorithms 1 and 2 |
+| `Densor.pdf` (*Tame Traits of Tensors*) | The mathematical model underneath: the ternary Galois connection on T-sets / I-sets / Z-sets, derivations, densors, Theorem A |
+| `Rihana.pdf` (*Exact sequences of inner automorphisms of tensors*) | Extends valence; situates derivations among nuclei and centroids via Rosenberg–Zelinsky-style exact sequences |
+| `der-densor.pdf` (*Tensor isomorphism by conjugacy of Lie algebras*) | An application of densor spaces: isomorphism testing |
+
+Key correspondence to remember: a **chisel is the linear-polynomial special case of the
+polynomial ideal `P`** in the Densor T/I/Z framework. `Der(C, Gamma) = Z(Gamma, P)` for the
+linear ideal `P` spanned by the rows of `C`.
+
+## Sister Magma packages
+
+`TensorSpace` (core types), `Sylver` (`src/Invariants.m` — `DerivationAlgebra(t,A,k)`,
+`Centroid`, `Nucleus`, `AdjointAlgebra`), `Densor` (`DerivationClosure`, `NucleusClosure`,
+`UniversalDensorSubspace`), `Stratacastor`, `Homotopism`, `MatrixAlgebras`.
+
+Magma parametrizes invariants by `(A, k)` — a subset of coordinates plus an integer. OpenDleto
+parametrizes by an explicit `m x l` chisel matrix, which is **strictly more expressive** (it can
+express the inequivalent chisel families of `null_patterns` §8.3 that `(A,k)` cannot). Preserve
+that advantage in any refactor.
+
+## How the code reached its current state
+
+Two developers with opposing strategies worked on it and overwrote each other — one an
+incremental "add as you go" problem-solver, one an over-designer. History is on GitHub. The
+result is a package that has both bare untyped helpers and deep abstract-placeholder hierarchies
+(`@assert false` stubs), plus dead code and exports of names that were never defined. Treat
+inconsistency as collision fallout, not intent.
+
+**Current goal:** plan a refactor that strikes the balance between those two styles and leaves
+room to extend the package with new applications.
+
+## Stated aims so far
+
+- OpenDleto should be a state-of-the-art Julia implementation.
+- T-sets, I-sets and Z-sets from `Densor.pdf` must be easy to define in the model — especially
+  the linear-polynomial case, i.e. chisels.
+- Multiple selectable derivation solvers (the `FastDer3Valent` work is a first instance).
+- Extensibility for new applications.
+
+**The authoritative statement of intent is [`docs/Dleto-Design.md`](Dleto-Design.md)** — read it
+first. It defines chisel / derivation / densor, fixes the substrate vocabulary (axes, base, frame,
+tensor space, interpretation, tensor), states that T and Z are the same system with a different
+unknown slot, asks for a solver factory with defaults, and sketches the intended file layout. Its
+own open TBDs: a dual/covariant axis marker, and `U → hom(V,W)`-style interpretations.
+
+The refactor plan derived from it is [`docs/review/Refactor-Plan.md`](review/Refactor-Plan.md).
+
+## Findings
+
+Full review with mermaid diagrams: [`docs/review/OpenDleto-vs-Magma.md`](review/OpenDleto-vs-Magma.md).
+Findings marked **[FIXED]** were repaired in session 2; see *Work completed* below.
+
+Headlines:
+- **[FIXED] T-sets were absent.** `Densors.jl` contained only `stratify`; `den` was an
+  `@assert false` stub. The package named for the densor could not compute a densor.
+- **I-sets are still absent.**
+- **Z-sets exist** and are more general than Magma's, but chisels are untyped bare matrices and
+  no solver applies `normalize_chisel`.
+- **Numerics diverge from the paper**: Algorithm 2 says take the SVD of `N`; the code
+  eigen-decomposes `N'N`, squaring the condition number. The `sigma_(e+1)` test that decides
+  "this tensor admits no pattern for this chisel" is never performed. *(Still open. Session 2
+  measured the consequence: see "Conditioning is the binding constraint" below.)*
+- **`stratify` throws away `delta`**, i.e. the sparsity pattern itself, and applies no canonical
+  eigenvalue ordering. *(Still open.)*
+- **[FIXED]** Dead code: `ChiselImpls.jl:57,61` (undefined `Fch`, `enggaged`),
+  `Derivations.jl:88`, `export der` with no definition.
+- No sanity-check harness *(now partly addressed: equational-law tests, see below)*, no invariant
+  caching, no `Homotopism` / `TensorOverCentroid` analogue.
+- **[FIXED] `FastDer3Valent` solved the wrong chisel** — the reference solves
+  `X·R + S·Y − T·Z = 0`, so the third slot enters negated, and the port turned chisel
+  `[c₁,c₂,c₃]` into `[c₁,c₂,−c₃]`. Fixing the sign was not enough: the system-matrix
+  construction was wrong in all three blocks and a fabrication heuristic masked it. Replaced by a
+  line-for-line transcription of the reference.
+- **[FIXED] `FastDer3Valent` dropped the reference's solution verification**, which exists
+  precisely because solve-and-lift is only generically correct at a given `(a',b',c')`.
+
+## Sibling repo: `../fast-der-solver`
+
+Chris Liu's repo (grad-show poster 2025) holding **two** solve-and-lift algorithms. Both restrict
+to a small corner, solve densely, then lift by small least-squares solves; both are valence-3
+only, which is acceptable. **Both are now ported.**
+
+| Liu's file | What it solves | Restriction | OpenDleto name |
+|---|---|---|---|
+| `quick-der-lib.jl` | derivations `XR + SY − TZ = 0` | all three axes | `:QuickDer` (alias `:FastDer3Valent`) |
+| `quicksylver-lib.jl` | Sylvester with RHS `XR + SY = T` | two axes, affine frame | `:QuickSylver` |
+
+The naming was a live source of confusion: `:FastDer3Valent` made the derivation lift sound like a
+different family from `:QuickSylver` when it is the *flagship derivation member of the same
+family*. `:QuickDer` is now the primary name, matching Liu's own `quick-der` / `quicksylver`
+split; `:FastDer3Valent` is kept as an alias.
+
+`quicksylver-lib.jl` also has an ITensor variant, `quick-der-itensor-lib.jl` (the newest file in
+that repo), which differs only in using `pinv` for the lifts instead of `linear_equals_affine`.
+Author's own benchmark `quicksylver-vs-dleto-results.csv`: at ~6 minutes wall clock,
+solve-and-lift reached `n = 315` vs the then-current OpenDleto path at `n ≈ 68` and a dense
+baseline at `n ≈ 33`.
+
+## Work completed (session 2)
+
+Branches, in order. Each is a task branch off the previous.
+
+**`i-can-see-clearly-now/phase-0-green-baseline`** — get the suite green.
+- `Project.toml`: `Random` moved from `[weakdeps]` to `[extras]` with a `[targets]` test entry;
+  `IJulia`/`ProgressMeter` weakdeps with no `[extensions]` entry dropped.
+- `test/TestSylverLining.jl` ported from the pre-rename API (`Local*Ops`→`*Op`,
+  `TransverseOpsIndependant`→`IndTransverseOps`) and re-enabled in `runtests.jl`. It checks the
+  transpose law `⟨a, f'(B)⟩ = ⟨f(a), B⟩` and `f'∘f == derdensor_map`.
+- `ChiselImpls.jl` dead code fixed; `ChiselFramed` renamed to **`Chisel`**.
+- `SylverLininig.jl` → `SylverLining.jl`; scratch files removed.
+
+**`signed-sealed-delivered/der-and-derivation-law`** — the T-set, the laws, the solvers.
+- **`der`** (Z-set) replaces `derITensor`; three tiers (`der`, `derReduced`, `derTrOps`,
+  `derTrOpsReduced`) plus convenience overloads that default `Ω` and the chisel.
+- **`den`** (T-set) implemented, as the design predicted: it is the transpose of the
+  `sylve`/`ester` pair. `denLM` returns a genuine rectangular `LinearMap` with a real adjoint
+  (verified to 3.6e-15), so every null solver applies; `den`'s `nd` parameter is a batch size,
+  default 10, negative meaning "a basis".
+- **Equational-law tests** (`test/TestDerivationLaws.jl`): Z-law, T-law, Galois adjunction,
+  `denLM` adjoint, and stratification-as-change-of-frame. The verifier `applyDerivation` already
+  existed in the package with **no caller** — it was written and never wired up.
+- **`:QuickDer`** — the FastDer transcription; dim 38 at 6e-16 on the `n = 19` circulant family
+  where it previously returned dimension 0.
+- **`:QuickSylver`** ported (double restriction, affine frame → linear basis via offsets from the
+  first point); validated against the closed-form oracle `dim scl(C_adj) = 1`
+  (`null_patterns` §7.2 eq. 18).
+- **`nd` truncation bug**: `SylverLining` rewrote `nd <= 0` to the *valency*, silently returning
+  3 vectors of a 6-dimensional space (diagonal 3×3×3) and 3 of 38 at `n = 19`. Oracle for the
+  regression test: the diagonal tensor's derivation space is `2n`.
+- **Trivial Z-sets are no longer errors.** A Tucker chisel on a generic tensor legitimately has
+  `Z = {0}`; the code asserted "Not enough eigenvalues computed; increase `tol`", reporting a
+  mathematical fact as a solver failure.
+- **Solver registry.** `solve(L, sym)` was a hard-coded `if/elseif` over seven symbols, but the
+  extension solver *types* live inside the extension modules, so five of the seven raised
+  `UndefVarError: KrylovSolver not defined in Dleto`. Replaced by
+  `SOLVER_REGISTRY` / `register_solver!` / `available_solvers()`, with registration inside each
+  extension's `__init__()` — **not** at module level, where precompilation discards it.
+- **All five null solvers now run.** `Vector{<:Number}` → `AbstractVector{<:Number}` across the
+  operator layer (block methods pass views, so CG and Lanczos died in
+  `unsafe_embedITensorsSwapped` before reaching any linear algebra); KrylovKit returned `vecs` as
+  a vector-of-vectors instead of a matrix; `svdl` returns `(SVD, history)` not `(S, V)`; LOBPCG's
+  block size ignored `nv` and needed adaptive shrinking.
+- **`der(::Symbol, Ω, ch, Γ)`** was missing — every *partial* setting had a symbol form, so the
+  natural call for comparing methods on a fixed operator space was a `MethodError`.
+- **`stratify` retag** — the `# retag the indexes` TODO. Each `X_a` carries
+  `(a-th index, temporary partner)`, so contracting left the *temporary* index behind and `Σ` came
+  back on the temporary frame: a stratified tensor could not be re-chiseled or even verified
+  (`AssertionError: Incompatable Indexes`).
+
+### The null-solver layer, centralized
+
+**All null-solver policy lives in `solve_nullspace` (`src/solvers/NullSolvers.jl`) and is tuned
+there once.** Previously `SylverLining` and `den` each carried their own copy — a hand-rolled
+`globalDim < 1000` dense gate plus a dense `eigen` branch that bypassed the solver interface
+entirely in one, a `__needsSquare(sym)` symbol list plus its own filter in the other. Tuning
+either left the other stale. The pieces:
+
+- **`dense_is_cheap(L)`** gates every `Matrix(L)`. The test is on **bytes**, with dimension as a
+  shortcut, because dimension alone is the wrong criterion for a rectangular map: the derivation
+  operator at `n = 19` is 1083×1083 — just over the 1000 dimension limit, but only 9 MB, so
+  densifying is free and buys SVD accuracy — while the densor map at the same `n` is
+  260642×6859, i.e. **14 GB**.
+- **`AutoSolver`** is the default for `der`, `den` and `stratify`: densify when cheap, otherwise
+  delegate to a matrix-free solver, squaring the map *as a composition of linear maps*.
+- **Adaptive escalation.** `nd <= 0` means "a basis", and both callers used to turn that into
+  "compute the entire spectrum" (`nv = globalDim(Ω)`, `nv = prod(dims)`). That is what made the
+  iterative solvers look useless — at `n = 19` Arnoldi was asked for 1083 of 1083 eigenvalues,
+  retried five times and returned 9; LOBPCG was handed a block of 1083 and could not factorize
+  it. Now: ask for a modest `nv`, count how many values fall below `tol`, and double only while
+  *every* returned value is below it — the signal that the null space is not yet bracketed. Cost
+  is proportional to the true nullity.
+- **`wants_square(::NullSolver)`** trait, so the central layer can form `LᵗL` on behalf of
+  whichever eigensolver was named, including one an extension adds later.
+- **`ShiftInvertSolver`.** Every black-box iterative eigensolver converges to an *extreme* of the
+  spectrum, and most to the largest — which is why `LanczosSolver` returned dimension 0: `svdl`
+  was pointed at the wrong end, not failing. The transform `(AᵗA + εI)⁻¹` sends small eigenvalues
+  to large ones, so a largest-end method converges straight to the null space, and fast, because
+  the gap between 0 and `λ_min` is stretched to the gap between `1/ε` and `1/(λ_min + ε)`.
+  **The ε is not optional**: a genuine null vector has `λ` exactly 0 up to rounding, so an
+  unshifted `1/λ` overflows precisely on the vectors being sought — the better the solver, the
+  worse the blow-up. The inverse is never formed; `AᵗA + εI` is SPD, so it is applied by
+  conjugate gradients (a 20-line `cg_solve` ships in core, so the transform needs no optional
+  dependency). The whole chain from tensor contractions to null space stays matrix-free.
+
+**`den` no longer densifies.** It cost `O(n⁷)` memory — 14 GB at `n = 19`, 120 GB at `n = 26` —
+for an answer that is a handful of vectors and an operator that is a few tensor contractions.
+`denLM` was *already* abstract, with a genuine adjoint; the two defaults (`:SVDSolver`, and
+`nd = -1` meaning "the whole spectrum") threw that away.
+
+### `LSMRSolver` — the null space by projection, never squaring (the working answer)
+
+Getting `den` to be *correct* matrix-free took one more step. Every other iterative solver here
+is an eigensolver, so it needs `AᵗA`, and on the densor map that squaring is what fails:
+measured at `n = 10` (map 20000×1000) `σ_max = 1.45e3`, the ten null directions sit at
+`σ ≈ 3e-13`, and the smallest **nonzero** singular value is `2.2e-2`. So the null space is
+separated by **1.5e-5 relative in σ** — a huge, comfortable gap — and by **2.3e-10 in σ²**,
+shedding an order of magnitude of headroom per step in `n`.
+
+**The method is not an eigensolver — it is a projection**, which is why it needs to know nothing
+about the spectrum:
+
+    null(A) = { w − A⁺(A w) : w arbitrary }
+
+since `A⁺A` is the orthogonal projector onto the row space. And `A⁺y` is exactly what LSMR
+computes (minimum-norm least squares), using only `A` and `Aᵗ`. One LSMR solve per candidate
+vector; no shift, no eigenvalue iteration, nothing squared. Three details are load-bearing:
+
+- **Iterative refinement.** One pass leaves an error of about `lsmr_tol · κ_row`: measured
+  `σ ≈ 2e-5` where the truth is `3e-13`. The projector is idempotent in exact arithmetic, so
+  re-projecting an already-nearly-null vector is standard refinement — `‖Az‖` is now tiny, so the
+  same *relative* tolerance buys a far smaller absolute correction. One extra pass took
+  `σ` to `2.2e-13`, matching the true null singular values.
+- **Rank-revealing QR gives the nullity for free.** Project `k > d` random vectors and they span
+  the `d`-dimensional null space, so a column-pivoted QR reports `d`. Unpivoted `qr` would hand
+  back `k` columns whatever the rank, and the extra ones would be noise indistinguishable from
+  null vectors.
+- **Return one column *above* threshold.** `solve_nullspace` brackets by seeing something
+  non-null. A solver returning only what it believes is null can never let it bracket, so the
+  request doubles to the full dimension — 868,000 map applications at `n = 10` before this was
+  caught.
+
+What was tried first and does **not** work: shift-invert subspace iteration, the textbook
+approach. Its inner solve `(AᵗA + σI)x = v` is conditioned at `σ_max/√σ`, and picking `σ`
+requires knowing the spectral gap in advance. With `σ` small enough to separate the null space
+the stacked map had `κ ≈ 1e7`, needing thousands of LSMR iterations; capped at 400 it returned
+mid-spectrum directions (`σ ≈ 250–500` out of 1451), i.e. noise. The projection has no such
+parameter — the only conditioning that matters is `σ_max/σ_min⁺` on the row space, 6.6e4 here,
+which LSMR handles in a few hundred iterations.
+
+Matrix-free `den` on maps far too large to densify, `LSMRSolver` vs LOBPCG-on-`AᵗA`:
+
+| n | map | dense would need | `CGSolver` (squared) | `LSMRSolver` (unsquared) |
+|---|---|---|---|---|
+| 10 | 20000×1000 | 0.1 GB | 10 of 10, 2.0e-12 | **10 of 10, 2.0e-15**, 41 s |
+| 15 | 101250×3375 | 2.5 GB | 15 of 15, 1.2e-11, 190 s | **15 of 15, 4.8e-15, 31 s** |
+| 19 | 260642×6859 | 13.3 GB | **11 of 19**, 2.1e-05, 166 s | **19 of 19, 1.1e-14, 131 s** |
+
+Faster *and* four orders more accurate, and it is the only one that gets `n = 19` right at all.
+This closes the Algorithm-2 deviation for the densor side: the paper takes the SVD of `N`, and
+nothing in this chain — projection, inner solve, or reported value — squares the operator.
+
+**Verified range and the cost wall.** `den` is verified correct to `n = 19` (~2 min). At `n = 26`
+it was measured running at **7 map applications/s** — each application is `|Δ| = 52` forward plus
+52 adjoint contractions on 17576-element tensors — which extrapolates to roughly **4 hours**, and
+was stopped rather than run to completion. So the memory wall is gone but a time wall remains, and
+it is in the *map application*, not the solver: cost is `O(k · lsmr_iters)` applications, each
+`O(|Δ| · n³) = O(n⁴)`. The lever is the LSMR iteration count, which goes like `√κ_row` and would
+need a preconditioner to reduce; `nv0 = 16` also over-asks when the nullity is known to be `n`.
+Neither is attempted yet.
+
+### Progress reporting — optional, tagged, off by default
+
+```julia
+der(Γ; progress = true)               # every stage
+den(Ω, P, Δ; progress = :densify)     # just the dense build
+den(Ω, P, Δ; progress = [:solve])     # just the iterative applications
+```
+
+Chiseling spends its time applying *our own* maps — `sylve`/`ester` in `sylvesterLM`,
+`forward`/`adjoint` in `denLM` — so every unit of work is a call we control and can count. One
+wrapper (`progress_wrap`) serves both stages, because `Matrix(L)` applies the map once per
+column. Consequently:
+
+- **`:densify` has an exact denominator** and reports a percentage and ETA. This is the case that
+  actually makes people wait — densifying the densor map at `n = 12` is 1728 contractions in a
+  loop that previously printed nothing at all.
+- **`:solve` has none**, so it reports count and rate rather than a fabricated ETA.
+
+Nothing prints until a stage has run for a second (`delay`), so short solves stay silent; an
+unknown tag errors eagerly rather than silently reporting nothing.
+
+Implementation note that bit: the `kwargs...` on the *symbol* overloads of `der` are forwarded to
+the **method constructor** (`solver=`), so a per-call option like `progress` was being handed to
+`SylverLiningMethod(; progress=...)`. Per-call options must be named explicitly in every symbol
+overload; `stratify` likewise must not sweep them into `method_kwargs`. Two kinds of keyword share
+one splat, and the distinction is invisible at the call site.
+
+### Conditioning is the binding constraint (measured)
+
+Decision 4 predicted that `κ(C)` matters because the composed operator carries `CᵗC`. Session 2
+measured the stronger version: `sylvester = ester ∘ sylve` **is** `AᵗA`, so its condition number
+is `κ(A)²`. On the `n = 19` circulant family the spectrum spans ~25 orders of magnitude. Measured
+per solver, with `nv` set to the whole space — i.e. *before* the escalation fix, so this table
+also records what asking for the entire spectrum does to each method:
+
+| solver | dim found (true: 38) | residual | note |
+|---|---|---|---|
+| `SVDSolver` | 38 | 4.1e-14 | correct; densifies (9 MB here, so allowed) |
+| `LUSolver` | 32 | 3.1e-14 | `lu` pivots rows only, so it is **not rank revealing** |
+| `KrylovSolver` | 9 | 3.5e-15 | accurate but partial: Arnoldi stops on an invariant subspace |
+| `LanczosSolver` | 0 | — | `svdl` converges to the **largest** singular values — wrong end; this is what `ShiftInvertSolver` fixes |
+| `CGSolver` | 19 | 7.1e-07 | LOBPCG unpreconditioned on `AᵗA`; block must be shrunk to factorize |
+| `:QuickDer` | 38 | 5.3e-15 | 3× faster than `SylverLining/SVD`; solves densely on a restriction |
+
+Reading: squaring the operator, and asking for the whole spectrum, are both avoidable. The
+remaining Phase 5 item is to stop forming `AᵗA` *at all* where the solver allows the rectangular
+map — take the SVD of `A`, or LSQR on `A`, exactly as Algorithm 2 says.
+
+## Decisions on record
+
+1. **`Chisel` is the full setting `(𝕋, Ω, P)`** (2026-09-02). A wrapper around `P` alone would
+   just wrap a Julia array and earn no new name.
+   - Follow-up (2026-09-02): the convenience builders keep their names and return a full
+     `Chisel`, defaulting `𝕋` to the full tensor space with no symmetry and `Ω` to full square
+     matrices on every axis. Since those defaults need `dim(U_a)`, the builders take a **frame**
+     (or a tensor to read it from) rather than a bare valence.
+   - Follow-up (2026-09-02): builders are **curried** — they return a `ChiselTemplate` that
+     completes itself when applied to a tensor or frame. Templates are reusable across tensors;
+     `stratify`/`der`/`den` accept either a template or a full `Chisel`.
+   - Follow-up (2026-09-02), load-bearing: **chisels are keyed by `Index`, not by axis
+     position.** A chisel names the indices it engages and applies to any later tensor carrying
+     them, at any valence and any axis order. So `UniversalChisel()` takes nothing and reads the
+     valence off the data; `UniversalChisel(i,j,k)` engages exactly those; `AdjointChisel(i,j)`
+     and `TuckerChisel(i)` take `Index` terms directly instead of valence-plus-positions.
+     `UniversalChisel(3)` no longer needs the `3` — recommendation is to keep the integer form
+     as a *valence assertion* rather than deprecate it. This kills the silent-wrong-answer class
+     where a positional chisel targets the wrong axes after a reorder or relabel, turns
+     "engagement" from a position mask into a set of indices, and makes
+     `chisels/ChiselImpls.jl`'s `ChiselFramed` (which already carries `Dict{Index,Integer}`) the
+     direct ancestor of `Chisel` — so its dead functions get superseded rather than deleted.
+   - Follow-up (2026-09-02), **transpose convention**: the engaged indices are an *ordered
+     tuple*, never a set. `AdjointChisel(i,j)` vs `(j,i)` cuts out the same solution set but
+     decides **which coordinate is transposed**, and that is what makes the result an algebra
+     rather than just a subspace: from `AM = MB` and `XM = MY` one gets `(XA)M = M(YB)`, so the
+     two coordinates compose in opposite orders and pointwise product needs one coordinate in the
+     opposite ring (equivalently, stored transposed, since `(XA)ᵗ = AᵗXᵗ`). **Convention: the
+     transpose lives on the first coordinate**, matching linear algebra and matching Magma's
+     `End(U_a)^op × End(U_b)` (`Rihana.pdf` §1.2; `Sylver/src/Invariants.m` transpose bookkeeping
+     and `LeftNucleus(t : op := false)`). **Implementation: track it passively** — solve for the
+     same matrices, apply the transpose only at the reporting boundary and inside products.
+     Note this already exists in the code unnamed: `sylvesterLM` solves via
+     `unsafe_embedITensorsSwapped` while `stratify` reports via plain `embedITensors`. Name it,
+     document it, pin it with tests — after verifying which embedding is which.
+2. **`stratify` returns a `Stratification` type**, not a `NamedTuple` (2026-09-02), so fields can
+   be added later without breaking callers. Fields: `Σ`, `Xs`, `δ`, `pattern`, `verdict`,
+   `chisel` (provenance, mirroring Magma's `DerivedFrom` breadcrumbs). Field access is unchanged,
+   so labs keep working; only the positional destructure at `Densors.jl:58` needs attention.
+3. **Densor first** (2026-09-02): fill the missing T-set gap before the numerics work. Confirms
+   the existing phase order. Caveat recorded in the plan — the new T-path must extract nullspaces
+   via SVD/LSQR from the start rather than copying the `NᵗN` pattern, or Phase 5 fixes the same
+   flaw twice.
+4. **No single canonical `P`; keep any representative of the row span** (2026-09-02). Because
+   `ester`/`sylve` contract with chisel columns on the way in and out, the composed operator
+   carries the column Gram matrix `CᵗC`, which iterative solvers hit repeatedly — so `κ(C)` can
+   degrade convergence multiplicatively. RREF + integers is the form for reasoning and for how a
+   user starts; conditioning-aware selection is future work. This vindicates the existing
+   `normalize_chisel` (SVD row basis, `κ = 1`) as the conditioning-optimal policy — it is simply
+   never called and not selectable.
+
+### Test-suite state
+
+**As found (session 1):** `ERROR: Package Dleto errored during testing` after 2460 passes.
+`Random` sat in `[weakdeps]` while `[targets]` declared only `test = ["Test"]`, so
+`TestFastDer3Valent.jl` never executed and the new solver was effectively untested. Both
+`TestSylverLining.jl` and `TestDerivations.jl` were commented out of `runtests.jl`, so the
+primary numerical solver had no tests running at all — the single largest coverage gap.
+
+**Now (`Pkg.test()`, Julia 1.12.3, end of session 2): green, 7853 passing, 0 failing, 0 broken.**
+
+| testset | tests | time |
+|---|---|---|
+| realCanonicalForm | 4500 | 1.4s |
+| Chisel | 1280 | 0.5s |
+| Operators | 190 | 2.2s |
+| TransverseOpsIndependant | 900 | 11.1s |
+| TransverseOpsSymmetries | 1340 | 15.9s |
+| Tensor Synthesis | 32 | **3m50s** — still pathologically slow, unfixed |
+| QuickDer / FastDer3Valent | 8 | 5.3s |
+| Z-law | 32 | 1.7s |
+| `denLM` adjoint | 29 | 1.3s |
+| T-law | 23 | 0.0s |
+| stratify as change of frame | 17 | 0.9s |
+| Galois adjunction | 19 | 0.1s |
+| SylverLining (independent / trivial-symmetry / symmetry) | 1650 / 1650 / 208 | 43.7s / 42.8s / 13.7s |
+
+## Benchmarks
+
+`bench/ChiselOperationBench.jl` compares **all three operations** — `der` (Z-set), `den` (T-set),
+`stratify` (pattern) — across `(method, chisel)` categories, plus the null-solver axis, writing
+`bench/chisel-operation-results.csv` and a six-panel log-log figure (time and accuracy per
+operation). Run `julia --project=. bench/ChiselOperationBench.jl [short|long]`.
+
+Two things the benchmark had to get right to mean anything:
+- The tensor family must be **structured**. Liu's `K_M_field_tensor` is the multiplication tensor
+  of `K[x]/(x^n − c)` (`null_patterns` Ex. 5.2), scrambled by random basis changes, so the
+  derivation space is `2n` but invisible in the given basis. A *generic* tensor has only the
+  scalar derivations, and its densor is then the **whole** tensor space (§5.4, "scalar derivations
+  reveal nothing") — measuring `den` there measures nothing.
+- The size grid must cross **`n = 19`**, because `SylverLining` only dispatches to the null
+  solver when `globalDim(Ω) = 3n² ≥ 1000`. Below that it uses a dense `eigen` and every
+  `/solver` variant is the same code path.
+
+An intended result worth not mistaking for a bug: **`stratify`'s frame conditioning `κ` comes out
+identical across all four categories** (~10 digits) while varying trial to trial. `K[x]/(x^n − c)`
+is commutative, so its elements share an eigenbasis; the frame putting a random derivation into
+real canonical form is the same frame whichever derivation was drawn and whichever chisel or
+method found it. The pattern is a property of the *tensor*. So `κ` cross-checks agreement between
+methods rather than discriminating them, and the discriminating axis for `stratify` is time.
+
+## Conventions agreed with the user
+
+- **Branches:** every edit goes on its own task branch, named to hint at popular song lyrics.
+  Claude may use all git features of this kind freely and pauses only to confirm a push to `main`.
+  Session 1: `we-can-work-it-out/opendleto-review-refactor`. Session 2:
+  `i-can-see-clearly-now/phase-0-green-baseline`, then
+  `signed-sealed-delivered/der-and-derivation-law` (current).
+- **Context:** keep this file updated for future chats.
+- Diagrams: mermaid fenced in markdown.
+- Running the Julia test suite is pre-approved, as are informational bash commands.
+
+## State of the working tree
+
+- `signed-sealed-delivered/der-and-derivation-law` is the live branch and carries everything in
+  *Work completed* above. It has **not** been merged to `main`.
+- The review docs (`docs/CONTEXT.md`, `docs/Dleto-Design.md`, `docs/review/*`) were authored on
+  `we-can-work-it-out/opendleto-review-refactor` and did not descend to the later branches; they
+  were checked across explicitly. If a future branch is cut from `main`, bring them along.
+- Cruft still to clean: `src/I want you to read OpenDelto and fast-de.md` (a mis-saved prompt),
+  root-level `test_deriv*.jl` scratch files, `test/old-tests/`, a Python `.venv/` in the package
+  root.
+- Note on history: the Phase 0 archive commit accidentally swept in a `git mv`
+  (`SylverLininig.jl` → `SylverLining.jl`), because `git commit` takes the whole index. Not
+  rewritten, since six uncommitted edits were at risk at the time.
+
+## Direction set 2026-09-04 (evening): the movie regime runs in Float16
+
+The user's target is video: 640 x 480 x F x 3 at 30 fps, F up to 1800 (one minute), and by
+decision it will run in **Float16** -- 3.3 GB for the minute instead of 6.6 GB. Measured on
+that shape today (Float32, whitened matrix-free QuickDer, 5 CPU threads,
+`bench/reports/2026-09-04/whitened/whitened.csv`):
+1 s / 3 s / 10 s of video take 21.6 / 28.3 / 44.7 s, all nullity 3/3 certified; the affine fit
+projects the minute at ~171 s of which ~20 s is the eigensolve (set by 640 x 480, flat in F)
+and ~150 s is the tensor-touching stages (linear in F). Peak RSS is ~14x the tensor
+(3.4 / 6.7 / 16.9 GB), NOT explained by input copies -- Float64 used no more than Float32 at
+the same F -- so the minute would need ~92 GB today.
+
+Measured again after the lean kernels landed (same harness, 5 threads, the machine shared with two
+other agents so wall times are noisy; raw measurements are in
+`bench/reports/2026-09-04/whitened/whitened.csv`):
+
+| 640 x 480 x F x 3 | F = 30 (1 s) | F = 90 (3 s) | F = 300 (10 s) |
+|---|---|---|---|
+| Float32 wall / peak RSS, before | 21.6 s / 3.4 GB | 28.3 s / 6.7 GB | 44.7 s / 16.9 GB |
+| Float32 wall / peak RSS, after | 22.7 s / **1.7 GB** | 18.7 s / **2.4 GB** | 34.8 s / **5.4 GB** |
+| Float16 input, after | 23.8 s / 1.7 GB | 24.2 s / 2.9 GB | 61.3 s / 5.4 GB |
+| nullity (oracle 3), verdict | 3, certified (all) | 3, certified (all) | 3, certified (all) |
+
+Fit on the current tree: `t = 18 s + 0.053 s/frame`, `RSS = 1.2 GB + 0.014 GB/frame` (maxrss under
+`JL_HEAP=6G`, so it carries GC headroom; the live set is ~2.8 GB per GB of tensor). The minute
+projects to **~110-170 s and ~19-26 GB in Float32 on the CPU** -- it runs on this machine now.
+Float16 input costs the same CPU memory as Float32 because the precision policy computes in
+Float32; the Float16 storage saving is realised only where storage stays Float16, i.e. on the GPU
+path being built.
+
+Order of work, decided with the user:
+1. **Memory first.** Profile the video shape per stage; find the precision-independent ~14x
+   footprint; target < 15 GB for the minute. Nothing else pays off until this lands.
+2. **Then GPU, designed together with (1).** Move the tensor stages (sketch, lift, verify --
+   the ~150 s) to Metal on the restructured pipeline: the tensor lives once, contracted
+   axis-by-axis without a full permuted copy (last night: `permutedims!` on the device, not GEMM,
+   was the bottleneck). The eigensolve stays on the host: 20 s, tiny, and Float32.
+3. **Float16 contract**, pending measurement (`docs/design/Float16-Metal.md` when it lands):
+   expected shape is Float16 storage and half operands on the GPU with fp32 accumulation and
+   output, Float32 for the restricted eigensolve, verdict floored by `data_floor(Float16)` so a
+   half-precision result is never certified beyond what the data carries.
+
+**Correction, later the same evening (GPU agent's per-stage map, `bench/reports/2026-09-04/gpu-movie/`):**
+the tensor stages are <= 5% of a movie run. The restricted eigensolve is NOT flat in F -- `r_3`
+grows with the frame count, so the restricted system grows (33480x31819 at F = 30 to 40800x38569
+at F = 300) and its cost, not the tensor's, carries ~90% of the wall-time slope. The "20 s
+eigensolve + 150 s tensor" split above was a mis-attribution of the affine fit. Consequences:
+the GPU port of sketch/lift/verify is correct and kept on (sketch 20x, verify 13.5x) but saves
+~9 s of a ~35-75 s minute; **the eigensolve is the lever for video after all**, and the Float16
+argument is memory (a 6.6 GB host copy next to a ~12 GB device footprint at F = 1800), not speed.
+Also measured: Metal pipeline specialization costs ~14 s cold on the movie shape -- a one-shot
+GPU run is a net loss without a warm-up entry point.
+
+Not now: native core (gated behind a measured 2x), the d = 1000 long-axis frontier as a goal
+in itself.
+
+## How work reaches beta, from 2026-09-04
+
+OpenDleto is now developed alongside a **private downstream project** that consumes it. That
+project keeps its own clone of this repository pinned to `beta`, so the worktrees here are not
+shared with anything -- branches can be switched freely. Do not reintroduce an arrangement where
+another project builds directly out of a working tree here; a checkout would change its build
+underneath it.
+
+- **`beta` is an approval gate.** Work happens on a *daily* branch,
+  `feature/<song-lyric>/<YYYY-MM-DD>` (the first was `feature/under-pressure/2026-09-04`). At the
+  end of the day the most promising, fully-tested improvements from it are submitted for approval;
+  only then do they merge to `beta`, and the downstream project fetches the update on its own
+  schedule. `main` is protected and untouched.
+- **Beta advances only in reviewed, tested steps**, tagged as
+  `v<version>-beta-<YYYY-MM-DD>`. The first is `v1.1-beta-2026-09-04`: 13,101 tests over 29
+  testsets, zero failures, on Julia 1.12.3.
+- **A second assistant maintains the downstream project.** Cross-project coordination -- advisory
+  git locks, a message queue, and reservations for big-memory runs -- lives in a coordination
+  directory *outside* both repositories, not in version control. Its rules in brief: claim the
+  advisory lock around pull/push/merge/checkout and release it immediately after; never
+  force-release the other side's; report memory while active; read the queue at the start of a
+  session and write to it after any merge to beta. Never modify the downstream repository --
+  bugs and feature requests come back through the queue instead.
+- **Memory on the shared machine.** The soft target for ordinary work is small (~2 GB), which no
+  benchmark fits inside. Runs over 6 GB are announced and negotiated: a joint ceiling of 56 GB of
+  the machine's 64, and correctness tests always outrank benchmarks
+  (`blocker` > `test` > `bench` > `explore`). Being outranked means checkpoint, exit and re-queue
+  at the head -- not abandon. `bench/jl` still defaults to a 5 GB per-slot RSS kill line; raise it
+  deliberately, per run, with a reservation to match.
+
+Housekeeping note: `bench/jl` used to leave a `juliaup self update` process behind on every
+invocation -- the overnight runs of 2026-09-03 accumulated 470 of them holding 3.8 GB. Fixed by
+resolving the real Julia binary once and bypassing the juliaup shim.
+
+## Next up
+
+Ordered by what unblocks what.
+
+1. **Numerics (Phase 5), now evidence-backed.** Stop forming `AᵗA`; take the SVD of `A` or run
+   LSQR on it, as Algorithm 2 specifies. The measured table above is the argument.
+2. **The `σ_{e+1}` verdict** (Algorithm 2) — the test that decides "this tensor admits no pattern
+   for this chisel". Never implemented, and it is what would give `stratify` an accuracy oracle;
+   the benchmark currently reports conditioning and Z-set-dimension preservation instead.
+3. **`stratify` should return `δ` and the pattern**, and a `Stratification` type (decision 2).
+4. **Phase 1 `Chisel`**: the full `(𝕋, Ω, P)` keyed by `Index`, with curried `ChiselTemplate`
+   builders (decision 1 and its follow-ups, including the transpose convention).
+5. **I-sets** — still entirely absent.
+6. Remaining law families not yet written: the scalar lower bound `dim Der ≥ e = dim null(C)`,
+   chisel row-span / torus equivalence, and product closure.
+7. `LUSolver` returns an incomplete basis (32 of 38) because `lu` is not rank revealing. It
+   reports honest residuals, so a caller filtering on `vals` is safe, but it should probably not
+   be offered as a general null solver.
+8. Arpack paths are unexercised — it is a weakdep and is not installed in the manifest.
+
+## Open questions
+
+1. Should the refactor keep ITensors as the tensor substrate, or abstract over it?
+2. Which applications are next — isomorphism testing, SphereLab-style continuous patterns,
+   hypergraphs?
+3. Target field support: floats only, or exact arithmetic (rationals / finite fields) too?
+4. Liu's thesis was offered and not yet read. It would settle: the sufficiency theorems for the
+   restriction sizes `(a',b',c')`, whether valence 3 with a one-row chisel is essential or
+   incidental, and the expected complexity — all of which currently rest on the reference
+   implementation's own choices rather than on a stated theorem.
+
+## Movie regime measured per stage, 2026-09-04 (late): the eigensolve is the movie
+
+`bench/GpuMovie.jl` + `bench/reports/2026-09-04/gpu-movie/README.md`. Read STAGE BY STAGE
+rather than by fitting wall time, the `640 x 480 x F x 3` run is not shaped the way the
+"Direction set 2026-09-04 (evening)" note assumed.
+
+- **The tensor stages are 1-5 % of the run, not ~85 %.** F = 300 Float32 CPU: 44.84 s of
+  restricted eigensolve against 2.459 s of sketch + lift + verify (0.933 / 1.054 / 0.472).
+  They *are* linear in F, at 0.0077 s/frame — but that is ~9 % of the slope of the total.
+  The rest of the observed growth is the eigensolve, which is **not** flat in F (`r_3` grows
+  with the frame count, so the restricted system grows from 33480x31819 to 40800x38569) and
+  is also the noisy term: 17 s and 54 s were seen for the same input in the same process.
+  The earlier "~150 s of tensor work at F = 1800" came from attributing the whole fitted
+  slope to the tensor stages; the measured projection is **14.1 s (CPU) / 4.8 s (GPU)**.
+- **Cold start dominates a one-shot device run.** The first movie-shaped GPU run pays ~14 s
+  of Metal pipeline specialization in the tensor stages (`verify` 3.257 s cold, 0.018 s
+  warm); a `10x10x10x3` warm-up does not cover it. The device path pays for itself only in a
+  process that solves several tensors. Any GPU benchmark that does not warm up on the shape
+  it measures is measuring the compiler — that is what `bench/GpuMovie.jl` exists to avoid.
+- **Warm, the device wins and the LIFT is the new wall.** Tensor totals 2.57x at F = 300,
+  rising with F; sketch 20x and verify 13.5x, but lift only 1.20x, because the lift's cost is
+  the host `qr(A) \ B` after the pair tensors (Metal has no `qr`), not the mode products.
+- **`permutedims!` was not the bottleneck the night board took it for.** Every device
+  primitive at the movie shape is milliseconds (skinny GEMM 1.4 ms, `norm` 7.6 ms,
+  `permutedims` 16.8 ms) against a 0.44 s warm tensor budget at F = 90. `_qdn_ttm!` now
+  chooses slabs over the permute by a cost model (`_qdn_slab_is_cheap`) and `_qdn_mode_order`
+  chooses which axis meets `d^n` — right, and worth tens of milliseconds.
+- **Float16 buys nothing today.** `compute_eltype` promotes it to Float32 before the tensor
+  is touched, so the Float16 and Float32 device rows agree to three digits and allocate the
+  same 2.06 GB. The measured half-precision contract needs a mixed-eltype `_qdn_ttm` AND a
+  decision about the host copy — the latter is a precision-policy change, not a kernel one.
+- **Memory, not speed, is the binding constraint for the minute.** Peak device allocation is
+  1.87x the tensor, so F = 1800 Float32 projects to ~12 GB on device next to a 6.6 GB host
+  copy, against a ~10 GB budget. That is what Float16 is for.
+
+## Notebook warm-up noise, 2026-09-09: precompiling inside the IJulia kernel
+
+`labs/Chiseling101.ipynb` greeted a fresh kernel with `Precompiling ITensors ... (cache
+misses: wrong dep version loaded ...)` followed by a wall of `SYSTEM: caught exception of
+type :MethodError while trying to print a failed Task notice; giving up`. Nothing was broken;
+the cause is a version split between two environments that share one process.
+
+- The stock IJulia kernel starts in the default environment (`@v1.12`) and loads IJulia's
+  own dependencies from there (Preferences, JSON, ZMQ, ...). The notebook then activates
+  `OpenDleto/` and `using ITensors` finds that the project Manifest pins a *different*
+  version of an already-loaded package (here Preferences 1.5.1 vs 1.5.2). Every cache built
+  against the Manifest version is rejected ("wrong dep version loaded"), so the kernel
+  recompiles in-process. The "failed Task notice" spam is IJulia's stdio choking on the
+  parallel precompile's task failures; it is a symptom, not a second problem.
+- Cure applied here: `Pkg.update("Preferences")` in the project (Manifest.toml is
+  gitignored, so this is per-machine) and `Pkg.precompile()` through `bench/jl`. With the
+  two environments agreeing, one cache set serves both the kernel and `bench/jl`, and the
+  load is silent in both.
+- Cure for anyone else: a project-aware kernel, `IJulia.installkernel("Julia (Dleto)",
+  "--project=@.")`, which loads IJulia from the project Manifest so no split can occur. The
+  notebook's loading section now says so. The diagnostic is `Base.isprecompiled(id)` (which
+  respects loaded modules) versus `Base.isprecompiled(id; ignore_loaded=true)` after
+  `import IJulia; Pkg.activate(".")`; a `false`/`true` pair is the skew.
+- Do not "fix" this by silencing the logger around `using`: a multi-minute recompile with no
+  output looks hung, which is scarier than the banner.

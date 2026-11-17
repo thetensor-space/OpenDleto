@@ -1,0 +1,23 @@
+Loading Dleto Arpack Extension
+warm-up ...
+   d  T        config           seconds           MB  nullity    lsq_err  support status
+  20  Float64  QuickDer           0.720         83.7        3   4.53e-14   1.0000 ok
+  20  Float64  ArpackSolver       0.315        559.6        3   2.59e-14   1.0000 ok
+  20  Float64  SVDSolver          1.034        754.6        3   1.90e-14   1.0000 ok
+  20  Float32  QuickDer           0.481         51.3        3   1.98e-05   1.0000 ok
+  30  Float64  QuickDer           7.582        302.2        3   1.39e-13   1.0000 ok
+  30  Float64  ArpackSolver       4.179       2013.0        3   3.84e-14   1.0000 ok
+  30  Float64  SVDSolver         22.274       4770.2        3   1.87e-13   1.0000 ok
+  30  Float32  QuickDer           3.897        170.8        3   6.03e-05   1.0000 ok
+  40  Float64  QuickDer          14.016        777.2        3   7.43e-14   1.0000 ok
+  40  Float64  ArpackSolver      29.720       4334.3        3   7.93e-14   1.0000 ok
+  40  Float64  SVDSolver        162.691      17793.2        3   5.80e-14   1.0000 ok
+  40  Float32  QuickDer           9.398        128.2        0        NaN      NaN error: FastDer3Valent did not find a correct solution triple at (a',b',c') = (12,12,12). Retry with larger sizes via triple_restriction_size_override.
+  50  Float64  QuickDer          35.288       1702.6        3   3.01e-12   1.0000 ok
+  50  Float64  ArpackSolver      42.024       8982.6        4   3.80e-08   1.0000 ok
+  50  Float64  SVDSolver        292.431      50904.9        4   1.19e-07   1.0000 ok
+  50  Float32  QuickDer          24.622        264.2        0        NaN      NaN error: LinearEqualsAffine assumes the linear system matrix has full column rank.
+Precompiling packages...
+   2282.1 ms  ✓ DletoArpackExt (serial)
+  1 dependency successfully precompiled in 2 seconds
+done

@@ -1,0 +1,15 @@
+# timings are 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads)
+d,seed,valence,solver,seconds,bytes,nullity,lsq_err,status
+20,20,3,AutoSolver,0.042413,2980464,3,2.318467e-14,"ok"
+20,20,3,ArpackSolver,0.042760,2985584,3,1.404605e-14,"ok"
+20,20,3,KrylovSolver,0.047242,7877488,3,4.427077e-14,"ok"
+40,40,3,AutoSolver,0.398856,12498112,3,7.549835e-14,"ok"
+40,40,3,ArpackSolver,0.413616,12498496,3,2.373804e-13,"ok"
+40,40,3,KrylovSolver,0.404408,35012848,3,1.129870e-13,"ok"
+60,60,3,AutoSolver,1.952117,37338144,3,1.733925e-13,"ok"
+60,60,3,ArpackSolver,1.943234,37334688,3,7.997280e-13,"ok"
+60,60,3,KrylovSolver,1.844288,101862768,3,6.171531e-13,"ok"
+80,80,3,AutoSolver,5.257637,68167280,3,1.229765e-13,"ok"
+80,80,3,ArpackSolver,5.178651,68169200,3,7.700704e-14,"ok"
+80,80,3,KrylovSolver,945.574018,387780816,3,3.306223e-13,"ok"
+# STOPPED: valence=3 dense sweep halted after d=80 -- KrylovSolver took 945.6s (> 180s budget) at d=80, while AutoSolver (5.3s) and ArpackSolver (5.2s) were fine at the same d. A competing Julia job (other agent's slot) was intermittently active during this session (warm-ups on this same script ranged 20.8s-931.9s across runs with identical code/data), so this number may be inflated by slot contention rather than pure algorithmic scaling -- flagged, not re-run, per the 3-minute stop rule. d=100 not run for this regime.

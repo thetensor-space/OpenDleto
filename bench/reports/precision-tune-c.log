@@ -1,0 +1,176 @@
+bench/jl: waiting for a Julia slot (60s)...
+bench/jl: waiting for a Julia slot (120s)...
+bench/jl: waiting for a Julia slot (180s)...
+Precompiling packages...
+   2468.8 ms  ✓ Dleto
+   1957.4 ms  ✓ Dleto → DletoKrylovKitExt
+   1970.8 ms  ✓ Dleto → DletoIterativeSolversExt
+   4017.2 ms  ✓ Dleto → DletoPlotsExt
+  4 dependencies successfully precompiled in 7 seconds. 312 already precompiled.
+Precompiling packages...
+Info Given DletoArpackExt was explicitly requested, output will be shown live [0K
+[0KLoading Dleto KrylovKit Extension
+[0KLoading Dleto IterativeSolvers Extension
+   1600.0 ms  ✓ DletoArpackExt (serial)
+  1 dependency successfully precompiled in 2 seconds
+  1 dependency had output during precompilation:
+┌ DletoArpackExt
+│  [Output was shown above]
+└  
+┌ Warning: KrylovSolver: 0 of 24 eigenvalues converged to relative tolerance 1.1920928955078125e-7 in 200 restarts (19297 map applications); returning the Ritz pairs as computed.
+└ @ DletoKrylovKitExt ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/ext/DletoKrylovKitExt.jl:101
+┌ Warning: KrylovSolver: 0 of 24 eigenvalues converged to relative tolerance 1.1920928955078125e-7 in 200 restarts (19297 map applications); returning the Ritz pairs as computed.
+└ @ DletoKrylovKitExt ~/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/ext/DletoKrylovKitExt.jl:101
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+sphere3-d10        Float64  ArpackSolver  x1      eigtol=2.2e-16    1.81s nullity=3   certified
+sphere3-d10        Float64  ArpackSolver  x3      eigtol=6.7e-16    0.01s nullity=3   certified
+sphere3-d10        Float64  ArpackSolver  x10     eigtol=2.2e-15    0.01s nullity=3   certified
+sphere3-d10        Float64  ArpackSolver  x30     eigtol=6.7e-15    0.01s nullity=3   certified
+sphere3-d10        Float64  ArpackSolver  x100    eigtol=2.2e-14    0.01s nullity=3   certified
+sphere3-d10        Float64  KrylovSolver  x1      eigtol=2.2e-16    3.84s nullity=3   certified
+sphere3-d10        Float64  KrylovSolver  x3      eigtol=6.7e-16    0.02s nullity=3   certified
+sphere3-d10        Float64  KrylovSolver  x10     eigtol=2.2e-15    0.02s nullity=3   certified
+sphere3-d10        Float64  KrylovSolver  x30     eigtol=6.7e-15    0.02s nullity=3   certified
+sphere3-d10        Float64  KrylovSolver  x100    eigtol=2.2e-14    0.02s nullity=3   certified
+sphere3-d10        Float32  ArpackSolver  x1      eigtol=1.2e-07    1.52s nullity=3   certified
+sphere3-d10        Float32  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=3   certified
+sphere3-d10        Float32  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=3   certified
+sphere3-d10        Float32  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=3   certified
+sphere3-d10        Float32  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=3   certified
+sphere3-d10        Float32  KrylovSolver  x1      eigtol=1.2e-07    3.75s nullity=1   -
+sphere3-d10        Float32  KrylovSolver  x3      eigtol=3.6e-07    0.02s nullity=0   -
+sphere3-d10        Float32  KrylovSolver  x10     eigtol=1.2e-06    0.01s nullity=1   -
+sphere3-d10        Float32  KrylovSolver  x30     eigtol=3.6e-06    0.02s nullity=1   certified
+sphere3-d10        Float32  KrylovSolver  x100    eigtol=1.2e-05    0.01s nullity=0   -
+sphere3-d10        Float16  ArpackSolver  x1      eigtol=1.2e-07    0.00s nullity=3   certified
+sphere3-d10        Float16  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=3   certified
+sphere3-d10        Float16  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=3   certified
+sphere3-d10        Float16  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=3   certified
+sphere3-d10        Float16  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=3   certified
+sphere3-d10        Float16  KrylovSolver  x1      eigtol=1.2e-07    0.02s nullity=1   -
+sphere3-d10        Float16  KrylovSolver  x3      eigtol=3.6e-07    0.02s nullity=0   -
+sphere3-d10        Float16  KrylovSolver  x10     eigtol=1.2e-06    0.01s nullity=1   -
+sphere3-d10        Float16  KrylovSolver  x30     eigtol=3.6e-06    0.01s nullity=0   -
+sphere3-d10        Float16  KrylovSolver  x100    eigtol=1.2e-05    0.01s nullity=0   -
+sphere3-d16        Float64  ArpackSolver  x1      eigtol=2.2e-16    0.04s nullity=3   certified
+sphere3-d16        Float64  ArpackSolver  x3      eigtol=6.7e-16    0.03s nullity=3   certified
+sphere3-d16        Float64  ArpackSolver  x10     eigtol=2.2e-15    0.03s nullity=3   certified
+sphere3-d16        Float64  ArpackSolver  x30     eigtol=6.7e-15    0.03s nullity=3   certified
+sphere3-d16        Float64  ArpackSolver  x100    eigtol=2.2e-14    0.03s nullity=3   certified
+sphere3-d16        Float64  KrylovSolver  x1      eigtol=2.2e-16    0.16s nullity=3   certified
+sphere3-d16        Float64  KrylovSolver  x3      eigtol=6.7e-16    0.15s nullity=3   certified
+sphere3-d16        Float64  KrylovSolver  x10     eigtol=2.2e-15    0.16s nullity=3   certified
+sphere3-d16        Float64  KrylovSolver  x30     eigtol=6.7e-15    0.16s nullity=3   certified
+sphere3-d16        Float64  KrylovSolver  x100    eigtol=2.2e-14    0.15s nullity=3   certified
+sphere3-d16        Float32  ArpackSolver  x1      eigtol=1.2e-07    0.02s nullity=3   certified
+sphere3-d16        Float32  ArpackSolver  x3      eigtol=3.6e-07    0.02s nullity=3   certified
+sphere3-d16        Float32  ArpackSolver  x10     eigtol=1.2e-06    0.02s nullity=3   certified
+sphere3-d16        Float32  ArpackSolver  x30     eigtol=3.6e-06    0.02s nullity=3   certified
+sphere3-d16        Float32  ArpackSolver  x100    eigtol=1.2e-05    0.02s nullity=3   certified
+sphere3-d16        Float32  KrylovSolver  x1      eigtol=1.2e-07    0.07s nullity=3   certified
+sphere3-d16        Float32  KrylovSolver  x3      eigtol=3.6e-07    0.06s nullity=3   certified
+sphere3-d16        Float32  KrylovSolver  x10     eigtol=1.2e-06    0.05s nullity=3   certified
+sphere3-d16        Float32  KrylovSolver  x30     eigtol=3.6e-06    0.05s nullity=3   certified
+sphere3-d16        Float32  KrylovSolver  x100    eigtol=1.2e-05    0.05s nullity=3   certified
+sphere3-d16        Float16  ArpackSolver  x1      eigtol=1.2e-07    0.02s nullity=3   certified
+sphere3-d16        Float16  ArpackSolver  x3      eigtol=3.6e-07    0.02s nullity=3   certified
+sphere3-d16        Float16  ArpackSolver  x10     eigtol=1.2e-06    0.02s nullity=3   certified
+sphere3-d16        Float16  ArpackSolver  x30     eigtol=3.6e-06    0.02s nullity=3   certified
+sphere3-d16        Float16  ArpackSolver  x100    eigtol=1.2e-05    0.02s nullity=3   certified
+sphere3-d16        Float16  KrylovSolver  x1      eigtol=1.2e-07    0.06s nullity=3   certified
+sphere3-d16        Float16  KrylovSolver  x3      eigtol=3.6e-07    0.07s nullity=3   certified
+sphere3-d16        Float16  KrylovSolver  x10     eigtol=1.2e-06    0.06s nullity=3   certified
+sphere3-d16        Float16  KrylovSolver  x30     eigtol=3.6e-06    0.05s nullity=3   certified
+sphere3-d16        Float16  KrylovSolver  x100    eigtol=1.2e-05    0.04s nullity=3   certified
+sphere4-d6         Float64  ArpackSolver  x1      eigtol=2.2e-16    0.78s nullity=4   certified
+sphere4-d6         Float64  ArpackSolver  x3      eigtol=6.7e-16    0.00s nullity=4   certified
+sphere4-d6         Float64  ArpackSolver  x10     eigtol=2.2e-15    0.00s nullity=4   certified
+sphere4-d6         Float64  ArpackSolver  x30     eigtol=6.7e-15    0.00s nullity=4   certified
+sphere4-d6         Float64  ArpackSolver  x100    eigtol=2.2e-14    0.00s nullity=4   certified
+sphere4-d6         Float64  KrylovSolver  x3      eigtol=6.7e-16    0.03s nullity=4   certified
+sphere4-d6         Float64  KrylovSolver  x10     eigtol=2.2e-15    0.02s nullity=4   certified
+sphere4-d6         Float64  KrylovSolver  x30     eigtol=6.7e-15    0.02s nullity=4   certified
+sphere4-d6         Float64  KrylovSolver  x100    eigtol=2.2e-14    0.02s nullity=4   certified
+sphere4-d6         Float32  ArpackSolver  x1      eigtol=1.2e-07    0.74s nullity=4   certified
+sphere4-d6         Float32  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=4   certified
+sphere4-d6         Float32  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=4   certified
+sphere4-d6         Float32  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=4   certified
+sphere4-d6         Float32  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=4   certified
+sphere4-d6         Float32  KrylovSolver  x1      eigtol=1.2e-07    1.78s nullity=0   -
+sphere4-d6         Float32  KrylovSolver  x3      eigtol=3.6e-07    0.05s nullity=0   certified
+sphere4-d6         Float32  KrylovSolver  x10     eigtol=1.2e-06    0.05s nullity=0   certified
+sphere4-d6         Float32  KrylovSolver  x30     eigtol=3.6e-06    0.04s nullity=0   certified
+sphere4-d6         Float32  KrylovSolver  x100    eigtol=1.2e-05    0.03s nullity=0   certified
+sphere4-d6         Float16  ArpackSolver  x1      eigtol=1.2e-07    0.00s nullity=4   certified
+sphere4-d6         Float16  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=4   certified
+sphere4-d6         Float16  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=4   certified
+sphere4-d6         Float16  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=4   certified
+sphere4-d6         Float16  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=4   certified
+sphere4-d6         Float16  KrylovSolver  x1      eigtol=1.2e-07    0.07s nullity=0   -
+sphere4-d6         Float16  KrylovSolver  x3      eigtol=3.6e-07    0.05s nullity=0   -
+sphere4-d6         Float16  KrylovSolver  x10     eigtol=1.2e-06    0.07s nullity=0   -
+sphere4-d6         Float16  KrylovSolver  x30     eigtol=3.6e-06    0.04s nullity=0   certified
+sphere4-d6         Float16  KrylovSolver  x100    eigtol=1.2e-05    0.04s nullity=0   -
+video-20x20x10x3   Float64  ArpackSolver  x1      eigtol=2.2e-16    0.42s nullity=3   certified
+video-20x20x10x3   Float64  ArpackSolver  x3      eigtol=6.7e-16    0.44s nullity=3   certified
+video-20x20x10x3   Float64  ArpackSolver  x10     eigtol=2.2e-15    0.36s nullity=3   certified
+video-20x20x10x3   Float64  ArpackSolver  x30     eigtol=6.7e-15    0.33s nullity=3   certified
+video-20x20x10x3   Float64  ArpackSolver  x100    eigtol=2.2e-14    0.36s nullity=3   certified
+video-20x20x10x3   Float64  KrylovSolver  x1      eigtol=2.2e-16    3.99s nullity=3   certified
+video-20x20x10x3   Float64  KrylovSolver  x3      eigtol=6.7e-16    4.18s nullity=3   certified
+video-20x20x10x3   Float64  KrylovSolver  x10     eigtol=2.2e-15    3.77s nullity=3   certified
+video-20x20x10x3   Float64  KrylovSolver  x30     eigtol=6.7e-15    3.94s nullity=3   certified
+video-20x20x10x3   Float64  KrylovSolver  x100    eigtol=2.2e-14    3.71s nullity=3   certified
+video-20x20x10x3   Float32  ArpackSolver  x1      eigtol=1.2e-07    0.54s nullity=3   certified
+video-20x20x10x3   Float32  ArpackSolver  x3      eigtol=3.6e-07    0.49s nullity=3   certified
+video-20x20x10x3   Float32  ArpackSolver  x10     eigtol=1.2e-06    0.51s nullity=3   certified
+video-20x20x10x3   Float32  ArpackSolver  x30     eigtol=3.6e-06    0.42s nullity=3   certified
+video-20x20x10x3   Float32  ArpackSolver  x100    eigtol=1.2e-05    0.43s nullity=3   certified
+video-20x20x10x3   Float32  KrylovSolver  x1      eigtol=1.2e-07    3.97s nullity=3   certified
+video-20x20x10x3   Float32  KrylovSolver  x3      eigtol=3.6e-07    1.01s nullity=3   certified
+video-20x20x10x3   Float32  KrylovSolver  x10     eigtol=1.2e-06    0.69s nullity=3   certified
+video-20x20x10x3   Float32  KrylovSolver  x30     eigtol=3.6e-06    0.63s nullity=3   certified
+video-20x20x10x3   Float32  KrylovSolver  x100    eigtol=1.2e-05    0.45s nullity=3   certified
+video-20x20x10x3   Float16  ArpackSolver  x1      eigtol=1.2e-07    0.49s nullity=3   -
+video-20x20x10x3   Float16  ArpackSolver  x3      eigtol=3.6e-07    0.44s nullity=3   -
+video-20x20x10x3   Float16  ArpackSolver  x10     eigtol=1.2e-06    0.47s nullity=3   -
+video-20x20x10x3   Float16  ArpackSolver  x30     eigtol=3.6e-06    0.43s nullity=3   -
+video-20x20x10x3   Float16  ArpackSolver  x100    eigtol=1.2e-05    0.45s nullity=3   -
+video-20x20x10x3   Float16  KrylovSolver  x1      eigtol=1.2e-07    3.83s nullity=3   -
+video-20x20x10x3   Float16  KrylovSolver  x3      eigtol=3.6e-07    0.87s nullity=3   -
+video-20x20x10x3   Float16  KrylovSolver  x10     eigtol=1.2e-06    0.75s nullity=3   -
+video-20x20x10x3   Float16  KrylovSolver  x30     eigtol=3.6e-06    0.65s nullity=3   -
+video-20x20x10x3   Float16  KrylovSolver  x100    eigtol=1.2e-05    0.48s nullity=3   -
+rand4-d6           Float64  ArpackSolver  x1      eigtol=2.2e-16    0.01s nullity=3   certified
+rand4-d6           Float64  ArpackSolver  x3      eigtol=6.7e-16    0.01s nullity=3   certified
+rand4-d6           Float64  ArpackSolver  x10     eigtol=2.2e-15    0.01s nullity=3   certified
+rand4-d6           Float64  ArpackSolver  x30     eigtol=6.7e-15    0.01s nullity=3   certified
+rand4-d6           Float64  ArpackSolver  x100    eigtol=2.2e-14    0.01s nullity=3   certified
+rand4-d6           Float64  KrylovSolver  x1      eigtol=2.2e-16    0.03s nullity=3   certified
+rand4-d6           Float64  KrylovSolver  x3      eigtol=6.7e-16    0.03s nullity=3   certified
+rand4-d6           Float64  KrylovSolver  x10     eigtol=2.2e-15    0.03s nullity=3   certified
+rand4-d6           Float64  KrylovSolver  x30     eigtol=6.7e-15    0.02s nullity=3   certified
+rand4-d6           Float64  KrylovSolver  x100    eigtol=2.2e-14    0.03s nullity=3   certified
+rand4-d6           Float32  ArpackSolver  x1      eigtol=1.2e-07    0.00s nullity=3   certified
+rand4-d6           Float32  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=3   certified
+rand4-d6           Float32  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=3   certified
+rand4-d6           Float32  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=3   certified
+rand4-d6           Float32  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=3   certified
+rand4-d6           Float32  KrylovSolver  x1      eigtol=1.2e-07    0.01s nullity=3   certified
+rand4-d6           Float32  KrylovSolver  x3      eigtol=3.6e-07    0.01s nullity=3   certified
+rand4-d6           Float32  KrylovSolver  x10     eigtol=1.2e-06    0.02s nullity=3   certified
+rand4-d6           Float32  KrylovSolver  x30     eigtol=3.6e-06    0.01s nullity=3   certified
+rand4-d6           Float32  KrylovSolver  x100    eigtol=1.2e-05    0.01s nullity=3   certified
+rand4-d6           Float16  ArpackSolver  x1      eigtol=1.2e-07    0.00s nullity=3   certified
+rand4-d6           Float16  ArpackSolver  x3      eigtol=3.6e-07    0.00s nullity=3   certified
+rand4-d6           Float16  ArpackSolver  x10     eigtol=1.2e-06    0.00s nullity=3   certified
+rand4-d6           Float16  ArpackSolver  x30     eigtol=3.6e-06    0.00s nullity=3   certified
+rand4-d6           Float16  ArpackSolver  x100    eigtol=1.2e-05    0.00s nullity=3   certified
+rand4-d6           Float16  KrylovSolver  x1      eigtol=1.2e-07    0.01s nullity=3   certified
+rand4-d6           Float16  KrylovSolver  x3      eigtol=3.6e-07    0.01s nullity=3   certified
+rand4-d6           Float16  KrylovSolver  x10     eigtol=1.2e-06    0.01s nullity=3   certified
+rand4-d6           Float16  KrylovSolver  x30     eigtol=3.6e-06    0.01s nullity=3   certified
+rand4-d6           Float16  KrylovSolver  x100    eigtol=1.2e-05    0.01s nullity=3   certified
+wrote precision-tune-c.csv (150 rows)

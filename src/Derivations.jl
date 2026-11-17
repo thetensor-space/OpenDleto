@@ -39,13 +39,73 @@
 abstract type DerivationMethod end;
 
 """
-    derITensor(method::DerivationMethod, 
-            Ω::TransverseOps, 
-            P::LinearChisel, 
-            Γ::ITensor; 
-            nd::Integer=10,
-            tol::Real=1e-6,
+    get_derivation_method(method::Symbol; kwargs...)
+
+Factory for selecting a derivation strategy by name.
+
+Supported symbols:
+
+- `:Auto` -- `:QuickDer` when the setting allows it (`IndTransverseOps`, an
+  engaged axis, a tensor above `AUTODER_MIN_ENTRIES` entries), `:SylverLining`
+  otherwise or whenever QuickDer's own verification rejects its answer
+  (`src/solvers/AutoDer.jl`).  The default for `stratify`.
+- `:SylverLining` -- the general method: build the derivation--densor operator
+    as a `LinearMap` and hand it to a null solver.  Any chisel, any valence, any
+  operator space.
+- `:QuickDer` -- the *derivation* solve-and-lift at ANY valence
+  (`src/solvers/QuickDerN.jl`, docs/design/QuickDer-valence-n.md): sketch every
+  axis down to a block that is generically full column rank, solve that small
+  system, lift each restricted basis vector back to the full axes by one
+  least-squares solve per axis, filter the combinations that do not lift
+  consistently, and verify the answer against the defining equation.  Any
+  valence `n >= 2`, any dimensions, any chisel with at least one engaged axis,
+  any `IndTransverseOps`.
+- `:QuickDer3` -- the valence-3 transcription of Liu's `quick-der-lib.jl`, kept
+    as the reference oracle for `:QuickDer`.  Valence 3, one-row fully engaged
+  chisel, corner restriction, dense solve.  Alias: `:FastDer3Valent`.
+- `:QuickSylver` -- Liu's *Sylvester* solve-and-lift (`quicksylver-lib.jl`):
+  the same idea for `XR + SY = T`, restricting two axes and lifting an affine
+  frame.  Chisels with exactly two engaged axes, e.g. `AdjointChisel`.
+
+All three lift solvers are "solve-and-lift"; they differ in how many axes get
+restricted and therefore in which chisels and valencies they can handle.
+`:QuickDer` used to be an alias for the valence-3 transcription; it now names
+the general method, and the transcription answers to `:QuickDer3` (and still to
+`:FastDer3Valent`) so that the two can be compared on the valence-3 cases where
+both apply.
+"""
+function get_derivation_method(method::Symbol; kwargs...)::DerivationMethod
+    if method === :Auto
+        return AutoDerMethod(; kwargs...)
+    elseif method === :SylverLining
+        return SylverLiningMethod(; kwargs...)
+    elseif method === :QuickDer
+        return QuickDerMethod(; kwargs...)
+    elseif method === :QuickDer3 || method === :FastDer3Valent
+        return FastDer3ValentMethod(; kwargs...)
+    elseif method === :QuickSylver
+        return QuickSylverMethod(; kwargs...)
+    end
+    error("Unknown derivation method symbol: $method. " *
+          "Known: :Auto, :SylverLining, :QuickDer, :QuickDer3 (alias :FastDer3Valent), " *
+          ":QuickSylver.")
+end
+
+"""
+    der(method::DerivationMethod,
+            Ω::TransverseOps,
+            P::AbstractMatrix,
+            Γ::ITensor;
+            nd=-1,
+            tol::Real=TOL_DEFAULT,
         ) :: Vector{Vector{ITensor}}
+
+    The **Z-set**: a basis of the `P`-derivations of `Γ`.  Every returned
+    derivation `D` satisfies the defining equation approximately, i.e.
+
+        applyDerivation(Γ, D, Chisel(P, frame)) ≈ 0
+
+    which is the law `test/TestDerivationLaws.jl` checks for every solver.
 
     Computes up to `nd` many `P`-derivations of `Γ` for the to the given chisel `P` and transverse operators `Ω`.
     If `nd` is negative or exceeds the dimension of the derivation space
@@ -61,44 +121,56 @@ abstract type DerivationMethod end;
 
     Returns a vector of derivations as `ITensor`s with `a` axis labelled by `(a,a')`.
 """
-function derITensor(method::DerivationMethod,
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10
-    ) :: Vector{Vector{ITensor}} 
-    @assert false "Calling Placeholder Abstract Function"
-    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
-    return [embedITensors(Ω,expand_map(reduced_der_cood[:,i])) for i= 1:size(reduced_der_cood,2) ]
+function der(method::DerivationMethod,
+    Ω::TransverseOps,
+    P::AbstractMatrix,
+    Γ::ITensor;
+    tol::Float64=TOL_DEFAULT,
+    nd=-1,
+    kwargs...
+    ) :: Vector{Vector{ITensor}}
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd, kwargs...)
+    return [ embedITensors(Ω, expand_map(reduced_der_cood[:,i]))
+             for i in 1:size(reduced_der_cood,2) ]
 end;
 
 """
-    Same as the previous one but might skip some of the matrices (careful if theyare are symmetries)
+    derReduced(method, Ω, P, Γ; tol, nd) :: Vector{Vector{ITensor}}
+
+    As `der`, but the operators are embedded in the *reduced* transverse
+    operator space rather than expanded back into `Ω`.  Careful with
+    symmetries: axes that were fused or disengaged are not present.
 """
-function derITensorReduced(method::DerivationMethod,
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10
-    ) :: Vector{Vector{ITensor}} 
-    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
-    return [embedITensors(rΩ,reduced_der_cood[:,i]) for i= 1:size(reduced_der_cood,2)]
+function derReduced(method::DerivationMethod,
+    Ω::TransverseOps,
+    P::AbstractMatrix,
+    Γ::ITensor;
+    tol::Float64=TOL_DEFAULT,
+    nd=-1,
+    kwargs...
+    ) :: Vector{Vector{ITensor}}
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd, kwargs...)
+    return [ embedITensors(rΩ, reduced_der_cood[:,i])
+             for i in 1:size(reduced_der_cood,2) ]
 end;
 
 """
-    Retrun matrix whose columns can be expanded into ITensor via Ω
+    derTrOps(method, Ω, P, Γ; tol, nd) :: AbstractMatrix
+
+    A basis of the Z-set as the columns of a matrix, in the coordinates of
+    the full `Ω`.  Each column can be turned into operators with
+    `embedITensors(Ω, column)`.
 """
 function derTrOps(method::DerivationMethod,
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10
-    ) :: AbstractMatrix{<: Number} 
-    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced( Ω, P, Γ, tol, nd)
-    return hcat([expand_map(reduced_der_cood[:,i]) for i= 1:size(reduced_der_cood,2)]...)
+    Ω::TransverseOps,
+    P::AbstractMatrix,
+    Γ::ITensor;
+    tol::Float64=TOL_DEFAULT,
+    nd=-1
+    ) :: AbstractMatrix{<: Number}
+    (rΩ, expand_map, reduced_der_cood) = derTrOpsReduced(method, Ω, P, Γ; tol=tol, nd=nd)
+    return hcat([expand_map(reduced_der_cood[:,i])
+                 for i in 1:size(reduced_der_cood,2)]...)
 end;
 
 
@@ -109,81 +181,282 @@ function derTrOpsReduced(method::DerivationMethod,
     Ω::TransverseOps, 
     P::AbstractMatrix, 
     Γ::ITensor; 
-    tol::Float64=1e-6,
-    nd=10
+    tol::Float64=TOL_DEFAULT,
+    nd=10,
+    kwargs...
     ) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number} }
     @assert false "Calling Placeholder Abstract Function"
 end
 
 
 # this should be  moved to DerivationMethodSylverLininig,jl  
-derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=1e-6, nd=10) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number}} = 
+derTrOpsReduced( Ω::TransverseOps, P::AbstractMatrix, Γ::ITensor; tol::Float64=TOL_DEFAULT, nd=10) :: Tuple{TransverseOps, LinearMaps.LinearMap, AbstractMatrix{<: Number}} = 
     derTrOpsReduced(SylverLiningMethod(), Ω, P, Γ; tol=tol, nd=nd); 
 
-"""
-    den(method::DerivationMethod, 
-            Ω::TransverseOps, 
-            P::LinearChisel, 
-            Δ ::Vector{Vector{ITensor}};
-            nd::Integer=10,
-            tol::Real=1e-6
-        ) :: Vector{ITensor}
-
-    Computes up to `nd` many tensors with `P`-derivations of `Γ` for the to the given chisel `P` and transverse operators `Ω`.
-    If `nd` is negative or exceeds the dimension of the derivation space
-    then the a basis for the derivation space is returned.
-    - `method`: An instance of a subtype of `DerivationMethod` defining the solving method.
-    - `Ω`: The transverse operators.
-    - `P`: a linear chisel
-    - `D`: derivations The input tensor
-    - `nd`: (optional) Maximum number of singular vectors to compute (default: 10)
-    - `tol`: (optional) Tolerance for the solver (default: 1e-6).
-    
-    Returns a vector `nd` many tensors that admit `D` as derivations.
-"""
-function den(method::DerivationMethod,
-    Ω::TransverseOps, 
-    P::AbstractMatrix, 
-    der::Vector{ITensor}; 
-    nd=10,
-    tol=1e-6
-    ) :: Vector{Vector{ITensor}} 
-    @assert false "Calling Placeholder Abstract Function"
-end;
+# `den` -- the T-set / densor -- lives in Densors.jl, next to `stratify`.
 
 
 #---- Convenience Functions -------------------------------------------------------
 
 """
-    der(Γ; nd=10, tol::Real=1e-6)
+    universalSetup(Γ::ITensor)
+
+    The unrestricted defaults: the universal chisel on every axis, and full
+    square matrices on every axis.  This is the hand-assembly that was
+    repeated at every entry point; see docs/review/Refactor-Plan.md section 1
+    for the `Chisel` type that replaces it.
+"""
+function universalSetup(Γ::ITensor)
+    fr = collect(inds(Γ))
+    return (UniversalChisel(length(fr)), fr, IndTransverseOps(fr, UniversalOp()))
+end
+
+__asITensor(Γ::AbstractArray) =
+    ITensor(Γ, [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]...)
+
+"""
+    der(Γ; nd=-1, tol::Real=TOL_DEFAULT)
 
     Convenience method to compute derivations of a tensor using defaults:
     - Universal chisel
     - Universal transverse operators
     - SylverLiningMethod
 """
-function derITensor(Γ::ITensor; nd=-1, tol::Real=1e-6):: Vector{Vector{ITensor}}
-    ch = UniversalChisel(length(inds(Γ)))
+function der(Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT) :: Vector{Vector{ITensor}}
+    ch, _, ops = universalSetup(Γ)
+    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+end
+
+# NOTE on the two kinds of keyword: `kwargs...` here is forwarded to the
+# *method constructor* (`solver=` and friends), while `progress` is a
+# *per-call* option consumed by the solve.  They were conflated -- everything
+# went to the constructor -- so `der(:SylverLining, Γ; progress=:solve)` died
+# with "SylverLiningMethod does not support keyword progress".  Per-call
+# options therefore have to be named explicitly in every symbol overload.
+function der(method::Symbol, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT,
+             progress=false, kwargs...) :: Vector{Vector{ITensor}}
+    ch, _, ops = universalSetup(Γ)
+    return der(get_derivation_method(method; kwargs...), ops, ch, Γ;
+               nd=nd, tol=tol, progress=progress)
+end
+
+der(Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT) =
+    der(__asITensor(Γ); nd=nd, tol=tol)
+
+der(method::Symbol, Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT, progress=false, kwargs...) =
+    der(method, __asITensor(Γ); nd=nd, tol=tol, progress=progress, kwargs...)
+
+function der(ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return der(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
 end
 
-function derITensor(Γ::AbstractArray; nd=-1, tol::Real=1e-6)
-    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
-    Σ = ITensor(Γ, fr...)
-    return derITensor(Σ; nd=nd, tol=tol)
-end
-
-function derITensor(ch::AbstractMatrix, Γ::ITensor; nd=10, tol::Real=1e-6)
+function der(method::Symbol, ch::AbstractMatrix, Γ::ITensor; nd=-1, tol::Real=TOL_DEFAULT,
+             progress=false, kwargs...)
     fr = collect(inds(Γ))
     ops = IndTransverseOps(fr, UniversalOp())
-    return derITensor(SylverLiningMethod(), ops, ch, Γ; nd=nd, tol=tol)
+    return der(get_derivation_method(method; kwargs...), ops, ch, Γ;
+               nd=nd, tol=tol, progress=progress)
 end
 
-function derITensor(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=1e-6)
-    fr = [Index(size(Γ, i), "a_$i") for i in 1:ndims(Γ)]
-    Σ = ITensor(Γ, fr...)
-    return derITensor(ch, Σ; nd=nd, tol=tol)
+der(ch::AbstractMatrix, Γ::AbstractArray; nd=-1, tol::Real=TOL_DEFAULT) =
+    der(ch, __asITensor(Γ); nd=nd, tol=tol)
+
+function der(Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
+             nd=-1, tol::Real=TOL_DEFAULT, progress=false,
+             method::Union{DerivationMethod,Symbol}=:SylverLining, kwargs...)
+    m = method isa Symbol ? get_derivation_method(method; kwargs...) : method
+    return der(m, Ω, ch, Γ; nd=nd, tol=tol, progress=progress)
 end
 
+"""
+    der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor; ...)
+
+Name the method by symbol while giving the full setting (Ω, ch, Γ) explicitly.
+
+This overload was missing.  Every *partial* setting had a symbol form --
+`der(:QuickDer, Γ)`, `der(:QuickDer, ch, Γ)` -- and the full setting had only
+the instance form `der(SylverLiningMethod(), Ω, ch, Γ)` plus a `method=`
+keyword on the argument-order-swapped `der(Ω, ch, Γ)`.  So the one call a
+caller comparing methods on a fixed operator space would naturally write,
+`der(:QuickDer, Ω, ch, Γ)`, was a `MethodError`.
+"""
+der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::ITensor;
+    nd=-1, tol::Real=TOL_DEFAULT, progress=false, kwargs...) =
+    der(get_derivation_method(method; kwargs...), Ω, ch, Γ;
+        nd=nd, tol=tol, progress=progress)
+
+
+# ---------------------------------------------------------------------------
+# The Z-law check, memory-lean
+# ---------------------------------------------------------------------------
+
+"""
+    der_residual(Γ, D, chisel; block_bytes = 2^28) -> Real
+    der_residual(G::AbstractArray, Ms::Vector{<:AbstractMatrix}, P; block_bytes) -> Real
+
+`‖Σ_a P[ρ,a]·(Γ ×_a D_a)‖ / (‖Γ‖·max_a‖D_a‖)` -- the defining equation of a
+derivation, measured relative to the size of the data it is built from so the
+test is invariant to how `Γ` and the basis happen to be scaled.  This is the
+check that says whether an answer from ANY solver is a derivation, so it is
+the first thing a consumer of this package runs on a result, and it belongs
+here rather than in a benchmark script.
+
+`chisel` is the chisel matrix `P` (a `Chisel` is accepted and unwrapped);
+`D` is one two-index `ITensor` per axis carrying that axis's frame index, the
+`embedITensors` convention, or -- in the array form -- one matrix per axis with
+the frame index FIRST, the index that meets the tensor.
+
+WHY THIS IS NOT `applyDerivation`, which is what the benchmarks used to call.
+That route goes through ITensor contraction, so it materialises a full `d^n`
+intermediate per axis and accumulates them, AND it promotes: the chisel is
+typically Float64, so a Float32 tensor is contracted in Float64 and every
+intermediate is twice its size.  The bill is about `2(n+1)` tensor copies, and
+it lands on whoever is CHECKING an answer rather than on the solver that
+produced it -- which is why the benchmark harness's peak RSS was 15 to 20 times
+the tensor on shapes where the stratification itself is a fraction of it.
+Measured: a valence-4 sphere at d = 150 in Float64 peaks at 6.2 GB through a
+profiler that does not check and was killed at 18.7 GB through the harness that
+did.  On the video target shape, a 640x480x1800x3 Float32 movie is 6.6 GB and
+the old route wanted ~66 GB of Float64 intermediates to check an answer that
+fits in far less.
+
+So: read the tensor and the operators as plain arrays in `Γ`'s OWN element
+type, and accumulate `Σ_a P[ρ,a]·(Γ ×_a D_a)` with `_qdn_ttm!`'s `α`/`β` -- in
+BLOCKS along the longest axis, so the working set is `block_bytes` and not the
+tensor.  The block trick is that for a block `q` of axis `c` the output block
+`E[..., q, ...]` needs only `G[..., q, ...]` for every term `a ≠ c`, and for
+`a = c` it is exactly `G ×_c D_c[:, q]` -- so no term ever needs a full extra
+copy.  Two blocks of `block_bytes` replace `2(n+1)` tensors, whatever the
+tensor's size, and nothing is promoted: a Float32 tensor is checked entirely in
+Float32 and the answer comes back Float32.
+
+HOST ARRAYS ONLY.  The blocked accumulation is `mul!` with `β = 1`, which the
+device path of `_qdn_ttm!` cannot do; a device tensor is checked by
+`_qdn_verify`'s own slice route instead.
+
+If the operators cannot be matched to axes by index (anything other than one
+two-index operator carrying each frame index) the ITensor form falls back to
+`applyDerivation` rather than guess.
+"""
+function der_residual(Γ::ITensor, D::Vector{ITensor}, chisel;
+                      block_bytes::Integer = 2^28)
+    P = chisel isa Chisel ? chisel.ch : chisel
+    fr = collect(inds(Γ))
+    n = length(fr)
+    G = ITensors.array(Γ, fr...)
+    T = eltype(G)
+    Ms = Vector{Matrix{T}}(undef, n)
+    ok = length(D) == n
+    if ok
+        for a in 1:n
+            hits = filter(t -> hasind(t, fr[a]), D)
+            others = length(hits) == 1 ?
+                     filter(i -> i != fr[a], collect(inds(only(hits)))) : Index[]
+            if length(hits) != 1 || length(others) != 1
+                ok = false
+                break
+            end
+            # The frame index FIRST, which is the index `_qdn_ttm` contracts and
+            # the convention `applyDerivation` and `embedITensors` share.
+            Ms[a] = Matrix{T}(Array(only(hits), fr[a], only(others)))
+        end
+    end
+    if !ok
+        C = chisel isa Chisel ? chisel : Chisel(P, fr)
+        R = applyDerivation(Γ, D, C)
+        return norm(R) / max(norm(Γ) * maximum(norm.(D)), eps())
+    end
+    return der_residual(G, Ms, P; block_bytes = block_bytes)
+end
+
+function der_residual(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatrix},
+                      P::AbstractMatrix; block_bytes::Integer = 2^28) where {Ts,N}
+    # The arithmetic type comes from `Ms`, not from `G`: `G` may be a Float16
+    # host tensor that was never promoted, and the operators being checked are
+    # already in whatever type the caller wants the check done in (see
+    # `der_residual_squares`, which is where the actual mixing happens).
+    Tc = isempty(Ms) ? Ts : eltype(Ms[1])
+    RT = real(Tc)
+    sq = der_residual_squares(G, Ms, P; block_bytes = block_bytes)
+    # `_qdn_safe_norm` (QuickDerN.jl): Float64-accumulated on the HOST, where
+    # `G` may be an unpromoted Float16 tensor and a naive sum of squares risks
+    # overflow; plain `norm` on a device array, where `G` is always `Tc`
+    # already and Metal has no Float64 to accumulate in even if it were safe.
+    gnorm = RT(_qdn_safe_norm(G))
+    scale = gnorm * maximum(a -> norm(Ms[a]), 1:N)
+    return sqrt(sum(sq)) / max(scale, eps(RT))
+end
+
+"""
+    der_residual_squares(G, Ms, P; block_bytes = 2^28) -> Vector
+
+`‖Σ_a P[ρ,a]·(G ×_a M_a)‖²`, one entry per ROW of the chisel, unnormalised --
+the raw material of `der_residual` and of `_qdn_verify`'s `:full` branch, which
+wants the rows separately because it tests each against a bound rather than
+folding them into one number.
+
+The blocking is what `der_residual` documents; the working set is two blocks of
+`block_bytes` in `Ms`'s element type (the COMPUTE type, `Tc`), whatever the
+size of `G`.  With a one-row chisel -- every case in `bench/` -- the
+accumulation order is exactly the single running sum the benchmark used, so
+the reported digits do not move; with several rows the per-row sums are the
+same quantity summed in a different order.
+
+`G` and `Ms` need not share an element type: `Gb`, the per-block copy of `G`,
+is allocated in `Tc` and filled by `copyto!`, which promotes element by
+element as it copies -- so a Float16 `G` costs one block-sized `Tc` buffer,
+never a `Tc` copy of the whole tensor.  The one pass that meets `G` directly
+(`a == ca`, the blocked axis) goes through `_qdn_ttm!`'s mixed-eltype method
+instead.
+"""
+function der_residual_squares(G::AbstractArray{Ts,N}, Ms::AbstractVector{<:AbstractMatrix},
+                              P::AbstractMatrix;
+                              block_bytes::Integer = 2^28) where {Ts,N}
+    length(Ms) == N || error("der_residual: $(length(Ms)) operators for a valence-$N " *
+                             "tensor; one per axis is needed.")
+    size(P, 2) == N || error("der_residual: the chisel has $(size(P,2)) columns but " *
+                             "the tensor has $N axes.")
+    Tc = eltype(Ms[1])
+    Pm = Matrix{Tc}(P)
+    RT = real(Tc)
+    dims = size(G)
+    ca = argmax(collect(dims))                 # block along the LONGEST axis
+    per = max(length(G) ÷ dims[ca], 1)         # entries per unit of that axis
+    step = clamp(fld(Int(block_bytes), sizeof(Tc) * per), 1, dims[ca])
+    acc = zeros(RT, size(Pm, 1))
+    # The two buffers are allocated ONCE, not once per block, so the bytes this
+    # function asks for are bounded by `block_bytes` and do not grow with the
+    # tensor -- which is the whole claim.  Both are overwritten in full at the
+    # top of every block (`fill!` and `copyto!`), so reuse changes no arithmetic.
+    # The last block is short and gets its own pair.
+    Efull = Array{Tc}(undef, ntuple(i -> i == ca ? step : dims[i], N))
+    Gfull = Array{Tc}(undef, size(Efull))
+    for lo in 1:step:dims[ca]
+        hi = min(dims[ca], lo + step - 1)
+        w = hi - lo + 1
+        blk = ntuple(i -> i == ca ? (lo:hi) : Colon(), N)
+        Eb = w == step ? Efull : Array{Tc}(undef, ntuple(i -> i == ca ? w : dims[i], N))
+        Gb = w == step ? Gfull : Array{Tc}(undef, size(Eb))
+        copyto!(Gb, view(G, blk...))            # promotes Ts -> Tc, one block
+        for rho in axes(Pm, 1)
+            fill!(Eb, zero(Tc))
+            for a in 1:N
+                c = Pm[rho, a]
+                iszero(c) && continue
+                if a == ca
+                    # This block of the output is the whole tensor against the
+                    # selected COLUMNS of the operator on the blocked axis --
+                    # the one pass that meets `G` directly, mixed-eltype when
+                    # `Ts !== Tc`.
+                    _qdn_ttm!(Eb, G, view(Ms[a], :, lo:hi), a, c, one(Tc))
+                else
+                    _qdn_ttm!(Eb, Gb, Ms[a], a, c, one(Tc))
+                end
+            end
+            acc[rho] += sum(abs2, Eb)
+        end
+    end
+    return acc
+end

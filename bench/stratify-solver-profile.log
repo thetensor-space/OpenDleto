@@ -1,0 +1,228 @@
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+Dleto stratification solver profile
+  sphere = densor, tol = 1.0e-6, max d = 100, budget = 900.0s per solver
+  threads = 4, BLAS threads = 4
+  Arpack loaded: true
+  solvers: AutoSolver, SVDSolver, LUSolver, LSMRSolver, KrylovSolver, LanczosSolver, CGSolver, ShiftInvertSolver, ArpackSolver, ArpackDenseSolver
+
+Warming up the JIT on d = 8 for every solver ... done (34.0s, not counted).
+
+==== d = 10   nondeg dims = [10, 10, 10]   nnz = 55   op dim = 165   12:30:33
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              0.030      0.050      1.149      3  8.84e-15   1.0000   yes  ok
+SVDSolver               0.023      0.050      1.149      3  1.44e-14   1.0000   yes  ok
+LUSolver                0.030      0.049      1.149      1  8.55e-01   0.2908    no  ok
+LSMRSolver              7.417      8.748      1.149      3  1.45e-14   1.0000   yes  ok
+KrylovSolver            0.051      0.079      1.149      3  6.64e-11   1.0000   yes  ok
+LanczosSolver           0.026      0.044      1.149      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver                0.284      0.361      1.149      3  1.32e-12   1.0000   yes  ok
+ShiftInvertSolver       4.850      8.385      1.149      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.052      0.098      1.149      3  9.31e-15   1.0000   yes  ok
+ArpackDenseSolver       0.075      0.050      1.149      3  1.08e-14   1.0000   yes  ok
+
+==== d = 15   nondeg dims = [15, 15, 15]   nnz = 120   op dim = 360   12:30:48
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              0.131      0.218      1.149      3  2.34e-14   1.0000   yes  ok
+SVDSolver               0.123      0.218      1.149      3  3.56e-14   1.0000   yes  ok
+LUSolver                0.102      0.217      1.149      1  4.21e-01   0.8245   yes  ok
+LSMRSolver              7.979     20.471      1.149      3  1.30e-14   1.0000   yes  ok
+KrylovSolver            0.094      0.151      1.149      3  4.67e-12   1.0000   yes  ok
+LanczosSolver           0.047      0.156      1.149      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver                0.788      1.707      1.149      3  4.05e-12   1.0000   yes  ok
+ShiftInvertSolver      20.774     60.765      1.149      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.056      0.187      1.149      3  2.31e-14   1.0000   yes  ok
+ArpackDenseSolver       0.068      0.214      1.149      3  1.30e-14   1.0000   yes  ok
+
+==== d = 20   nondeg dims = [20, 20, 20]   nnz = 210   op dim = 630   12:31:19
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              0.357      0.703      1.168      3  1.95e-14   1.0000   yes  ok
+SVDSolver               0.302      0.703      1.171      3  1.72e-14   1.0000   yes  ok
+LUSolver                0.237      0.700      1.192      1  3.75e-01   0.8607    no  ok
+LSMRSolver             14.356     43.313      1.192      3  6.65e-14   1.0000   yes  ok
+KrylovSolver            0.147      0.399      1.192      3  3.91e-13   1.0000   yes  ok
+LanczosSolver           0.059      0.252      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver                1.771      4.634      1.192      3  1.76e-11   1.0000   yes  ok
+ShiftInvertSolver      22.312     64.879      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.165      0.500      1.192      3  9.49e-14   1.0000   yes  ok
+ArpackDenseSolver       0.235      0.692      1.192      3  1.49e-14   1.0000   yes  ok
+
+==== d = 25   nondeg dims = [25, 25, 25]   nnz = 325   op dim = 975   12:32:00
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              0.951      1.912      1.192      3  2.76e-14   1.0000   yes  ok
+SVDSolver               0.928      1.912      1.192      3  3.04e-14   1.0000   yes  ok
+LUSolver                4.287     13.034      1.192      3  4.60e-02   0.9979   yes  ok
+LSMRSolver             37.584    111.113      1.192      3  5.07e-14   1.0000   yes  ok
+KrylovSolver            0.211      0.618      1.192      3  2.14e-10   1.0000   yes  ok
+LanczosSolver           0.137      0.578      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver                3.717      9.713      1.192      3  1.57e-11   1.0000   yes  ok
+ShiftInvertSolver     159.845    496.316      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.227      0.865      1.192      3  1.30e-13   1.0000   yes  ok
+ArpackDenseSolver       0.589      1.875      1.192      3  8.43e-14   1.0000   yes  ok
+
+==== d = 30   nondeg dims = [30, 30, 30]   nnz = 465   op dim = 1395   12:35:29
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              2.027      4.432      1.192      3  9.69e-14   1.0000   yes  ok
+SVDSolver               1.964      4.432      1.192      3  3.24e-14   1.0000   yes  ok
+LUSolver                1.297      4.417      1.192      1  9.64e-01   0.0978    no  ok
+LSMRSolver             46.459    156.543      1.192      3  1.15e-14   1.0000   yes  ok
+KrylovSolver            0.323      1.312      1.192      3  7.63e-14   1.0000   yes  ok
+LanczosSolver           0.167      0.827      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver                5.480     17.425      1.192      3  1.76e-11   1.0000   yes  ok
+ShiftInvertSolver     119.681    429.984      1.192      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.532      1.823      1.192      3  4.33e-14   1.0000   yes  ok
+ArpackDenseSolver       1.221      4.376      1.192      3  4.38e-13   1.0000   yes  ok
+
+==== d = 35   nondeg dims = [35, 35, 35]   nnz = 630   op dim = 1890   12:38:29
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              3.910      8.656      1.272      3  1.74e-13   1.0000   yes  ok
+SVDSolver               4.055      8.651      1.272      3  4.25e-14   1.0000   yes  ok
+LUSolver                2.675      8.624      1.272      1  5.40e-01   0.7143    no  ok
+LSMRSolver            113.371    368.772      1.272      3  5.96e-12   1.0000   yes  ok
+KrylovSolver            0.369      1.421      1.272      2  1.17e-13   1.0000   yes  ok
+LanczosSolver           0.329      1.349      1.272      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver               21.940     70.646      1.272      3  1.86e-11   1.0000   yes  ok
+ShiftInvertSolver      33.021    110.464      1.272      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            0.648      2.284      1.272      3  3.35e-14   1.0000   yes  ok
+ArpackDenseSolver       2.621      8.553      1.272      3  1.68e-14   1.0000   yes  ok
+
+==== d = 40   nondeg dims = [40, 40, 40]   nnz = 820   op dim = 2460   12:41:33
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver              6.903     16.526      1.456      3  1.06e-13   1.0000   yes  ok
+SVDSolver               7.097     16.526      1.463      3  5.80e-14   1.0000   yes  ok
+LUSolver                4.605     16.480      1.463      1  1.68e-01   0.9718   yes  ok
+LSMRSolver            221.328    629.382      1.463      3  5.13e-14   1.0000   yes  ok
+KrylovSolver            0.909      3.319      1.463      3  2.52e-13   1.0000   yes  ok
+LanczosSolver           0.473      1.973      1.463      0       NaN      NaN     -  error: no nontrivial derivations
+CGSolver               16.473     54.506      1.463      3  4.12e-11   1.0000   yes  ok
+ShiftInvertSolver      56.989    163.645      1.463      0       NaN      NaN     -  error: no nontrivial derivations
+ArpackSolver            1.583      4.102      1.463      3  2.35e-14   1.0000   yes  ok
+ArpackDenseSolver       6.570     16.349      1.463      3  4.59e-14   1.0000   yes  ok
+
+==== d = 45   nondeg dims = [45, 45, 45]   nnz = 1035   op dim = 3105   12:46:57
+solver                time(s)  alloc(GB)    rss(GB)   null   lsq_err  support  perm  status
+AutoSolver             12.961     28.543      1.680      3  8.22e-14   1.0000   yes  ok
+SVDSolver              12.490     28.543      1.690      3  1.24e-12   1.0000   yes  ok
+LUSolver                7.460     28.470      1.690      1  1.39e-01   0.9806    no  ok
+
+[90261] signal 15: Terminated: 15
+in expression starting at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:311
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+gc_sweep_pool at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:0 [inlined]
+_jl_gc_collect at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:3187
+ijl_gc_collect at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:3475
+maybe_collect at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:351 [inlined]
+jl_gc_small_alloc_inner at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:727 [inlined]
+jl_gc_small_alloc_noinline at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:785 [inlined]
+jl_gc_alloc_ at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/gc-stock.c:799
+jl_alloc_genericmemory_unchecked at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/genericmemory.c:41
+GenericMemory at ./boot.jl:588 [inlined]
+new_as_memoryref at ./boot.jl:604 [inlined]
+Array at ./boot.jl:657 [inlined]
+Array at ./boot.jl:663 [inlined]
+similar at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/abstractarray/similar.jl:62 [inlined]
+similar at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/tensorstorage/similar.jl:42
+similar at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/tensor/similar.jl:24 [inlined]
+contraction_output at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/dense/tensoralgebra/contract.jl:5 [inlined]
+contraction_output at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/tensoroperations/generic_tensor_operations.jl:62 [inlined]
+contract at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/tensoroperations/generic_tensor_operations.jl:108
+unknown function (ip: 0x13662c283) at (unknown file)
+contract at /Users/algeboy/.julia/packages/NDTensors/ZCuAn/src/tensoroperations/generic_tensor_operations.jl:91
+contract at /Users/algeboy/.julia/packages/SimpleTraits/nEtvW/src/SimpleTraits.jl:332 [inlined]
+_contract at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:3
+unknown function (ip: 0x1365dc177) at (unknown file)
+_contract at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:9
+contract at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:76
+#195 at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:126 [inlined]
+BottomRF at ./reduce.jl:78 [inlined]
+afoldl at ./operators.jl:601 [inlined]
+_foldl_impl at ./reduce.jl:60 [inlined]
+foldl_impl at ./reduce.jl:40 [inlined]
+mapfoldl_impl at ./reduce.jl:36 [inlined]
+#mapfoldl#270 at ./reduce.jl:167 [inlined]
+mapfoldl at ./reduce.jl:167 [inlined]
+#foldl#271 at ./reduce.jl:190 [inlined]
+foldl at ./reduce.jl:190 [inlined]
+#contract#192 at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:126
+contract at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:121 [inlined]
+#contract#199 at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:151 [inlined]
+contract at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:151 [inlined]
+#*#201 at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:161 [inlined]
+* at /Users/algeboy/.julia/packages/ITensors/1tkBX/src/tensor_operations/tensor_algebra.jl:161 [inlined]
+#sylvesterLM##15 at ./none (unknown line)
+iterate at ./generator.jl:48 [inlined]
+collect_to! at ./array.jl:848
+collect_to_with_first! at ./array.jl:826
+unknown function (ip: 0x13674c1b3) at (unknown file)
+collect at ./array.jl:800
+unknown function (ip: 0x1365442d3) at (unknown file)
+sylvester at /Users/algeboy/CODE/OpenDleto/src/SylverLining/SylverLining.jl:153
+_unsafe_mul! at /Users/algeboy/.julia/packages/LinearMaps/KV78T/src/functionmap.jl:127
+_unsafe_mul! at /Users/algeboy/.julia/packages/LinearMaps/KV78T/src/functionmap.jl:132
+mul! at /Users/algeboy/.julia/packages/LinearMaps/KV78T/src/LinearMaps.jl:166 [inlined]
+#lsmr_method!#78 at /Users/algeboy/.julia/packages/IterativeSolvers/bjiMt/src/lsmr.jl:172
+lsmr_method! at /Users/algeboy/.julia/packages/IterativeSolvers/bjiMt/src/lsmr.jl:88
+unknown function (ip: 0x14d0c049b) at (unknown file)
+#lsmr!#77 at /Users/algeboy/.julia/packages/IterativeSolvers/bjiMt/src/lsmr.jl:79
+lsmr! at /Users/algeboy/.julia/packages/IterativeSolvers/bjiMt/src/lsmr.jl:67
+unknown function (ip: 0x14d06844b) at (unknown file)
+project! at /Users/algeboy/CODE/OpenDleto/ext/DletoIterativeSolversExt.jl:81
+#solve#2 at /Users/algeboy/CODE/OpenDleto/ext/DletoIterativeSolversExt.jl:100
+solve at /Users/algeboy/CODE/OpenDleto/ext/DletoIterativeSolversExt.jl:70 [inlined]
+#solve_nullspace#323 at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:300
+solve_nullspace at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:250
+unknown function (ip: 0x14d060467) at (unknown file)
+#solve_nullspace#327 at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:327
+solve_nullspace at /Users/algeboy/CODE/OpenDleto/src/solvers/NullSolvers.jl:327
+unknown function (ip: 0x1363bc41f) at (unknown file)
+#derTrOpsReduced#210 at /Users/algeboy/CODE/OpenDleto/src/SylverLining/SylverLining.jl:89
+derTrOpsReduced at /Users/algeboy/CODE/OpenDleto/src/SylverLining/SylverLining.jl:46 [inlined]
+#run_solver##0 at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:207
+#quietly##2 at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:190 [inlined]
+RedirectStdStream at ./stream.jl:1464
+#quietly##0 at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:189 [inlined]
+with_logstate at ./logging/logging.jl:542
+with_logger at ./logging/logging.jl:653 [inlined]
+quietly at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:188 [inlined]
+macro expansion at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:203 [inlined]
+macro expansion at ./timing.jl:697 [inlined]
+run_solver at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:202
+#profile_d#15 at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:266
+profile_d at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:261 [inlined]
+main at /Users/algeboy/CODE/OpenDleto/bench/StratifySolverProfile.jl:300
+unknown function (ip: 0x12c28c7fb) at (unknown file)
+jl_apply at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/./julia.h:2391 [inlined]
+do_call at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/interpreter.c:123
+eval_stmt_value at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/interpreter.c:194
+eval_body at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/interpreter.c:689
+jl_interpret_toplevel_thunk at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/interpreter.c:898
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/toplevel.c:1035
+jl_toplevel_eval_flex at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/toplevel.c:975
+ijl_toplevel_eval at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/toplevel.c:1047 [inlined]
+ijl_toplevel_eval_in at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/toplevel.c:1092
+eval at ./boot.jl:489
+include_string at ./loading.jl:2874
+_include at ./loading.jl:2934
+include at ./Base.jl:306
+exec_options at ./client.jl:317
+_start at ./client.jl:550
+jfptr__start_29115.1 at /Users/algeboy/.julia/juliaup/julia-1.12.6+0.aarch64.apple.darwin14/Julia-1.12.app/Contents/Resources/julia/lib/julia/sys.dylib (unknown line)
+jl_apply at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/./julia.h:2391 [inlined]
+true_main at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/jlapi.c:971
+jl_repl_entrypoint at /Users/julia/.julia/scratchspaces/a66863c6-20e8-4ff4-8a62-49f30b1f605e/agent-cache/default-honeycrisp-HL2F7YQ3XH.0/build/default-honeycrisp-HL2F7YQ3XH-0/julialang/julia-release-1-dot-12/src/jlapi.c:1139
+unknown function (ip: 0x0) at (unknown file)
+Allocations: 14603966063 (Pool: 14603964342; Big: 1721); GC: 61664

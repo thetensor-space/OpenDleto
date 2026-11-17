@@ -1,0 +1,19 @@
+# 2-thread timings (bench/jl pins 2 Julia + 2 OpenBLAS threads); may be
+# noisy if another agent held the other bench/jl slot concurrently
+valence,d,restriction,seconds,bytes,nullity,residual,status
+3,20,random,0.065122,32191376,13,1.271881e-15,"ok"
+3,20,corner,0.247744,122943392,13,3.040027e-15,"ok"
+4,10,random,0.011826,21635872,13,1.296332e-15,"ok"
+4,10,corner,0.011321,19185776,13,4.041155e-16,"ok"
+4,20,random,0.100200,148763824,13,1.032033e-15,"ok"
+3,50,random,2.068407,409532272,13,2.210957e-15,"ok"
+4,20,corner,0.338278,420919344,13,1.483823e-14,"ok"
+4,30,random,0.252616,448003792,13,1.045959e-15,"ok"
+4,30,corner,1.970147,1946796512,0,NaN,"error: QuickDer: the lifted solution does not satisfy the derivation equation (relative residual 6.080060029402439 against the bound 0.00032242401458738374). The tensor is not generic enough for the restriction sizes r = [6, 6, 6, 6] on dims [30, 30, 30, 30]; retry with a larger `sizes = [9, 9, 9, 9]`, with restriction = :random if it was :corner, or fall back to :SylverLining."
+4,40,random,1.164015,1412870736,13,7.358947e-16,"ok"
+4,40,corner,7.558634,7382122560,0,NaN,"error: QuickDer: the lifted solution does not satisfy the derivation equation (relative residual 12.05492917774845 against the bound 0.0006869878517865503). The tensor is not generic enough for the restriction sizes r = [7, 7, 7, 7] on dims [40, 40, 40, 40]; retry with a larger `sizes = [11, 11, 11, 11]`, with restriction = :random if it was :corner, or fall back to :SylverLining."
+4,60,random,4.429154,4694671456,13,7.387142e-16,"ok"
+3,50,corner,22.592625,5593296768,0,NaN,"error: QuickDer: the lifted solution does not satisfy the derivation equation (relative residual 0.35846369900314656 against the bound 7.688910906867495e-5). The tensor is not generic enough for the restriction sizes r = [14, 14, 14] on dims [50, 50, 50]; retry with a larger `sizes = [21, 21, 21]`, with restriction = :random if it was :corner, or fall back to :SylverLining."
+4,60,corner,45.479706,36967454368,0,NaN,"error: QuickDer: the lifted solution does not satisfy the derivation equation (relative residual 1.6959223216436021 against the bound 0.00042879654284872756). The tensor is not generic enough for the restriction sizes r = [8, 8, 8, 8] on dims [60, 60, 60, 60]; retry with a larger `sizes = [12, 12, 12, 12]`, with restriction = :random if it was :corner, or fall back to :SylverLining."
+4,80,random,10.227474,12416581712,13,1.003858e-15,"ok"
+3,100,random,57.062929,8769032704,13,2.502128e-15,"ok"

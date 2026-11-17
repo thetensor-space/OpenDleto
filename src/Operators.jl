@@ -45,20 +45,20 @@ abstract type Operator  end
     Return the native encoding of an operator in the transverse set,
     or `Nothing` if it is not a member.
 """
-function coordinates(LΩ::Operator, M::AbstractMatrix) :: Union{Vector{<:Number}, Nothing} 
+function coordinates(LΩ::Operator, M::AbstractMatrix) :: Union{AbstractVector{<:Number}, Nothing} 
     @assert false "Calling Placeholder Abstract Function"
 end;
-function unsafe_coordinates(LΩ::Operator, M::AbstractMatrix) :: Vector{<: Number} 
+function unsafe_coordinates(LΩ::Operator, M::AbstractMatrix) :: AbstractVector{<: Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 # this is the inverse of the embed map
 
-function transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number}
+function transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: AbstractVector{<:Number}
     @assert size(M)[1]==size(M)[2] "Incompatable Data"
     return unsafe_transposeEmbed(LΩ, M)  
 end;
 
-function unsafe_transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: Vector{<:Number} 
+function unsafe_transposeEmbed(LΩ::Operator, M::AbstractMatrix) :: AbstractVector{<:Number} 
     @assert false "Calling Placeholder Abstract Function"
 end;
 # this is the transpose of the embed map
@@ -66,21 +66,21 @@ end;
 """
     Convert the native encoding of an operator into matrix.
 """
-function embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function embed(LΩ::Operator, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix  
     @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
     unsafe_embed(LΩ,dim,data)
 end;
 
-function unsafe_embed(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::AbstractMatrix  
+function unsafe_embed(LΩ::Operator, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractMatrix  
     @assert false "Calling Placeholder Abstract Function"
 end;
 
-function dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number}
+function dualize(LΩ::Operator, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractVector{<:Number}
     @assert length(data)== localDim(LΩ,dim) "Incompatable Data"
     unsafe_dualize(LΩ,dim,data)
 end;
 
-unsafe_dualize(LΩ::Operator, dim::Integer, data::Vector{<:Number} ) ::Vector{<:Number} = 
+unsafe_dualize(LΩ::Operator, dim::Integer, data::AbstractVector{<:Number} ) ::AbstractVector{<:Number} = 
     unsafe_coordinates(LΩ,Matrix(LinearAlgebra.transpose(unsafe_embed(LΩ,dim,data))));
 
 

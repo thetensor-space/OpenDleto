@@ -33,8 +33,13 @@ export randomize_tensor
 # NonDegenerate.jl
 export nondeg
 
-# DletoUtil.jl
+# DletoBase.jl
 export ⊕
+export direct_sum
+export act                                  # one operator per axis acting on a tensor
+export tutorial_defaults
+export warmup
+export ts
 # what is this? is this tensor product of tensors? why not \otimes?
 
 # Chisels.jl
@@ -42,7 +47,7 @@ export engaged, UniversalChisel, TuckerChisel, AdjointChisel, CentroidChisel
 export normalize_chisel
 
 # ChiselImpls.jl
-export ChiselFramed, applyDerivation
+export Chisel, applyDerivation
 
 # Operators.jl
 export Operator                             # abstract type
@@ -57,10 +62,12 @@ export UniversalOp, DiagonalOp, SymmetricOp, AntiSymmetricOp, ScalarOp, EmptyOp
 
 # Transverse.jl
 export TransverseOps
+export UniversalOps, DiagonalOps, SymmetricOps, AntiSymmetricOps, ScalarOps
 export embedMatrices, unsafe_embedMatrices
 export embedITensors, unsafe_embedITensors
 export embedITensorsSwapped, unsafe_embedITensorsSwapped
-export globalDim, axisDims, valency, frames, framesTemporary, reduceByEngaged
+export globalDim, axisDims, valence, valency, frames, framesTemporary, reduceByEngaged
+export is_orthogonal
 
 # GlobalOperatorsIndependant.jl
 export IndTransverseOps
@@ -68,16 +75,32 @@ export IndTransverseOps
 # GlobalOperatorsSymmetries.jl
 export TransverseOpsSymmetries
 
-export NullSolver
+# Precision.jl -- the floating-point policy every solver consults
+export compute_eltype, precision_floor, data_floor, tol_default, iter_tol
+export rank_rtol, qd_tolerance, precision_policy, promotes_to
 
-# DerivationMethodAbstract.jl
-export DerivationMethod, der, den
+export NullSolver
+export solve_nullspace, available_solvers, register_solver!
+export AutoSolver, SVDSolver, LUSolver, ShiftInvertSolver
+export PROGRESS_TAGS, progress_spec
+
+# Derivations.jl
+# `der` is the Z-set: a basis of the P-derivations of a tensor.
+# `den` is still an abstract placeholder (it asserts false for every
+# method); the T-set work implements it against that name.
+export DerivationMethod, get_derivation_method
+export der, derReduced, derTrOps, derTrOpsReduced, den
+
+# DerivationReport.jl -- `derTrOpsReduced(...; return_diagnostics = true)`
+export DerivationReport
 
 # DerivationMethodSylverLininig.jl
 export sylvesterLM, SylverLiningMethod
+export FastDer3ValentMethod, QuickSylverMethod, QuickDerMethod, AutoDerMethod
+export QuickDerDeclined
 
-# Stratify.jl
-export stratify
+# Densors.jl
+export stratify, denLM
 
 # TensorIO.jl
 export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
@@ -88,5 +111,7 @@ export rand_den, randTensorChisel
 export ITensorNorm, ITensorNormChisel
 
 # TensorSynthesis3D.jl
-export randTensor, randSurfaceTensor, randFaceCurveTensor, randCurveTensor
+export randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
+
+export gpu_available, to_gpu, to_cpu, gpu_sync

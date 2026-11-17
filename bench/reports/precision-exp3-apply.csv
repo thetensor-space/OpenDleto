@@ -1,0 +1,4 @@
+d,T,N,apply_seconds_median,apply_bytes
+20,Float64,630,0.00022,1125272
+20,Float32,630,0.00023,701448
+20,Float16,630,0.00034,495832

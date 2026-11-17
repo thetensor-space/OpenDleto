@@ -10,6 +10,8 @@ using Test
 using Dleto
 using ITensors
 
+include("TestNotebookOutputs.jl")
+
 # --- Select mode via environment variable ---
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"
 
@@ -19,10 +21,25 @@ include( "TestChisels.jl" )
 include( "TestOperators.jl" )
 include( "TestTransverseOps.jl" )
 include( "TestTensorSynthesis.jl" )
+include( "TestTensorDensity.jl" )
+include( "TestFastDer3Valent.jl" )
+include( "TestQuickDerN.jl" )
+include( "TestQuickDerDevice.jl" )
+include( "TestAutoDer.jl" )
+include( "TestDerivationLaws.jl" )
+include( "TestNullVerdict.jl" )
+include( "TestPrecision.jl" )
 
 
-# include( "TestSylverLining.jl" )
-#include( "TestDerivations.jl" )
+include( "TestSylverLining.jl" )
+
+# LAST, on purpose: this is the only file that loads the solver EXTENSIONS, and
+# loading them registers matrix-free solvers that `AutoSolver` is then free to
+# choose.  Every testset above was written against the registry without them.
+include( "TestSolverSeed.jl" )
+
+# TestDerivations.jl lives in test/old-tests/ and is stale against the current
+# API; it is not wired in.  See docs/review/Refactor-Plan.md Phase 0.
 
 
 # if TEST_MODE

@@ -1,0 +1,58 @@
+bench/jl: waiting for a Julia slot (60s)...
+bench/jl: waiting for a Julia slot (120s)...
+Loading Dleto KrylovKit Extension
+Loading Dleto IterativeSolvers Extension
+Loading Dleto Arpack Extension
+=== valence 3: the lift residual against qd_tolerance, as d grows ===
+d=16   v=3 Float64 r=8x8x8       qd_tol=1e-06      nullity=3   (truth 3)  below_tol=13  Rall smallest: 2.22e-15 2.49e-15 2.71e-15 2.89e-15 3.18e-15  cut: all below             0.3s     rss=0.8G  ok
+d=16   v=3 Float32 r=8x8x8       qd_tol=0.000345   nullity=3   (truth 3)  below_tol=0   Rall smallest:                                               cut: -                     0.3s     rss=0.8G  ok
+d=16   v=3 Float16 r=8x8x8       qd_tol=0.0312     nullity=3   (truth 3)  below_tol=15  Rall smallest: 0.000108 0.000125 0.000133 0.000142 0.000151  cut: 0.0307 | 0.0325       0.1s     rss=0.8G  ok
+d=32   v=3 Float64 r=11x11x11    qd_tol=1e-06      nullity=3   (truth 3)  below_tol=13  Rall smallest: 1.04e-14 1.15e-14 1.32e-14 1.53e-14 1.69e-14  cut: all below             0.0s     rss=0.9G  ok
+d=32   v=3 Float32 r=11x11x11    qd_tol=0.000345   nullity=3   (truth 3)  below_tol=0   Rall smallest:                                               cut: -                     0.0s     rss=0.9G  ok
+d=32   v=3 Float16 r=11x11x11    qd_tol=0.0312     nullity=3   (truth 3)  below_tol=18  Rall smallest: 0.000116 0.000122 0.00013 0.000137 0.000143   cut: 0.0308 | 0.0363       0.1s     rss=1.0G  ok
+d=64   v=3 Float64 r=15x15x15    qd_tol=1e-06      nullity=3   (truth 3)  below_tol=13  Rall smallest: 2.04e-14 2.36e-14 2.63e-14 2.94e-14 3.28e-14  cut: all below             0.3s     rss=1.2G  ok
+d=64   v=3 Float32 r=15x15x15    qd_tol=0.000345   nullity=2   (truth 3)  below_tol=0   Rall smallest:                                               cut: -                     0.1s     rss=1.3G  ok
+d=64   v=3 Float16 r=15x15x15    qd_tol=0.0312     nullity=3   (truth 3)  below_tol=41  Rall smallest: 0.00014 0.00117 0.00284 0.00563 0.00751       cut: 0.0306 | 0.0318       1.3s     rss=1.6G  ok
+d=100  v=3 Float64 r=19x19x19    qd_tol=1e-06      nullity=3   (truth 3)  below_tol=13  Rall smallest: 2.67e-14 3.11e-14 3.14e-14 3.95e-14 4.69e-14  cut: all below             1.6s     rss=2.3G  ok
+d=100  v=3 Float32 r=19x19x19    qd_tol=0.000345   nullity=1   (truth 3)  below_tol=0   Rall smallest:                                               cut: -                     0.9s     rss=2.6G  ok
+d=100  v=3 Float16 r=19x19x19    qd_tol=0.0312     nullity=3   (truth 3)  below_tol=70  Rall smallest: 0.000104 0.000106 0.000142 0.000159 0.00154   cut: 0.0303 | 0.0313       8.3s     rss=2.9G  ok
+d=140  v=3 Float64 r=22x22x22    qd_tol=1e-06      nullity=3   (truth 3)  below_tol=13  Rall smallest: 4.3e-14 4.81e-14 4.86e-14 5.4e-14 6.29e-14    cut: all below             6.0s     rss=4.5G  ok
+d=140  v=3 Float32 r=22x22x22    qd_tol=0.000345   nullity=0   (truth 3)  below_tol=1   Rall smallest: 0.000112                                      cut: all below             3.2s     rss=4.5G  ok
+d=140  v=3 Float16 r=22x22x22    qd_tol=0.0312     nullity=3   (truth 3)  below_tol=97  Rall smallest: 0.000106 0.00133 0.00176 0.00205 0.00214      cut: 0.0312 | 0.0314       27.1s    rss=4.8G  ok
+bench/jl: KILLED pid 13301 -- RSS 8669 MB exceeded 5 GB budget
+
+[13301] signal 15: Terminated: 15
+in expression starting at /Users/algeboy/CODE/OpenDleto/.claude/worktrees/agent-aa6f98900b62c46d8/bench/reports/precision-lift-residual.jl:135
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+__psynch_cvwait at /usr/lib/system/libsystem_kernel.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+.Ldgemm_kernel_L4_M8_22 at /Users/algeboy/.julia/juliaup/julia-1.12.3+0.aarch64.apple.darwin14/lib/julia/libopenblas64_.dylib (unknown line)
+unknown function (ip: 0x0) at (unknown file)
+Allocations: 124875688 (Pool: 124874513; Big: 1175); GC: 350
+Precompiling packages...
+   2433.5 ms  ✓ Dleto
+   1991.6 ms  ✓ Dleto → DletoIterativeSolversExt
+   2005.2 ms  ✓ Dleto → DletoKrylovKitExt
+   3868.0 ms  ✓ Dleto → DletoPlotsExt
+  4 dependencies successfully precompiled in 7 seconds. 312 already precompiled.
+Precompiling packages...
+Info Given DletoArpackExt was explicitly requested, output will be shown live [0K
+[0KLoading Dleto KrylovKit Extension
+[0KLoading Dleto IterativeSolvers Extension
+   1487.9 ms  ✓ DletoArpackExt (serial)
+  1 dependency successfully precompiled in 2 seconds
+  1 dependency had output during precompilation:
+┌ DletoArpackExt
+│  [Output was shown above]
+└  

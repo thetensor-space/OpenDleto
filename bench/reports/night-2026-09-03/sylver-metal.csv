@@ -1,0 +1,73 @@
+# bench/SylverMetalBench.jl -- sylvesterLM :array (5 CPU threads) vs :metal (M4 Max), Float32.
+# `apply` rows: one apply, minimum over the repeats named in `note`, which also carries the
+#   1-minute load average at measurement time.  THE BOX WAS SHARED: rows with loadavg >= 12 are
+#   from a contended first pass and are up to 2.4x slow; the loadavg 6-7 rows are the ones to
+#   read (and are the ones quoted in BOARD.md's sylver-metal entry).
+# `e2e` rows: der(:SylverLining, Ω, ch, Γ; tol=1e-4, solver=:ArpackSolver); `applies` is the map
+#   application count recovered from the progress tracker; `residual` is the Z-law residual.
+# device_mb = Metal.device().currentAllocatedSize gained while the maps existed (0 or noise on CPU).
+section,case,dims,valence,backend,what,seconds,bytes,applies,nullity,residual,device_mb,rss_mb,note
+apply,100x100x100x3,100x100x100x3,4,array,ester,0.021488666,256,,,,0.0,950.6,min-of-12 loadavg=15.8
+apply,100x100x100x3,100x100x100x3,4,array,sylve,0.025005666,704,,,,0.0,951.2,min-of-12 loadavg=15.8
+apply,100x100x100x3,100x100x100x3,4,array,sylvester,0.049512125,512,,,,0.0,951.2,min-of-12 loadavg=15.8
+apply,100x100x100x3,100x100x100x3,4,metal,ester,0.0046545,32688,,,,70.4,1074.1,min-of-12 loadavg=14.4
+apply,100x100x100x3,100x100x100x3,4,metal,sylve,0.004967416,27888,,,,70.4,1074.1,min-of-12 loadavg=14.4
+apply,100x100x100x3,100x100x100x3,4,metal,sylvester,0.005021,57968,,,,70.4,1074.1,min-of-12 loadavg=14.4
+apply,200x200x100x3,200x200x100x3,4,array,ester,0.099706208,256,,,,0.0,1628.6,min-of-12 loadavg=14.1
+apply,200x200x100x3,200x200x100x3,4,array,sylve,0.131509334,704,,,,0.0,1628.6,min-of-12 loadavg=14.1
+apply,200x200x100x3,200x200x100x3,4,array,sylvester,0.220483084,512,,,,0.0,1628.6,min-of-12 loadavg=13.7
+apply,200x200x100x3,200x200x100x3,4,metal,ester,0.019719958,32704,,,,275.4,1722.7,min-of-12 loadavg=13.7
+apply,200x200x100x3,200x200x100x3,4,metal,sylve,0.01857325,27600,,,,275.4,1722.7,min-of-12 loadavg=13.7
+apply,200x200x100x3,200x200x100x3,4,metal,sylvester,0.020803833,57712,,,,275.4,1722.7,min-of-12 loadavg=13.7
+apply,200^3,200x200x200,3,array,ester,0.081888125,192,,,,0.0,1722.7,min-of-12 loadavg=13.2
+apply,200^3,200x200x200,3,array,sylve,0.067055084,640,,,,0.0,1722.7,min-of-12 loadavg=13.2
+apply,200^3,200x200x200,3,array,sylvester,0.144351792,384,,,,0.0,1722.7,min-of-12 loadavg=12.6
+apply,200^3,200x200x200,3,metal,ester,0.009738417,21440,,,,153.6,1737.3,min-of-12 loadavg=12.6
+apply,200^3,200x200x200,3,metal,sylve,0.011796209,18240,,,,153.6,1737.3,min-of-3 loadavg=12.6
+apply,200^3,200x200x200,3,metal,sylvester,0.006205958,36656,,,,153.6,1737.3,min-of-12 loadavg=12.6
+apply,400^3,400x400x400,3,array,ester,0.738202584,192,,,,0.0,4397.7,min-of-6 loadavg=12.3
+apply,400^3,400x400x400,3,array,sylve,0.842657291,640,,,,0.0,4397.7,min-of-6 loadavg=12.5
+apply,400^3,400x400x400,3,array,sylvester,2.132914917,384,,,,0.0,4397.7,min-of-5 loadavg=14.0
+apply,400^3,400x400x400,3,metal,ester,0.035940166,20768,,,,1224.5,4405.2,min-of-6 loadavg=14.0
+apply,400^3,400x400x400,3,metal,sylve,0.033505875,18528,,,,1224.5,4405.2,min-of-6 loadavg=14.0
+apply,400^3,400x400x400,3,metal,sylvester,0.085235167,36672,,,,1224.5,4405.2,min-of-6 loadavg=15.5
+apply,300x300x300x3,300x300x300x3,4,array,ester,1.140345375,256,,,,0.0,4853.1,min-of-6 loadavg=12.7
+apply,300x300x300x3,300x300x300x3,4,array,sylve,1.160375834,704,,,,0.0,4853.7,min-of-3 loadavg=34.6
+apply,300x300x300x3,300x300x300x3,4,array,sylvester,2.089248125,512,,,,0.0,4853.7,min-of-6 loadavg=29.0
+apply,300x300x300x3,300x300x300x3,4,metal,ester,0.094806,33168,,,,1857.4,5169.4,min-of-6 loadavg=24.6
+apply,300x300x300x3,300x300x300x3,4,metal,sylve,0.164268292,27888,,,,1857.4,5169.4,min-of-6 loadavg=23.6
+apply,300x300x300x3,300x300x300x3,4,metal,sylvester,0.443479209,58016,,,,1857.4,5169.4,min-of-6 loadavg=23.6
+e2e,100x100x100x3,100x100x100x3,4,array,ArpackSolver,371.828,,2252,3,8.345958850166729e-7,0.0,1478.9,tol=0.0001
+e2e,100x100x100x3,100x100x100x3,4,metal,ArpackSolver,99.915,,2342,3,7.63439700132516e-7,76.6,1512.7,tol=0.0001
+e2e,200x200x100x3,200x200x100x3,4,array,ArpackSolver,1426.366,,11288,3,9.385472354562639e-7,0.0,2982.9,tol=0.0001
+e2e,200x200x100x3,200x200x100x3,4,metal,ArpackSolver,245.508,,10581,3,1.6930882620404421e-6,341.0,3717.4,tol=0.0001
+apply,300x300x300x3,300x300x300x3,4,array,ester,0.530688292,256,,,,0.0,4843.8,min-of-6 loadavg=6.9
+apply,300x300x300x3,300x300x300x3,4,array,sylve,0.659294791,704,,,,0.0,4844.4,min-of-6 loadavg=7.0
+apply,300x300x300x3,300x300x300x3,4,array,sylvester,1.177706625,512,,,,0.0,4844.4,min-of-6 loadavg=6.8
+apply,300x300x300x3,300x300x300x3,4,metal,ester,0.078947875,32992,,,,1857.4,5164.0,min-of-6 loadavg=6.4
+apply,300x300x300x3,300x300x300x3,4,metal,sylve,0.134832125,27888,,,,1857.4,5164.0,min-of-6 loadavg=5.9
+apply,300x300x300x3,300x300x300x3,4,metal,sylvester,0.169248333,58016,,,,1857.4,5164.0,min-of-6 loadavg=5.9
+apply,400^3,400x400x400,3,array,ester,0.501946875,192,,,,0.0,5164.0,min-of-6 loadavg=6.1
+apply,400^3,400x400x400,3,array,sylve,0.395425791,640,,,,0.0,5164.0,min-of-6 loadavg=6.2
+apply,400^3,400x400x400,3,array,sylvester,0.889351208,384,,,,0.0,5164.0,min-of-6 loadavg=7.1
+apply,400^3,400x400x400,3,metal,ester,0.034474875,20720,,,,1224.5,5164.0,min-of-6 loadavg=7.1
+apply,400^3,400x400x400,3,metal,sylve,0.025636042,18240,,,,1224.5,5164.0,min-of-6 loadavg=7.1
+apply,400^3,400x400x400,3,metal,sylvester,0.052948292,36672,,,,1224.5,5164.0,min-of-6 loadavg=6.9
+apply,100x100x100x3,100x100x100x3,4,array,ester,0.012811708,256,,,,0.0,936.3,min-of-12 loadavg=6.7
+apply,100x100x100x3,100x100x100x3,4,array,sylve,0.013715708,704,,,,0.0,936.9,min-of-12 loadavg=6.7
+apply,100x100x100x3,100x100x100x3,4,array,sylvester,0.0264275,512,,,,0.0,936.9,min-of-12 loadavg=6.7
+apply,100x100x100x3,100x100x100x3,4,metal,ester,0.003077417,32688,,,,70.4,991.8,min-of-12 loadavg=6.3
+apply,100x100x100x3,100x100x100x3,4,metal,sylve,0.003748541,27888,,,,70.4,991.8,min-of-12 loadavg=6.3
+apply,100x100x100x3,100x100x100x3,4,metal,sylvester,0.004608542,57984,,,,70.4,991.8,min-of-12 loadavg=6.3
+apply,200x200x100x3,200x200x100x3,4,array,ester,0.057916958,256,,,,-0.0,1565.9,min-of-12 loadavg=6.3
+apply,200x200x100x3,200x200x100x3,4,array,sylve,0.062069208,704,,,,-0.0,1565.9,min-of-12 loadavg=6.2
+apply,200x200x100x3,200x200x100x3,4,array,sylvester,0.118772583,512,,,,-0.0,1565.9,min-of-12 loadavg=6.2
+apply,200x200x100x3,200x200x100x3,4,metal,ester,0.011972583,32704,,,,275.4,1660.1,min-of-12 loadavg=6.2
+apply,200x200x100x3,200x200x100x3,4,metal,sylve,0.016672375,27600,,,,275.4,1660.1,min-of-12 loadavg=6.2
+apply,200x200x100x3,200x200x100x3,4,metal,sylvester,0.019500208,57712,,,,275.4,1660.1,min-of-12 loadavg=6.2
+apply,200^3,200x200x200,3,array,ester,0.033980625,192,,,,-6.0,1660.1,min-of-12 loadavg=6.2
+apply,200^3,200x200x200,3,array,sylve,0.030379625,640,,,,-6.0,1660.1,min-of-12 loadavg=6.4
+apply,200^3,200x200x200,3,array,sylvester,0.063354167,384,,,,-6.0,1660.1,min-of-12 loadavg=6.4
+apply,200^3,200x200x200,3,metal,ester,0.006372042,21392,,,,153.6,1704.6,min-of-12 loadavg=6.4
+apply,200^3,200x200x200,3,metal,sylve,0.004966833,18240,,,,153.6,1704.6,min-of-12 loadavg=6.4
+apply,200^3,200x200x200,3,metal,sylvester,0.00615675,36656,,,,153.6,1704.6,min-of-12 loadavg=6.4

@@ -1,0 +1,13 @@
+d,stage,solver,seconds,nullity,lsq_err,status
+10,build_sphere,-,NaN,0,NaN,"ok eltype=Float16"
+10,map_apply,-,0.0002,0,NaN,"ok eltype(L*v)=Float16"
+10,stratify,SVDSolver,0.730,0,NaN,"error: no nontrivial derivations"
+10,stratify,ArpackSolver,1.345,0,NaN,"error: MethodError: no method matching saupd(::Base.RefValue{Int64}, ::String, ::Int64, ::String, ::Int64, ::Base.RefValue{Float16}, ::Vector{Float16}, ::Int64, ::Matrix{Float16}, ::Int64, ::Vector{Int64}, ::Vector{Int64}, ::Vector{Float16}, ::Vector{Float16}, ::Int64, ::Base.RefValue{Int64})"
+10,stratify,KrylovSolver,1.836,0,NaN,"error: MethodError: no method matching hschur!(::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}, ::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false})"
+10,stratify,CGSolver,2.742,0,NaN,"error: MethodError: no method matching eigen!(::Hermitian{Float16, SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}})"
+20,build_sphere,-,NaN,0,NaN,"ok eltype=Float16"
+20,map_apply,-,0.0003,0,NaN,"ok eltype(L*v)=Float16"
+20,stratify,SVDSolver,0.248,0,NaN,"error: no nontrivial derivations"
+20,stratify,ArpackSolver,0.011,0,NaN,"error: MethodError: no method matching saupd(::Base.RefValue{Int64}, ::String, ::Int64, ::String, ::Int64, ::Base.RefValue{Float16}, ::Vector{Float16}, ::Int64, ::Matrix{Float16}, ::Int64, ::Vector{Int64}, ::Vector{Int64}, ::Vector{Float16}, ::Vector{Float16}, ::Int64, ::Base.RefValue{Int64})"
+20,stratify,KrylovSolver,0.021,0,NaN,"error: MethodError: no method matching hschur!(::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}, ::SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false})"
+20,stratify,CGSolver,0.037,0,NaN,"error: MethodError: no method matching eigen!(::Hermitian{Float16, SubArray{Float16, 2, Matrix{Float16}, Tuple{UnitRange{Int64}, UnitRange{Int64}}, false}})"

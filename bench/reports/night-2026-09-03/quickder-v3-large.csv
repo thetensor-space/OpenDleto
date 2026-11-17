@@ -1,0 +1,3 @@
+d,T,seconds,bytes,maxrss_GB,nullity,oracle_nullity,residual,r1,r2,r3,branch,dense_bytes
+50,Float64,2.627866,437746080,1.176758,2,2,9.233920e-16,14,14,14,dense,46099200
+100,Float64,56.702469,8559796688,2.868225,2,2,1.955043e-15,19,19,19,matrix-free,312770400
