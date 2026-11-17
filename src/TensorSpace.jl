@@ -6,13 +6,14 @@
 module TensorSpace
 
 using ITensors: ITensor, Index, dim
-import ITensors: inds, store, array
+import ITensors: inds, dims, store, array, svd
 import ..Dleto: act, ⊕, __ITensor
 import ..Dleto: randSurfaceTensor as _randSurfaceTensor
 import ..Dleto: randFaceCurveTensor as _randFaceCurveTensor
 import ..Dleto: randCurveTensor as _randCurveTensor
 
-import Base: *, +, getindex, isapprox, setindex!, size, ndims, Array
+import Base: *, +, -, getindex, isapprox, setindex!, size, ndims, eltype, Array
+import LinearAlgebra: norm
 
 export Axis, TensorElement, SoftTensor, tensor, ts, unwrap, contract, ⊕
 export randSurfaceTensor, randFaceCurveTensor, randCurveTensor
@@ -28,10 +29,12 @@ const Axis = Index
 """
     TensorElement
 
-ITensor-first wrapper for optional tensor-space operator ergonomics.
+Owns the tensor-space identity while carrying a system-specific payload.
+The ITensor operations below are one backend implementation; another system
+can extend operations for `TensorElement{ItsPayload}`.
 """
-struct TensorElement
-    value::ITensor
+struct TensorElement{T}
+    value::T
 end
 
 """
@@ -47,10 +50,12 @@ const SoftTensor = TensorElement
 
 Wrap a tensor-like object as `TensorElement`.
 """
+tensor(Γ::TensorElement) = Γ
 tensor(Γ::ITensor) = TensorElement(Γ)
 tensor(Γ::AbstractArray) = TensorElement(__ITensor(Γ))
-tensor(Γ::AbstractArray, like::ITensor) = TensorElement(_to_tensor_element_like(Γ, like))
+tensor(Γ::AbstractArray, like::ITensor) = _to_tensor_element_like(Γ, like)
 tensor(Γ::AbstractArray, like::TensorElement) = tensor(Γ, unwrap(like))
+tensor(Γ) = TensorElement(Γ)
 
 """
     ts(Γ)
@@ -61,7 +66,7 @@ Wrap a tensor-like object so the opt-in `TensorSpace` operators are available:
 - `ts(Γ) + Δ` adds tensors
 - `ts(Γ) ⊕ Δ` computes direct sum
 """
-ts(Γ::Union{ITensor, AbstractArray}) = tensor(Γ)
+ts(Γ) = tensor(Γ)
 
 _ensure_tensor_element(x::TensorElement) = x
 _ensure_tensor_element(x::ITensor) = tensor(x)
@@ -98,14 +103,18 @@ Recover the wrapped tensor-like value.
 unwrap(s::TensorElement) = s.value
 
 ndims(s::TensorElement) = ndims(unwrap(s))
+eltype(s::TensorElement) = eltype(unwrap(s))
+norm(s::TensorElement) = norm(unwrap(s))
 size(s::TensorElement) = size(unwrap(s))
 size(s::TensorElement, dims...) = size(unwrap(s), dims...)
 getindex(s::TensorElement, inds...) = getindex(unwrap(s), inds...)
 setindex!(s::TensorElement, v, inds...) = (unwrap(s)[inds...] = v; s)
 inds(s::TensorElement, args...) = inds(unwrap(s), args...)
+dims(s::TensorElement) = dims(unwrap(s))
 store(s::TensorElement) = store(unwrap(s))
 array(s::TensorElement, args...) = array(unwrap(s), args...)
 Array(s::TensorElement, args...) = Array(unwrap(s), args...)
+svd(s::TensorElement, args...; kwargs...) = svd(unwrap(s), args...; kwargs...)
 
 # Convert supported values to TensorElement for sticky mixed operations.
 _to_tensor_element(x::TensorElement) = x
@@ -149,6 +158,12 @@ contract(a::Union{TensorElement, ITensor, AbstractArray}, b::Union{TensorElement
 +(a::ITensor, b::TensorElement) = tensor(a + unwrap(b))
 +(a::TensorElement, b::AbstractArray) = tensor(unwrap(a) + unwrap(_to_tensor_element_like(b, unwrap(a))))
 +(a::AbstractArray, b::TensorElement) = tensor(unwrap(_to_tensor_element_like(a, unwrap(b))) + unwrap(b))
+
+-(a::TensorElement, b::TensorElement) = tensor(unwrap(a) - unwrap(b))
+-(a::TensorElement, b::ITensor) = tensor(unwrap(a) - b)
+-(a::ITensor, b::TensorElement) = tensor(a - unwrap(b))
+-(a::TensorElement, b::AbstractArray) = tensor(unwrap(a) - unwrap(_to_tensor_element_like(b, unwrap(a))))
+-(a::AbstractArray, b::TensorElement) = tensor(unwrap(_to_tensor_element_like(a, unwrap(b))) - unwrap(b))
 
 # --- Optional direct-sum ergonomics ------------------------------------------
 

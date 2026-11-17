@@ -86,6 +86,11 @@ end
 
     @test ts(Γ) isa TensorElement
     @test tensor(AΔ) isa TensorElement
+    backend_payload = (axes = (3, 4, 2),)
+    backend_tensor = tensor(backend_payload)
+    @test backend_tensor isa TensorElement{typeof(backend_payload)}
+    @test unwrap(backend_tensor) === backend_payload
+    @test ts(backend_tensor) === backend_tensor
 
     # Opt-in action semantics remain available and stay wrapped.
     acted = ts(Γ) * rn.Xs
@@ -94,6 +99,12 @@ end
 
     # randomize_tensor should preserve the active wrapper type if the input is already wrapped.
     Γw = ts(Γ)
+    @test eltype(Γw) === eltype(Γ)
+    @test norm(Γw) ≈ norm(Γ)
+    @test isapprox(tensor(AΔ, Γw), Δ)
+    @test isapprox(Γw - Δ, Γ - Δ)
+    U, S, V = ITensors.svd(Γw, first(inds(Γ)))
+    @test U isa ITensor && S isa ITensor && V isa ITensor
     rnw = randomize_tensor(Γw)
     @test rnw.Δ isa TensorElement
     @test isapprox(Γw * rnw.Xs, rnw.Δ)

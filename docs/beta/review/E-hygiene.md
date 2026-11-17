@@ -15,17 +15,16 @@ before beta, so beta continues an existing habit rather than starting one.
 |---|---|---|---|
 | `labs/FastDerSphereComparison.ipynb` | 12.97 MB | 13 cells, 7 KB of source, **8.2 MB of outputs** (4.6 MB text/html, 2.5 MB plotly JSON, 0.74 MB SVG, 0.39 MB PNG) | Strip outputs; keep the 7 KB source. |
 | `labs/WWEIA2.ipynb` | 4.97 MB | 19 code cells + **3,413 markdown cells that are byte-identical copies** of one 1,198-char "### Interpretation" block (median = max = 1198). Only 612 B of output. | Corrupted by a generation loop; dedupe to 1 cell (file becomes ~30 KB) or drop. Never a result. |
-| `labs/MovieRuntime.ipynb` + 3 PNGs + `MovieRuntime.jl` | 173 KB + 120 KB + 6 KB | Notebook with 160 KB embedded PNG output; the same 3 figures also committed as files; a "script twin" duplicates the cells. | Keep `.jl` (it is the reproducible one) + PNGs (referenced from CONTEXT.md); strip notebook outputs. |
 | `labs/*.pdf` (2), `labs/FPED_1720.csv` | 1.46 + 0.82 + 1.07 MB | Pre-existing on main. | Out of scope for beta, but the same policy question applies. |
 | `bench/*.csv|log|png` at bench root | 6 files, ~170 KB | Outputs of ChiselOperationBench / DenseSphereProfile / Stratify*Profile written next to the scripts. | Move under `bench/reports/<date>/`; drop the two `.log`s. |
 | `bench/reports/**/*.csv` | 50 files, 430 KB | Raw sweep tables; `precision-tune-a.csv` alone is 254 KB (1,945 rows). 2 orphans (`hypersphere-baseline-v3/v4.csv`, referenced nowhere). | Keep: small, cited by the .md reports, and the reports' tables are derived from them. Drop orphans. |
 | `bench/reports/**/*.log` | 16 files, 113 KB | stdout captures. **15 of 16 are referenced by no .md or .jl.** They contain `/Users/algeboy/...` and `.claude/worktrees/agent-aa6f98900b62c46d8/...` paths and Julia crash backtraces. | Drop all; the CSV + README carry the result. |
 
-Notebook outputs account for ~8.4 MB and the duplicated-cell bug for ~4.9 MB: **13.3 MB of the 20.2 MB beta adds
+Notebook outputs account for ~8.2 MB and the duplicated-cell bug for ~4.9 MB: **13.1 MB of the 20.2 MB beta adds
 is neither code nor data.** The genuinely valuable results are the dated READMEs and the small CSVs (~0.65 MB).
 
-Policy: (a) `nbstripout` as a pre-commit filter for `labs/*.ipynb` (or commit `.jl` twins, as
-`MovieRuntime.jl` already does); (b) results live under `bench/reports/<YYYY-MM-DD>/<name>/` as
+Policy: (a) strip notebook outputs and enforce this with `test/TestNotebookOutputs.jl`;
+(b) results live under `bench/reports/<YYYY-MM-DD>/<name>/` as
 `README.md` + `*.csv` (+ at most one `.png`), never `.log`; (c) anything > 1 MB that is not source goes to a
 release asset or a `data` orphan branch; (d) the pre-beta 30 MB blobs are a `git filter-repo` decision for the
 owner, not something to do on beta.
