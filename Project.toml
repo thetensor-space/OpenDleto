@@ -43,7 +43,8 @@ PlotlyJS = "0.18.18"
 Plots = "1.41.4"
 
 [extras]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Random", "Test"]
+test = ["Logging", "Test"]

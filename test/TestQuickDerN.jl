@@ -41,6 +41,9 @@ if !isdefined(@__MODULE__, :der_residual)
     end
 end
 
+der_residual(Γ::Dleto.TensorSpace.TensorElement, D::Vector{ITensor}, P::AbstractMatrix) =
+    der_residual(Dleto.TensorSpace.unwrap(Γ), D, P)
+
 """
     flatten_derivation(D, frame) -> Vector{Float64}
 

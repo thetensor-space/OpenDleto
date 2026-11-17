@@ -152,6 +152,9 @@ function stratify(Γ::TensorSpace.TensorElement; kwargs...)
     return (; Σ=_ensure_tensor_element(out.Σ), Xs=out.Xs)
 end
 
+stratify(Γ::TensorSpace.TensorElement, δ::Vector{ITensors.ITensor}) =
+    stratify(TensorSpace.unwrap(Γ), δ)
+
 function stratify(Ω::TransverseOps, ch::AbstractMatrix, Γ::TensorSpace.TensorElement; kwargs...)
     out = stratify(Ω, ch, TensorSpace.unwrap(Γ); kwargs...)
     return (; Σ=_ensure_tensor_element(out.Σ), Xs=out.Xs)
@@ -175,8 +178,13 @@ der(method::Symbol, ch::AbstractMatrix, Γ::TensorSpace.TensorElement; kwargs...
     der(method, ch, TensorSpace.unwrap(Γ); kwargs...)
 der(method::Symbol, Ω::TransverseOps, ch::AbstractMatrix, Γ::TensorSpace.TensorElement; kwargs...) =
     der(method, Ω, ch, TensorSpace.unwrap(Γ); kwargs...)
+der(method::DerivationMethod, Ω::TransverseOps, ch::AbstractMatrix, Γ::TensorSpace.TensorElement; kwargs...) =
+    der(method, Ω, ch, TensorSpace.unwrap(Γ); kwargs...)
 der(Ω::TransverseOps, ch::AbstractMatrix, Γ::TensorSpace.TensorElement; kwargs...) =
     der(Ω, ch, TensorSpace.unwrap(Γ); kwargs...)
+derTrOpsReduced(method::DerivationMethod, Ω::TransverseOps, ch::AbstractMatrix,
+                Γ::TensorSpace.TensorElement; kwargs...) =
+    derTrOpsReduced(method, Ω, ch, TensorSpace.unwrap(Γ); kwargs...)
 den(Γ::TensorSpace.TensorElement; kwargs...) = den(TensorSpace.unwrap(Γ); kwargs...)
 der_residual(Γ::TensorSpace.TensorElement, D::Vector{ITensors.ITensor}, chisel; kwargs...) =
     der_residual(TensorSpace.unwrap(Γ), D, chisel; kwargs...)

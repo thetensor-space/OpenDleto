@@ -450,6 +450,9 @@ function reconstruction(inp, Σ::ITensor, Zs)
     return (; lsq_err, support, perm_ok)
 end
 
+reconstruction(inp, Σ::Dleto.TensorSpace.TensorElement, Zs) =
+    reconstruction(inp, Dleto.TensorSpace.unwrap(Σ), Zs)
+
 # ---------------------------------------------------------------- one run
 
 """Silence solver chatter (`println` and `@info`) during a run."""
