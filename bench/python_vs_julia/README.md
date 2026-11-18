@@ -3,6 +3,8 @@
 This page records the original OpenBLAS-era sweep. The newer comparison with
 **Apple Accelerate enabled in Julia**, an extended GPU range, and unrestricted
 GPU-run host threading is in [the Apple Accelerate report](APPLE-ACCELERATE-2026-11-18.md).
+The [video-sized comparison](VIDEO-2026-11-18.md) times a 640 × 480 × 300
+tensor with Julia Metal and Python MPS in seconds.
 
 We measured the universal-chisel derivation map on the **same generic order-three tensors and operator vectors** in four implementations: Julia's dense array CPU kernel, Python's NumPy CPU kernel, Julia's Metal GPU kernel, and Python's PyTorch MPS GPU kernel. All four used `float32` on an Apple M4 Max on 2026-11-18. The input values were generated once, saved in a portable binary format, and cast to `float32` in each process.
 

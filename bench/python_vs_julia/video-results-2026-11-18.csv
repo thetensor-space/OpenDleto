@@ -1,0 +1,45 @@
+case,backend,trial,seconds
+One channel,Julia Metal,1,0.053902834
+One channel,Julia Metal,2,0.064566167
+One channel,Julia Metal,3,0.062767084
+One channel,Julia Metal,4,0.053956708
+One channel,Julia Metal,5,0.054155583
+One channel,Julia Metal,6,0.254782041
+One channel,Julia Metal,7,0.064962625
+One channel,Julia Metal,8,0.054728375
+One channel,Julia Metal,9,0.054930041
+One channel,Julia Metal,10,0.055203
+One channel,Julia Metal,11,0.05563275
+One channel,Python MPS,1,0.04697237501386553
+One channel,Python MPS,2,0.047740790992975235
+One channel,Python MPS,3,0.054422207991592586
+One channel,Python MPS,4,0.055320040992228314
+One channel,Python MPS,5,0.057059540995396674
+One channel,Python MPS,6,0.0535632910032291
+One channel,Python MPS,7,0.057330042007379234
+One channel,Python MPS,8,0.060529707989189774
+One channel,Python MPS,9,0.0668448329961393
+One channel,Python MPS,10,0.0652593330014497
+One channel,Python MPS,11,0.06276420899666846
+RGB (three channels),Julia Metal,1,0.36905
+RGB (three channels),Julia Metal,2,0.257884625
+RGB (three channels),Julia Metal,3,0.658898042
+RGB (three channels),Julia Metal,4,0.245953083
+RGB (three channels),Julia Metal,5,0.250772042
+RGB (three channels),Julia Metal,6,0.245422708
+RGB (three channels),Julia Metal,7,0.252040958
+RGB (three channels),Julia Metal,8,0.243771
+RGB (three channels),Julia Metal,9,0.252789042
+RGB (three channels),Julia Metal,10,0.252887084
+RGB (three channels),Julia Metal,11,0.247474459
+RGB (three channels),Python MPS,1,0.15701416597585194
+RGB (three channels),Python MPS,2,0.21580916698439978
+RGB (three channels),Python MPS,3,0.21761466699535958
+RGB (three channels),Python MPS,4,0.22104466700693592
+RGB (three channels),Python MPS,5,0.21826491600950249
+RGB (three channels),Python MPS,6,0.22138924998580478
+RGB (three channels),Python MPS,7,0.2174737500026822
+RGB (three channels),Python MPS,8,0.2164030419953633
+RGB (three channels),Python MPS,9,0.22153108299244195
+RGB (three channels),Python MPS,10,0.22058212500996888
+RGB (three channels),Python MPS,11,0.21337883398518898
