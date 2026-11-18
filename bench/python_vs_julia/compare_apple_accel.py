@@ -35,10 +35,14 @@ def main():
     parser.add_argument('--input', type=Path, required=True)
     parser.add_argument('--sizes', nargs='+', type=int, default=[8,16,24,32,48,64,96,128,192,256,384,512])
     parser.add_argument('--repeats', type=int, default=11)
+    parser.add_argument('--host-threads', type=int, default=None,
+                        help='Set PyTorch intra-op host threads before MPS timing')
     parser.add_argument('--resume', action='store_true')
     args = parser.parse_args()
-    if args.repeats < 1 or any(n < 1 for n in args.sizes):
+    if args.repeats < 1 or any(n < 1 for n in args.sizes) or (args.host_threads is not None and args.host_threads < 1):
         parser.error('sizes and repeats must be positive')
+    if args.host_threads is not None:
+        torch.set_num_threads(args.host_threads)
     if not torch.backends.mps.is_available():
         raise RuntimeError('MPS is unavailable in this process')
     config = io.StringIO()

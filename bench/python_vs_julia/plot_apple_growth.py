@@ -52,6 +52,8 @@ def main(folder: Path) -> None:
     if any(len(counts) != 1 for counts in
            (cpu_julia_threads, gpu_julia_threads, python_torch_threads)):
         raise ValueError("Thread settings changed across benchmark checkpoints")
+    if cpu_julia_threads != gpu_julia_threads or gpu_julia_threads != python_torch_threads:
+        raise ValueError("Configured host thread counts differ across plotted backends")
     cpu_julia_threads = cpu_julia_threads.pop()
     gpu_julia_threads = gpu_julia_threads.pop()
     python_torch_threads = python_torch_threads.pop()
