@@ -1,5 +1,9 @@
 # OpenDleto Python and Julia: CPU and Apple GPU growth
 
+This page records the original OpenBLAS-era sweep. The newer comparison with
+**Apple Accelerate enabled in Julia**, an extended GPU range, and unrestricted
+GPU-run host threading is in [the Apple Accelerate report](APPLE-ACCELERATE-2026-11-18.md).
+
 We measured the universal-chisel derivation map on the **same generic order-three tensors and operator vectors** in four implementations: Julia's dense array CPU kernel, Python's NumPy CPU kernel, Julia's Metal GPU kernel, and Python's PyTorch MPS GPU kernel. All four used `float32` on an Apple M4 Max on 2026-11-18. The input values were generated once, saved in a portable binary format, and cast to `float32` in each process.
 
 ![Line plot of forward-map time versus tensor side length from 8 to 128. Julia CPU and Python NumPy CPU are fastest at small sizes and rise sharply. Both GPU lines begin near one millisecond; Python MPS reaches about 1.5 milliseconds at 128, while Julia Metal reaches about 6.8 milliseconds. The vertical axis is logarithmic.](growth-2026-11-18.png)
@@ -29,7 +33,7 @@ A separate complete dense SVD on the same generic `4³` tensor took 0.109 ms in 
 
 ## What this benchmark says about performance
 
-The CPU columns compare different native matrix libraries as well as different OpenDleto code: this NumPy wheel links to Apple Accelerate, while Julia currently links to OpenBLAS. A separate one-thread, column-major `128² × 128` by `128 × 128` matrix multiply took about 0.585 ms with Accelerate through NumPy and 4.889 ms with OpenBLAS through Julia. Those isolated numbers do not by themselves explain every map timing, but they show why the CPU gap cannot be attributed to Python versus Julia as languages. Both maps also spend time moving between tensor layouts and accumulating axis actions.
+The CPU columns compare different native matrix libraries as well as different OpenDleto code: this NumPy wheel links to Apple Accelerate, while Julia used OpenBLAS for this historical run. The current `beta-python` branch defaults to Accelerate on supported Macs. A separate one-thread, column-major `128² × 128` by `128 × 128` matrix multiply took about 0.585 ms with Accelerate through NumPy and 4.889 ms with OpenBLAS through Julia. Those isolated numbers do not by themselves explain every map timing, but they show why the CPU gap cannot be attributed to Python versus Julia as languages. Both maps also spend time moving between tensor layouts and accumulating axis actions.
 
 The Julia Metal forward kernel still has an optimization opportunity. An isolated `96³` stage check measured about 2.16 ms for its first matrix multiply, 1.90 ms for the middle multiply, and 0.35 ms for the tensor permutation. At `128³`, the corresponding times were 1.87, 1.70, and 0.51 ms. The sharp rise above `64³` is mainly in the matrix multiplies in this check; the precise driver or kernel-selection cause remains unproven. The Python GPU path also has avoidable overhead: it prepares operator matrices on the CPU and uploads them on every call.
 
@@ -41,13 +45,13 @@ The measured data are in [results-2026-11-18.csv](results-2026-11-18.csv). The s
 
 ```sh
 VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare.py --output /tmp/opendleto-perf --sizes 4 8 16 24 32 48 64 96 128 --repeats 11
-JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare.jl /tmp/opendleto-perf float32 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-cpu-f32.log
-JULIA_LOAD_PATH='@:@dleto-bench:@stdlib' JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare_metal.jl /tmp/opendleto-perf 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-metal.log
+DLETO_BLAS=openblas JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare.jl /tmp/opendleto-perf float32 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-cpu-f32.log
+DLETO_BLAS=openblas JULIA_LOAD_PATH='@:@dleto-bench:@stdlib' JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare_metal.jl /tmp/opendleto-perf 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-metal.log
 VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare_accel.py --input /tmp/opendleto-perf --sizes 8 16 24 32 48 64 96 128 --repeats 11
 python/.venv/bin/python bench/python_vs_julia/check_parity.py /tmp/opendleto-perf
 python3 bench/python_vs_julia/plot_growth.py /tmp/opendleto-perf
 VECLIB_MAXIMUM_THREADS=1 OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/profile_normal.py /tmp/opendleto-perf
-JULIA_LOAD_PATH='@:@dleto-bench:@stdlib' JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/profile_normal.jl /tmp/opendleto-perf
+DLETO_BLAS=openblas JULIA_LOAD_PATH='@:@dleto-bench:@stdlib' JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/profile_normal.jl /tmp/opendleto-perf
 ```
 
 The two GPU commands require a process with Apple GPU access. On this machine the tool sandbox hides both Metal and MPS, so the GPU runs used an unsandboxed process. The CSV also includes a separate Python MPS device-resident forward time. MPS and Metal do not offer `float64` arithmetic here; the earlier CPU-only `float64` comparison remains a separate result.

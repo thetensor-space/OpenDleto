@@ -1,7 +1,13 @@
-# Run from repository root with JULIA_NUM_THREADS=1 and --compiled-modules=existing.
+# Run from repository root with --compiled-modules=existing.
+# Set DLETO_BENCH_APPLE=1 for the uncapped Apple Accelerate sweep.
 using Dleto, ITensors, LinearAlgebra, Statistics
 
-BLAS.set_num_threads(1)
+apple_bench = get(ENV, "DLETO_BENCH_APPLE", "0") == "1"
+if apple_bench
+    occursin("Accelerate", string(BLAS.get_config())) || error("Apple Accelerate BLAS is not configured: $(BLAS.get_config())")
+else
+    BLAS.set_num_threads(1)
+end
 folder = ARGS[1]
 dtype = length(ARGS) > 2 && ARGS[2] == "float32" ? Float32 : Float64
 sizes = parse.(Int, ARGS[3:end])
@@ -20,6 +26,7 @@ function median_seconds(f; repeats=11)
 end
 
 for n in sizes
+    apple_bench && n > 128 && error("Apple CPU benchmark is limited to n <= 128")
     tensor = dtype.(reshape(collect(reinterpret(Float64, read(joinpath(folder, "tensor_$n.bin")))), n, n, n))
     x = dtype.(collect(reinterpret(Float64, read(joinpath(folder, "x_$n.bin")))))
     y = dtype.(collect(reinterpret(Float64, read(joinpath(folder, "y_$n.bin")))))
@@ -32,5 +39,6 @@ for n in sizes
     tag = dtype == Float32 ? "f32" : "f64"
     write(joinpath(folder, "julia_forward_$(tag)_$n.bin"), dmap * x)
     write(joinpath(folder, "julia_adjoint_$(tag)_$n.bin"), dmap' * y)
-    println("RESULT n=$n dtype=$dtype forward_seconds=$forward adjoint_seconds=$adjoint")
+    println("RESULT n=$n dtype=$dtype forward_seconds=$forward adjoint_seconds=$adjoint julia_threads=$(Threads.nthreads()) lbt_reported_blas_threads=$(BLAS.get_num_threads()) blas_config=$(repr(BLAS.get_config())) julia_version=$(VERSION) VECLIB_MAXIMUM_THREADS=$(get(ENV, "VECLIB_MAXIMUM_THREADS", "unset")) OPENBLAS_NUM_THREADS=$(get(ENV, "OPENBLAS_NUM_THREADS", "unset")) OMP_NUM_THREADS=$(get(ENV, "OMP_NUM_THREADS", "unset"))")
+    flush(stdout)
 end
