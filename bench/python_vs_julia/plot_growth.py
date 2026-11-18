@@ -48,7 +48,7 @@ def main(folder: Path):
         })
     out = Path(__file__).parent
     with (out / 'results-2026-11-18.csv').open('w', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(file, fieldnames=rows[0].keys(), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     fig, ax = plt.subplots(figsize=(9.4, 5.4), layout='constrained')
