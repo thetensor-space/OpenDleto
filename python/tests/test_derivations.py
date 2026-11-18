@@ -11,6 +11,16 @@ class DerivationTests(unittest.TestCase):
         self.assertEqual(derivations(value).total_nullity, 8)
         self.assertEqual(value.data.shape, (2, 2, 2))
 
+    def test_julia_swapped_operator_orientation(self):
+        tensor = np.zeros((2, 2, 2))
+        tensor[0, 0, 0] = 1
+        d = DerivationMap(tensor)
+        coordinates = np.zeros(d.shape[1])
+        coordinates[2] = 1  # E_12 in Julia's column-major operator coordinates.
+        expected = np.zeros((1, 2, 2, 2))
+        expected[0, 1, 0, 0] = 1
+        np.testing.assert_array_equal(d.forward(coordinates), expected)
+
     def test_complex_adjoint(self):
         rng = np.random.default_rng(23)
         tensor = rng.normal(size=(2, 3, 2)) + 1j * rng.normal(size=(2, 3, 2))
@@ -53,7 +63,7 @@ class DerivationTests(unittest.TestCase):
         transformed_ops = []
         for axis, (frame, op) in enumerate(zip(transforms, mats)):
             changed = np.moveaxis(np.tensordot(frame, changed, axes=(1, axis)), 0, axis)
-            transformed_ops.append(frame @ op @ np.linalg.inv(frame))
+            transformed_ops.append(np.linalg.inv(frame).T @ op @ frame.T)
         d = DerivationMap(changed)
         coordinates = d.operators.coordinates(transformed_ops)
         self.assertLess(np.linalg.norm(d.forward(coordinates)), 1e-10)

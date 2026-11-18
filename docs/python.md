@@ -102,3 +102,5 @@ print(y.device)
 ```
 
 The MPS backend does not support `float64` or `complex128`; use the NumPy CPU backend for numerically sensitive calculations requiring those dtypes. The current Python port supports MPS forward contractions, while its adjoint and derivation solver require CPU. GPU availability checks can return false inside a process sandbox even when the host GPU works; the development Mac's MPS check and forward test passed outside the sandbox.
+
+The [minimal Python–Julia and CPU–MPS comparison](../bench/python_vs_julia/README.md) uses identical saved tensor values and operator coordinates. It also verifies the Julia `sylvesterLM` convention that the transpose of each coordinate matrix acts on its tensor mode. On the measured Apple M4 Max, MPS forward contractions become faster than NumPy CPU at 64³ in `float32`, while smaller cases favor CPU. This is a map-operation comparison, not an end-to-end GPU derivation solve.

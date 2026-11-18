@@ -14,7 +14,8 @@ class DerivationMap:
     """Map operator coordinates to chisel equations and expose its adjoint.
 
     The complex inner product uses ``vdot(x, y)`` (conjugate linear in x).
-    Matrices act on the output index of each tensor mode.
+    Coordinate matrices follow Julia ``sylvesterLM``: their transpose acts
+    on the output index of each tensor mode.
     """
 
     def __init__(self, tensor, chisel=None, operators=None, backend="auto"):
@@ -70,7 +71,7 @@ class DerivationMap:
             if not np.any(self.chisel[:, axis]):
                 continue
             m = self._as_native(matrix)
-            acted = self._moveaxis((m @ self._unfoldings[axis]).reshape((self.dims[axis],) + self.dims[:axis] + self.dims[axis + 1:]), 0, axis)
+            acted = self._moveaxis((m.T @ self._unfoldings[axis]).reshape((self.dims[axis],) + self.dims[:axis] + self.dims[axis + 1:]), 0, axis)
             weights = self._chisel[:, axis].reshape((-1,) + (1,) * len(self.dims))
             out = out + weights * acted
         return out
@@ -91,7 +92,7 @@ class DerivationMap:
                 if m.device.type != "cpu":
                     raise RuntimeError("Torch GPU adjoint coordinates require explicit CPU transfer; use forward on GPU or move tensor to CPU")
                 m = m.detach().numpy()
-            matrices.append(m)
+            matrices.append(m.T)
         return self.operators.adjoint(matrices)
 
     def normal(self, coordinates):

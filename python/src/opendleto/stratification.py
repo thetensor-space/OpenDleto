@@ -51,14 +51,14 @@ def stratify(tensor, result: DerivationResult, *, index=0, tol=1e-8,
     eigs = []
     safe = True
     for m in mats:
-        values, vectors = np.linalg.eig(m)
+        values, vectors = np.linalg.eig(m.T)
         if np.linalg.cond(vectors) > max_condition:
             safe = False
             break
         frames.append(vectors)
         eigs.append(values)
     if not safe:
-        frames = [schur(m, output="complex")[1] for m in mats]
+        frames = [schur(m.T, output="complex")[1] for m in mats]
         eigs = []
     transformed = array.astype(np.result_type(array.dtype, complex), copy=True)
     for axis, frame in enumerate(frames):
