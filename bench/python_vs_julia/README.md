@@ -1,53 +1,43 @@
-# Minimal Python–Julia and CPU–MPS comparison
+# OpenDleto Python and Julia: CPU and Apple GPU growth
 
-Measured on 2026-11-18 on an Apple M4 Max (macOS 27.2.1), with Python 3.14, NumPy 2.5.5, SciPy 1.18.1, PyTorch 2.15.0, and Julia 1.12.3. One CPU thread and one BLAS thread were used. The same deterministic generic tensors and coordinate vectors were saved once as little-endian Float64 binaries in Julia column-major order. Each timing is the median of seven calls after one warmup; startup, package loading, and map construction are excluded. For MPS, each timed call includes synchronization and the current implementation's small operator transfers to the GPU, but excludes transferring the input tensor and output back to CPU.
+We measured the universal-chisel derivation map on the **same generic order-three tensors and operator vectors** in four implementations: Julia's dense array CPU kernel, Python's NumPy CPU kernel, Julia's Metal GPU kernel, and Python's PyTorch MPS GPU kernel. All four used `float32` on an Apple M4 Max on 2026-11-18. The input values were generated once, saved in a portable binary format, and cast to `float32` in each process.
 
-## Forward map, `float32` (milliseconds)
+![Line plot of forward-map time versus tensor side length from 8 to 128. Julia CPU and Python NumPy CPU are fastest at small sizes and rise sharply. Both GPU lines begin near one millisecond; Python MPS reaches about 1.5 milliseconds at 128, while Julia Metal reaches about 6.8 milliseconds. The vertical axis is logarithmic.](growth-2026-11-18.png)
 
-| Tensor | Julia CPU | Python NumPy CPU | Python PyTorch MPS |
-| --- | ---: | ---: | ---: |
-| 8³ | 0.0018 | 0.0239 | 0.8124 |
-| 32³ | 0.1333 | 0.0699 | 0.7400 |
-| 64³ | 1.5410 | 1.5737 | 0.8308 |
+The plot shows **time for one forward-map application**. Lower is faster. The vertical axis uses a logarithmic scale so the small and large cases remain visible together. Each point is the median of 11 calls after five warmups, with one CPU and BLAS thread. Package loading, map construction, and the one-time tensor upload are excluded. Both GPU timings end with an output on the CPU; host-facing operator coordinates are supplied to both.
 
-### CPU versus GPU, as a text plot
-
-This shows Python MPS forward speed relative to Python NumPy CPU on the same `float32` tensor. Longer bars mean faster MPS execution. Each `#` is about 0.05 times CPU speed; a bar of 20 marks would mean equal speed.
-
-```text
-Tensor   MPS speed relative to NumPy CPU
-8³       #                                      0.03×
-32³      ##                                     0.09×
-64³      ###################################### 1.89×
-```
-
-At 64³, the MPS forward call was about 1.9 times faster than NumPy CPU on this machine. At 8³ and 32³ it was slower. These results apply to the current implementations and tensor sizes, not to a full derivation solve. MPS does not support `float64` or `complex128` and the Python GPU adjoint is not implemented.
-
-## CPU map, `float64` (milliseconds)
-
-| Tensor | Julia forward | Python forward | Julia adjoint | Python adjoint |
+| Tensor | Julia CPU | Python NumPy CPU | Julia Metal GPU | Python MPS GPU |
 | --- | ---: | ---: | ---: | ---: |
-| 8³ | 0.0021 | 0.0282 | 0.0016 | 0.0191 |
-| 32³ | 0.1984 | 0.2232 | 0.1927 | 0.0548 |
-| 64³ | 2.7327 | 2.0517 | 2.5342 | 0.3581 |
+| 8³ | 0.0018 | 0.0204 | 1.1545 | 1.0958 |
+| 16³ | 0.0131 | 0.0315 | 1.2054 | 0.7007 |
+| 24³ | 0.0483 | 0.0470 | 1.0785 | 0.6093 |
+| 32³ | 0.1233 | 0.0690 | 1.0199 | 0.5902 |
+| 48³ | 0.4928 | 0.2261 | 1.0490 | 0.6402 |
+| 64³ | 1.5503 | 1.5686 | 1.0913 | 0.7078 |
+| 96³ | 6.8992 | 4.2345 | 6.0097 | 1.0750 |
+| 128³ | 20.1945 | 14.2777 | 6.7810 | 1.5181 |
 
-For the same input bytes, Julia and Python forward outputs matched exactly in both precisions at all three sizes. Relative adjoint differences were at most `2.3e-15` in `float64` and `1.3e-6` in `float32`. The Python CPU and MPS forward outputs agreed within `6.8e-8` relative error.
+All times are milliseconds. At `128³`, Julia Metal was about 3.0 times faster than Julia CPU, and Python MPS was about 9.4 times faster than Python NumPy CPU. The Python MPS forward call was about 4.5 times faster than the Julia Metal call in this particular implementation and run. Around `64³`, both GPU paths began to beat their own CPU counterparts. Julia Metal's forward time rose from about 1 ms at `64³` to about 6–7 ms at `96³`; a second sweep reproduced that jump. These are measurements of the present kernels, including their host/device interface costs, rather than a general language or GPU ranking.
 
-## Small complete dense SVD
+## Adjoint and numerical agreement
 
-On the same generic 4³ tensor, constructing the dense 64×48 derivation matrix and computing its singular values took 0.109 ms in Julia and 0.922 ms in Python; both reported nullity 2 at relative tolerance `1e-8`. This comparison measures the complete small-map decomposition. It does not compare the packages' distinct high-level solver policies.
+Julia Metal also supports the adjoint map. Its measured adjoint times were 1.031 ms at `64³`, 1.312 ms at `96³`, and 1.763 ms at `128³`; Julia CPU took 1.459, 6.344, and 19.244 ms respectively. Python NumPy CPU took 0.669, 2.241, and 6.535 ms. The current Python MPS backend does not implement the GPU adjoint, so no four-way adjoint or full GPU solver comparison is claimed.
+
+The saved outputs passed [the parity check](check_parity.py): maximum relative difference across forward and available adjoint outputs was `2.34e-6`. Forward outputs from the two CPU implementations matched exactly in `float32`; Julia Metal and Python MPS forward outputs agreed with Julia CPU to at most `6.8e-8` relative error. Float32 rounding explains the larger adjoint differences.
+
+A separate complete dense SVD on the same generic `4³` tensor took 0.109 ms in Julia and 0.922 ms in Python; both found nullity 2 at relative tolerance `1e-8`. That is a CPU-only small-map comparison. It does not compare the packages' different high-level solver policies.
 
 ## Reproduce
 
-From the repository root, with `python/.venv` containing `opendleto[torch,dev]`:
+The measured data are in [results-2026-11-18.csv](results-2026-11-18.csv). The scripts generate fresh shared inputs, save numerical outputs for parity checks, and regenerate the plot. Run from the repository root with Julia 1.12, the shared `@dleto-bench` Julia environment containing Metal, the project-local Python environment containing `opendleto[torch,dev]`, and a plotting Python environment containing Matplotlib:
 
 ```sh
-OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare.py --output /tmp/opendleto-perf --sizes 4 8 32 64 --repeats 7
-JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare.jl /tmp/opendleto-perf float64 8 32 64
-JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare.jl /tmp/opendleto-perf float32 8 32 64
-OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare_accel.py --input /tmp/opendleto-perf --sizes 8 32 64 --repeats 7
-OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare_solve.py /tmp/opendleto-perf
-JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare_solve.jl /tmp/opendleto-perf
+OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare.py --output /tmp/opendleto-perf --sizes 4 8 16 24 32 48 64 96 128 --repeats 11
+JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare.jl /tmp/opendleto-perf float32 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-cpu-f32.log
+JULIA_LOAD_PATH='@:@dleto-bench:@stdlib' JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 julia --compiled-modules=existing --project=. bench/python_vs_julia/compare_metal.jl /tmp/opendleto-perf 8 16 24 32 48 64 96 128 | tee /tmp/opendleto-perf/julia-metal.log
+OPENBLAS_NUM_THREADS=1 python/.venv/bin/python bench/python_vs_julia/compare_accel.py --input /tmp/opendleto-perf --sizes 8 16 24 32 48 64 96 128 --repeats 11
+python/.venv/bin/python bench/python_vs_julia/check_parity.py /tmp/opendleto-perf
+python3 bench/python_vs_julia/plot_growth.py /tmp/opendleto-perf
 ```
 
-The MPS command must run in a process with GPU access. On this machine, the tool sandbox hides MPS; the measured GPU run used an unsandboxed process. The binary output files from the two CPU scripts can be compared directly after selecting their corresponding dtypes.
+The two GPU commands require a process with Apple GPU access. On this machine the tool sandbox hides both Metal and MPS, so the GPU runs used an unsandboxed process. The CSV also includes a separate Python MPS device-resident forward time. MPS and Metal do not offer `float64` arithmetic here; the earlier CPU-only `float64` comparison remains a separate result.

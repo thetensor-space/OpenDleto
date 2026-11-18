@@ -19,8 +19,9 @@ def write_f64(path: Path, array: np.ndarray) -> None:
     path.write_bytes(np.asarray(array, dtype='<f8').tobytes(order='F'))
 
 
-def timed(call, repeats=5):
-    call()
+def timed(call, repeats=11):
+    for _ in range(5):
+        call()
     samples = []
     for _ in range(repeats):
         start = perf_counter()
@@ -33,7 +34,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--sizes', nargs='+', type=int, default=[8, 32])
-    parser.add_argument('--repeats', type=int, default=5)
+    parser.add_argument('--repeats', type=int, default=11)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     report = []
