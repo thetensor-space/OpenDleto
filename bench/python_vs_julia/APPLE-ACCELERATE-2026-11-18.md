@@ -21,6 +21,8 @@ Python's PyTorch reported twelve, and no thread-limit environment variables
 were set. The graph labels these host thread settings. The number of workers
 actually used by Accelerate and the GPU devices was not measured; device
 parallelism is distinct from host thread counts.
+The later [video-sized comparison](VIDEO-2026-11-18.md) reruns both GPU paths
+with 12 configured host threads and reports clip-equivalent frames per second.
 
 The Julia GPU run used Metal.jl 1.11.1 in a temporary environment. The pinned
 Metal.jl 1.9.3 in this checkout failed to compile its permutation kernel on

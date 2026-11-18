@@ -16,8 +16,10 @@ p.add_argument('--shape', nargs='+', type=int, default=(640, 480, 3, 300))
 p.add_argument('--backend', choices=('cpu', 'mps'), required=True)
 p.add_argument('--warmups', type=int, default=3)
 p.add_argument('--repeats', type=int, default=5)
+p.add_argument('--host-threads', type=int, default=None,
+               help='Set PyTorch intra-op host threads before MPS work')
 a = p.parse_args()
-if len(a.shape) not in (3, 4) or min(a.shape) < 1 or a.warmups < 0 or a.repeats < 1:
+if len(a.shape) not in (3, 4) or min(a.shape) < 1 or a.warmups < 0 or a.repeats < 1 or (a.host_threads is not None and a.host_threads < 1):
     p.error('shape must contain three or four positive dimensions; repeats must be positive')
 tensor = np.fromfile(a.folder / 'tensor.f32', dtype='<f4')
 x = np.fromfile(a.folder / 'x.f32', dtype='<f4')
@@ -34,6 +36,8 @@ if a.backend == 'cpu':
     torch_version = torch_threads = None
 else:
     import torch
+    if a.host_threads is not None:
+        torch.set_num_threads(a.host_threads)
     if not torch.backends.mps.is_available():
         raise RuntimeError('MPS is unavailable')
     tensor = torch.as_tensor(tensor.copy(), device='mps')
@@ -64,7 +68,7 @@ for i in range(1, a.repeats + 1):
     print(f'SAMPLE {i} seconds={elapsed}', flush=True)
 print('RESULT ' + json.dumps(dict(backend=a.backend, shape=a.shape, coordinate_length=x.size,
     output_shape=[1, *a.shape], warmups=a.warmups, repeats=a.repeats,
-    seconds=samples, median_seconds=float(np.median(samples)), sample=sample, output_norm=norm, clip_seconds=10, fps=30, realtime_factor=10/float(np.median(samples)),
+    seconds=samples, median_seconds=float(np.median(samples)), sample=sample, output_norm=norm, clip_seconds=10, fps=30, clip_equivalent_fps=300/float(np.median(samples)), realtime_factor=10/float(np.median(samples)),
     platform=platform.platform(), numpy=np.__version__, numpy_blas='Accelerate' if 'accelerate' in config.getvalue().lower() else 'other',
     torch=torch_version, torch_threads=torch_threads,
     thread_environment={k: os.environ.get(k) for k in ('VECLIB_MAXIMUM_THREADS','OPENBLAS_NUM_THREADS','OMP_NUM_THREADS','MKL_NUM_THREADS')})), flush=True)
