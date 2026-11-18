@@ -47,6 +47,10 @@ any of the following ways:
 |------------------|----------------|
 | <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
 
+## Python package
+
+A native Python implementation of selected tensor derivation tools is available on the `beta-python` branch. It requires Python 3.10+, NumPy and SciPy, and does not require Julia. From a checkout, install with `python -m pip install ./python`; see the [Python guide](docs/python.md) for Git installation, optional PyTorch support, examples and feature coverage.
+
 ## Installation Guide
 
 Dleto is now a Julia package! You can install it in several ways:
