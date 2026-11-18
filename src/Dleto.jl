@@ -31,6 +31,7 @@ module Dleto
 
 # Linear Algebra libraries
 import LinearAlgebra
+import Libdl
 import ITensors
 # KrylovKit and IterativeSolvers are hard dependencies whose solver extensions
 # (DletoKrylovKitExt, DletoIterativeSolversExt) only activate once the trigger
@@ -57,6 +58,7 @@ include("DletoExports.jl")
 # ============================================================================
 
 include("DletoBase.jl")
+include("util/BLASBackend.jl")
 
     # The floating-point policy: one place where the element type decides what
     # "zero" means.  First, because every solver and every `der`/`den` entry
@@ -210,6 +212,7 @@ distCurveTensor(t::TensorSpace.TensorElement, xes::Vector, yes::Vector, zes::Vec
 # ============================================================================
 
 function __init__()
+    _init_blas_backend()
     # Suppress WebIO warnings
     ENV["WEBIO_WARN"] = "false"
     

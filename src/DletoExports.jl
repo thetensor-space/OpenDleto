@@ -115,3 +115,5 @@ export randSurfaceTensor, randFaceCurveTensor, randCurveTensor
 export distSurfaceTensor, distFaceCurveTensor, distCurveTensor
 
 export gpu_available, to_gpu, to_cpu, gpu_sync
+
+export blas_backend

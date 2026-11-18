@@ -11,6 +11,7 @@ using Dleto
 using ITensors
 
 include("TestNotebookOutputs.jl")
+include("TestBLASBackend.jl")
 
 # --- Select mode via environment variable ---
 const TEST_MODE = get(ENV, "JULIA_TEST_MODE", "assert") == "test"

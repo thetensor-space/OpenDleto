@@ -195,3 +195,18 @@ The functions have not been tested on abstract arrays. If the input is a sparse 
 first convert it to a normal `Array`.   
 
 -->
+### Julia BLAS backend
+
+On macOS 13.4 or later, loading Dleto automatically forwards BLAS and LAPACK
+operations to Apple's Accelerate framework when its ILP64 interface is available.
+Existing BLAS forwarding remains as a fallback for operations Accelerate does
+not provide. Linux, Windows, and unsupported Macs retain their existing backend
+(normally Julia's OpenBLAS). No additional Julia package is required.
+
+This selection affects the entire Julia process, including other packages. To
+leave the existing backend unchanged, set `DLETO_BLAS=openblas` **before**
+loading Dleto, for example `DLETO_BLAS=openblas julia --project`. In a fresh
+default Julia session this retains OpenBLAS; it does not replace a backend that
+another package has already selected. Inspect the current forwarding libraries
+with `Dleto.blas_backend()` (or `LinearAlgebra.BLAS.get_config()`). Other
+packages can change that configuration after Dleto loads.
