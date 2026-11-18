@@ -104,6 +104,7 @@ export stratify, denLM
 
 # TensorIO.jl
 export normalize_tensor, compare, side_by_side, load_tensor, save, plot_tensor
+export derivation_spectrum_widget
 export set_compare_layout, get_compare_layout
 
 # TensorSynthesis.jl

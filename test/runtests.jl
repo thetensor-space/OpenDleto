@@ -11,6 +11,7 @@ using Dleto
 using ITensors
 
 include("TestNotebookOutputs.jl")
+include("TestDerivationSpectrumWidget.jl")
 include("TestBLASBackend.jl")
 
 # --- Select mode via environment variable ---

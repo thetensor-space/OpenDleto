@@ -45,3 +45,5 @@ function save end
 
 function plot_tensor end
 
+function derivation_spectrum_widget end
+
