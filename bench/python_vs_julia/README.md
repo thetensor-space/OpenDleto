@@ -10,6 +10,17 @@ Measured on 2026-11-18 on an Apple M4 Max (macOS 27.2.1), with Python 3.14, NumP
 | 32³ | 0.1333 | 0.0699 | 0.7400 |
 | 64³ | 1.5410 | 1.5737 | 0.8308 |
 
+### CPU versus GPU, as a text plot
+
+This shows Python MPS forward speed relative to Python NumPy CPU on the same `float32` tensor. Longer bars mean faster MPS execution. Each `#` is about 0.05 times CPU speed; a bar of 20 marks would mean equal speed.
+
+```text
+Tensor   MPS speed relative to NumPy CPU
+8³       #                                      0.03×
+32³      ##                                     0.09×
+64³      ###################################### 1.89×
+```
+
 At 64³, the MPS forward call was about 1.9 times faster than NumPy CPU on this machine. At 8³ and 32³ it was slower. These results apply to the current implementations and tensor sizes, not to a full derivation solve. MPS does not support `float64` or `complex128` and the Python GPU adjoint is not implemented.
 
 ## CPU map, `float64` (milliseconds)
