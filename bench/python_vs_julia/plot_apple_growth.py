@@ -29,9 +29,13 @@ def main(folder: Path) -> None:
             cpu[int(values["n"])] = values
     sizes = sorted(int(path.stem.split("_")[1]) for path in folder.glob("accel_*.json"))
     rows = []
+    gpu_julia_threads = set()
+    python_torch_threads = set()
     for n in sizes:
         py = json.loads((folder / f"accel_{n}.json").read_text())
         jl_gpu = julia_result(folder / f"metal_{n}.log")
+        gpu_julia_threads.add(int(jl_gpu["julia_threads"]))
+        python_torch_threads.add(int(py["metadata"]["torch_threads"]))
         row = {
             "n": n,
             "julia_accelerate_cpu_forward_ms": 1000 * float(cpu[n]["forward_seconds"]) if n in cpu else "",
@@ -44,18 +48,29 @@ def main(folder: Path) -> None:
             "julia_accelerate_cpu_adjoint_ms": 1000 * float(cpu[n]["adjoint_seconds"]) if n in cpu else "",
         }
         rows.append(row)
+    cpu_julia_threads = {int(values["julia_threads"]) for values in cpu.values()}
+    if any(len(counts) != 1 for counts in
+           (cpu_julia_threads, gpu_julia_threads, python_torch_threads)):
+        raise ValueError("Thread settings changed across benchmark checkpoints")
+    cpu_julia_threads = cpu_julia_threads.pop()
+    gpu_julia_threads = gpu_julia_threads.pop()
+    python_torch_threads = python_torch_threads.pop()
     csv_path = output / "apple-results-2026-11-18.csv"
     with csv_path.open("w", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=rows[0].keys(), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 
-    fig, ax = plt.subplots(figsize=(9.5, 5.5), layout="constrained")
+    fig, ax = plt.subplots(figsize=(10.5, 5.8), layout="constrained")
     series = [
-        ("Julia CPU · Accelerate", "julia_accelerate_cpu_forward_ms", "#166534", "o"),
-        ("Python CPU · Accelerate", "python_accelerate_cpu_forward_ms", "#2563eb", "s"),
-        ("Julia GPU · Metal", "julia_metal_gpu_host_forward_ms", "#d97706", "^"),
-        ("Python GPU · MPS", "python_mps_gpu_host_forward_ms", "#be185d", "D"),
+        (f"Julia CPU · Accelerate ({cpu_julia_threads} Julia host; BLAS auto)",
+         "julia_accelerate_cpu_forward_ms", "#166534", "o"),
+        ("Python CPU · Accelerate (BLAS auto)",
+         "python_accelerate_cpu_forward_ms", "#2563eb", "s"),
+        (f"Julia GPU · Metal ({gpu_julia_threads} Julia host)",
+         "julia_metal_gpu_host_forward_ms", "#d97706", "^"),
+        (f"Python GPU · MPS ({python_torch_threads} PyTorch host)",
+         "python_mps_gpu_host_forward_ms", "#be185d", "D"),
     ]
     for label, column, color, marker in series:
         points = [(row["n"], row[column]) for row in rows if row[column] != ""]
@@ -69,7 +84,9 @@ def main(folder: Path) -> None:
     ax.set_ylabel("Forward map time (ms, log scale; lower is faster)")
     ax.set_title("OpenDleto on Apple silicon: CPU through 128, GPU through 512")
     ax.grid(True, which="both", alpha=0.25)
-    ax.legend(loc="upper left")
+    ax.legend(loc="upper left", fontsize=9,
+              title="Configured host threads; device worker counts unmeasured",
+              title_fontsize=8)
     fig.savefig(output / "apple-growth-2026-11-18.png", dpi=180)
     plt.close(fig)
     for row in rows:

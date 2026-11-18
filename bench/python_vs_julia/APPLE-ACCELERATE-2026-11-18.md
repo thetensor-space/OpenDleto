@@ -16,9 +16,11 @@ saved in the CSV; Python MPS currently has no GPU adjoint.
 Each Julia size runs in a fresh process. Packages were precompiled before the
 sweep, and five calls warm up each map before 11 calls are timed. The median is
 reported. The same warmup and repeat counts apply to Python. Both GPU paths
-synchronize each timed call. Julia used eight host threads, Python's PyTorch
-reported twelve, and no thread-limit environment variables were set. GPU kernels
-use their own device parallelism, which is distinct from host thread counts.
+synchronize each timed call. Julia was configured with eight host threads,
+Python's PyTorch reported twelve, and no thread-limit environment variables
+were set. The graph labels these host thread settings. The number of workers
+actually used by Accelerate and the GPU devices was not measured; device
+parallelism is distinct from host thread counts.
 
 The Julia GPU run used Metal.jl 1.11.1 in a temporary environment. The pinned
 Metal.jl 1.9.3 in this checkout failed to compile its permutation kernel on
@@ -31,7 +33,7 @@ The plot and table below show time for one forward-map application. Lower is
 faster. The CPU lines stop at `128³`; the GPU lines extend to `512³`. The
 vertical axis is logarithmic.
 
-![Line plot comparing Julia and Python forward-map times on Apple silicon. The Julia and Python CPU Accelerate lines end at tensor side length 128; the Julia Metal and Python MPS GPU lines continue through 512. Lower time is faster.](apple-growth-2026-11-18.png)
+![Line plot comparing Julia and Python forward-map times on Apple silicon. Legend labels show eight configured Julia host threads for the Julia CPU and GPU runs, twelve PyTorch host threads for Python MPS, and automatic, unmeasured Accelerate worker counts for both CPU runs. The CPU lines end at tensor side length 128; the GPU lines continue through 512. Lower time is faster.](apple-growth-2026-11-18.png)
 
 | Tensor | Julia CPU · Accelerate | Python CPU · Accelerate | Julia GPU · Metal | Python GPU · MPS |
 | --- | ---: | ---: | ---: | ---: |
