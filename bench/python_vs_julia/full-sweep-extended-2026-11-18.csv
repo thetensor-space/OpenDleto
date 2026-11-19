@@ -1,0 +1,49 @@
+language,case,chisel,method,stage,seconds,dimension,residual,status,certified,exact,raw_shape,reduced_shape,returned_vectors,nontrivial_dimension,scalar_dimension,operator_space
+python,generic8,universal,hosvd,nondeg,0.00011225001071579754,,1.3508563326545863e-15,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,generic8,universal,dense_svdvals,raw,0.00769566697999835,2,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,generic8,universal,dense_svdvals,reduced,0.007630290987435728,2,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,generic8,universal,derivations,reduced_solve,0.009495625010458753,2,,exact,,,"[8, 8, 8]","[8, 8, 8]",0,0,2,effective
+python,generic8,universal,stratify,reduced_stratification,0.0,,,skipped: no non-scalar derivation,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,diagonal8,universal,hosvd,nondeg,8.516697562299669e-05,,0.0,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,diagonal8,universal,dense_svdvals,raw,0.006758208997780457,16,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,diagonal8,universal,dense_svdvals,reduced,0.006714791001286358,16,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,diagonal8,universal,derivations,reduced_solve,0.008382625004742295,16,5.682665289181517e-15,exact,,,"[8, 8, 8]","[8, 8, 8]",14,14,2,effective
+python,diagonal8,universal,stratify,reduced_stratification,0.00019800002337433398,8,4.568950360758158e-15,diagonal,,,"[8, 8, 8]","[8, 8, 8]",,,,effective
+python,embedded10,universal,hosvd,nondeg,0.00012295800843276083,,1.2185191388887933e-15,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,effective
+python,embedded10,universal,dense_svdvals,raw,0.013130957988323644,122,,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,effective
+python,embedded10,universal,dense_svdvals,reduced,0.0024766249989625067,2,,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,effective
+python,embedded10,universal,derivations,reduced_solve,0.0033374579797964543,2,,exact,,,"[10, 10, 10]","[6, 6, 6]",0,0,2,effective
+python,embedded10,universal,stratify,reduced_stratification,0.0,,,skipped: no non-scalar derivation,,,"[10, 10, 10]","[6, 6, 6]",,,,effective
+julia,generic8,universal,hosvd,nondeg,0.000240875,,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,generic8,universal,dense_svdvals,raw,0.002992542,2,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,engaged_axes
+julia,generic8,universal,dense_svdvals,reduced,0.002976333,2,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,engaged_axes
+julia,generic8,universal,Auto,reduced_solve,0.0036595,2,8.481588068538993e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",2,,2,
+julia,generic8,universal,Auto,reduced_stratification,2.7042e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,generic8,universal,SylverLining,reduced_solve,0.003354334,2,8.481588068538993e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",2,,2,
+julia,generic8,universal,SylverLining,reduced_stratification,3.0583e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,generic8,universal,QuickDer,reduced_solve,0.00162225,2,6.406906958149444e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",2,,2,
+julia,generic8,universal,QuickDer,reduced_stratification,2.7166e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,generic8,universal,QuickDer3,reduced_solve,0.001668166,2,6.197714324506508e-16,unreported,,,"[8, 8, 8]","[8, 8, 8]",2,,2,
+julia,generic8,universal,QuickDer3,reduced_stratification,2.7042e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,hosvd,nondeg,0.000215875,,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,dense_svdvals,raw,0.002009375,16,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,engaged_axes
+julia,diagonal8,universal,dense_svdvals,reduced,0.002032958,16,,ok,,,"[8, 8, 8]","[8, 8, 8]",,,,engaged_axes
+julia,diagonal8,universal,Auto,reduced_solve,0.004191875,16,9.126229589657528e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",16,,2,
+julia,diagonal8,universal,Auto,reduced_stratification,2.6792e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,SylverLining,reduced_solve,0.00394125,16,9.126229589657528e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",16,,2,
+julia,diagonal8,universal,SylverLining,reduced_stratification,2.575e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,QuickDer,reduced_solve,0.003412958,16,6.136915444084073e-16,ok,True,,"[8, 8, 8]","[8, 8, 8]",16,,2,
+julia,diagonal8,universal,QuickDer,reduced_stratification,2.8042e-05,,,complete,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,QuickDer3,reduced_solve,,,,error,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,diagonal8,universal,QuickDer3,reduced_stratification,,,,skipped: solve failed,,,"[8, 8, 8]","[8, 8, 8]",,,,
+julia,embedded10,universal,hosvd,nondeg,0.000233041,,,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,
+julia,embedded10,universal,dense_svdvals,raw,0.006179042,122,,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,engaged_axes
+julia,embedded10,universal,dense_svdvals,reduced,0.000757792,2,,ok,,,"[10, 10, 10]","[6, 6, 6]",,,,engaged_axes
+julia,embedded10,universal,Auto,reduced_solve,0.001190292,2,6.781283291285473e-16,ok,True,,"[10, 10, 10]","[6, 6, 6]",2,,2,
+julia,embedded10,universal,Auto,reduced_stratification,2.5458e-05,,,complete,,,"[10, 10, 10]","[6, 6, 6]",,,,
+julia,embedded10,universal,SylverLining,reduced_solve,0.001138917,2,6.781283291285473e-16,ok,True,,"[10, 10, 10]","[6, 6, 6]",2,,2,
+julia,embedded10,universal,SylverLining,reduced_stratification,2.0667e-05,,,complete,,,"[10, 10, 10]","[6, 6, 6]",,,,
+julia,embedded10,universal,QuickDer,reduced_solve,0.001250083,2,6.942299728279865e-16,ok,True,,"[10, 10, 10]","[6, 6, 6]",2,,2,
+julia,embedded10,universal,QuickDer,reduced_stratification,2.0625e-05,,,complete,,,"[10, 10, 10]","[6, 6, 6]",,,,
+julia,embedded10,universal,QuickDer3,reduced_solve,0.001369667,2,7.304059171115097e-16,unreported,,,"[10, 10, 10]","[6, 6, 6]",2,,2,
+julia,embedded10,universal,QuickDer3,reduced_stratification,2.4875e-05,,,complete,,,"[10, 10, 10]","[6, 6, 6]",,,,

@@ -1,5 +1,12 @@
 # OpenDleto Python and Julia: CPU and Apple GPU growth
 
+The [20³–100³ complete-method sweep](LARGE-SWEEP-2026-11-18.md) is the
+relevant CPU comparison for derivation vectors and stratification.
+
+For full CPU derivation solves after nondegenerate reduction, numerical
+dimension checks, and stratification on small maps, see the
+[4³–10³ sweep](FULL-SWEEP-2026-11-18.md).
+
 This page records the original OpenBLAS-era sweep. The newer comparison with
 **Apple Accelerate enabled in Julia**, an extended GPU range, and unrestricted
 GPU-run host threading is in [the Apple Accelerate report](APPLE-ACCELERATE-2026-11-18.md).

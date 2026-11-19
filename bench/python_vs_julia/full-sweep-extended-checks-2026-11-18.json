@@ -1,0 +1,194 @@
+[
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "python",
+    "method": "derivations",
+    "dense_dimension": 16,
+    "solved_dimension": 16,
+    "agrees": true,
+    "residual": 5.682665289181517e-15,
+    "certified": null
+  },
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "Auto",
+    "dense_dimension": 16,
+    "solved_dimension": 16,
+    "agrees": true,
+    "residual": 9.126229589657528e-16,
+    "certified": true
+  },
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "SylverLining",
+    "dense_dimension": 16,
+    "solved_dimension": 16,
+    "agrees": true,
+    "residual": 9.126229589657528e-16,
+    "certified": true
+  },
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer",
+    "dense_dimension": 16,
+    "solved_dimension": 16,
+    "agrees": true,
+    "residual": 6.136915444084073e-16,
+    "certified": true
+  },
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer3",
+    "dense_dimension": 16,
+    "solved_dimension": null,
+    "agrees": null,
+    "residual": null,
+    "certified": null
+  },
+  {
+    "case": "diagonal8",
+    "chisel": "universal",
+    "language": "cross",
+    "method": "dense_svdvals",
+    "python_dimension": 16,
+    "julia_dimension": 16,
+    "agrees": true
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "python",
+    "method": "derivations",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": null,
+    "certified": null
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "Auto",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 6.781283291285473e-16,
+    "certified": true
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "SylverLining",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 6.781283291285473e-16,
+    "certified": true
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 6.942299728279865e-16,
+    "certified": true
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer3",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 7.304059171115097e-16,
+    "certified": null
+  },
+  {
+    "case": "embedded10",
+    "chisel": "universal",
+    "language": "cross",
+    "method": "dense_svdvals",
+    "python_dimension": 2,
+    "julia_dimension": 2,
+    "agrees": true
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "python",
+    "method": "derivations",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": null,
+    "certified": null
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "Auto",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 8.481588068538993e-16,
+    "certified": true
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "SylverLining",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 8.481588068538993e-16,
+    "certified": true
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 6.406906958149444e-16,
+    "certified": true
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "julia",
+    "method": "QuickDer3",
+    "dense_dimension": 2,
+    "solved_dimension": 2,
+    "agrees": true,
+    "residual": 6.197714324506508e-16,
+    "certified": null
+  },
+  {
+    "case": "generic8",
+    "chisel": "universal",
+    "language": "cross",
+    "method": "dense_svdvals",
+    "python_dimension": 2,
+    "julia_dimension": 2,
+    "agrees": true
+  }
+]

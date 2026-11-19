@@ -309,8 +309,20 @@ function stratify(
     method::Union{DerivationMethod, Symbol}=:Auto,
     reduced=false,
     ivec::Int=-1,
+    mode::Symbol=:exact,
+    descending_index::Union{Nothing,Integer}=nothing,
+    max_dense_bytes::Integer=512 * 1024^2,
     method_kwargs...
     )
+    if mode === :approx
+        method === :Auto && nd == -1 && ivec == -1 && isempty(method_kwargs) ||
+            throw(ArgumentError("mode=:approx uses its own SVD; omit method, nd, ivec, and solver keywords"))
+        return approx_stratify(Γ; tol, descending_index, max_dense_bytes)
+    elseif mode !== :exact
+        throw(ArgumentError("mode must be :exact or :approx"))
+    end
+    isnothing(descending_index) ||
+        throw(ArgumentError("descending_index is only valid with mode=:approx"))
     # Use universal chisel and transverse ops
     ch = UniversalChisel(length(inds(Γ)))
     fr = collect(inds(Γ))
@@ -332,9 +344,13 @@ function stratify(
         nd=-1,
         progress=false,
         method::Union{DerivationMethod, Symbol}=:Auto,
+        mode::Symbol=:exact,
+        descending_index::Union{Nothing,Integer}=nothing,
+        max_dense_bytes::Integer=512 * 1024^2,
         method_kwargs...
     )
-    return stratify(__ITensor(Γ); tol=tol, nd=nd, progress=progress, method=method, method_kwargs...)
+    return stratify(__ITensor(Γ); tol, nd, progress, method, mode,
+                    descending_index, max_dense_bytes, method_kwargs...)
 end
 
 

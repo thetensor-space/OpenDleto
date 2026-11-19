@@ -90,6 +90,7 @@ export PROGRESS_TAGS, progress_spec
 # method); the T-set work implements it against that name.
 export DerivationMethod, get_derivation_method
 export der, derReduced, derTrOps, derTrOpsReduced, den
+export approx_der, approx_stratify
 
 # DerivationReport.jl -- `derTrOpsReduced(...; return_diagnostics = true)`
 export DerivationReport

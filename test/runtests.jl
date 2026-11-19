@@ -12,6 +12,7 @@ using ITensors
 
 include("TestNotebookOutputs.jl")
 include("TestDerivationSpectrumWidget.jl")
+include("TestApproxDer.jl")
 include("TestBLASBackend.jl")
 
 # --- Select mode via environment variable ---

@@ -105,6 +105,7 @@ include("util/BLASBackend.jl")
     # methods above only NAME it inside function bodies, which is why they can
     # be included first.
     include("solvers/DerivationReport.jl")
+    include("ApproxDer.jl")
 
 # Supporting Utilities
     # Tensor IO
