@@ -33,6 +33,7 @@ DletoMetalExt = "Metal"
 DletoPlotsExt = "Plots"
 
 [compat]
+julia = "1.12"
 CSV = "0.10.15"
 DataFrames = "1.8.1"
 IJulia = "1.34.4"

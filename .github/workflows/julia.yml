@@ -1,0 +1,30 @@
+name: Julia
+
+on:
+  push:
+    paths:
+      - '.github/workflows/julia.yml'
+      - 'Project.toml'
+      - 'src/**'
+      - 'ext/**'
+      - 'test/**'
+  pull_request:
+    paths:
+      - '.github/workflows/julia.yml'
+      - 'Project.toml'
+      - 'src/**'
+      - 'ext/**'
+      - 'test/**'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.12'
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1

@@ -1,212 +1,140 @@
-# OpenDleto <!-- omit from toc -->
-Dleto, which means chisel, is a package of tools to detect and recover structure in tensor data. The allusion to chiseling comes from the control the package affords the user to choose the "shape" of the hidden structure they seek.
-Visit  [TheTensor.Space](https://TheTensor.Space/) for more information about the main project.
+# OpenDleto
 
-In addition to giving access to the Julia source code for our implemetation, `OpenDleto` provides several Jupyter notebooks that showcase chiseling tools.
-You can open Jupyter notebooks in your browser without installing anything simply by clicking on the **launch binder** buttons below. These notebooks allow you to explore the functionality of `OpenDleto` immediately with just a recent installation of Julia.
-
-> Attribution notice: The optional fast-der solve-and-lift strategy integrated in this repository is based on companion work by Chris Liu, Joshua Maglione, and James B. Wilson.
+OpenDleto finds hidden structure in tensor data by changing coordinates to reveal block patterns, lower dimensional support, and continuous structure. *Dleto* means “chisel”: the choice of chisel guides the structure to look for. See [TheTensor.Space](https://TheTensor.Space/) for the larger project.
 
 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FChiseling101.ipynb) The notebook [Chiseling101](labs/Chiseling101.ipynb) walks you through the basic functionality of the `OpenDleto` package. It shows how to set parameters to remove redunduncies, recover block decompositions, and detect continuous structures in tensor data.
+## What OpenDleto finds
 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2Flabs%2FSphereLab.ipynb) The [Sphere Lab](labs/SphereLab.ipynb) shows how to recover a surface pattern&mdash;that could, say, be an artefact of a hidden fourier transform&mdash;underlying a seemingly random point cloud. To view just the results of the experiment, you can look at [static page](labs/geometry/SphereLab.html) or [PDF results](labs/geometry/SphereLab.pdf).
+The [Sphere Lab](labs/SphereLab.ipynb) starts with points on a sphere, hides them with an orthogonal coordinate change, then uses a symmetric-operator chisel to recover the surface structure:
 
+<img src="labs/figures/sphere-orthogonal-recovery.png" alt="Original sphere, orthogonally scrambled tensor, and surface recovered using symmetric operators" width="1200">
 
- - [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/HEAD?urlpath=%2Fdoc%2Ftree%2FWhatWeEatInAmerica.ipynb) The notebook [WhatWeEat](labs/WhatWeEatInAmerica.ipynb) shows how `OpenDleto` can be deployed on real data sets&mdash;in this case, nutrition data from a study called "What We Eat In America"&mdash;to extract 
- substantive information. 
+The [Chiseling 101 lab](labs/Chiseling101.ipynb) also hides block structure with a coordinate change and then recovers a sparse pattern:
 
-## Contents
+<img src="labs/figures/block-recovery.png" alt="Scrambled and recovered block support in the Chiseling 101 lab" width="900">
 
-<!--- [Contents](#contents)-->
-- [What `OpenDleto` Does](#What-OpenDleto-Does)
-- [Installation Guide](#Installation-Guide)
-- [Our Team](#our-team)
-- [Acknowledgments](#acknowledgments)
-- [Samples](#samples)
-  - [Strata](#strata)
-- [Usage](#usage)
-  - [Functions for Generating Stratified Tensors](#functions-for-generating-stratified-tensors)
-  - [Functions for Stratifing Tensors](#functions-for-stratifing-tensors)
+The [What We Eat in America lab](labs/WhatWeEatInAmerica.ipynb) applies these tools to nutrition data. Its sugars tensor records added sugar against food categories:
 
-## What `OpenDleto` Does
-Using the algebra of operators on tensors, Dleto methods change the coordinates of the modes of a given tensor to reveal hidden structure. This could manifest as a clustering of data into blocks, often revealing a lower valence support. For instance, given a 3-tensor represented as a point cloud 
-<center>
-<img src="docs/images/colossus-X-random.png" style="width:65%">
-</center>
-`OpenDleto` can reveal that data clusters in 
-any of the following ways:
+<img src="labs/figures/nutrition-sugar-tensor.png" alt="Sugars tensor from the What We Eat in America lab" width="430">
 
-| [Strata](#strata) | [Channels](#channels) |
-|---------------------|----------------|
-|<img src="docs/images/colossus-X-recon.png" alt="Curve" style="width:65%"> | <img src="docs/images/Curve.png" alt="Curve" style="width:75%"> 
-|
+## Try the Python notebook
 
+[![Launch Python notebook on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/python/examples/recovery.ipynb)
 
-| Diagonal Blocks | Step Blocks |
-|------------------|----------------|
-| <img src="docs/images/diag-40-recon.png" alt="Diagonal Blocks" style="width:75%">  | <img src="docs/images/Adj-decomp-recon.png" alt="Steps" style="width:75%"> |
+The Binder button opens the [Python recovery notebook](python/examples/recovery.ipynb). Its environment installs `opendleto` from this checkout before Jupyter starts. The notebook builds a tensor with hidden diagonal support, recovers a structural mask, and compares it with a random tensor. Binder may take a few minutes to build the environment on its first launch.
 
-## Python package
+To run the same notebook locally, use Python 3.10 or newer from a repository checkout:
 
-A native Python implementation of selected tensor derivation tools is available on the `beta-python` branch. It requires Python 3.10+, NumPy and SciPy, and does not require Julia. From a checkout, install with `python -m pip install ./python`; see the [Python guide](docs/python.md) for Git installation, optional PyTorch support, examples and feature coverage.
+```sh
+python -m pip install -e ./python
+python -m pip install jupyterlab
+python -m jupyter lab python/examples/recovery.ipynb
+```
 
-## Installation Guide
+## Use the Julia package
 
-Dleto is now a Julia package! You can install it in several ways:
+Install [Julia 1.12 or newer](https://julialang.org/downloads/), clone this repository, and run these commands from its root:
 
-### Option 1: From Local Directory (Development)
+```sh
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=. -e 'using Dleto; println("Dleto loaded")'
+```
 
-First clone or download this repository and then run:
+Start an interactive session with `julia --project=.` and enter `using Dleto`. For use from another Julia environment, add the repository URL:
 
 ```julia
 using Pkg
-Pkg.develop(path="/path/to/OpenDleto")
+Pkg.add(url="https://github.com/thetensor-space/OpenDleto.git")
 using Dleto
 ```
 
-### Optional TensorSpace Soft Operators
+For local development, `Pkg.develop(path="/path/to/OpenDleto")` makes another Julia environment use your checkout. Run the package tests from the repository root with:
 
-Core Dleto keeps `*`/`+` off foreign tensor types to avoid global method piracy.
-If you want the old ergonomic style, opt into the soft wrapper namespace:
-
-```julia
-using Dleto
-using Dleto.TensorSpace: ts
-
-rn = randomize_tensor(Γ)
-Γ_rand = ts(Γ) * rn.Xs      # soft wrapper for act(Γ, rn.Xs)
-Σ = ts(Γ) + Δ               # soft wrapper for Γ ⊕ Δ
+```sh
+julia --project=. -e 'using Pkg; Pkg.test()'
 ```
 
-### Option 2: Direct from GitHub
+The same test command runs in [Julia CI](.github/workflows/julia.yml) when Julia package or test files change in pushes and pull requests. The package definition is [Project.toml](Project.toml), its source is in [`src/`](src/), and tests are in [`test/`](test/). Julia's package manager installs the required dependencies; `Arpack` and `Metal` are optional extensions.
 
-```julia
-using Pkg
-Pkg.add(url="https://github.com/thetensor-space/OpenDleto")
-using Dleto
+The Julia notebooks use a Julia kernel and the full Julia package. To run them locally, install Jupyter and launch it from the repository root after instantiating the Julia project:
+
+```sh
+julia --project=. -e 'using IJulia; IJulia.installkernel("Dleto", "--project=$(pwd())")'
+julia --project=. -e 'using IJulia; IJulia.notebook(dir=pwd())'
 ```
 
-### Option 3: For Development/Testing
+Select the **Dleto** kernel when opening a notebook. Some notebooks download data or generate figures and may need additional time or resources.
 
-To work on the package:
+| Julia notebook | What it demonstrates |
+| --- | --- |
+| [Chiseling 101](labs/Chiseling101.ipynb) | Chisels, block decompositions, and stratification; [exported PDF](labs/Chiseling101.pdf) |
+| [Sphere Lab](labs/SphereLab.ipynb) | Recovering hidden surface structure in a point cloud |
+| [What We Eat in America](labs/WhatWeEatInAmerica.ipynb) | Finding structure in nutrition data; [exported PDF](labs/WhatWeEatInAmerica.pdf) |
 
-```julia
-using Pkg
-Pkg.activate(".")  # From OpenDleto directory
-Pkg.instantiate()  # Install dependencies
-using Dleto
-```
+### Julia BLAS backend
 
-### Requirements
+On macOS 13.4 or later, loading `Dleto` forwards BLAS and LAPACK operations to Apple's Accelerate framework when its ILP64 interface is available. Linux, Windows, and unsupported Macs normally retain Julia's OpenBLAS. Set `DLETO_BLAS=openblas` before loading `Dleto` to keep the current backend; inspect it with `Dleto.blas_backend()`.
 
- - Julia 1.12 or later
- - Dependencies (installed automatically):
-   - `Arpack` - for fast SVD computations
-   - `ITensors` - for tensor backedn
-   - `PlotlyJS` - for visualization
+## Contributors
 
+We welcome contributions and questions through GitHub issues and pull requests.
 
----
+| Portrait | Contributor | Affiliation during this work | Website / GitHub |
+| --- | --- | --- | --- |
+| <img src="https://avatars.githubusercontent.com/brooksbankpa" alt="Peter A. Brooksbank" width="80" height="80"> | Peter A. Brooksbank | [Bucknell University](https://www.bucknell.edu/fac-staff/peter-brooksbank) | [Website](https://brooksbankpa.github.io/) · [@galois60](https://github.com/galois60) |
+| <img src="https://avatars.githubusercontent.com/kassabov" alt="Martin Kassabov" width="80" height="80"> | Martin Kassabov | [Cornell University](https://math.cornell.edu/martin-kassabov) | [Profile](https://math.cornell.edu/martin-kassabov) · [@kassabov](https://github.com/kassabov) |
+| <img src="https://avatars.githubusercontent.com/joshmaglione" alt="Joshua Maglione" width="80" height="80"> | Joshua Maglione | [University of Galway](https://research.universityofgalway.ie/en/persons/joshua-maglione/) | [Website](https://joshmaglione.com/) · [@joshmaglione](https://github.com/joshmaglione) |
+| <img src="https://avatars.githubusercontent.com/amaury-minino" alt="Amaury V. Miniño" width="80" height="80"> | Amaury V. Miniño | [Colorado State University](https://mathematics.colostate.edu/) | [@amaury-minino](https://github.com/amaury-minino) |
+| <img src="https://avatars.githubusercontent.com/cliu587" alt="Chris Liu" width="80" height="80"> | Chris Liu | [Colorado State University](https://mathematics.colostate.edu/) | [Website](https://chris-cl587.github.io/) · [@cliu587](https://github.com/cliu587) |
+| <img src="https://avatars.githubusercontent.com/algeboy" alt="James B. Wilson" width="80" height="80"> | James B. Wilson | [Colorado State University](https://www.math.colostate.edu/~jwilson/wilson.html) | [Website](https://www.math.colostate.edu/~jwilson/wilson.html) · [@algeboy](https://github.com/algeboy) |
 
-## Our Team
+## Packages
+The **Julia package `Dleto` is the primary, supported implementation**. The **Python package `opendleto` is an experimental, AI-assisted clone** of selected tools. It is useful for a quick browser demo and Python experiments, but it does not yet reproduce the full Julia API or all of its numerical behavior.
 
-We invite you explore the repository and join our team.  We welcome and encourage any contributions to the repository. If you need help getting started, please feel free to @-mention any of the contributors below or you can read the repository's [Projects](https://github.com/thetensor-space/TensorSpace/projects) tab.
+| | Julia `Dleto` | Python `opendleto` |
+| --- | --- | --- |
+| Role | Main implementation and reference for the algorithms | AI-assisted, partial clone |
+| Coverage | Full package and the Julia lab notebooks | Selected chisels, derivations, and stratification; [coverage and differences](docs/python.md#feature-coverage) |
+| Setup | Julia 1.12+; [installation and tests](#use-the-julia-package) | Python 3.10+, NumPy, SciPy; no Julia runtime; [launch on Binder](#try-the-python-notebook) |
 
-|                                                                              | Name                | Username                         | Affiliation                |
--------------------------------------------------------------------------------|---------------------|----------------------------------|----------------------------|
-<img src="https://avatars.githubusercontent.com/brooksbankpa" height="50px"/>      | Prof. Peter A. Brooksbank, Ph.D. | [`@galois60`](https://github.com/galois60)                | Bucknell University |
-<img src="https://avatars.githubusercontent.com/kassabov" height="50px"/>  | Prof. Martin Kassabov, Ph.D.     | [`@kassabov`](https://github.com/kassabov)        | Cornell University  |
-<img src="https://avatars.githubusercontent.com/joshmaglione" height="50px"/>      | Joshua Maglione, Ph.D. | [`@joshmaglione`](https://github.com/joshmaglione)                | University of Galway |
-<img src="https://avatars.githubusercontent.com/amaury-minino" height="50px"/>       | Amaury V. Miniño    | [`@amaury-minino`](https://github.com/amaury-minino)                  | Colorado State University |
-<img src="https://avatars.githubusercontent.com/algeboy" height="50px"/>       | Prof. James B. Wilson, Ph.D.     | [`@algeboy`](https://github.com/algeboy)                  | Colorado State University |
+<img src="labs/figures/surface-recovery.png" alt="A scrambled tensor and its recovered surface support from Chiseling 101" width="900">
 
-## Collaborators
+*A hidden surface pattern before and after stratification in [Chiseling 101](labs/Chiseling101.ipynb).*
 
-Several other researchers have used `OpenDleto` tools and ideas to develop their own projects, including:
-<ul>
-<li>Clara Chaplin (Bucknell University), currently with Dell Technologies.</li>
-<li>Gavin Moore (Bucknell University).</li>
-</ul>
+## Publications
 
+Peter A. Brooksbank, Martin D. Kassabov, and James B. Wilson, **“Detecting null patterns in tensor data.”** [SIAM publication](https://doi.org/10.1137/25M1766930) · [Open preprint](https://arxiv.org/abs/2408.17425).
 
+If you use OpenDleto in research, please cite this paper.
 
 ## Acknowledgments
 
-The project has received partial support from the following granting organizations:
+* [Star algebras and adjoints](https://github.com/thetensor-space/StarAlge) — Peter A. Brooksbank and James B. Wilson.
+* [TensorSpace categories and data types](https://github.com/thetensor-space/TensorSpace) — Joshua Maglione and James B. Wilson.
+* [Fast derivation solvers](https://github.com/cliu587/fast-der-solver) — Chris Liu's reference solve-and-lift code for `FastDer3Valent` and the Liu–Maglione–Wilson `QuickSylver` work.
+* [Hypergraph tensors](https://github.com/thetensor-space/Hypergraphs) — Amaury Miniño, James B. Wilson, Clara Chaplin, and Peter A. Brooksbank.
+* [Lab data sets](labs/) — Gavin Moore.
 
-<!-- **Portions of the project sponsored by:** -->
- * The National Science Foundation (USA) to Peter A. Brooksbank (DMS-1620454), to Martin Kassabov (DMS-1620454) to James B. Wilson (DMS-1620454).
- * The Simons Foundation to Peter A. Brooksbank (281435) to Martin Kassabov, and to James B. Wilson (636189).
- * The National Security Agency Math Sciences Program to Peter A. Brooksbank (Grant Number H98230-11-1-0146) to James B. Wilson (Grant Number H98230-19-1-00).
+Other related repositories: [Sylver](https://github.com/thetensor-space/Sylver), [MatrixAlgebras](https://github.com/thetensor-space/MatrixAlgebras), [Homotopism](https://github.com/thetensor-space/Homotopism), and [Tenscenery](https://github.com/thetensor-space/Tenscenery).
 
-We also acknowledge the institutes that hosted 
-research on related projects over the years:
+Research support:
 
- * The Colorado State University
- * Kent State University
- * The University of Auckland
- * Bucknell University
- * University Bielefeld
- * Hausdorff Institute For Mathematics
- * Isaac Newton Institute (EPSRC Grant Number EP/R014604/1)
- 
+| Logo | Organization | Support |
+| --- | --- | --- |
+| <img src="https://logo.clearbit.com/nsf.gov" alt="US National Science Foundation logo" width="64" height="64"> | US National Science Foundation | DMS-1620454 |
+| <img src="https://logo.clearbit.com/simonsfoundation.org" alt="Simons Foundation logo" width="64" height="64"> | Simons Foundation | 281435 and 636189 |
+| <img src="https://logo.clearbit.com/nsa.gov" alt="US National Security Agency logo" width="64" height="64"> | US National Security Agency, Math Sciences Program | H98230-11-1-0146 and H98230-19-1-00 |
 
----
+Host institutions:
 
-<!--
+| Logo | Institution |
+| --- | --- |
+| <img src="https://logo.clearbit.com/colostate.edu" alt="Colorado State University logo" width="64" height="64"> | Colorado State University |
+| <img src="https://logo.clearbit.com/kent.edu" alt="Kent State University logo" width="64" height="64"> | Kent State University |
+| <img src="https://logo.clearbit.com/auckland.ac.nz" alt="University of Auckland logo" width="64" height="64"> | University of Auckland |
+| <img src="https://logo.clearbit.com/bucknell.edu" alt="Bucknell University logo" width="64" height="64"> | Bucknell University |
+| <img src="https://logo.clearbit.com/uni-bielefeld.de" alt="Bielefeld University logo" width="64" height="64"> | Bielefeld University |
+| <img src="https://logo.clearbit.com/him.uni-bonn.de" alt="Hausdorff Institute logo" width="64" height="64"> | Hausdorff Institute |
+| <img src="https://logo.clearbit.com/newton.ac.uk" alt="Isaac Newton Institute logo" width="64" height="64"> | Isaac Newton Institute |
 
----
-
-## Samples
-
-### Strata
-
-A tensor supported on a surface:
-![](docs/images/colossus-X-orig.png)
-
-A random change of basis to the above tensor:
-![](docs/images/colossus-X-random.png)
-
-The reconstruction obtained by our algorithm: 
-![](docs/images/colossus-X-recon.png)
-
-
-
-## Usage
-
-### Functions for Generating Stratified Tensors
-
-The functions `randomSurfaceTensor`, `randomFaceCurveTensor` and `randomCurveTensor` produce tensors supported near a surface/face-curve/curve.  The input to the these functions consists of 3 arrays that define the 
-restriction; and a parameter cutoff that governs how thick the support is
-
-The helper functions `testSurfaceTensor`, `testFaceCurveTensor` and `testCurveTensor` measure if a tensor is supported near a surface/facecurve/curve with the given equation.
-The output is between 0 and 1, where 0 means that the tensor is exactly supported on restriction. These functions are not perfectly normalized: for many restrictions random tensors have values around 0.5. 
-
-### Functions for Stratifing Tensors
-
-The functions `toSurfaceTensor`, `toFaceCurveTensor` and `toCurveTensor` attempt to stratify a given tensor by making orthogonal transformations of the 3 coordinates spaces, producing a tensor with a restricted support. The input is a 3-dimensional array. There is a second (optional) argument, which is a function performing an SVD of a large system of linear equations.
-
-The output is a named tuple with 7 components: `.tensor` is the transformed tensor; `.Xchange`, `.Ychange` and `.Zchange` are the 3 orthogonal matrices used to do the transformation; and `.Xes`, `.Yes` and `.Zes` are vectors that restrict the support. 
-
-We recommend that these functions are applied only to non-degenerate tensors (i.e. tensors that cannot be shrunk using HoSVD). If the input tensor is degenerate, these functions are likely to discover the degeneracy and not find any additional structure.
-
-The functions have not been tested on abstract arrays. If the input is a sparse tensor represented as some `AbstractArray`, it might be necessary to 
-first convert it to a normal `Array`.   
-
--->
-### Julia BLAS backend
-
-On macOS 13.4 or later, loading Dleto automatically forwards BLAS and LAPACK
-operations to Apple's Accelerate framework when its ILP64 interface is available.
-Existing BLAS forwarding remains as a fallback for operations Accelerate does
-not provide. Linux, Windows, and unsupported Macs retain their existing backend
-(normally Julia's OpenBLAS). No additional Julia package is required.
-
-This selection affects the entire Julia process, including other packages. To
-leave the existing backend unchanged, set `DLETO_BLAS=openblas` **before**
-loading Dleto, for example `DLETO_BLAS=openblas julia --project`. In a fresh
-default Julia session this retains OpenBLAS; it does not replace a backend that
-another package has already selected. Inspect the current forwarding libraries
-with `Dleto.blas_backend()` (or `LinearAlgebra.BLAS.get_config()`). Other
-packages can change that configuration after Dleto loads.
+OpenDleto is released under the [MIT License](LICENSE).
