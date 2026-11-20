@@ -8,6 +8,8 @@ OpenDleto finds hidden structure in tensor data by changing coordinates to revea
 
 ## What OpenDleto finds
 
+**Warning.** The python versions is a convenience option for users who cannot install or run Julia, e.g. running this in Colab.  However that translation is for now a mostly AI assisted clone and its quality is far lower than our Julia implementation.  See the Python graphics with that in mind.  Dispalyed results here and in the publications use the Julia implementation.
+
 | Browse all labs (Binder) | Python Sphere Lab (Colab) | Python What We Eat in America (Colab) | Python Chiseling 101 (Colab) |
 | :---: | :---: | :---: | :---: |
 | [![Browse labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs) | [![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb) | [![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb) | [![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb) |
