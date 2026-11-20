@@ -8,7 +8,9 @@ OpenDleto finds hidden structure in tensor data by changing coordinates to revea
 
 ## What OpenDleto finds
 
-[![Browse labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs) [![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb) [![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb) [![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb)
+| Browse all labs (Binder) | Python Sphere Lab (Colab) | Python What We Eat in America (Colab) | Python Chiseling 101 (Colab) |
+| :---: | :---: | :---: | :---: |
+| [![Browse labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs) | [![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb) | [![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb) | [![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb) |
 
 Binder opens the `labs` folder in JupyterLab. Choose a notebook there, or open `python` for the Python labs. The Colab buttons open the corresponding Python notebooks directly.
 
@@ -32,7 +34,9 @@ The [What We Eat in America lab](labs/WhatWeEatInAmerica.ipynb) applies these to
 
 ## Try the Python notebooks
 
-[![Browse Python labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python) [![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb) [![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb) [![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb)
+| Browse Python labs (Binder) | Python Sphere Lab (Colab) | Python What We Eat in America (Colab) | Python Chiseling 101 (Colab) |
+| :---: | :---: | :---: | :---: |
+| [![Browse Python labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python) | [![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb) | [![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb) | [![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb) |
 
 The [Python Sphere Lab](labs/python/SphereLab.ipynb) explores ordinary and densor sphere tensors, including recovery with a symmetric-operator chisel.
 
