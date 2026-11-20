@@ -122,22 +122,24 @@ Other related repositories: [Sylver](https://github.com/thetensor-space/Sylver),
 
 Research support:
 
-| Organization | Support |
-| --- | --- |
-| US National Science Foundation | DMS-1620454 |
-| Simons Foundation | 281435 and 636189 |
-| US National Security Agency, Math Sciences Program | H98230-11-1-0146 and H98230-19-1-00 |
+| Logo | Organization | Support |
+| --- | --- | --- |
+| <img src="docs/images/logos/nsf.svg" alt="National Science Foundation logo" width="64"> | US National Science Foundation | DMS-1620454 |
+| <img src="docs/images/logos/simons.svg" alt="Simons Foundation logo" width="130"> | Simons Foundation | 281435 and 636189 |
+| <img src="docs/images/logos/nsa.svg" alt="National Security Agency seal" width="64"> | US National Security Agency, Math Sciences Program | H98230-11-1-0146 and H98230-19-1-00 |
 
 Host institutions:
 
-| Institution |
-| --- |
-| Colorado State University |
-| Kent State University |
-| University of Auckland |
-| Bucknell University |
-| Bielefeld University |
-| Hausdorff Institute |
-| Isaac Newton Institute |
+| Logo | Institution |
+| --- | --- |
+| <img src="docs/images/logos/colostate.svg" alt="Colorado State University logo" width="95"> | Colorado State University |
+| <img src="docs/images/logos/kent.svg" alt="Kent State University logo" width="105"> | Kent State University |
+| <img src="docs/images/logos/auckland.svg" alt="University of Auckland logo" width="52"> | University of Auckland |
+| <img src="docs/images/logos/bucknell.svg" alt="Bucknell University logo" width="95"> | Bucknell University |
+| <img src="docs/images/logos/bielefeld.svg" alt="Bielefeld University logo" width="110"> | Bielefeld University |
+| <img src="docs/images/logos/hausdorff.jpg" alt="Hausdorff Research Institute for Mathematics logo" width="110"> | Hausdorff Institute |
+| <img src="docs/images/logos/newton.svg" alt="Isaac Newton Institute logo" width="110"> | Isaac Newton Institute |
+
+[Logo sources](docs/images/logos/README.md)
 
 OpenDleto is released under the [MIT License](LICENSE).
