@@ -8,7 +8,7 @@ OpenDleto finds hidden structure in tensor data by changing coordinates to revea
 
 ## What OpenDleto finds
 
-**Warning.** The python versions is a convenience option for users who cannot install or run Julia, e.g. running this in Colab.  However that translation is for now a mostly AI assisted clone and its quality is far lower than our Julia implementation.  See the Python graphics with that in mind.  Dispalyed results here and in the publications use the Julia implementation.
+**Warning.** The Python notebooks are a convenience for users who cannot install or run Julia, such as Colab users. The Python port was largely developed with AI assistance, and its quality is currently much lower than the Julia implementation. Interpret its graphics accordingly. The figures shown here and the results in our publications use the Julia implementation.
 
 | Browse all labs (Binder) | Python Sphere Lab (Colab) | Python What We Eat in America (Colab) | Python Chiseling 101 (Colab) |
 | :---: | :---: | :---: | :---: |
