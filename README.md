@@ -3,7 +3,7 @@
 OpenDleto finds hidden structure in tensor data by changing coordinates to reveal block patterns, lower dimensional support, and continuous structure. *Dleto* means “chisel”: the choice of chisel guides the structure to look for. See [TheTensor.Space](https://TheTensor.Space/) for the larger project.
 
 
-| [What?](#what-opendleto-finds) | [Who?](#contributors) | [Online](#try-the-python-notebook) | [Julia](#use-the-julia-package) | [Python](#try-the-python-notebook) | [Contribute](#contributors) |
+| [What?](#what-opendleto-finds) | [Who?](#contributors) | [Online](#try-the-python-notebooks) | [Julia](#use-the-julia-package) | [Python](#try-the-python-notebooks) | [Contribute](#contributors) |
 | --- | --- | --- | --- | --- | --- |
 
 ## What OpenDleto finds
@@ -11,6 +11,8 @@ OpenDleto finds hidden structure in tensor data by changing coordinates to revea
 [![Browse labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs)
 
 Binder opens the `labs` folder in JupyterLab. Choose a notebook there, or open `python` for the Python labs.
+
+For a more reliable Julia experience, download the linked `.ipynb` notebooks and run them locally with the Dleto kernel; see [local Julia notebook setup](#use-the-julia-package).
 
 The [Sphere Lab](labs/SphereLab.ipynb) starts with points on a sphere, hides them with an orthogonal coordinate change, then uses a symmetric-operator chisel to recover the surface structure:
 
@@ -28,15 +30,23 @@ The [What We Eat in America lab](labs/WhatWeEatInAmerica.ipynb) applies these to
 
 <img src="labs/figures/nutrition-sugar-tensor.png" alt="Sugars tensor from the What We Eat in America lab" width="430">
 
-## Try the Python notebook
+## Try the Python notebooks
 
 [![Browse Python labs on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python)
 
+[![Open Python Sphere Lab in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/SphereLab.ipynb)
+
 The [Python Sphere Lab](labs/python/SphereLab.ipynb) explores ordinary and densor sphere tensors, including recovery with a symmetric-operator chisel.
+
+[![Open Python What We Eat in America in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/WhatWeEatInAmerica.ipynb)
 
 The [Python What We Eat in America lab](labs/python/WhatWeEatInAmerica.ipynb) builds the same 4 × 8 × 11 sugar tensor as the Julia lab and compares Tucker reduction, HOSVD, a rank-five CP approximation, and Python derivation diagnostics. The Python and Julia stratification results may differ.
 
+[![Open Python Chiseling 101 in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/thetensor-space/OpenDleto/blob/main/labs/python/Chiseling101.ipynb)
+
 The [Python Chiseling 101 lab](labs/python/Chiseling101.ipynb) follows the Julia lab's three experiments with interactive 3D plots. Its large surface experiment uses a partial derivation solve; the notebook reports whether each derivation count is exact.
+
+In Colab, run each notebook from its first cell. That cell downloads this repository and installs the Python lab dependencies; the nutrition lab reads its CSV files from the download.
 
 The [Python recovery notebook](python/examples/recovery.ipynb) builds a tensor with hidden diagonal support, recovers a structural mask, and compares it with a random tensor. The Binder environment also provides the Dleto Julia kernel and installs `opendleto` from this checkout before Jupyter starts. Binder may take a few minutes to build the environment on its first launch.
 
