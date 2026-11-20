@@ -3,6 +3,9 @@
 OpenDleto finds hidden structure in tensor data by changing coordinates to reveal block patterns, lower dimensional support, and continuous structure. *Dleto* means “chisel”: the choice of chisel guides the structure to look for. See [TheTensor.Space](https://TheTensor.Space/) for the larger project.
 
 
+| [What?](#what-opendleto-finds) | [Who?](#contributors) | [Online](#try-the-python-notebook) | [Julia](#use-the-julia-package) | [Python](#try-the-python-notebook) | [Contribute](#contributors) |
+| --- | --- | --- | --- | --- | --- |
+
 ## What OpenDleto finds
 
 The [Sphere Lab](labs/SphereLab.ipynb) starts with points on a sphere, hides them with an orthogonal coordinate change, then uses a symmetric-operator chisel to recover the surface structure:
@@ -12,6 +15,10 @@ The [Sphere Lab](labs/SphereLab.ipynb) starts with points on a sphere, hides the
 The [Chiseling 101 lab](labs/Chiseling101.ipynb) also hides block structure with a coordinate change and then recovers a sparse pattern:
 
 <img src="labs/figures/block-recovery.png" alt="Scrambled and recovered block support in the Chiseling 101 lab" width="900">
+
+The same lab recovers a hidden surface pattern after stratification:
+
+<img src="labs/figures/surface-recovery.png" alt="A scrambled tensor and its recovered surface support from Chiseling 101" width="900">
 
 The [What We Eat in America lab](labs/WhatWeEatInAmerica.ipynb) applies these tools to nutrition data. Its sugars tensor records added sugar against food categories:
 
@@ -81,12 +88,12 @@ We welcome contributions and questions through GitHub issues and pull requests.
 
 | Portrait | Contributor | Affiliation during this work | Website / GitHub |
 | --- | --- | --- | --- |
-| <img src="https://avatars.githubusercontent.com/brooksbankpa" alt="Peter A. Brooksbank" width="80" height="80"> | Peter A. Brooksbank | [Bucknell University](https://www.bucknell.edu/fac-staff/peter-brooksbank) | [Website](https://brooksbankpa.github.io/) · [@galois60](https://github.com/galois60) |
+| <img src="https://avatars.githubusercontent.com/brooksbankpa" alt="Peter A. Brooksbank" width="80" height="80"> | Peter A. Brooksbank | [Bucknell University](https://www.bucknell.edu/fac-staff/peter-brooksbank) | [Website](https://brooksbankpa.github.io/) · [@brooksbankpa](https://github.com/brooksbankpa) |
 | <img src="https://avatars.githubusercontent.com/kassabov" alt="Martin Kassabov" width="80" height="80"> | Martin Kassabov | [Cornell University](https://math.cornell.edu/martin-kassabov) | [Profile](https://math.cornell.edu/martin-kassabov) · [@kassabov](https://github.com/kassabov) |
 | <img src="https://avatars.githubusercontent.com/joshmaglione" alt="Joshua Maglione" width="80" height="80"> | Joshua Maglione | [University of Galway](https://research.universityofgalway.ie/en/persons/joshua-maglione/) | [Website](https://joshmaglione.com/) · [@joshmaglione](https://github.com/joshmaglione) |
 | <img src="https://avatars.githubusercontent.com/amaury-minino" alt="Amaury V. Miniño" width="80" height="80"> | Amaury V. Miniño | [Colorado State University](https://mathematics.colostate.edu/) | [@amaury-minino](https://github.com/amaury-minino) |
 | <img src="https://avatars.githubusercontent.com/cliu587" alt="Chris Liu" width="80" height="80"> | Chris Liu | [Colorado State University](https://mathematics.colostate.edu/) | [Website](https://chris-cl587.github.io/) · [@cliu587](https://github.com/cliu587) |
-| <img src="https://avatars.githubusercontent.com/algeboy" alt="James B. Wilson" width="80" height="80"> | James B. Wilson | [Colorado State University](https://www.math.colostate.edu/~jwilson/wilson.html) | [Website](https://www.math.colostate.edu/~jwilson/wilson.html) · [@algeboy](https://github.com/algeboy) |
+| <img src="https://avatars.githubusercontent.com/algeboy" alt="James B. Wilson" width="80" height="80"> | James B. Wilson | [Colorado State University](https://newsmediarelations.colostate.edu/contacts/james-wilson/) | [Profile](https://newsmediarelations.colostate.edu/contacts/james-wilson/) · [@algeboy](https://github.com/algeboy) |
 
 ## Packages
 The **Julia package `Dleto` is the primary, supported implementation**. The **Python package `opendleto` is an experimental, AI-assisted clone** of selected tools. It is useful for a quick browser demo and Python experiments, but it does not yet reproduce the full Julia API or all of its numerical behavior.
@@ -96,10 +103,6 @@ The **Julia package `Dleto` is the primary, supported implementation**. The **Py
 | Role | Main implementation and reference for the algorithms | AI-assisted, partial clone |
 | Coverage | Full package and the Julia lab notebooks | Selected chisels, derivations, and stratification; [coverage and differences](docs/python.md#feature-coverage) |
 | Setup | Julia 1.12+; [installation and tests](#use-the-julia-package) | Python 3.10+, NumPy, SciPy; no Julia runtime; [launch on Binder](#try-the-python-notebook) |
-
-<img src="labs/figures/surface-recovery.png" alt="A scrambled tensor and its recovered surface support from Chiseling 101" width="900">
-
-*A hidden surface pattern before and after stratification in [Chiseling 101](labs/Chiseling101.ipynb).*
 
 ## Publications
 
@@ -119,22 +122,22 @@ Other related repositories: [Sylver](https://github.com/thetensor-space/Sylver),
 
 Research support:
 
-| Logo | Organization | Support |
-| --- | --- | --- |
-| <img src="https://logo.clearbit.com/nsf.gov" alt="US National Science Foundation logo" width="64" height="64"> | US National Science Foundation | DMS-1620454 |
-| <img src="https://logo.clearbit.com/simonsfoundation.org" alt="Simons Foundation logo" width="64" height="64"> | Simons Foundation | 281435 and 636189 |
-| <img src="https://logo.clearbit.com/nsa.gov" alt="US National Security Agency logo" width="64" height="64"> | US National Security Agency, Math Sciences Program | H98230-11-1-0146 and H98230-19-1-00 |
+| Organization | Support |
+| --- | --- |
+| US National Science Foundation | DMS-1620454 |
+| Simons Foundation | 281435 and 636189 |
+| US National Security Agency, Math Sciences Program | H98230-11-1-0146 and H98230-19-1-00 |
 
 Host institutions:
 
-| Logo | Institution |
-| --- | --- |
-| <img src="https://logo.clearbit.com/colostate.edu" alt="Colorado State University logo" width="64" height="64"> | Colorado State University |
-| <img src="https://logo.clearbit.com/kent.edu" alt="Kent State University logo" width="64" height="64"> | Kent State University |
-| <img src="https://logo.clearbit.com/auckland.ac.nz" alt="University of Auckland logo" width="64" height="64"> | University of Auckland |
-| <img src="https://logo.clearbit.com/bucknell.edu" alt="Bucknell University logo" width="64" height="64"> | Bucknell University |
-| <img src="https://logo.clearbit.com/uni-bielefeld.de" alt="Bielefeld University logo" width="64" height="64"> | Bielefeld University |
-| <img src="https://logo.clearbit.com/him.uni-bonn.de" alt="Hausdorff Institute logo" width="64" height="64"> | Hausdorff Institute |
-| <img src="https://logo.clearbit.com/newton.ac.uk" alt="Isaac Newton Institute logo" width="64" height="64"> | Isaac Newton Institute |
+| Institution |
+| --- |
+| Colorado State University |
+| Kent State University |
+| University of Auckland |
+| Bucknell University |
+| Bielefeld University |
+| Hausdorff Institute |
+| Isaac Newton Institute |
 
 OpenDleto is released under the [MIT License](LICENSE).
