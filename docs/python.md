@@ -4,25 +4,29 @@ The Python package is a native NumPy/SciPy implementation of selected OpenDleto 
 
 ## Installation
 
-Python 3.10 or newer is required. From a clone of the `beta-python` branch:
+Python 3.10 or newer is required. From a clone of the `main` branch:
 
 ```sh
 python -m pip install ./python
 ```
 
-Once the branch is available on GitHub, install directly from its subdirectory:
+To install directly from GitHub's Python subdirectory:
 
 ```sh
-python -m pip install 'opendleto @ git+https://github.com/thetensor-space/OpenDleto.git@beta-python#subdirectory=python'
+python -m pip install 'opendleto @ git+https://github.com/thetensor-space/OpenDleto.git@main#subdirectory=python'
 ```
 
 For optional PyTorch support:
 
 ```sh
-python -m pip install 'opendleto[torch] @ git+https://github.com/thetensor-space/OpenDleto.git@beta-python#subdirectory=python'
+python -m pip install 'opendleto[torch] @ git+https://github.com/thetensor-space/OpenDleto.git@main#subdirectory=python'
 ```
 
-The branch URL follows its latest commit; pin a commit instead of `beta-python` for a reproducible installation. NumPy and SciPy are installed as dependencies.
+For the interactive 3D plots in [Chiseling 101 for Python](../labs/python/Chiseling101.ipynb), install the lab extra from a checkout with `python -m pip install -e './python[lab]'`.
+
+The [What We Eat in America Python lab](../labs/python/WhatWeEatInAmerica.ipynb) uses the bundled USDA CSV data to recreate the Julia lab's sugar tensor and compare HOSVD, a rank-five CP approximation, and the Python chisel diagnostics. The derivation basis and count can differ from the Julia reference.
+
+The branch URL follows its latest commit; pin a commit instead of `main` for a reproducible installation. NumPy and SciPy are installed as dependencies.
 
 ## Basic use
 
@@ -52,6 +56,8 @@ Inputs may be native NumPy arrays or wrapped in `TensorElement` with `tensor(T)`
 | Derivations | Dense SVD and partial matrix-free nullspace diagnostics through `derivations` and `derivation_nullity`; not all Julia solvers are ported. |
 | Nondegenerate reduction | NumPy `nondeg` supplies full and truncated HOSVD. Its relative cutoff and zero-tensor handling differ from the Julia reference's absolute cutoff and zero fallback. |
 | Stratification | NumPy `stratify` constructs frames from a returned derivation and reports a support mask when safely diagonalizable; otherwise it returns Schur frames without a mask. This is a subset of Julia functionality. |
+| Chiseling 101 lab helpers | `direct_sum`, `randomize_tensor`, `apply_transforms`, and `chisel_tensor` support the three tutorial experiments. `chisel_tensor` reports whether its derivation count is exact; the large surface example uses a partial solve. |
+| 3D visualization | The `lab` extra installs Plotly for `plot_tensor` and `compare`, which return interactive 3D figures. |
 | Other Julia features | Densors, autodiff and other unlisted Julia functionality are not supported. |
 
 PyTorch support is optional and does not provide an autodiff API; use explicit conversions when moving between NumPy and PyTorch or between CPU and GPU.

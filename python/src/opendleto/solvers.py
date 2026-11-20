@@ -6,7 +6,7 @@ from typing import Sequence
 
 import numpy as np
 from scipy.linalg import null_space
-from scipy.sparse.linalg import ArpackNoConvergence, eigsh
+from scipy.sparse.linalg import lsmr
 
 from .derivations import DerivationMap
 
@@ -52,12 +52,13 @@ def _scalar_gauge(dmap: DerivationMap):
 
 def derivations(tensor, chisel="universal", *, operators=None, tol=1e-8,
                 tolerances: Sequence[float] | None = None, max_vectors=8,
-                dense_max_entries=2_000_000, maxiter=1000, backend="auto"):
+                dense_max_entries=2_000_000, maxiter=10000, backend="auto"):
     """Find non-scalar derivations and report exact or partial nullity.
 
     Dense SVD is used only when ``prod(output_shape) * parameter_dim`` is at
-    most ``dense_max_entries``. Larger problems use matrix-free Ritz pairs;
-    their nullity is a lower bound, never a claim of complete rank.
+    most ``dense_max_entries``. Larger problems use matrix-free nullspace
+    projection and verify each direction against the full derivation law.
+    Their nullity is a lower bound, never a claim of complete rank.
     """
     dmap = DerivationMap(tensor, chisel, operators, backend)
     if dmap.backend == "torch" and dmap.tensor.device.type != "cpu":
@@ -96,38 +97,59 @@ def derivations(tensor, chisel="universal", *, operators=None, tol=1e-8,
         message = "Complete dense SVD"
     else:
         op = dmap.linear_operator()
-        normal = op.H @ op
-        k = min(n - 1, max(ng + max_vectors + 2, 2))
-        if k < 1:
-            raise ValueError("iterative solve requires at least two parameters")
-        try:
-            eigvals, eigvecs = eigsh(normal, k=k, which="SM", tol=max(tol / 10, 1e-12), maxiter=maxiter)
-            converged = True
-            message = f"Partial matrix-free spectrum: {k} of {n} Ritz pairs"
-        except ArpackNoConvergence as exc:
-            eigvals = exc.eigenvalues
-            eigvecs = exc.eigenvectors
-            converged = False
-            message = f"ARPACK converged {len(eigvals)} of {k} requested Ritz pairs"
-        order = np.argsort(eigvals)
-        values = np.sqrt(np.maximum(np.asarray(eigvals)[order], 0))
-        eigvecs = np.asarray(eigvecs)[:, order]
-        scale = np.linalg.norm(np.asarray(dmap.forward(np.ones(n) / np.sqrt(n))))
-        scale = max(scale, np.finfo(float).tiny)
-        near = values <= tol * scale
-        basis = eigvecs[:, near]
-        basis = basis - gauge @ (gauge.conj().T @ basis)
-        if basis.size:
-            u, s, _ = np.linalg.svd(basis, full_matrices=False)
-            basis = u[:, s > 1e-7]
-        candidates = basis[:, :max_vectors]
-        candidate_residuals = np.asarray([np.linalg.norm(np.asarray(dmap.forward(candidates[:, j]))) for j in range(candidates.shape[1])])
-        good = candidate_residuals <= tol * scale
-        coords = candidates[:, good]
-        count = int(good.sum())
-        sensitivity = {t: max(0, int(np.sum(values <= t * scale)) - ng) for t in ts}
+        # For a random x, min_y ||D y - D x|| returns the row-space part of x.
+        # Their difference is a null direction. This avoids the clustered-zero
+        # eigenproblem in D*D and works on the defining map itself.
+        rng = np.random.default_rng(1)
+        scale = max(float(np.linalg.norm(np.asarray(dmap.tensor))), np.finfo(float).tiny)
+        solve_tol = min(max(tol * 0.01, 1e-14), 1e-12)
+        basis = []
+        attempts = max_vectors + ng + 2
+        stopped_early = False
+        for _ in range(attempts):
+            if len(basis) >= max_vectors:
+                break
+            probe = rng.normal(size=n)
+            if np.issubdtype(dmap.dtype, np.complexfloating):
+                probe = probe + 1j * rng.normal(size=n)
+            probe /= np.linalg.norm(probe)
+            fit = lsmr(op, op @ probe, atol=solve_tol, btol=solve_tol,
+                       maxiter=maxiter)
+            direction = probe - fit[0]
+            direction -= gauge @ (gauge.conj().T @ direction)
+            for prior in basis:
+                direction -= prior * np.vdot(prior, direction)
+            length = np.linalg.norm(direction)
+            if length < 1e-7:
+                continue
+            direction /= length
+            residual = np.linalg.norm(op @ direction)
+            if residual > min(tol * scale * 0.01, 1e-12 * scale):
+                correction = lsmr(op, op @ direction, atol=1e-14,
+                                  btol=1e-14, maxiter=maxiter)
+                direction -= correction[0]
+                direction -= gauge @ (gauge.conj().T @ direction)
+                for prior in basis:
+                    direction -= prior * np.vdot(prior, direction)
+                length = np.linalg.norm(direction)
+                if length < 1e-7:
+                    continue
+                direction /= length
+                residual = np.linalg.norm(op @ direction)
+            if residual > tol * scale:
+                stopped_early |= fit[1] == 7
+                continue
+            basis.append(direction)
+        coords = np.column_stack(basis) if basis else np.empty((n, 0), dtype=dmap.dtype)
+        values = np.empty(0)  # A projection solve does not estimate singular values.
+        count = coords.shape[1]
+        sensitivity = {t: int(np.sum([np.linalg.norm(op @ coords[:, j]) <= t * scale
+                                      for j in range(count)])) for t in ts}
         exact = False
         total = None
+        converged = not stopped_early
+        message = (f"Matrix-free null projection: {count} verified directions "
+                   f"from {attempts} probes; singular spectrum unavailable")
     residuals = np.asarray([np.linalg.norm(np.asarray(dmap.forward(coords[:, j]))) for j in range(coords.shape[1])])
     unpacked = tuple(dmap.operators.embed(coords[:, j]) for j in range(coords.shape[1]))
     if dmap.backend == "numpy":

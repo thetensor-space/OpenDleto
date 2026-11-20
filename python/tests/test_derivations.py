@@ -84,6 +84,51 @@ class DerivationTests(unittest.TestCase):
         self.assertIsNone(r.total_nullity)
         self.assertGreaterEqual(r.nullity_lower_bound, 0)
 
+    def test_iterative_recovers_scrambled_sparse_derivations(self):
+        from opendleto import chisel_tensor, randomize_tensor
+        rng = np.random.default_rng(42)
+        sparse = np.zeros((8, 8, 8))
+        for i in range(8):
+            sparse[i, i, i] = rng.normal()
+        scrambled, _ = randomize_tensor(sparse, rng=rng)
+        result = derivations(scrambled, tol=1e-6, max_vectors=6,
+                             dense_max_entries=1, maxiter=300)
+        self.assertFalse(result.exact)
+        self.assertGreaterEqual(len(result.operators), 3)
+        self.assertLess(max(result.residuals), 1e-7)
+        chiseling = chisel_tensor(scrambled, tol=1e-6, max_vectors=6)
+        self.assertLessEqual(chiseling.support_count, 8)
+        self.assertLess(chiseling.relative_law_error, 1e-7)
+        self.assertLess(chiseling.forbidden_energy_fraction, 1e-10)
+
+    def test_iterative_directions_match_exact_nullspace(self):
+        from opendleto import randomize_tensor
+        rng = np.random.default_rng(7)
+        sparse = np.zeros((4, 4, 4))
+        sparse[np.arange(4), np.arange(4), np.arange(4)] = rng.normal(size=4)
+        scrambled, _ = randomize_tensor(sparse, rng=rng)
+        exact = derivations(scrambled, tol=1e-8, max_vectors=30)
+        partial = derivations(scrambled, tol=1e-8, max_vectors=5,
+                              dense_max_entries=1)
+        projector = exact.coordinates @ exact.coordinates.conj().T
+        distance = np.linalg.norm(partial.coordinates - projector @ partial.coordinates)
+        self.assertGreater(partial.coordinates.shape[1], 0)
+        self.assertLess(distance, 1e-6)
+
+    def test_surface_case_finds_verified_derivations(self):
+        from opendleto import chisel_tensor, nondeg, randomize_tensor
+        rng = np.random.default_rng(2)
+        i, j, k = np.ogrid[1:31, 1:31, 1:31]
+        surface = np.where(abs(i*i + j*j + k*k - 900)
+                           < 1 + 2*rng.normal(size=(30, 30, 30)),
+                           rng.normal(size=(30, 30, 30)), 0.)
+        scrambled, _ = randomize_tensor(surface, rng=rng)
+        core = nondeg(scrambled, mode="trunc").core
+        answer = chisel_tensor(core, tol=1e-8)
+        self.assertGreater(answer.derivation_count, 0)
+        self.assertLess(answer.relative_law_error, 1e-10)
+        self.assertLess(answer.forbidden_energy_fraction, 1e-12)
+
     def test_coupled_transverse_adjoint_and_gauge(self):
         rng = np.random.default_rng(91)
         t = rng.normal(size=(2, 2, 2))

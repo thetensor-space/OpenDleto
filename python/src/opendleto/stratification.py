@@ -31,14 +31,24 @@ class StratificationResult:
     estimated_storage_entries: int | None
 
 
-def stratify(tensor, result: DerivationResult, *, index=0, tol=1e-8,
-             max_condition=1e8) -> StratificationResult:
+def stratify(tensor, result: DerivationResult | None = None, *, index=0,
+             tol=1e-8, max_condition=1e8, operators=None,
+             chisel="universal", max_vectors=12, maxiter=10000):
     """Reveal a coordinate null pattern from one discovered derivation.
 
-    A coordinatewise mask is returned only when every generator is safely
-    diagonalizable. Schur frames are returned otherwise, without claiming
-    a coefficientwise algebraic null pattern.
+    With no ``result``, discover derivations and return the transformed tensor
+    and its coordinate changes as a ``ChiselingResult``. This mirrors Julia's
+    ``stratify(tensor)`` convenience call. Pass a ``DerivationResult`` to
+    inspect one direction in detail. A coordinatewise mask is returned only
+    when every generator is safely diagonalizable. Schur frames are returned
+    otherwise, without claiming a coefficientwise algebraic null pattern.
     """
+    if result is None:
+        from .lab import chisel_tensor
+        return chisel_tensor(tensor, operators=operators, chisel=chisel,
+                             tol=tol, max_vectors=max_vectors, maxiter=maxiter)
+    if operators is not None or chisel != "universal":
+        raise ValueError("operators and chisel belong to automatic stratification")
     if result.backend != "numpy":
         raise TypeError("stratify currently requires NumPy arrays; convert explicitly")
     array = np.asarray(tensor.data if isinstance(tensor, TensorElement) else tensor)

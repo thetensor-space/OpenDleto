@@ -12,38 +12,50 @@ The [Sphere Lab](labs/SphereLab.ipynb) starts with points on a sphere, hides the
 
 <img src="labs/figures/sphere-orthogonal-recovery.png" alt="Original sphere, orthogonally scrambled tensor, and surface recovered using symmetric operators" width="1200">
 
-[![Launch Sphere Lab on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/labs/SphereLab.ipynb)
+[![Launch Sphere Lab on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/SphereLab.ipynb)
 
 The [Chiseling 101 lab](labs/Chiseling101.ipynb) also hides block structure with a coordinate change and then recovers a sparse pattern:
 
 <img src="labs/figures/block-recovery.png" alt="Scrambled and recovered block support in the Chiseling 101 lab" width="900">
 
-[![Launch Chiseling 101 on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/labs/Chiseling101.ipynb)
+[![Launch Chiseling 101 on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/Chiseling101.ipynb)
 
 The same lab recovers a hidden surface pattern after stratification:
 
 <img src="labs/figures/surface-recovery.png" alt="A scrambled tensor and its recovered surface support from Chiseling 101" width="900">
 
-[![Launch Chiseling 101 on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/labs/Chiseling101.ipynb)
+[![Launch Chiseling 101 on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/Chiseling101.ipynb)
 
 The [What We Eat in America lab](labs/WhatWeEatInAmerica.ipynb) applies these tools to nutrition data. Its sugars tensor records added sugar against food categories:
 
 <img src="labs/figures/nutrition-sugar-tensor.png" alt="Sugars tensor from the What We Eat in America lab" width="430">
 
-[![Launch What We Eat in America on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/labs/WhatWeEatInAmerica.ipynb)
+[![Launch What We Eat in America on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/WhatWeEatInAmerica.ipynb)
 
 ## Try the Python notebook
 
-[![Launch Python notebook on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/beta-python?urlpath=lab/tree/python/examples/recovery.ipynb)
+[![Launch Python Sphere Lab on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python/SphereLab.ipynb)
+
+The [Python Sphere Lab](labs/python/SphereLab.ipynb) explores ordinary and densor sphere tensors, including recovery with a symmetric-operator chisel.
+
+[![Launch Python What We Eat in America on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python/WhatWeEatInAmerica.ipynb)
+
+The [Python What We Eat in America lab](labs/python/WhatWeEatInAmerica.ipynb) builds the same 4 × 8 × 11 sugar tensor as the Julia lab and compares Tucker reduction, HOSVD, a rank-five CP approximation, and Python derivation diagnostics. The Python and Julia stratification results may differ.
+
+[![Launch Python Chiseling 101 on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/labs/python/Chiseling101.ipynb)
+
+The [Python Chiseling 101 lab](labs/python/Chiseling101.ipynb) follows the Julia lab's three experiments with interactive 3D plots. Its large surface experiment uses a partial derivation solve; the notebook reports whether each derivation count is exact.
+
+[![Launch Python notebook on Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/thetensor-space/OpenDleto/main?urlpath=lab/tree/python/examples/recovery.ipynb)
 
 The Binder button opens the [Python recovery notebook](python/examples/recovery.ipynb). The same Binder environment also provides the Dleto Julia kernel for the three labs above. It installs `opendleto` from this checkout before Jupyter starts. The Python notebook builds a tensor with hidden diagonal support, recovers a structural mask, and compares it with a random tensor. Binder may take a few minutes to build the environment on its first launch.
 
-To run the same notebook locally, use Python 3.10 or newer from a repository checkout:
+To run the Python Chiseling 101 lab locally, use Python 3.10 or newer from a repository checkout:
 
 ```sh
-python -m pip install -e ./python
+python -m pip install -e './python[lab]'
 python -m pip install jupyterlab
-python -m jupyter lab python/examples/recovery.ipynb
+python -m jupyter lab labs/python/Chiseling101.ipynb
 ```
 
 ## Use the Julia package
