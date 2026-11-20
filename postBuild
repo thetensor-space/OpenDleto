@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+python -m pip install -e ./python
+julia --project=. -e 'using Pkg; Pkg.instantiate(); using IJulia; IJulia.installkernel("Dleto", "--project=$(pwd())"; specname="opendleto-julia")'

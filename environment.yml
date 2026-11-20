@@ -1,4 +1,4 @@
-name: opendleto-python
+name: opendleto-binder
 channels:
   - conda-forge
 dependencies:
